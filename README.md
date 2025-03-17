@@ -7,7 +7,6 @@ MediPulse is a modern web application designed to deliver a seamless experience 
 - [Demo](#demo)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Contact](#contact)
 
 ## Demo
 
@@ -28,11 +27,6 @@ You can view the live application here: [MediPulse Live](https://medipulse-azure
 - **Deployment:** Hosted on Vercel
 - **Styling:** Tailwind CSS
 - **API Services:** Google Maps API for location fetching
-
-
-## Contact
-
-For further information or any inquiries, please contact:
 
 Project Website: [MediPulse Live](https://medipulse-azure.vercel.app/)
 
