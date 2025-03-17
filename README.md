@@ -21,8 +21,6 @@ You can view the live application here: [MediPulse Live](https://medipulse-azure
 - **User-Friendly Interface:** Designed with simplicity and ease of use in mind.
 - **Google Maps Integration:** Uses Google Maps API to fetch the location of clinics.
 
-*Add additional features as your project evolves.*
-
 ## Tech Stack
 
 - **Frontend:** Vite + React
@@ -30,8 +28,6 @@ You can view the live application here: [MediPulse Live](https://medipulse-azure
 - **Deployment:** Hosted on Vercel
 - **Styling:** Tailwind CSS
 - **API Services:** Google Maps API for location fetching
-
-*Feel free to add any additional technologies or libraries used in your project.*
 
 
 ## Contact
