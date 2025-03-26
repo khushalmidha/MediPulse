@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef} from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { Users, Plus, Calendar, Tag, Info, X } from 'lucide-react'
 import { format } from 'date-fns'
@@ -6,26 +6,28 @@ import { useAuth } from '../context/AuthContext'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { BACKEND_URL } from '../utils'
 
-const CreateCommunityModal = ({ onClose, onCreate,newCommunity,user }) => {
-  const [formData, setFormData] = useState(newCommunity || {
-    title: '',
-    bio: '',
-    category: 'Health',
-  });
-  
+const CreateCommunityModal = ({ onClose, onCreate, newCommunity, user }) => {
+  const [formData, setFormData] = useState(
+    newCommunity || {
+      title: '',
+      bio: '',
+      category: 'Health',
+    }
+  )
+
   const handleInputChange = (e) => {
-    e.preventDefault();
-    const { name, value } = e.target;
-    setFormData(prev => ({
+    e.preventDefault()
+    const { name, value } = e.target
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
-    }));
-  };
-  
+      [name]: value,
+    }))
+  }
+
   const handleSubmit = (e) => {
-    e.preventDefault();
-    onCreate(formData);
-  };
+    e.preventDefault()
+    onCreate(formData)
+  }
   return (
     <>
       <div
@@ -161,13 +163,13 @@ const CommunityCard = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if(loader){
+    if (loader) {
       return
     }
-    if(!isAuth){
-      navigate("/login")
+    if (!isAuth) {
+      navigate('/login')
     }
-  },[loader,isAuth])
+  }, [loader, isAuth])
 
   useEffect(() => {
     if (showModal || showCreateModal) {
@@ -185,18 +187,13 @@ const CommunityCard = () => {
     const fetchCommunities = async () => {
       try {
         setLoading(true)
-        console.log("fetching communities")
+        console.log('fetching communities')
         console.log(user)
         const res = await axios.get(`${BACKEND_URL}/community`, {
           withCredentials: true,
         })
 
-        const userCommunityIds = user?.communities || []
-        const notJoinedCommunities = res.data.filter(
-          (community) => !userCommunityIds.includes(community._id)
-        )
-
-        setAvailableCommunities(notJoinedCommunities)
+        setAvailableCommunities(res.data)
       } catch (error) {
         console.error('Error fetching communities:', error)
         setError('Failed to load communities')
@@ -241,7 +238,7 @@ const CommunityCard = () => {
     try {
       await axios.post(
         `${BACKEND_URL}/community/join`,
-        {id: communityId},
+        { id: communityId },
         { withCredentials: true }
       )
       setUser((prev) => {
@@ -263,9 +260,13 @@ const CommunityCard = () => {
 
   const handleCreateCommunity = async (newCommunity) => {
     try {
-      const res = await axios.post(`${BACKEND_URL}/community/create`, newCommunity, {
-        withCredentials: true,
-      })
+      const res = await axios.post(
+        `${BACKEND_URL}/community/create`,
+        newCommunity,
+        {
+          withCredentials: true,
+        }
+      )
 
       setSuccess('Community created successfully!')
       setTimeout(() => setSuccess(null), 3000)
@@ -297,7 +298,7 @@ const CommunityCard = () => {
 
   const CommunityDetailModal = ({ community, onClose, onJoin }) => {
     if (!community) return null
-
+    const isJoined = user?.communities?.includes(community._id)
     return (
       <>
         <div
@@ -387,20 +388,23 @@ const CommunityCard = () => {
                 </div>
               </div>
 
-              <button
-                disabled={community.members?.includes(user?._id)}
-                onClick={() => onJoin(community._id)}
-                className='mt-6 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors'>
-                Join Community
-              </button>
+              {!isJoined ? (
+                <button
+                  onClick={() => onJoin(community._id)}
+                  className='mt-6 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors'>
+                  Join Community
+                </button>
+              ) : (
+                <div className='mt-6 w-full py-2 bg-green-100 text-green-800 text-center rounded-lg font-medium'>
+                  Already Joined
+                </div>
+              )}
             </div>
           </div>
         </div>
       </>
     )
   }
-
-  
 
   return (
     <div className='mx-4 sm:mx-8 md:mx-12 lg:mx-16 my-8'>
@@ -420,12 +424,14 @@ const CommunityCard = () => {
         <h2 className='text-2xl font-bold text-gray-800'>
           Discover Communities
         </h2>
-        {(role==="doctor") && (<button
-          onClick={() => setShowCreateModal(true)}
-          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'>
-          <Plus size={18} />
-          Create Community
-        </button>)}
+        {role === 'doctor' && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'>
+            <Plus size={18} />
+            Create Community
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -463,66 +469,74 @@ const CommunityCard = () => {
             </div>
           ) : (
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-              {availableCommunities.map((community) => (
-                <div
-                  key={community._id}
-                  id={community._id}
-                  ref={(el) => (communityRefs.current[community._id] = el)}
-                  className='bg-white rounded-lg shadow-md overflow-hidden flex flex-col h-64 hover:shadow-lg transition-all duration-300'>
-                  <div className='h-2 bg-blue-500'></div>
-                  <div className='p-6 flex-1 flex flex-col'>
-                    <div className='flex items-center justify-between mb-3'>
-                      <h3 className='text-xl font-bold text-gray-800 truncate'>
-                        {community.title}
-                      </h3>
-                      <span className='px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full'>
-                        {community.category}
-                      </span>
-                    </div>
-
-                    <p className='text-gray-600 line-clamp-3 mb-3'>
-                      {community.bio}
-                    </p>
-
-                    <div className='flex items-center justify-between text-gray-500 text-sm mt-auto mb-3'>
-                      <div className='flex items-center'>
-                        <Calendar
-                          size={14}
-                          className='mr-1'
-                        />
-                        {format(new Date(community.createdAt), 'MMM d, yyyy')}
+              {availableCommunities.map((community) => {
+                const isJoined = user?.communities?.includes(community._id)
+                return (
+                  <div
+                    key={community._id}
+                    id={community._id}
+                    ref={(el) => (communityRefs.current[community._id] = el)}
+                    className='bg-white rounded-lg shadow-md overflow-hidden flex flex-col h-64 hover:shadow-lg transition-all duration-300'>
+                    <div className='h-2 bg-blue-500'></div>
+                    <div className='p-6 flex-1 flex flex-col'>
+                      <div className='flex items-center justify-between mb-3'>
+                        <h3 className='text-xl font-bold text-gray-800 truncate'>
+                          {community.title}
+                        </h3>
+                        <span className='px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full'>
+                          {community.category}
+                        </span>
+                        {isJoined && (
+                          <span className='px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full'>
+                            Joined
+                          </span>
+                        )}
                       </div>
-                      <button
-                        onClick={() => shareCommunityLink(community._id)}
-                        className='text-blue-500 hover:text-blue-700'
-                        title='Share community link'>
-                        <svg
-                          xmlns='http://www.w3.org/2000/svg'
-                          fill='none'
-                          viewBox='0 0 24 24'
-                          stroke='currentColor'
-                          className='w-4 h-4'>
-                          <path
-                            strokeLinecap='round'
-                            strokeLinejoin='round'
-                            strokeWidth={2}
-                            d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z'
+
+                      <p className='text-gray-600 line-clamp-3 mb-3'>
+                        {community.bio}
+                      </p>
+
+                      <div className='flex items-center justify-between text-gray-500 text-sm mt-auto mb-3'>
+                        <div className='flex items-center'>
+                          <Calendar
+                            size={14}
+                            className='mr-1'
                           />
-                        </svg>
+                          {format(new Date(community.createdAt), 'MMM d, yyyy')}
+                        </div>
+                        <button
+                          onClick={() => shareCommunityLink(community._id)}
+                          className='text-blue-500 hover:text-blue-700'
+                          title='Share community link'>
+                          <svg
+                            xmlns='http://www.w3.org/2000/svg'
+                            fill='none'
+                            viewBox='0 0 24 24'
+                            stroke='currentColor'
+                            className='w-4 h-4'>
+                            <path
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                              strokeWidth={2}
+                              d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z'
+                            />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setSelectedCommunity(community)
+                          setShowModal(true)
+                        }}
+                        className='w-full py-2 mt-auto bg-blue-50 text-blue-600 font-medium rounded hover:bg-blue-100 transition-colors'>
+                        View More
                       </button>
                     </div>
-
-                    <button
-                      onClick={() => {
-                        setSelectedCommunity(community)
-                        setShowModal(true)
-                      }}
-                      className='w-full py-2 mt-auto bg-blue-50 text-blue-600 font-medium rounded hover:bg-blue-100 transition-colors'>
-                      View More
-                    </button>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </>
