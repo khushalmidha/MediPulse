@@ -3,7 +3,7 @@ import axios from 'axios'
 import { Users, Plus, Calendar, Tag, Info, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useAuth } from '../context/AuthContext'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { BACKEND_URL } from '../utils'
 
 const CreateCommunityModal = ({ onClose, onCreate,newCommunity,user }) => {
@@ -158,7 +158,7 @@ const CommunityCard = () => {
 
   const communityRefs = useRef({})
   const location = useLocation()
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
   useEffect(() => {
     if(loader){
