@@ -162,7 +162,7 @@ const CommunityCard = () => {
 
   useEffect(() => {
     if(loader){
-      return <></>;
+      return
     }
     if(!isAuth){
       navigate("/login")

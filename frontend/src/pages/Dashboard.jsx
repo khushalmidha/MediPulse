@@ -10,7 +10,7 @@ const Dashboard = () => {
 	console.log("Dashboard", isAuth);
 	useEffect(()=>{
 		if(loader){
-			return <></>
+			return
 		}
 		if(!isAuth){
 			navigate("/login");
