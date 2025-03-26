@@ -142,7 +142,7 @@ const CreateCommunityModal = ({ onClose, onCreate,newCommunity,user }) => {
 }
 
 const CommunityCard = () => {
-  const { user, setUser, role } = useAuth()
+  const { user, setUser, role, loader, isAuth } = useAuth()
   const [availableCommunities, setAvailableCommunities] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedCommunity, setSelectedCommunity] = useState(null)
@@ -158,6 +158,16 @@ const CommunityCard = () => {
 
   const communityRefs = useRef({})
   const location = useLocation()
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if(loader){
+      return <></>;
+    }
+    if(!isAuth){
+      navigate("/login")
+    }
+  },[loader,isAuth])
 
   useEffect(() => {
     if (showModal || showCreateModal) {
@@ -225,7 +235,7 @@ const CommunityCard = () => {
         }
       }, 500)
     }
-  }, [location.hash, availableCommunities, loading])
+  }, [location.hash, availableCommunities, loading, loader])
 
   const handleJoinCommunity = async (communityId) => {
     try {
