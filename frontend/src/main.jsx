@@ -7,11 +7,9 @@ import { AuthProvider } from './context/AuthContext.jsx'
 // import { CommunityProvider } from './context/CommunityContext.jsx'
 console.log('index')
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
       <AuthProvider>
         <BrowserRouter>
           <App />
         </BrowserRouter>
       </AuthProvider>
-  </StrictMode>
 )

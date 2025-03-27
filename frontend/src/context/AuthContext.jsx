@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuth, setIsAuth] = useState(false)
   const [role, setRole] = useState('user')
   const [communities, setcommunities] = useState(null)
+  const [loader, setLoading] = useState(true)
   useEffect(() => {
     const check = async () => {
       try {
@@ -27,6 +28,9 @@ export const AuthProvider = ({ children }) => {
         console.log(err)
         setUser(null)
         setIsAuth(false)
+      }
+      finally{
+        setLoading(false)
       }
     }
     check()
@@ -71,7 +75,8 @@ export const AuthProvider = ({ children }) => {
         setRole,
         communities,
         fetchCommunities,
-        leaveCommunity
+        leaveCommunity,
+        loader
       }}>
       {children}
     </AuthContext.Provider>

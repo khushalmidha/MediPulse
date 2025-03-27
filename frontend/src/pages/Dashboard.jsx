@@ -5,14 +5,17 @@ import RecommendationDoctors from "../components/RecommendationDoctors";
 import { useAuth } from "../context/AuthContext";
 
 const Dashboard = () => {
-	const { isAuth } = useAuth();
+	const { isAuth, loader } = useAuth();
 	const navigate = useNavigate();
 	console.log("Dashboard", isAuth);
 	useEffect(()=>{
+		if(loader){
+			return
+		}
 		if(!isAuth){
 			navigate("/login");
 		}
-	},[])
+	},[isAuth,loader])
 	return (
 		<div className="p-6 bg-gray-100 min-h-screen">
 			<h2 className="text-2xl font-semibold">
