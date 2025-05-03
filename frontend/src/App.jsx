@@ -13,6 +13,7 @@ import About from "./pages/About";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import DataUsagePolicy  from "./pages/DataUsagePolicy"
+import AiBot from "./components/AiBot";
 
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
         <Route path="/terms" element={<Terms />}/>
         <Route path="/cookiepolicy" element={<DataUsagePolicy />}/>
       </Routes>
+      <AiBot />
       <Footer />
     </>
   );

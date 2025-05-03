@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@lottiefiles/dotlottie-react": "^0.13.2",
     "@tailwindcss/vite": "^4.0.4",
     "axios": "^1.8.1",
@@ -19,9 +20,9 @@
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-icons": "^4.3.1",
     "react-router-dom": "^7.1.5",
-    "socket.io-client": "^4.8.1",
-    "react-icons": "^4.3.1"
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
