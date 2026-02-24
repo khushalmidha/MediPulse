@@ -34,6 +34,8 @@ function Chat() {
   }, [isAuth])
 
   // ── Connect / disconnect socket on mount ──────────────────
+  const socketConnected = useRef(false)
+
   useEffect(() => {
     const socket = getSocket()
     socketRef.current = socket
@@ -41,6 +43,20 @@ function Chat() {
     if (!socket.connected) {
       socket.connect()
     }
+
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id)
+      socketConnected.current = true
+      // Re-join room if one was selected
+      if (prevCommunityIdRef.current) {
+        socket.emit('joinCommunity', prevCommunityIdRef.current)
+      }
+    })
+
+    socket.on('connect_error', (err) => {
+      console.error('Socket connection error:', err.message)
+      socketConnected.current = false
+    })
 
     // Listen for incoming messages
     socket.on('newMessage', (message) => {
@@ -55,14 +71,43 @@ function Chat() {
     })
 
     return () => {
+      socket.off('connect')
+      socket.off('connect_error')
       socket.off('newMessage')
       // Leave current room on unmount
       if (prevCommunityIdRef.current) {
         socket.emit('leaveCommunity', prevCommunityIdRef.current)
       }
       socket.disconnect()
+      socketConnected.current = false
     }
   }, [user?._id])
+
+  // ── Fallback polling when socket is not connected ─────────
+  useEffect(() => {
+    if (selectedCommunity === null) return
+
+    const interval = setInterval(async () => {
+      // Only poll if socket is NOT connected
+      if (socketConnected.current) return
+
+      try {
+        const response = await axios.get(
+          `${BACKEND_URL}/community/${communities[selectedCommunity]._id}`,
+          { withCredentials: true }
+        )
+        const formattedMessages = response.data.map((msg) => ({
+          ...msg,
+          isUser: msg.author === user?._id,
+        }))
+        setMessages(formattedMessages)
+      } catch (error) {
+        console.error('Fallback polling error:', error)
+      }
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [selectedCommunity, user?._id])
 
   // Get user's first name and last initial
   const getUserInitials = (firstName, lastName) => {
@@ -78,7 +123,7 @@ function Chat() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
-  // Handle sending a message via Socket.IO
+  // Handle sending a message via Socket.IO (with REST fallback)
   const handleSendMessage = async (e) => {
     e.preventDefault()
     const content = inputMessage || voiceMessage
@@ -88,15 +133,35 @@ function Chat() {
     }
 
     const socket = socketRef.current
-    if (!socket) return
+    const communityId = communities[selectedCommunity]._id
 
-    // Emit the message through Socket.IO
-    socket.emit('sendMessage', {
-      communityId: communities[selectedCommunity]._id,
-      content: content.trim(),
-    })
+    if (socket && socketConnected.current) {
+      // Send via Socket.IO
+      socket.emit('sendMessage', {
+        communityId,
+        content: content.trim(),
+      })
+    } else {
+      // Fallback to REST API
+      try {
+        const response = await axios.post(
+          `${BACKEND_URL}/message`,
+          { id: communityId, content: content.trim() },
+          { withCredentials: true }
+        )
+        if (response.data.msg) {
+          const newMessage = {
+            ...response.data.msg,
+            isUser: response.data.msg.author === user?._id,
+          }
+          setMessages((prev) => [...prev, newMessage])
+        }
+      } catch (error) {
+        console.error('Error sending message:', error)
+      }
+    }
 
-    // Clear input fields immediately for snappy UX
+    // Clear input fields immediately
     setInputMessage('')
     setVoiceMessage('')
   }
