@@ -35,11 +35,17 @@ export function initSocket(server) {
   // ── Authentication middleware ──────────────────────────────
   io.use(async (socket, next) => {
     try {
-      const rawCookies = socket.handshake.headers.cookie;
-      if (!rawCookies) return next(new Error("Authentication error"));
+      // Try token from auth option first (cross-origin), then fall back to cookies
+      let token = socket.handshake.auth?.token;
 
-      const cookies = cookie.parse(rawCookies);
-      const token = cookies.token;
+      if (!token) {
+        const rawCookies = socket.handshake.headers.cookie;
+        if (rawCookies) {
+          const cookies = cookie.parse(rawCookies);
+          token = cookies.token;
+        }
+      }
+
       if (!token) return next(new Error("Authentication error"));
 
       jwt.verify(token, process.env.TOKEN_KEY, async (err, data) => {

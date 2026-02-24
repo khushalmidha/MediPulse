@@ -31,6 +31,7 @@ const Voice = ({ setNewMessage }) => {
 
   return (
     <button 
+      type="button"
       onClick={handleListen} 
       className="ml-2 p-2 bg-gray-300 rounded-lg hover:bg-gray-400"
     >
