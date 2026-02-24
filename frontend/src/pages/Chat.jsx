@@ -12,10 +12,11 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import Voice from '../components/Voice'
 import { BACKEND_URL } from '../utils'
+import { getSocket } from '../socket'
 import { Link, useNavigate } from 'react-router-dom'
 
 function Chat() {
-  const { user, communities,isAuth } = useAuth()
+  const { user, communities, isAuth } = useAuth()
   const [messages, setMessages] = useState([])
   const [inputMessage, setInputMessage] = useState('')
   const [voiceMessage, setVoiceMessage] = useState('')
@@ -24,40 +25,44 @@ function Chat() {
   const [showSidebar, setShowSidebar] = useState(false)
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null)
+  const prevCommunityIdRef = useRef(null)
   const navigate = useNavigate()
-  useEffect(()=>{
-    if(!isAuth) navigate("/login");
-  },[isAuth]);
-  // Format timestamp for messages
-  const formatMessageTime = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
+  const socketRef = useRef(null)
+
   useEffect(() => {
-    if (selectedCommunity === null) {
-      return
+    if (!isAuth) navigate('/login')
+  }, [isAuth])
+
+  // ── Connect / disconnect socket on mount ──────────────────
+  useEffect(() => {
+    const socket = getSocket()
+    socketRef.current = socket
+
+    if (!socket.connected) {
+      socket.connect()
     }
-    
-    const interval = setInterval(async() => {
-      try {
-        const response = await axios.get(
-          `${BACKEND_URL}/community/${communities[selectedCommunity]._id}`,
-          { withCredentials: true }
-        )
-        
-        const formattedMessages = response.data.map((msg) => ({
-          ...msg,
-          isUser: msg.author === user?._id,
-        }))
-        
-        setMessages(formattedMessages)
-      } catch (error) {
-        console.error("Error polling for messages:", error)
+
+    // Listen for incoming messages
+    socket.on('newMessage', (message) => {
+      setMessages((prev) => {
+        // Avoid duplicates (in case of race between REST response and socket)
+        if (prev.some((m) => m._id === message._id)) return prev
+        return [
+          ...prev,
+          { ...message, isUser: message.author === user?._id },
+        ]
+      })
+    })
+
+    return () => {
+      socket.off('newMessage')
+      // Leave current room on unmount
+      if (prevCommunityIdRef.current) {
+        socket.emit('leaveCommunity', prevCommunityIdRef.current)
       }
-    }, 2000)
-    
-    return () => clearInterval(interval)
-  }, [selectedCommunity])
+      socket.disconnect()
+    }
+  }, [user?._id])
 
   // Get user's first name and last initial
   const getUserInitials = (firstName, lastName) => {
@@ -67,53 +72,56 @@ function Chat() {
       : firstName.charAt(0)
   }
 
-  // Handle sending a message
+  // Format timestamp for messages
+  const formatMessageTime = (dateString) => {
+    const date = new Date(dateString)
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
+  // Handle sending a message via Socket.IO
   const handleSendMessage = async (e) => {
     e.preventDefault()
     const content = inputMessage || voiceMessage
-    
+
     if (!content.trim() || selectedCommunity === null) {
       return
     }
 
-    try {
-      setLoading(true)
-      const response = await axios.post(
-        `${BACKEND_URL}/message`,
-        {
-          id: communities[selectedCommunity]._id,
-          content: content.trim(),
-        },
-        { withCredentials: true }
-      )
+    const socket = socketRef.current
+    if (!socket) return
 
-      // Add the new message to the messages state
-      if (response.data.msg) {
-        const newMessage = {
-          ...response.data.msg,
-          isUser: response.data.msg.author === user?._id,
-        }
-        setMessages((prev) => [...prev, newMessage])
-      }
+    // Emit the message through Socket.IO
+    socket.emit('sendMessage', {
+      communityId: communities[selectedCommunity]._id,
+      content: content.trim(),
+    })
 
-      // Clear input fields
-      setInputMessage('')
-      setVoiceMessage('')
-    } catch (error) {
-      console.error('Error sending message:', error)
-    } finally {
-      setLoading(false)
-    }
+    // Clear input fields immediately for snappy UX
+    setInputMessage('')
+    setVoiceMessage('')
   }
 
-  // Handle community selection
+  // Handle community selection — join / leave socket rooms
   const handleChangeCommunity = async (index) => {
     try {
       setLoading(true)
       setSelectedCommunity(index)
 
+      const socket = socketRef.current
+      const newCommunityId = communities[index]._id
+
+      // Leave previous room
+      if (prevCommunityIdRef.current) {
+        socket?.emit('leaveCommunity', prevCommunityIdRef.current)
+      }
+
+      // Join new room
+      socket?.emit('joinCommunity', newCommunityId)
+      prevCommunityIdRef.current = newCommunityId
+
+      // Fetch existing messages via REST (initial load)
       const response = await axios.get(
-        `${BACKEND_URL}/community/${communities[index]._id}`,
+        `${BACKEND_URL}/community/${newCommunityId}`,
         { withCredentials: true }
       )
 

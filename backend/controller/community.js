@@ -68,7 +68,7 @@ const joinCommunity = async (req, res) => {
 			return res.status(401).json({ message: "Unauthorized" });
 		}
 
-		const user = await User.findById(data.id);
+		const user = await (data.role === "user" ? User : Doctor).findById(data.id);
 		if (!user) {
 			return res.status(401).json({ message: "Unauthorized" });
 		}
@@ -90,7 +90,7 @@ const joinCommunity = async (req, res) => {
 		await user.updateOne({
 			$push: { communities: id },
 		});
-		const result = await User.findById(data.id)
+		const result = await (data.role === "user" ? User : Doctor).findById(data.id);
 		return res.json(result);
 	});
 };
