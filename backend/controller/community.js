@@ -130,37 +130,46 @@ const createCommunity = async (req, res) => {
 		});
 	});
 };
-const leaveCommunity = async (req,res) => {
-	const userId = req.cookies.id;
-	if(!userId){
-		return res.status(401).json({message:"Unauthorized"});
+const leaveCommunity = async (req, res) => {
+	const token = req.cookies.token;
+	if (!token) {
+		return res.status(401).json({ message: "Unauthorized" });
 	}
-	try{
-		const user = await User.findById(userId);
-		if(!user){
-			return res.status(401).json({message:"Unauthorized"});
+	jwt.verify(token, process.env.TOKEN_KEY, async (err, data) => {
+		if (err) {
+			return res.status(401).json({ message: "Unauthorized" });
 		}
-		const {id} = req.body;
-		if(!id){
-			return res.status(400).json({message:"Community Id is required"});
+		try {
+			const Model = data.role === "user" ? User : Doctor;
+			const user = await Model.findById(data.id);
+			if (!user) {
+				return res.status(401).json({ message: "Unauthorized" });
+			}
+			const { id } = req.body;
+			if (!id) {
+				return res.status(400).json({ message: "Community Id is required" });
+			}
+			const community = await Community.findById(id);
+			if (!community) {
+				return res.status(400).json({ message: "Community does not exist" });
+			}
+			await community.updateOne({
+				$pull: { members: data.id },
+			});
+			await user.updateOne({
+				$pull: { communities: id },
+			});
+			const updatedUser = await Model.findById(data.id);
+			const updatedCommunity = await Community.findById(id);
+			return res.status(200).json({
+				message: "Successfully left community",
+				user: updatedUser,
+				community: updatedCommunity,
+			});
+		} catch (err) {
+			return res.status(500).json({ message: err.message });
 		}
-		const community = await Community.findById(id);
-		if(!community){
-			return res.status(400).json({message:"Community does not exist"});
-		}
-		await community.updateOne({
-			$pull: {members:userId}
-		});
-		await user.updateOne({
-			$pull: {communities:id}
-		});
-		const updatedUser = await User.findById(userId);
-		const updatedCommunity = await Community.findById(id);
-		return res.status(200).json({message: "Successfully left community",user:updatedUser,community:updatedCommunity});
-	}
-	catch(err){
-		return res.status(500).json({message:err.message});
-	}
+	});
 }
 
 
