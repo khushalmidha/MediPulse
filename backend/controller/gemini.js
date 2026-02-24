@@ -28,7 +28,7 @@ Do not provide specific medical diagnoses but can offer general health informati
     }
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       ...(systemInstruction && { systemInstruction }),
     });
 
