@@ -192,36 +192,27 @@ const AiBot = () => {
   const handleGeneralQuery = async (query) => {
     setIsLoading(true);
     try {
-      // Use Gemini to respond to general queries
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      
-      // Create system prompt to keep Gemini focused on healthcare and MediPulse
-      const systemPrompt = `
-        You are MediPulse AI, a healthcare assistant.
-        Give short, concise answers only not too long.
-        Try to be point wise not more than 2-3 points 
-        Only respond to health-related queries or questions about MediPulse services.
-        If asked about non-health topics, politely redirect the conversation to healthcare.
-        Keep responses focused on medical information, health advice, and MediPulse platform features.
-        Do not provide specific medical diagnoses but can offer general health information.
-      `;
-      
-      const chat = model.startChat({
-        history: [{ role: "user", parts:[
-            {"text" : systemPrompt}
-        ] }]
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction: `You are MediPulse AI, a healthcare assistant.
+Give short, concise answers only not too long.
+Try to be point wise not more than 2-3 points.
+Only respond to health-related queries or questions about MediPulse services.
+If asked about non-health topics, politely redirect the conversation to healthcare.
+Keep responses focused on medical information, health advice, and MediPulse platform features.
+Do not provide specific medical diagnoses but can offer general health information.`,
       });
-      
-      const result = await chat.sendMessage(query);
+
+      const result = await model.generateContent(query);
       const response = result.response;
-      
+
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: response.text()
       }]);
-      
+
     } catch (error) {
-      console.error('Error with general query:', error);
+      console.error('Error with general query:', error?.message || error);
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: "I'm sorry, I couldn't process your question. How else can I help you with health-related information?"
