@@ -1,12 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Home } from 'lucide-react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-
-// Initialize Gemini (you'll need to set up your API key)
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY");
+import { BACKEND_URL } from '../utils';
 
 const AiBot = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -18,17 +15,16 @@ const AiBot = () => {
   const [activeMode, setActiveMode] = useState(null); // null, 'doctor', 'community', 'general'
   const {user, isAuth} = useAuth();
   const messagesEndRef = useRef(null);
-  const backendUri = import.meta.env.VITE_BACKEND_URL;
   const navigate = useNavigate();
 
   // Fetch doctors and communities when the component mounts
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const doctorsResponse = await axios.get(`${backendUri}/doctor`,{withCredentials: true});
+        const doctorsResponse = await axios.get(`${BACKEND_URL}/doctor`,{withCredentials: true});
         setDoctors(doctorsResponse.data);
         
-        const communitiesResponse = await axios.get(`${backendUri}/community`,{withCredentials: true});
+        const communitiesResponse = await axios.get(`${BACKEND_URL}/community`,{withCredentials: true});
         setCommunities(communitiesResponse.data);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -92,34 +88,25 @@ const AiBot = () => {
   const suggestDoctors = async (query) => {
     setIsLoading(true);
     try {
-      // Use Gemini to analyze the query and match with doctor expertise
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      
-      // Create prompt for Gemini to match doctors
       const doctorExpertiseList = doctors.map(doc => 
         `ID: ${doc._id}, Name: ${doc.firstName} ${doc.lastName || ""}, Expertise: ${doc.experience.expertise}, Years: ${doc.experience.years}`
       ).join('\n');
       
-      const prompt = `
-        Based on the user query: "${query}"
-        Match the most relevant doctors from this list:
-        ${doctorExpertiseList}
-        
-        Return only the IDs of the top 3-5 most relevant doctors separated by commas.
-        For example: "507f1f77bcf86cd799439011, 507f1f77bcf86cd799439012, 507f1f77bcf86cd799439013"
-        Only return the IDs, nothing else.
-      `;
+      const prompt = `Based on the user query: "${query}"
+Match the most relevant doctors from this list:
+${doctorExpertiseList}
+
+Return only the IDs of the top 3-5 most relevant doctors separated by commas.
+For example: "507f1f77bcf86cd799439011, 507f1f77bcf86cd799439012"
+Only return the IDs, nothing else.`;
+
+      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt, type: 'doctor' }, { withCredentials: true });
+      const doctorIds = res.data.text.split(',').map(id => id.trim());
       
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const doctorIds = response.text().split(',').map(id => id.trim());
-      
-      // Filter doctors based on the IDs returned by Gemini
       const suggestedDoctors = doctors.filter(doctor => 
         doctorIds.some(id => doctor._id === id || doctor._id.toString() === id)
       );
       
-      // If no matching doctors, return a subset
       const doctorsToShow = suggestedDoctors.length > 0 ? suggestedDoctors : doctors.slice(0, 5);
       
       setMessages(prev => [...prev, {
@@ -142,34 +129,25 @@ const AiBot = () => {
   const suggestCommunities = async (query) => {
     setIsLoading(true);
     try {
-      // Use Gemini to analyze the query and match with community categories
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      
-      // Create prompt for Gemini to match communities
       const communityList = communities.map(comm => 
         `ID: ${comm._id}, Title: ${comm.title}, Category: ${comm.category}, Description: ${comm.bio.substring(0, 50)}...`
       ).join('\n');
       
-      const prompt = `
-        Based on the user query: "${query}"
-        Match the most relevant health communities from this list:
-        ${communityList}
-        
-        Return only the IDs of the top 3-5 most relevant communities separated by commas.
-        For example: "507f1f77bcf86cd799439011, 507f1f77bcf86cd799439012, 507f1f77bcf86cd799439013"
-        Only return the IDs, nothing else.
-      `;
+      const prompt = `Based on the user query: "${query}"
+Match the most relevant health communities from this list:
+${communityList}
+
+Return only the IDs of the top 3-5 most relevant communities separated by commas.
+For example: "507f1f77bcf86cd799439011, 507f1f77bcf86cd799439012"
+Only return the IDs, nothing else.`;
+
+      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt, type: 'community' }, { withCredentials: true });
+      const communityIds = res.data.text.split(',').map(id => id.trim());
       
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const communityIds = response.text().split(',').map(id => id.trim());
-      
-      // Filter communities based on the IDs returned by Gemini
       const suggestedCommunities = communities.filter(comm => 
         communityIds.some(id => comm._id === id || comm._id.toString() === id)
       );
       
-      // If no matching communities, return a subset
       const communitiesToShow = suggestedCommunities.length > 0 ? suggestedCommunities : communities.slice(0, 5);
       
       setMessages(prev => [...prev, {
@@ -192,23 +170,11 @@ const AiBot = () => {
   const handleGeneralQuery = async (query) => {
     setIsLoading(true);
     try {
-      const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
-        systemInstruction: `You are MediPulse AI, a healthcare assistant.
-Give short, concise answers only not too long.
-Try to be point wise not more than 2-3 points.
-Only respond to health-related queries or questions about MediPulse services.
-If asked about non-health topics, politely redirect the conversation to healthcare.
-Keep responses focused on medical information, health advice, and MediPulse platform features.
-Do not provide specific medical diagnoses but can offer general health information.`,
-      });
-
-      const result = await model.generateContent(query);
-      const response = result.response;
+      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt: query, type: 'general' }, { withCredentials: true });
 
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: response.text()
+        content: res.data.text
       }]);
 
     } catch (error) {

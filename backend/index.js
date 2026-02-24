@@ -9,6 +9,7 @@ import doctorRouter from './routes/doctor.js'
 import cors from 'cors'
 import { createServer } from 'node:http'
 import eventRouter from './routes/event.js'
+import geminiRouter from './routes/gemini.js'
 import { configDotenv } from 'dotenv'
 import { Verifier } from './controller/auth.js'
 import User from './model/user.js'
@@ -50,6 +51,7 @@ app.use('/community', communityRouter)
 app.use('/message', messageRouter)
 app.use('/ngo', ngoRouter)
 app.use('/event', eventRouter)
+app.use('/gemini', geminiRouter)
 app.get('/verify', Verifier)
 app.get('/count', async (req, res) => {
   const users = await User.countDocuments()
