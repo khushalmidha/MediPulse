@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { userLogin, userSignup } from "../controller/auth.js";
+import { googleAuth, userLogin, userSignup } from "../controller/auth.js";
 import userValidation from "../middleware/validateUser.js";
 import {
 	deleteUserById,
@@ -12,6 +12,7 @@ const userRouter = Router();
 
 userRouter.post("/login", userLogin);
 userRouter.post("/signup", userSignup);
+userRouter.post("/google-auth", googleAuth);
 
 // userRouter.get("/:id", userValidation, getUserById);
 userRouter.delete("/:id", userValidation, deleteUserById);
