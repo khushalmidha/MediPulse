@@ -4,7 +4,11 @@ import { createSecret } from "../util/createSecret.js";
 import bcrypt from "bcryptjs";
 import { configDotenv } from "dotenv";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { OAuth2Client } from "google-auth-library";
 configDotenv()
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const cookieOptions = {
     httpOnly: false,
@@ -171,6 +175,102 @@ const doctorLogin = async (req, res) => {
 	res.status(201).json({ message: "Doctor logged in successfully", success: true, result: doctor });
 };
 
+const verifyGoogleCredential = async (credential) => {
+	if (!process.env.GOOGLE_CLIENT_ID) {
+		throw new Error("Google client id is not configured");
+	}
+
+	const ticket = await googleClient.verifyIdToken({
+		idToken: credential,
+		audience: process.env.GOOGLE_CLIENT_ID,
+	});
+	const payload = ticket.getPayload();
+
+	if (!payload?.email || !payload?.email_verified) {
+		throw new Error("Google account email could not be verified");
+	}
+
+	return payload;
+};
+
+const googleAuth = async (req, res) => {
+	const { credential, role = "user", profile = {} } = req.body;
+
+	if (!credential) {
+		return res.status(400).json({ message: "Google credential is required" });
+	}
+
+	if (!["user", "doctor"].includes(role)) {
+		return res.status(400).json({ message: "Invalid profile type" });
+	}
+
+	try {
+		const payload = await verifyGoogleCredential(credential);
+		const email = payload.email.toLowerCase();
+		const Model = role === "doctor" ? Doctor : User;
+		let account = await Model.findOne({ email });
+
+		if (!account) {
+			const [googleFirstName = "Google", ...restName] = (payload.given_name || payload.name || "Google User").trim().split(" ");
+			const baseAccount = {
+				firstName: profile.firstName || googleFirstName,
+				lastName: profile.lastName || payload.family_name || restName.join(" "),
+				email,
+				password: crypto.randomBytes(32).toString("hex"),
+				gender: profile.gender || "other",
+				bio: profile.bio,
+				phone: profile.phone,
+			};
+
+			if (role === "doctor") {
+				if (!profile.years || !profile.expertise) {
+					return res.status(400).json({
+						message: "Years of experience and expertise are required for doctor Google signup",
+					});
+				}
+
+				account = await Doctor.create({
+					...baseAccount,
+					experience: {
+						years: profile.years,
+						expertise: profile.expertise,
+					},
+					clinic: {
+						location: profile.clinicLocation,
+						phone: profile.clinicPhone,
+						name: profile.clinicName,
+					},
+				});
+			} else {
+				account = await User.create({
+					...baseAccount,
+					medical: {
+						primaryCondition: profile.primaryCondition,
+					},
+					emergencyContact: {
+						name: profile.emergencyContact,
+						relation: profile.emergencyRelation,
+						phone: profile.emergencyPhone,
+					},
+				});
+			}
+		}
+
+		const token = createSecret(account._id, role);
+		res.cookie("token", token, cookieOptions);
+		res.cookie("id", account._id, cookieOptions);
+		res.status(201).json({
+			message: "Google authentication successful",
+			success: true,
+			result: account,
+			role,
+		});
+	} catch (err) {
+		console.error(err);
+		res.status(401).json({ message: err.message || "Google authentication failed" });
+	}
+};
+
 const Verifier = async (req,res) => {
 	const token = req.cookies.token;
 	if(!token){
@@ -188,4 +288,4 @@ const Verifier = async (req,res) => {
 	})
 }
 
-export { userLogin, userSignup, doctorLogin, doctorSignup, Verifier };
+export { userLogin, userSignup, doctorLogin, doctorSignup, googleAuth, Verifier };

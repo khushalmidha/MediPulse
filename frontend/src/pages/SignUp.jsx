@@ -1,9 +1,95 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { UserCircle2, Stethoscope, Mail, Lock, Phone, AlertCircle, User, FileText, HeartPulse, Users, MapPin, ArrowLeft } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import { BACKEND_URL } from "../utils";
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+let googleScriptPromise;
+
+const loadGoogleScript = () => {
+  if (window.google?.accounts?.id) {
+    return Promise.resolve();
+  }
+
+  if (!googleScriptPromise) {
+    googleScriptPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector("script[src='https://accounts.google.com/gsi/client']");
+      if (existingScript) {
+        existingScript.addEventListener("load", resolve, { once: true });
+        existingScript.addEventListener("error", reject, { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.body.appendChild(script);
+    });
+  }
+
+  return googleScriptPromise;
+};
+
+const GoogleSignupButton = ({ disabled, onCredential, userType }) => {
+  const buttonRef = useRef(null);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !buttonRef.current) {
+      return;
+    }
+
+    let isMounted = true;
+
+    loadGoogleScript()
+      .then(() => {
+        if (!isMounted || !buttonRef.current) {
+          return;
+        }
+
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: onCredential,
+        });
+        buttonRef.current.innerHTML = "";
+        window.google.accounts.id.renderButton(buttonRef.current, {
+          theme: "outline",
+          size: "large",
+          text: "signup_with",
+          shape: "rectangular",
+          width: buttonRef.current.offsetWidth || 320,
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [onCredential]);
+
+  if (!GOOGLE_CLIENT_ID) {
+    return (
+      <p className="text-sm text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+        Add VITE_GOOGLE_CLIENT_ID to frontend/.env to enable Google signup.
+      </p>
+    );
+  }
+
+  return (
+    <div className={disabled ? "pointer-events-none opacity-60" : ""}>
+      <div
+        ref={buttonRef}
+        aria-label={`Sign up as ${userType} with Google`}
+        className="flex justify-center min-h-[44px]"
+      />
+    </div>
+  );
+};
 
 const ProfileSelection = ({ setUserType }) => (
   <div className="space-y-8">
@@ -68,7 +154,15 @@ const SectionHeading = ({ title }) => (
   </div>
 );
 
-const PatientSignUp = ({ handleSubmit, message, patient, setPatient, isloading }) => (
+const AuthDivider = () => (
+  <div className="flex items-center gap-3 my-2">
+    <div className="h-px flex-1 bg-gray-200" />
+    <span className="text-xs font-medium uppercase tracking-wide text-gray-400">or</span>
+    <div className="h-px flex-1 bg-gray-200" />
+  </div>
+);
+
+const PatientSignUp = ({ handleSubmit, handleGoogleSignup, message, patient, setPatient, isloading }) => (
   <form className="space-y-4" onSubmit={handleSubmit}>
     {message && (
       <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start">
@@ -249,10 +343,16 @@ const PatientSignUp = ({ handleSubmit, message, patient, setPatient, isloading }
         {isloading ? 'Creating account...' : 'Create User Account'}
       </button>
     </div>
+    <AuthDivider />
+    <GoogleSignupButton
+      disabled={isloading}
+      onCredential={handleGoogleSignup}
+      userType="user"
+    />
   </form>
 );
 
-const DoctorSignUp = ({handleSubmit, message, doctor, setDoctor, isloading}) => (
+const DoctorSignUp = ({handleSubmit, handleGoogleSignup, message, doctor, setDoctor, isloading}) => (
   <form className="space-y-4" onSubmit={handleSubmit}>
     {message && (
       <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start">
@@ -448,6 +548,12 @@ const DoctorSignUp = ({handleSubmit, message, doctor, setDoctor, isloading}) => 
         {isloading ? 'Creating account...' : 'Create Doctor Account'}
       </button>
     </div>
+    <AuthDivider />
+    <GoogleSignupButton
+      disabled={isloading}
+      onCredential={handleGoogleSignup}
+      userType="doctor"
+    />
   </form>
 );
 
@@ -494,6 +600,43 @@ const SignUp = () => {
     setIsLoading(false);
   }, [userType, patient, doctor, setIsAuth, setUser, setRole, navigate]);
 
+  const handleGoogleSignup = useCallback(async (response) => {
+    setMessage("");
+
+    if (!response?.credential) {
+      setMessage("Google signup did not return a valid credential");
+      return;
+    }
+
+    if (userType === "doctor" && (!doctor.years || !doctor.expertise)) {
+      setMessage("Add your years of experience and expertise before using Google signup as a doctor");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const profile = userType === "user" ? patient : doctor;
+      const res = await axios.post(
+        `${BACKEND_URL}/${userType}/google-auth`,
+        { credential: response.credential, role: userType, profile },
+        { withCredentials: true, headers: { "Content-Type": "application/json" } }
+      );
+
+      if (res.status === 201) {
+        setIsAuth(true);
+        setUser(res.data.result);
+        setRole(res.data.role || userType);
+        navigate("/dashboard");
+      } else {
+        setMessage(res.data.message || "Google signup failed");
+      }
+    } catch (err) {
+      console.log(err);
+      setMessage(err.response?.data?.message || "Google signup failed. Please try again.");
+    }
+    setIsLoading(false);
+  }, [userType, patient, doctor, setIsAuth, setUser, setRole, navigate]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
@@ -521,6 +664,7 @@ const SignUp = () => {
           {userType === "user" && (
             <PatientSignUp 
               handleSubmit={handleSubmit}
+              handleGoogleSignup={handleGoogleSignup}
               message={message}
               patient={patient}
               setPatient={setPatient}
@@ -530,6 +674,7 @@ const SignUp = () => {
           {userType === "doctor" && (
             <DoctorSignUp 
               handleSubmit={handleSubmit} 
+              handleGoogleSignup={handleGoogleSignup}
               message={message} 
               doctor={doctor} 
               setDoctor={setDoctor} 

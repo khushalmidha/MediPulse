@@ -1,0 +1,4 @@
+.git.broken-onedrive*
+.env
+node_modules
+dist
