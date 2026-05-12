@@ -21,7 +21,7 @@ const app = express()
 const server = createServer(app)
 const PORT = process.env.PORT || 8080
 configDotenv()
-connectMongo(process.env.DATABASE_URL)
+await connectMongo(process.env.DATABASE_URL)
 
 // Initialize Socket.IO
 const io = initSocket(server)
