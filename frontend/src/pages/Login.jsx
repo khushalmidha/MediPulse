@@ -1,9 +1,103 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, UserCircle2, Stethoscope, ArrowLeft, AlertCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import { BACKEND_URL } from "../utils";
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+let googleScriptPromise;
+
+const loadGoogleScript = () => {
+  if (window.google?.accounts?.id) {
+    return Promise.resolve();
+  }
+
+  if (!googleScriptPromise) {
+    googleScriptPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector("script[src='https://accounts.google.com/gsi/client']");
+      if (existingScript) {
+        existingScript.addEventListener("load", resolve, { once: true });
+        existingScript.addEventListener("error", reject, { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.body.appendChild(script);
+    });
+  }
+
+  return googleScriptPromise;
+};
+
+const AuthDivider = () => (
+  <div className="flex items-center gap-3">
+    <div className="h-px flex-1 bg-gray-200" />
+    <span className="text-xs font-medium uppercase tracking-wide text-gray-400">or</span>
+    <div className="h-px flex-1 bg-gray-200" />
+  </div>
+);
+
+const GoogleSigninButton = ({ disabled, onCredential, userType }) => {
+  const buttonRef = useRef(null);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !buttonRef.current) {
+      return;
+    }
+
+    let isMounted = true;
+
+    loadGoogleScript()
+      .then(() => {
+        if (!isMounted || !buttonRef.current) {
+          return;
+        }
+
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: onCredential,
+        });
+        buttonRef.current.innerHTML = "";
+        window.google.accounts.id.renderButton(buttonRef.current, {
+          theme: "outline",
+          size: "large",
+          text: "signin_with",
+          shape: "rectangular",
+          width: buttonRef.current.offsetWidth || 320,
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [onCredential]);
+
+  if (!GOOGLE_CLIENT_ID) {
+    return (
+      <p className="text-sm text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+        Add VITE_GOOGLE_CLIENT_ID to frontend/.env to enable Google sign in.
+      </p>
+    );
+  }
+
+  return (
+    <div className={disabled ? "pointer-events-none opacity-60" : ""}>
+      <div
+        ref={buttonRef}
+        aria-label={`Sign in as ${userType} with Google`}
+        className="flex justify-center min-h-[44px]"
+      />
+    </div>
+  );
+};
 
 const ProfileSelection = ({ setUserType }) => (
   <div className="space-y-8">
@@ -42,7 +136,7 @@ const ProfileSelection = ({ setUserType }) => (
   </div>
 );
 
-const LoginForm = ({ handleSubmit, message, email, setEmail, password, setPassword, loading, userType }) => (
+const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail, password, setPassword, rememberMe, setRememberMe, loading, userType }) => (
   <form className="space-y-6" onSubmit={handleSubmit}>
     {message && (
       <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start">
@@ -105,6 +199,8 @@ const LoginForm = ({ handleSubmit, message, email, setEmail, password, setPasswo
           id="remember-me"
           name="remember-me"
           type="checkbox"
+          checked={rememberMe}
+          onChange={(e) => setRememberMe(e.target.checked)}
           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
         />
         <label
@@ -130,6 +226,12 @@ const LoginForm = ({ handleSubmit, message, email, setEmail, password, setPasswo
         {loading ? 'Signing in...' : `Sign in as ${userType === 'user' ? 'User' : 'Doctor'}`}
       </button>
     </div>
+    <AuthDivider />
+    <GoogleSigninButton
+      disabled={loading}
+      onCredential={handleGoogleSignin}
+      userType={userType}
+    />
   </form>
 );
 
@@ -137,6 +239,7 @@ const Login = () => {
   const [userType, setUserType] = useState("select");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const { isAuth, setIsAuth, setUser, setRole } = useAuth();
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -155,7 +258,7 @@ const Login = () => {
     try {
       const res = await axios.post(
         `${BACKEND_URL}/${userType}/login`,
-        { email, password },
+        { email, password, rememberMe },
         { withCredentials: true, headers: { "Content-Type": "application/json" } }
       );
       if (res.status === 201) {
@@ -175,7 +278,38 @@ const Login = () => {
       }
     }
     setLoading(false);
-  }, [email, password, userType, navigate, setIsAuth, setUser, setRole]);
+  }, [email, password, rememberMe, userType, navigate, setIsAuth, setUser, setRole]);
+
+  const handleGoogleSignin = useCallback(async (response) => {
+    setMessage("");
+
+    if (!response?.credential) {
+      setMessage("Google sign in did not return a valid credential");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/${userType}/google-auth`,
+        { credential: response.credential, role: userType, rememberMe },
+        { withCredentials: true, headers: { "Content-Type": "application/json" } }
+      );
+
+      if (res.status === 201) {
+        setIsAuth(true);
+        setUser(res.data.result);
+        setRole(res.data.role || userType);
+        navigate("/dashboard");
+      } else {
+        setMessage(res.data.message || "Google sign in failed");
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage(err.response?.data?.message || "Google sign in failed. Please try again.");
+    }
+    setLoading(false);
+  }, [rememberMe, userType, navigate, setIsAuth, setUser, setRole]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -206,6 +340,9 @@ const Login = () => {
               setEmail={setEmail}
               password={password}
               setPassword={setPassword}
+              rememberMe={rememberMe}
+              setRememberMe={setRememberMe}
+              handleGoogleSignin={handleGoogleSignin}
               loading={loading}
               userType={userType}
             />
