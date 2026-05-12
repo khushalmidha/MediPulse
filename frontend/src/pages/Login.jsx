@@ -306,7 +306,10 @@ const Login = () => {
       }
     } catch (err) {
       console.error(err);
-      setMessage(err.response?.data?.message || "Google sign in failed. Please try again.");
+      setMessage(
+        err.response?.data?.message ||
+          "Google sign in failed. Check backend URL, CORS allowed origins, and Render environment variables."
+      );
     }
     setLoading(false);
   }, [rememberMe, userType, navigate, setIsAuth, setUser, setRole]);
