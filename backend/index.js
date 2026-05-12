@@ -19,7 +19,7 @@ import { initSocket } from './socket.js'
 
 const app = express()
 const server = createServer(app)
-const PORT = 8080
+const PORT = process.env.PORT || 8080
 configDotenv()
 connectMongo(process.env.DATABASE_URL)
 
@@ -72,5 +72,6 @@ app.get('/count', async (req, res) => {
   res.status(200).json({ users, doctors, communities })
 })
 
-server.listen(PORT)
-console.log('')
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
+})
