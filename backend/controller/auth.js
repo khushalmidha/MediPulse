@@ -10,10 +10,27 @@ configDotenv()
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const cookieOptions = {
-    httpOnly: false,
-    secure: true,
-    sameSite: 'none',
+const getCookieOptions = (rememberMe = false) => {
+	const isProduction = process.env.NODE_ENV === "production";
+	const options = {
+		httpOnly: false,
+		secure: isProduction,
+		sameSite: isProduction ? "none" : "lax",
+	};
+
+	if (rememberMe) {
+		options.maxAge = 1000 * 60 * 60 * 24 * 30;
+	}
+
+	return options;
+};
+
+const setAuthCookies = (res, accountId, role, rememberMe = false) => {
+	const tokenExpiry = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 3;
+	const token = createSecret(accountId, role, tokenExpiry);
+	const options = getCookieOptions(rememberMe);
+	res.cookie("token", token, options);
+	res.cookie("id", accountId, options);
 };
 const userSignup = async (req, res, next) => {
 	const {
@@ -67,9 +84,7 @@ const userSignup = async (req, res, next) => {
 		gender: gender,
 	});
 
-	const token = createSecret(result._id,"user");
-	res.cookie("token", token, cookieOptions);
-	res.cookie("id", result._id, cookieOptions);
+	setAuthCookies(res, result._id, "user", req.body.rememberMe);
 	res
 		.status(201)
 		.json({ message: "User signed in successfully", success: true, result });
@@ -77,7 +92,7 @@ const userSignup = async (req, res, next) => {
 };
 
 const userLogin = async (req, res) => {
-	const { email, password } = req.body;
+	const { email, password, rememberMe } = req.body;
 	if (!email || !password) {
 		return res.json({ message: "Email and password are required" });
 	}
@@ -90,9 +105,7 @@ const userLogin = async (req, res) => {
 	if (!auth) {
 		return res.json({ message: "Incorrect password" });
 	}
-	const token = createSecret(user._id,"user");
-	res.cookie("token", token, cookieOptions);
-	res.cookie("id", user._id, cookieOptions);
+	setAuthCookies(res, user._id, "user", rememberMe);
 	res.status(201).json({ message: "User logged in successfully", success: true, result: user });
 };
 
@@ -146,9 +159,7 @@ const doctorSignup = async (req, res, next) => {
 		},
 	});
 
-	const token = createSecret(result._id,"doctor");
-	res.cookie("token", token, cookieOptions);
-	res.cookie("id", result._id, cookieOptions);
+	setAuthCookies(res, result._id, "doctor", req.body.rememberMe);
 	res
 		.status(201)
 		.json({ message: "Doctor signed in successfully", success: true, result });
@@ -156,7 +167,7 @@ const doctorSignup = async (req, res, next) => {
 };
 
 const doctorLogin = async (req, res) => {
-	const { email, password } = req.body;
+	const { email, password, rememberMe } = req.body;
 	if (!email || !password) {
 		return res.json({ message: "Email and password are required" });
 	}
@@ -169,9 +180,7 @@ const doctorLogin = async (req, res) => {
 	if (!auth) {
 		return res.json({ message: "Incorrect password" });
 	}
-	const token = createSecret(doctor._id,"doctor");
-	res.cookie("token", token, cookieOptions);
-	res.cookie("id", doctor._id, cookieOptions);
+	setAuthCookies(res, doctor._id, "doctor", rememberMe);
 	res.status(201).json({ message: "Doctor logged in successfully", success: true, result: doctor });
 };
 
@@ -194,7 +203,7 @@ const verifyGoogleCredential = async (credential) => {
 };
 
 const googleAuth = async (req, res) => {
-	const { credential, role = "user", profile = {} } = req.body;
+	const { credential, role = "user", profile = {}, rememberMe } = req.body;
 
 	if (!credential) {
 		return res.status(400).json({ message: "Google credential is required" });
@@ -256,9 +265,7 @@ const googleAuth = async (req, res) => {
 			}
 		}
 
-		const token = createSecret(account._id, role);
-		res.cookie("token", token, cookieOptions);
-		res.cookie("id", account._id, cookieOptions);
+		setAuthCookies(res, account._id, role, rememberMe);
 		res.status(201).json({
 			message: "Google authentication successful",
 			success: true,
