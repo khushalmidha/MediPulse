@@ -16,6 +16,7 @@ import DataUsagePolicy  from "./pages/DataUsagePolicy"
 import AiBot from "./components/AiBot";
 import AppointmentBooking from "./pages/AppointmentBooking";
 import DoctorAppointments from "./pages/DoctorAppointments";
+import MyAppointments from "./pages/MyAppointments";
 
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
         <Route path="/chat" element={<Chat />} />
         <Route path="/doctorsProfile/:id" element={<DoctorsProfile />} />
         <Route path="/appointment/book/:doctorId" element={<AppointmentBooking />} />
+        <Route path="/my-appointments" element={<MyAppointments />} />
         <Route path="/doctor/appointments" element={<DoctorAppointments />} />
         <Route path="/communities" element={<CommunityForm />} />
         <Route path="/doctors" element={<Doctors />}/>

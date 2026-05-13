@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Appointment from "../model/appointment.js";
 import Doctor from "../model/doctor.js";
 import { getIO } from "../socket.js";
+import { generateGeminiText } from "./gemini.js";
 
 const APPOINTMENT_DURATION_MS = 5 * 60 * 1000;
 const appointmentTimeouts = new Map();
@@ -23,6 +24,24 @@ const mapQueueAppointment = (appointment) => ({
     : null,
 });
 
+const mapHistoryAppointment = (appointment) => ({
+  _id: appointment._id,
+  doctor: appointment.doctor,
+  user: appointment.user,
+  status: appointment.status,
+  createdAt: appointment.createdAt,
+  startedAt: appointment.startedAt,
+  endedAt: appointment.endedAt,
+  endedBy: appointment.endedBy,
+  endedReason: appointment.endedReason,
+  doctorNotes: appointment.doctorNotes || "",
+  receiptText: appointment.receiptText || "",
+  receiptGeneratedAt: appointment.receiptGeneratedAt || null,
+  endsAt: appointment.startedAt
+    ? new Date(appointment.startedAt.getTime() + APPOINTMENT_DURATION_MS)
+    : null,
+});
+
 const mapActiveAppointment = (appointment) => {
   if (!appointment) return null;
   return {
@@ -32,6 +51,9 @@ const mapActiveAppointment = (appointment) => {
     startedAt: appointment.startedAt,
     endedAt: appointment.endedAt,
     roomId: appointment.roomId,
+    doctorNotes: appointment.doctorNotes || "",
+    receiptText: appointment.receiptText || "",
+    receiptGeneratedAt: appointment.receiptGeneratedAt || null,
     endsAt: appointment.startedAt
       ? new Date(appointment.startedAt.getTime() + APPOINTMENT_DURATION_MS)
       : null,
@@ -53,7 +75,8 @@ const buildDoctorQueuePayload = async (doctorId) => {
       .populate("user", "firstName lastName email"),
     Appointment.findOne({ doctor: doctorId, status: "active" })
       .sort({ startedAt: 1 })
-      .populate("user", "firstName lastName email"),
+      .populate("user", "firstName lastName email")
+      .populate("doctor", "firstName lastName email"),
   ]);
 
   return {
@@ -145,6 +168,42 @@ const finishAppointment = async (appointmentId, endedBy, endedReason) => {
   }
 
   return appointment;
+};
+
+const buildReceiptPrompt = (appointment, notes) => {
+  const doctorName = [appointment.doctor?.firstName, appointment.doctor?.lastName]
+    .filter(Boolean)
+    .join(" ");
+  const patientName = [appointment.user?.firstName, appointment.user?.lastName]
+    .filter(Boolean)
+    .join(" ");
+
+  return `Create a concise medical receipt for a completed telehealth appointment.
+Return plain text only with these sections:
+Receipt Title
+Patient Name
+Doctor Name
+Appointment Date
+Visit Summary
+Doctor Notes
+Advice
+Follow Up
+
+Rules:
+- Keep it professional, short, and easy to download as a text receipt.
+- Do not invent symptoms, medicines, or diagnoses.
+- Use the doctor notes below as the only clinical details.
+- If a section has no information, write "Not provided".
+
+Patient Name: ${patientName || "Not provided"}
+Doctor Name: ${doctorName || "Not provided"}
+Appointment Date: ${appointment.startedAt ? appointment.startedAt.toISOString() : appointment.createdAt.toISOString()}
+Doctor Notes: ${notes || appointment.doctorNotes || "Not provided"}`;
+};
+
+const generateReceiptText = async (appointment, notes) => {
+  const prompt = buildReceiptPrompt(appointment, notes);
+  return generateGeminiText(prompt, "general");
 };
 
 const bookAppointment = async (req, res) => {
@@ -257,6 +316,7 @@ const getDoctorPendingStatus = async (req, res) => {
       response.myAppointment = {
         _id: myAppointment._id,
         status: myAppointment.status,
+        createdAt: myAppointment.createdAt,
         queuePosition,
         startedAt: myAppointment.startedAt,
         endsAt: myAppointment.startedAt
@@ -267,6 +327,102 @@ const getDoctorPendingStatus = async (req, res) => {
   }
 
   return res.status(200).json(response);
+};
+
+const getUserAppointmentHistory = async (req, res) => {
+  if (req.auth.role !== "user") {
+    return res.status(403).json({ message: "Only users can view appointment history" });
+  }
+
+  const { doctorId } = req.query;
+  const query = { user: req.auth.id };
+  if (doctorId) {
+    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
+      return res.status(400).json({ message: "Invalid doctor id" });
+    }
+    query.doctor = doctorId;
+  }
+
+  const appointments = await Appointment.find(query)
+    .sort({ createdAt: -1 })
+    .populate("doctor", "firstName lastName email")
+    .populate("user", "firstName lastName email");
+
+  return res.status(200).json({
+    appointments: appointments.map(mapHistoryAppointment),
+  });
+};
+
+const updateDoctorNotes = async (req, res) => {
+  if (req.auth.role !== "doctor") {
+    return res.status(403).json({ message: "Only doctors can add notes" });
+  }
+
+  const { appointmentId } = req.params;
+  const { doctorNotes = "" } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+    return res.status(400).json({ message: "Invalid appointment id" });
+  }
+
+  const appointment = await Appointment.findById(appointmentId);
+  if (!appointment) {
+    return res.status(404).json({ message: "Appointment not found" });
+  }
+
+  if (appointment.doctor.toString() !== req.auth.id.toString()) {
+    return res.status(403).json({ message: "You cannot update this appointment" });
+  }
+
+  appointment.doctorNotes = doctorNotes.trim();
+  await appointment.save();
+
+  return res.status(200).json({
+    message: "Doctor notes saved",
+    appointmentId: appointment._id,
+    doctorNotes: appointment.doctorNotes,
+  });
+};
+
+const generateAppointmentReceipt = async (req, res) => {
+  if (req.auth.role !== "doctor") {
+    return res.status(403).json({ message: "Only doctors can generate receipts" });
+  }
+
+  const { appointmentId } = req.params;
+  const { doctorNotes = "" } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+    return res.status(400).json({ message: "Invalid appointment id" });
+  }
+
+  const appointment = await Appointment.findById(appointmentId)
+    .populate("doctor", "firstName lastName email")
+    .populate("user", "firstName lastName email");
+
+  if (!appointment) {
+    return res.status(404).json({ message: "Appointment not found" });
+  }
+
+  if (appointment.doctor._id.toString() !== req.auth.id.toString()) {
+    return res.status(403).json({ message: "You cannot generate receipt for this appointment" });
+  }
+
+  const notesToUse = doctorNotes.trim() || appointment.doctorNotes || "";
+  const receiptText = await generateReceiptText(appointment, notesToUse);
+
+  appointment.doctorNotes = notesToUse;
+  appointment.receiptText = receiptText;
+  appointment.receiptGeneratedAt = new Date();
+  await appointment.save();
+
+  return res.status(200).json({
+    message: "Receipt generated successfully",
+    appointmentId: appointment._id,
+    receiptText,
+    receiptGeneratedAt: appointment.receiptGeneratedAt,
+    doctorNotes: appointment.doctorNotes,
+  });
 };
 
 const getAppointmentById = async (req, res) => {
@@ -303,6 +459,9 @@ const getAppointmentById = async (req, res) => {
     endedAt: appointment.endedAt,
     endedBy: appointment.endedBy,
     endedReason: appointment.endedReason,
+    doctorNotes: appointment.doctorNotes || "",
+    receiptText: appointment.receiptText || "",
+    receiptGeneratedAt: appointment.receiptGeneratedAt || null,
     endsAt: appointment.startedAt
       ? new Date(appointment.startedAt.getTime() + APPOINTMENT_DURATION_MS)
       : null,
@@ -424,5 +583,8 @@ export {
   getAppointmentById,
   getDoctorPendingStatus,
   getDoctorQueue,
+  getUserAppointmentHistory,
+  generateAppointmentReceipt,
   startAppointment,
+  updateDoctorNotes,
 };

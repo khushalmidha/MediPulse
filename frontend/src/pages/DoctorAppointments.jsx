@@ -15,6 +15,11 @@ const DoctorAppointments = () => {
   });
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
+  const [doctorNotes, setDoctorNotes] = useState("");
+
+  useEffect(() => {
+    setDoctorNotes(queueData.activeAppointment?.doctorNotes || "");
+  }, [queueData.activeAppointment?._id, queueData.activeAppointment?.doctorNotes]);
 
   const fetchQueue = async () => {
     const response = await axios.get(`${BACKEND_URL}/appointment/doctor/queue`, {
@@ -79,6 +84,37 @@ const DoctorAppointments = () => {
     }
   };
 
+  const saveDoctorNotes = async (appointmentId) => {
+    setActionMessage("");
+    try {
+      const response = await axios.patch(
+        `${BACKEND_URL}/appointment/${appointmentId}/notes`,
+        { doctorNotes },
+        { withCredentials: true },
+      );
+      setActionMessage(response.data.message);
+      await fetchQueue();
+    } catch (error) {
+      setActionMessage(error.response?.data?.message || "Could not save notes");
+    }
+  };
+
+  const generateReceipt = async (appointmentId) => {
+    setActionMessage("");
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/appointment/${appointmentId}/receipt`,
+        { doctorNotes },
+        { withCredentials: true },
+      );
+      setDoctorNotes(response.data.doctorNotes || "");
+      setActionMessage(response.data.message);
+      await fetchQueue();
+    } catch (error) {
+      setActionMessage(error.response?.data?.message || "Could not generate receipt");
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-gray-50 px-4 py-8">Loading appointment queue...</div>;
   }
@@ -116,8 +152,43 @@ const DoctorAppointments = () => {
             <p className="mt-3 text-sm text-gray-600">
               This call auto-ends in 5 minutes if you do not end it manually.
             </p>
-            <div className="mt-4">
-              <AppointmentVideoCall appointmentId={queueData.activeAppointment._id} />
+            <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
+              <div>
+                <AppointmentVideoCall appointmentId={queueData.activeAppointment._id} />
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <h3 className="text-sm font-semibold text-gray-900">Doctor Notes</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Add short clinical notes for the receipt before ending the appointment.
+                </p>
+                <textarea
+                  value={doctorNotes}
+                  onChange={(event) => setDoctorNotes(event.target.value)}
+                  placeholder="Symptoms, advice, follow-up, medicines, warnings..."
+                  className="mt-3 min-h-40 w-full rounded-md border border-gray-300 bg-white p-3 text-sm outline-none focus:border-blue-500"
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => saveDoctorNotes(queueData.activeAppointment._id)}
+                    className="rounded-md border border-blue-600 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+                  >
+                    Save Notes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => generateReceipt(queueData.activeAppointment._id)}
+                    className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    Generate Receipt
+                  </button>
+                </div>
+                {queueData.activeAppointment.receiptGeneratedAt && (
+                  <p className="mt-3 text-xs text-green-700">
+                    Receipt generated on {new Date(queueData.activeAppointment.receiptGeneratedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}

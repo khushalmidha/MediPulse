@@ -38,6 +38,17 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       enum: ["doctor-ended", "auto-timeout"],
     },
+    doctorNotes: {
+      type: String,
+      default: "",
+    },
+    receiptText: {
+      type: String,
+      default: "",
+    },
+    receiptGeneratedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
