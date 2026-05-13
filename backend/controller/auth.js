@@ -14,6 +14,7 @@ const getCookieOptions = (rememberMe = false) => {
 	const isProduction = process.env.NODE_ENV === "production";
 	const options = {
 		httpOnly: false,
+		path: "/",
 		secure: isProduction,
 		sameSite: isProduction ? "none" : "lax",
 	};

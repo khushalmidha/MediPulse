@@ -168,6 +168,7 @@ const CommunityCard = () => {
     }
     if (!isAuth) {
       navigate('/login')
+      return
     }
   }, [loader, isAuth])
 
@@ -187,6 +188,7 @@ const CommunityCard = () => {
     const fetchCommunities = async () => {
       try {
         setLoading(true)
+        setError(null)
         console.log('fetching communities')
         console.log(user)
         const res = await axios.get(`${BACKEND_URL}/community`, {
@@ -202,8 +204,12 @@ const CommunityCard = () => {
       }
     }
 
+    if (loader || !isAuth) {
+      return
+    }
+
     fetchCommunities()
-  }, [user])
+  }, [user, loader, isAuth])
 
   useEffect(() => {
     const hash = location.hash?.substring(1)
@@ -259,6 +265,11 @@ const CommunityCard = () => {
   }
 
   const handleCreateCommunity = async (newCommunity) => {
+    if (role !== 'doctor') {
+      setError('Only doctors can create communities')
+      return
+    }
+
     try {
       const res = await axios.post(
         `${BACKEND_URL}/community/create`,
@@ -461,11 +472,17 @@ const CommunityCard = () => {
                 You've joined all available communities or there aren't any
                 communities yet.
               </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'>
-                Create Your Own
-              </button>
+              {role === 'doctor' ? (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'>
+                  Create Your Own
+                </button>
+              ) : (
+                <p className='text-sm text-gray-500'>
+                  Only doctors can create new communities.
+                </p>
+              )}
             </div>
           ) : (
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
@@ -552,7 +569,7 @@ const CommunityCard = () => {
         />
       )}
 
-      {showCreateModal && (
+      {showCreateModal && role === 'doctor' && (
         <CreateCommunityModal
           onClose={() => setShowCreateModal(false)}
           onCreate={handleCreateCommunity}

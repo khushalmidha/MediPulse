@@ -14,6 +14,8 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import DataUsagePolicy  from "./pages/DataUsagePolicy"
 import AiBot from "./components/AiBot";
+import AppointmentBooking from "./pages/AppointmentBooking";
+import DoctorAppointments from "./pages/DoctorAppointments";
 
 
 function App() {
@@ -30,6 +32,8 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/doctorsProfile/:id" element={<DoctorsProfile />} />
+        <Route path="/appointment/book/:doctorId" element={<AppointmentBooking />} />
+        <Route path="/doctor/appointments" element={<DoctorAppointments />} />
         <Route path="/communities" element={<CommunityForm />} />
         <Route path="/doctors" element={<Doctors />}/>
         <Route path="/about" element={<About />}/>

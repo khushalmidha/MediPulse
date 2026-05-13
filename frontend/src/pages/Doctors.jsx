@@ -249,7 +249,7 @@ const Doctors = () => {
                     
                     <div className="mt-6">
                       <Link
-                        to={`/doctorsprofile/${doctor._id}`}
+                        to={`/doctorsProfile/${doctor._id}`}
                         className="block w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-center rounded-md transition duration-200 font-medium"
                       >
                         View Profile

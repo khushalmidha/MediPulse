@@ -6,8 +6,14 @@ import User from "./model/user.js";
 import Doctor from "./model/doctor.js";
 import Message from "./model/message.js";
 import Community from "./model/community.js";
+import Appointment from "./model/appointment.js";
 
 configDotenv();
+let ioInstance = null;
+
+export function getIO() {
+  return ioInstance;
+}
 
 /**
  * Initialize Socket.IO on the given HTTP server.
@@ -18,6 +24,7 @@ export function initSocket(server) {
     cors: {
       origin: [
         "http://localhost:5173",
+        "http://127.0.0.1:5173",
         "https://medipulse-azure.vercel.app",
         "https://medipulse-git-main-lakshya0000s-projects.vercel.app",
         "https://medipulse-lakshya0000s-projects.vercel.app",
@@ -31,6 +38,7 @@ export function initSocket(server) {
       credentials: true,
     },
   });
+  ioInstance = io;
 
   // ── Authentication middleware ──────────────────────────────
   io.use(async (socket, next) => {
@@ -72,6 +80,7 @@ export function initSocket(server) {
   // ── Connection handler ────────────────────────────────────
   io.on("connection", (socket) => {
     console.log(`⚡ Socket connected: ${socket.user.firstName} (${socket.id})`);
+    socket.join(`${socket.user.role}:${socket.user._id}`);
 
     // ── Join a community room ─────────────────────────────
     socket.on("joinCommunity", (communityId) => {
@@ -133,6 +142,75 @@ export function initSocket(server) {
     socket.on("stopTyping", ({ communityId }) => {
       socket.to(communityId).emit("userStopTyping", {
         userId: socket.user._id,
+      });
+    });
+
+    socket.on("joinAppointmentRoom", async ({ appointmentId }, callback) => {
+      if (!appointmentId) {
+        if (callback) callback({ ok: false, message: "Appointment id is required" });
+        return;
+      }
+
+      const appointment = await Appointment.findById(appointmentId);
+      if (!appointment) {
+        if (callback) callback({ ok: false, message: "Appointment not found" });
+        return;
+      }
+
+      const doctorAccess =
+        socket.user.role === "doctor" &&
+        appointment.doctor.toString() === socket.user._id.toString();
+      const userAccess =
+        socket.user.role === "user" &&
+        appointment.user.toString() === socket.user._id.toString();
+
+      if (!doctorAccess && !userAccess) {
+        if (callback) callback({ ok: false, message: "Forbidden appointment access" });
+        return;
+      }
+
+      if (!["queued", "active"].includes(appointment.status)) {
+        if (callback) callback({ ok: false, message: "Appointment has already ended" });
+        return;
+      }
+
+      const roomName = `appointment:${appointmentId}`;
+      socket.join(roomName);
+      socket.to(roomName).emit("appointment:peer-joined", {
+        appointmentId,
+        peerId: socket.id,
+        peerRole: socket.user.role,
+      });
+
+      if (callback) callback({ ok: true });
+    });
+
+    socket.on("leaveAppointmentRoom", ({ appointmentId }) => {
+      if (!appointmentId) return;
+      socket.leave(`appointment:${appointmentId}`);
+    });
+
+    socket.on("appointment:offer", ({ appointmentId, sdp }) => {
+      if (!appointmentId || !sdp) return;
+      socket.to(`appointment:${appointmentId}`).emit("appointment:offer", {
+        appointmentId,
+        sdp,
+      });
+    });
+
+    socket.on("appointment:answer", ({ appointmentId, sdp }) => {
+      if (!appointmentId || !sdp) return;
+      socket.to(`appointment:${appointmentId}`).emit("appointment:answer", {
+        appointmentId,
+        sdp,
+      });
+    });
+
+    socket.on("appointment:ice-candidate", ({ appointmentId, candidate }) => {
+      if (!appointmentId || !candidate) return;
+      socket.to(`appointment:${appointmentId}`).emit("appointment:ice-candidate", {
+        appointmentId,
+        candidate,
       });
     });
 

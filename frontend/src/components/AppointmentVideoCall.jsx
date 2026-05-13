@@ -1,0 +1,176 @@
+import { useEffect, useRef, useState } from "react";
+import { getSocket } from "../socket";
+
+const rtcConfig = {
+  iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }],
+};
+
+const AppointmentVideoCall = ({ appointmentId }) => {
+  const peerConnectionRef = useRef(null);
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const [error, setError] = useState("");
+
+  const ensurePeerConnection = (socket) => {
+    if (peerConnectionRef.current) return peerConnectionRef.current;
+
+    const connection = new RTCPeerConnection(rtcConfig);
+    connection.onicecandidate = (event) => {
+      if (!event.candidate) return;
+      socket.emit("appointment:ice-candidate", {
+        appointmentId,
+        candidate: event.candidate,
+      });
+    };
+    connection.ontrack = (event) => {
+      const [stream] = event.streams;
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream;
+      }
+    };
+
+    const localStream = localStreamRef.current;
+    if (localStream) {
+      localStream.getTracks().forEach((track) => connection.addTrack(track, localStream));
+    }
+
+    peerConnectionRef.current = connection;
+    return connection;
+  };
+
+  const createOffer = async (socket) => {
+    const connection = ensurePeerConnection(socket);
+    const offer = await connection.createOffer();
+    await connection.setLocalDescription(offer);
+    socket.emit("appointment:offer", { appointmentId, sdp: offer });
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const socket = getSocket();
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const setupMedia = async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true,
+      });
+      if (!mounted) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      localStreamRef.current = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+    };
+
+    const onPeerJoined = async ({ appointmentId: incomingId }) => {
+      if (incomingId !== appointmentId) return;
+      await createOffer(socket);
+    };
+
+    const onOffer = async ({ appointmentId: incomingId, sdp }) => {
+      if (incomingId !== appointmentId) return;
+      const connection = ensurePeerConnection(socket);
+      await connection.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await connection.createAnswer();
+      await connection.setLocalDescription(answer);
+      socket.emit("appointment:answer", { appointmentId, sdp: answer });
+    };
+
+    const onAnswer = async ({ appointmentId: incomingId, sdp }) => {
+      if (incomingId !== appointmentId || !peerConnectionRef.current) return;
+      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+    };
+
+    const onIceCandidate = async ({ appointmentId: incomingId, candidate }) => {
+      if (incomingId !== appointmentId || !peerConnectionRef.current) return;
+      await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+    };
+
+    const onCallEnded = ({ appointmentId: incomingId }) => {
+      if (incomingId !== appointmentId) return;
+      const localStream = localStreamRef.current;
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
+      localStreamRef.current = null;
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+    };
+
+    socket.on("appointment:peer-joined", onPeerJoined);
+    socket.on("appointment:offer", onOffer);
+    socket.on("appointment:answer", onAnswer);
+    socket.on("appointment:ice-candidate", onIceCandidate);
+    socket.on("appointment:ended", onCallEnded);
+
+    setupMedia()
+      .then(() => {
+        socket.emit("joinAppointmentRoom", { appointmentId }, (response) => {
+          if (!response?.ok) {
+            setError(response?.message || "Unable to join appointment room");
+          }
+        });
+      })
+      .catch(() => {
+        setError("Camera or microphone permission is required for this call");
+      });
+
+    return () => {
+      mounted = false;
+      socket.emit("leaveAppointmentRoom", { appointmentId });
+      socket.off("appointment:peer-joined", onPeerJoined);
+      socket.off("appointment:offer", onOffer);
+      socket.off("appointment:answer", onAnswer);
+      socket.off("appointment:ice-candidate", onIceCandidate);
+      socket.off("appointment:ended", onCallEnded);
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+        localStreamRef.current = null;
+      }
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    };
+  }, [appointmentId]);
+
+  return (
+    <div className="space-y-3">
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
+          <video ref={remoteVideoRef} autoPlay playsInline className="h-60 w-full object-cover" />
+          <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">Remote video</div>
+        </div>
+        <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            muted
+            playsInline
+            className="h-60 w-full object-cover"
+          />
+          <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">Your video</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AppointmentVideoCall;
