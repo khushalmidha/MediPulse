@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import {
@@ -6,25 +6,22 @@ import {
   MapPin,
   Phone,
   Mail,
-  Clock,
-  Star,
-  Award,
   User,
-  Shield,
   Briefcase,
   Building,
   GraduationCap,
   ChevronLeft,
-  MessageSquare,
   CalendarPlus,
   X,
   Users,
 } from 'lucide-react'
 import { BACKEND_URL, MAPS_API } from '../utils'
+import { useAuth } from '../context/AuthContext'
 
 const DoctorsProfile = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { role } = useAuth()
   const [doctor, setDoctor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -235,7 +232,27 @@ const DoctorsProfile = () => {
                   )}
                 </div>
 
-                
+                <div className='flex flex-wrap gap-2'>
+                  {role === 'user' && (
+                    <button
+                      type='button'
+                      onClick={handleBookAppointment}
+                      className='inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700'>
+                      <CalendarPlus className='mr-2 h-4 w-4' />
+                      Book Appointment
+                    </button>
+                  )}
+                  {role === 'doctor' && (
+                    <button
+                      type='button'
+                      onClick={() => navigate('/doctor/appointments')}
+                      className='inline-flex items-center rounded-md border border-blue-600 px-4 py-2 text-blue-700 hover:bg-blue-50'>
+                      <CalendarPlus className='mr-2 h-4 w-4' />
+                      Open Appointment Queue
+                    </button>
+                  )}
+                </div>
+
               </div>
             </div>
           </div>

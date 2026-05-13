@@ -19,6 +19,8 @@ You can view the live application here: [MediPulse Live](https://medi-pulse-gamm
 - **Cloud-Ready:** Integrated with Azure services for scalability and reliability.
 - **User-Friendly Interface:** Designed with simplicity and ease of use in mind.
 - **Google Maps Integration:** Uses Google Maps API to fetch the location of clinics.
+- **Doctor Appointment Queue:** Users can book appointments and track pending queue count.
+- **5-Minute In-App Calls:** Doctors start appointments one by one and calls auto-end after 5 minutes.
 
 ## Tech Stack
 
@@ -27,6 +29,7 @@ You can view the live application here: [MediPulse Live](https://medi-pulse-gamm
 - **Deployment:** Hosted on Vercel
 - **Styling:** Tailwind CSS
 - **API Services:** Google Maps API for location fetching
+- **Realtime & Calling:** Socket.IO + WebRTC (browser-native; no paid video API key required for basic setup)
 
 Project Website: [MediPulse Live](https://medi-pulse-gamma.vercel.app/)
 

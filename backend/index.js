@@ -10,6 +10,7 @@ import cors from 'cors'
 import { createServer } from 'node:http'
 import eventRouter from './routes/event.js'
 import geminiRouter from './routes/gemini.js'
+import appointmentRouter from './routes/appointment.js'
 import { configDotenv } from 'dotenv'
 import { Verifier } from './controller/auth.js'
 import User from './model/user.js'
@@ -29,8 +30,6 @@ const io = initSocket(server)
 const defaultAllowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'http://localhost:5137',
-  'http://127.0.0.1:5137',
   'https://medipulse-azure.vercel.app',
   'https://medipulse-git-main-lakshya0000s-projects.vercel.app',
   'https://medipulse-lakshya0000s-projects.vercel.app',
@@ -64,6 +63,7 @@ app.use('/message', messageRouter)
 app.use('/ngo', ngoRouter)
 app.use('/event', eventRouter)
 app.use('/gemini', geminiRouter)
+app.use('/appointment', appointmentRouter)
 app.get('/verify', Verifier)
 app.get('/count', async (req, res) => {
   const users = await User.countDocuments()

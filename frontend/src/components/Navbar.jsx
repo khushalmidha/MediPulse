@@ -15,7 +15,7 @@ const Navbar = () => {
   const [showProfile, setShowProfile] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const navigate = useNavigate()
-  const { user, isAuth, setIsAuth, setUser } = useAuth()
+  const { user, isAuth, role, setIsAuth, setUser } = useAuth()
   
   // Reference to detect clicks outside dropdown menus
   const profileRef = useRef(null)
@@ -86,6 +86,14 @@ const Navbar = () => {
             >
               Doctors
             </NavLink>
+            {role === 'doctor' && (
+              <NavLink
+                to="/doctor/appointments"
+                className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+              >
+                Appointments
+              </NavLink>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -205,6 +213,19 @@ const Navbar = () => {
             >
               Doctors
             </NavLink>
+            {role === 'doctor' && (
+              <NavLink
+                to="/doctor/appointments"
+                onClick={() => setShowMobileMenu(false)}
+                className={({ isActive }) => 
+                  `block px-3 py-2 rounded-md ${isActive 
+                    ? 'bg-blue-50 text-blue-600 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'}`
+                }
+              >
+                Appointments
+              </NavLink>
+            )}
             
             {/* Mobile profile options */}
             {isAuth ? (

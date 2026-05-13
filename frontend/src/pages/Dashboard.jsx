@@ -1,11 +1,11 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import RecommendationCard from "../components/RecommendationCard";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import RecommendationDoctors from "../components/RecommendationDoctors";
 import { useAuth } from "../context/AuthContext";
 
 const Dashboard = () => {
-	const { isAuth, loader } = useAuth();
+	const { isAuth, loader, role } = useAuth();
 	const navigate = useNavigate();
 	console.log("Dashboard", isAuth);
 	useEffect(()=>{
@@ -40,6 +40,21 @@ const Dashboard = () => {
 			<div className="mb-10">
 				<RecommendationDoctors />
 			</div>
+
+			{role === "doctor" && (
+				<div className="rounded-lg border border-blue-200 bg-white p-5 shadow-sm">
+					<h3 className="text-lg font-semibold text-gray-900">Appointment Queue</h3>
+					<p className="mt-2 text-sm text-gray-600">
+						Start and manage booked appointments one by one from your doctor panel.
+					</p>
+					<Link
+						to="/doctor/appointments"
+						className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+					>
+						Open Doctor Queue
+					</Link>
+				</div>
+			)}
 		</div>
 	);
 };

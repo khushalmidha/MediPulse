@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { BACKEND_URL } from "../utils";
 
 const EditProfile = () => {
 	const navigate = useNavigate();
@@ -17,7 +18,7 @@ const EditProfile = () => {
 
 	useEffect(() => {
 		axios
-			.get("http://localhost:8080/user", { withCredentials: true }) // Adjust endpoint as needed
+			.get(`${BACKEND_URL}/user`, { withCredentials: true })
 			.then((response) => {
         if(!response.data.medical){
           response.data.medical = {};
@@ -54,7 +55,7 @@ const EditProfile = () => {
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		try {
-			await axios.put("http://localhost:8080/user/", formData, { withCredentials: true });
+			await axios.put(`${BACKEND_URL}/user/`, formData, { withCredentials: true });
 			alert("Profile updated successfully!");
 			navigate("/dashboard");
 		} catch (error) {

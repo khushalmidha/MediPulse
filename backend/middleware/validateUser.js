@@ -23,7 +23,7 @@ const userValidation = async (req, res, next) => {
 		if(!user){
 			return res.status(401).json({message:"Unauthorized"});
 		}
-
+		req.auth = { id: data.id, role: data.role };
     next();
 	});
 };
