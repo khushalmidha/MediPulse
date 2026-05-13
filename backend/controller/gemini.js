@@ -5,6 +5,30 @@ configDotenv();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+const buildGeminiModel = (type) => {
+  let systemInstruction = "";
+  if (type === "general") {
+    systemInstruction = `You are MediPulse AI, a healthcare assistant.
+Give short, concise answers only not too long.
+Try to be point wise not more than 2-3 points.
+Only respond to health-related queries or questions about MediPulse services.
+If asked about non-health topics, politely redirect the conversation to healthcare.
+Keep responses focused on medical information, health advice, and MediPulse platform features.
+Do not provide specific medical diagnoses but can offer general health information.`;
+  }
+
+  return genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    ...(systemInstruction && { systemInstruction }),
+  });
+};
+
+const generateGeminiText = async (prompt, type = "general") => {
+  const model = buildGeminiModel(type);
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+};
+
 /**
  * POST /gemini/chat
  * Body: { prompt: string, type: "general" | "doctor" | "community" }
@@ -16,25 +40,7 @@ const geminiChat = async (req, res) => {
       return res.status(400).json({ message: "Prompt is required" });
     }
 
-    let systemInstruction = "";
-    if (type === "general") {
-      systemInstruction = `You are MediPulse AI, a healthcare assistant.
-Give short, concise answers only not too long.
-Try to be point wise not more than 2-3 points.
-Only respond to health-related queries or questions about MediPulse services.
-If asked about non-health topics, politely redirect the conversation to healthcare.
-Keep responses focused on medical information, health advice, and MediPulse platform features.
-Do not provide specific medical diagnoses but can offer general health information.`;
-    }
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      ...(systemInstruction && { systemInstruction }),
-    });
-
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    const text = await generateGeminiText(prompt, type);
 
     return res.status(200).json({ text });
   } catch (error) {
@@ -46,4 +52,4 @@ Do not provide specific medical diagnoses but can offer general health informati
   }
 };
 
-export { geminiChat };
+export { geminiChat, generateGeminiText };

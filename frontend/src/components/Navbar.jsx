@@ -68,6 +68,14 @@ const Navbar = () => {
             >
               Dashboard
             </NavLink>
+            {role !== 'doctor' && (
+              <NavLink
+                to="/my-appointments"
+                className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+              >
+                My Appointments
+              </NavLink>
+            )}
             <NavLink
               to="/communities"
               className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
@@ -180,6 +188,19 @@ const Navbar = () => {
             >
               Dashboard
             </NavLink>
+            {role !== 'doctor' && (
+              <NavLink
+                to="/my-appointments"
+                onClick={() => setShowMobileMenu(false)}
+                className={({ isActive }) => 
+                  `block px-3 py-2 rounded-md ${isActive 
+                    ? 'bg-blue-50 text-blue-600 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'}`
+                }
+              >
+                My Appointments
+              </NavLink>
+            )}
             <NavLink
               to="/new"
               onClick={() => setShowMobileMenu(false)}
