@@ -6,6 +6,9 @@ import QRCode from "qrcode";
 import { BACKEND_URL } from "../utils";
 import { useAuth } from "../context/AuthContext";
 import AppointmentVideoCall from "../components/AppointmentVideoCall";
+import { getSocket } from "../socket";
+
+const APPOINTMENT_FEE_INR = Number(import.meta.env.VITE_APPOINTMENT_BOOKING_FEE_INR || 5);
 
 const AppointmentBooking = () => {
   const { doctorId } = useParams();
@@ -15,6 +18,8 @@ const AppointmentBooking = () => {
   const [status, setStatus] = useState(null);
   const [booking, setBooking] = useState(false);
   const [message, setMessage] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(true);
   const [appointmentHistory, setAppointmentHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -67,7 +72,7 @@ const AppointmentBooking = () => {
 
     if (previousStatus === "queued" && nextStatus === "active") {
       setApprovalPopup(true);
-      setMessage("Your appointment has been approved and is now active.");
+      setMessage("Your doctor has started the appointment.");
       fetchHistory().catch(() => {});
     }
 
@@ -81,30 +86,99 @@ const AppointmentBooking = () => {
 
   useEffect(() => {
     if (!isAuth || role !== "user") return;
+    const socket = getSocket();
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const handleUserStatus = (payload) => {
+      if (payload.doctorId !== doctorId) return;
+      setStatus((current) => ({
+        ...(current || {}),
+        pendingCount: payload.pendingCount,
+        myAppointment: {
+          ...(current?.myAppointment || {}),
+          _id: payload.appointmentId,
+          status: payload.status,
+          queuePosition: payload.queuePosition,
+          startedAt: payload.startedAt,
+          endsAt: payload.endsAt,
+        },
+      }));
+    };
+
+    const handleEnded = ({ appointmentId }) => {
+      setStatus((current) => {
+        if (current?.myAppointment?._id !== appointmentId) return current;
+        return { ...(current || {}), myAppointment: null };
+      });
+      fetchHistory().catch(() => {});
+    };
+
+    socket.on("appointment:user-status", handleUserStatus);
+    socket.on("appointment:ended", handleEnded);
+
     const interval = setInterval(() => {
       fetchStatus().catch(() => {});
     }, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      socket.off("appointment:user-status", handleUserStatus);
+      socket.off("appointment:ended", handleEnded);
+    };
   }, [doctorId, isAuth, role]);
 
-  const handleBook = async () => {
+  const handleSendOtp = async () => {
     setBooking(true);
     setMessage("");
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/appointment/book/${doctorId}`,
+        `${BACKEND_URL}/appointment/otp/send/${doctorId}`,
         {},
         { withCredentials: true },
       );
       setMessage(response.data.message);
+      setOtpSent(true);
+    } catch (error) {
+      setMessage(
+        error.response?.data?.message || "Unable to send OTP. Please try again",
+      );
+      await fetchStatus().catch(() => {});
+    } finally {
+      setBooking(false);
+    }
+  };
+
+  const handleVerifyOtpAndBook = async () => {
+    setBooking(true);
+    setMessage("");
+    try {
+      const otpResponse = await axios.post(
+        `${BACKEND_URL}/appointment/otp/verify/${doctorId}`,
+        { otp },
+        { withCredentials: true },
+      );
+      const verifiedToken = otpResponse.data.bookingToken;
+
+      const response = await axios.post(
+        `${BACKEND_URL}/appointment/book/${doctorId}`,
+        { bookingToken: verifiedToken },
+        { withCredentials: true },
+      );
+
+      setMessage(response.data.message);
+      setOtp("");
+      setOtpSent(false);
       await Promise.all([fetchStatus(), fetchHistory()]);
     } catch (error) {
       setMessage(
-        error.response?.data?.message || "Unable to book appointment. Please try again",
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to verify OTP or complete booking. Please try again",
       );
-      await fetchStatus();
+    } finally {
+      setBooking(false);
     }
-    setBooking(false);
   };
 
   const loadImageAsDataUrl = async (path) => {
@@ -276,18 +350,45 @@ const AppointmentBooking = () => {
             Current pending queue: <span className="font-semibold">{status?.pendingCount ?? 0}</span>
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 space-y-4">
+            {canBook && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+                <p className="text-sm font-medium text-blue-950">
+                  Verify your email before payment
+                </p>
+                <p className="mt-1 text-sm text-blue-800">
+                  After OTP verification, ₹{APPOINTMENT_FEE_INR} will be debited from your wallet and the doctor will receive an approval email.
+                </p>
+                {otpSent && (
+                  <div className="mt-3 max-w-xs">
+                    <label htmlFor="appointment-otp" className="text-sm font-medium text-gray-700">
+                      Email OTP
+                    </label>
+                    <input
+                      id="appointment-otp"
+                      value={otp}
+                      onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                      inputMode="numeric"
+                      placeholder="Enter 6 digit OTP"
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={handleBook}
+              onClick={otpSent ? handleVerifyOtpAndBook : handleSendOtp}
               disabled={!canBook || booking}
               className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
             >
-              {booking ? "Booking..." : "Book Appointment"}
+              {booking ? "Processing..." : otpSent ? `Verify OTP & Request Booking for ₹${APPOINTMENT_FEE_INR}` : "Send OTP"}
             </button>
             <Link to="/doctors" className="rounded-md border border-gray-300 px-4 py-2 text-gray-700">
               Back to doctors
             </Link>
+            </div>
           </div>
 
           {message && <p className="mt-3 text-sm text-blue-700">{message}</p>}
@@ -320,6 +421,22 @@ const AppointmentBooking = () => {
           </div>
         )}
 
+        {myAppointment?.status === "active" && (
+          <div className="rounded-xl bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Active Appointment</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Your doctor has started the consultation. The session auto-ends after 5 minutes.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <AppointmentVideoCall appointmentId={myAppointment._id} />
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
@@ -333,15 +450,25 @@ const AppointmentBooking = () => {
 
             {!myAppointment ? (
               <p className="mt-4 text-sm text-gray-500">No pending bookings yet.</p>
-            ) : myAppointment.status === "queued" ? (
+            ) : ["pending_approval", "queued"].includes(myAppointment.status) ? (
               <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p className="font-medium text-amber-900">Waiting for approval</p>
+                <p className="font-medium text-amber-900">
+                  {myAppointment.status === "pending_approval"
+                    ? "Waiting for your email approval"
+                    : "Waiting for doctor to start"}
+                </p>
                 <p className="text-sm text-amber-800">
                   Booked on {new Date(status?.myAppointment?.createdAt || Date.now()).toLocaleString()}
                 </p>
-                <p className="mt-2 text-sm text-amber-700">
-                  Position in queue: {myAppointment.queuePosition}
-                </p>
+                {myAppointment.status === "queued" ? (
+                  <p className="mt-2 text-sm text-amber-700">
+                    Position in queue: {myAppointment.queuePosition}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-amber-700">
+                    Check your email and approve the booking to join the doctor's queue.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">

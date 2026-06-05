@@ -576,9 +576,13 @@ const SignUp = () => {
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     setMessage("");
+    const data = userType === "user" ? patient : doctor;
+    if (!data.firstName?.trim()) {
+      setMessage("Please enter your first name before signing up.");
+      return;
+    }
     setIsLoading(true);
     try {
-      const data = userType === "user" ? patient : doctor;
       const res = await axios.post(
         `${BACKEND_URL}/${userType}/signup`, 
         data, 
@@ -608,6 +612,12 @@ const SignUp = () => {
       return;
     }
 
+    const profile = userType === "user" ? patient : doctor;
+    if (!profile.firstName?.trim()) {
+      setMessage("Please enter your first name before using Google signup.");
+      return;
+    }
+
     if (userType === "doctor" && (!doctor.years || !doctor.expertise)) {
       setMessage("Add your years of experience and expertise before using Google signup as a doctor");
       return;
@@ -615,7 +625,6 @@ const SignUp = () => {
 
     setIsLoading(true);
     try {
-      const profile = userType === "user" ? patient : doctor;
       const res = await axios.post(
         `${BACKEND_URL}/${userType}/google-auth`,
         { credential: response.credential, role: userType, profile },

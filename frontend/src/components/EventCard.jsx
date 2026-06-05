@@ -2,15 +2,19 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Shield } from "lucide-react";
+import { BACKEND_URL } from "../utils";
 
 const EventCard = () => {
   const [eventCount, setEventCount] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios.get("/api/events")
+    axios.get(`${BACKEND_URL}/event`, {
+      params: { status: "upcoming" },
+      withCredentials: true,
+    })
       .then((res) => {
-        const eventsThisWeek = res.data.filter(isThisWeek);
+        const eventsThisWeek = (res.data.events || []).filter(isThisWeek);
         setEventCount(eventsThisWeek.length);
       })
       .catch((err) => console.error("Error fetching events", err));
@@ -18,7 +22,7 @@ const EventCard = () => {
 
   // Helper function to check if an event is in the current week
   const isThisWeek = (event) => {
-    const eventDate = new Date(event.date);
+    const eventDate = new Date(event.time);
     const today = new Date();
     const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay())); // Start of week
     const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 6)); // End of week

@@ -1,4 +1,4 @@
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
 const MAPS_API = import.meta.env.VITE_GOOGLE_MAPS_API;
 const CLOUDINARY_API = import.meta.env.VITE_CLOUDINARY_API;
 
