@@ -136,7 +136,7 @@ const ProfileSelection = ({ setUserType }) => (
   </div>
 );
 
-const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail, password, setPassword, rememberMe, setRememberMe, loading, userType }) => (
+const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail, password, setPassword, rememberMe, setRememberMe, loading, userType, onForgotPassword }) => (
   <form className="space-y-6" onSubmit={handleSubmit}>
     {message && (
       <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start">
@@ -211,9 +211,13 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
         </label>
       </div>
       <div className="text-sm">
-        <a href="#" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
+        <button
+          type="button"
+          onClick={onForgotPassword}
+          className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+        >
           Forgot password?
-        </a>
+        </button>
       </div>
     </div>
     
@@ -235,11 +239,108 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
   </form>
 );
 
+const ForgotPasswordForm = ({
+  email,
+  setEmail,
+  otp,
+  setOtp,
+  newPassword,
+  setNewPassword,
+  message,
+  loading,
+  otpSent,
+  onSendOtp,
+  onResetPassword,
+  onBack,
+  userType,
+}) => (
+  <form className="space-y-5" onSubmit={otpSent ? onResetPassword : onSendOtp}>
+    {message && (
+      <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start">
+        <AlertCircle className="h-5 w-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-red-700">{message}</p>
+      </div>
+    )}
+
+    <div>
+      <label htmlFor="reset-email" className="block text-sm font-medium text-gray-700 mb-1">
+        Email address
+      </label>
+      <input
+        id="reset-email"
+        type="email"
+        required
+        value={email}
+        disabled={loading || otpSent}
+        onChange={(event) => setEmail(event.target.value)}
+        className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+        placeholder="you@example.com"
+      />
+    </div>
+
+    {otpSent && (
+      <>
+        <div>
+          <label htmlFor="reset-otp" className="block text-sm font-medium text-gray-700 mb-1">
+            Email OTP
+          </label>
+          <input
+            id="reset-otp"
+            inputMode="numeric"
+            required
+            value={otp}
+            disabled={loading}
+            onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+            className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            placeholder="Enter 6 digit OTP"
+          />
+        </div>
+        <div>
+          <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">
+            New password
+          </label>
+          <input
+            id="new-password"
+            type="password"
+            required
+            minLength={8}
+            value={newPassword}
+            disabled={loading}
+            onChange={(event) => setNewPassword(event.target.value)}
+            className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            placeholder="At least 8 characters"
+          />
+        </div>
+      </>
+    )}
+
+    <button
+      type="submit"
+      disabled={loading}
+      className={`w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white ${loading ? "cursor-not-allowed opacity-70" : "hover:bg-blue-700"}`}
+    >
+      {loading ? "Processing..." : otpSent ? "Reset password" : `Send OTP as ${userType === "user" ? "User" : "Doctor"}`}
+    </button>
+    <button
+      type="button"
+      onClick={onBack}
+      className="flex w-full items-center justify-center py-2 text-sm font-medium text-gray-600 hover:text-blue-600"
+    >
+      <ArrowLeft className="mr-2 h-4 w-4" />
+      Back to sign in
+    </button>
+  </form>
+);
+
 const Login = () => {
   const [userType, setUserType] = useState("select");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetOtpSent, setResetOtpSent] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
   const { isAuth, setIsAuth, setUser, setRole } = useAuth();
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -306,13 +407,54 @@ const Login = () => {
       }
     } catch (err) {
       console.error(err);
+      const backendUrlText = BACKEND_URL || "backend URL missing";
       setMessage(
         err.response?.data?.message ||
-          "Google sign in failed. Check backend URL, CORS allowed origins, and Render environment variables."
+          `Google sign in failed. Backend: ${backendUrlText}. ${err.message || "Please try again."}`
       );
     }
     setLoading(false);
   }, [rememberMe, userType, navigate, setIsAuth, setUser, setRole]);
+
+  const sendForgotPasswordOtp = useCallback(async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setLoading(true);
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/${userType}/forgot-password/send-otp`,
+        { email },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      setResetOtpSent(true);
+      setMessage(res.data.message || "OTP sent to your email");
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Unable to send OTP. Please try again.");
+    }
+    setLoading(false);
+  }, [email, userType]);
+
+  const resetPassword = useCallback(async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setLoading(true);
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/${userType}/forgot-password/reset`,
+        { email, otp: resetOtp, newPassword },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      setMessage(res.data.message || "Password reset successfully. Please sign in.");
+      setAuthMode("login");
+      setResetOtp("");
+      setResetOtpSent(false);
+      setNewPassword("");
+      setPassword("");
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Unable to reset password. Please try again.");
+    }
+    setLoading(false);
+  }, [email, newPassword, resetOtp, userType]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -334,6 +476,28 @@ const Login = () => {
         
         {userType === "select" ? (
           <ProfileSelection setUserType={setUserType} />
+        ) : authMode === "forgot" ? (
+          <ForgotPasswordForm
+            email={email}
+            setEmail={setEmail}
+            otp={resetOtp}
+            setOtp={setResetOtp}
+            newPassword={newPassword}
+            setNewPassword={setNewPassword}
+            message={message}
+            loading={loading}
+            otpSent={resetOtpSent}
+            onSendOtp={sendForgotPasswordOtp}
+            onResetPassword={resetPassword}
+            onBack={() => {
+              setAuthMode("login");
+              setMessage("");
+              setResetOtp("");
+              setResetOtpSent(false);
+              setNewPassword("");
+            }}
+            userType={userType}
+          />
         ) : (
           <>
             <LoginForm 
@@ -348,10 +512,18 @@ const Login = () => {
               handleGoogleSignin={handleGoogleSignin}
               loading={loading}
               userType={userType}
+              onForgotPassword={() => {
+                setAuthMode("forgot");
+                setMessage("");
+              }}
             />
             
             <button
-              onClick={() => setUserType("select")}
+              onClick={() => {
+                setUserType("select");
+                setAuthMode("login");
+                setMessage("");
+              }}
               className="mt-6 flex items-center justify-center w-full text-sm text-gray-600 hover:text-blue-600 py-2 transition-colors font-medium"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />

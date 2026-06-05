@@ -20,20 +20,36 @@ export function getIO() {
  * Returns the io instance so it can be used elsewhere if needed.
  */
 export function initSocket(server) {
+  const defaultAllowedOrigins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://medipulse-azure.vercel.app",
+    "https://medipulse-git-main-lakshya0000s-projects.vercel.app",
+    "https://medipulse-lakshya0000s-projects.vercel.app",
+    "https://medipulse-dsk1.onrender.com",
+    "https://medi-pulse-three.vercel.app",
+    "https://medi-pulse-gamma.vercel.app",
+    "https://medi-pulse-khushalmidhas-projects.vercel.app",
+    "https://medi-pulse-git-main-khushalmidhas-projects.vercel.app",
+  ];
+  const envAllowedOrigins = (process.env.CLIENT_URLS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
+  const isAllowedOrigin = (origin) =>
+    !origin ||
+    allowedOrigins.includes(origin) ||
+    /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+
   const io = new Server(server, {
     cors: {
-      origin: [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://medipulse-azure.vercel.app",
-        "https://medipulse-git-main-lakshya0000s-projects.vercel.app",
-        "https://medipulse-lakshya0000s-projects.vercel.app",
-        "https://medipulse-dsk1.onrender.com",
-        "https://medi-pulse-three.vercel.app",
-        "https://medi-pulse-gamma.vercel.app",
-        "https://medi-pulse-khushalmidhas-projects.vercel.app",
-        "https://medi-pulse-git-main-khushalmidhas-projects.vercel.app",
-      ],
+      origin(origin, callback) {
+        if (isAllowedOrigin(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error(`Socket CORS blocked origin: ${origin}`));
+      },
       methods: ["GET", "POST"],
       credentials: true,
     },

@@ -203,6 +203,19 @@ const MyAppointments = () => {
     }
   }
 
+  const requestRefund = async (appointment) => {
+    try {
+      await axios.post(
+        `${backendUrl}/appointment/${appointment._id}/refund`,
+        { reason: 'patient-requested-refund' },
+        { withCredentials: true },
+      )
+      await fetchAllAppointments()
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to request refund')
+    }
+  }
+
   const filteredAppointments = appointments.filter((apt) => {
     if (activeTab === 'all') return true
     return apt.status === activeTab
@@ -353,6 +366,15 @@ const MyAppointments = () => {
                     >
                       <Download className="w-4 h-4" />
                       <span>Download Receipt</span>
+                    </button>
+                  )}
+                  {appointment.status === 'queued' && appointment.payment?.paymentId && !appointment.payment?.refundedAt && (
+                    <button
+                      onClick={() => requestRefund(appointment)}
+                      className="w-full flex items-center justify-center space-x-2 border border-red-300 text-red-700 px-4 py-2 rounded-md hover:bg-red-50 transition-colors text-sm font-medium mt-3"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      <span>Request Refund</span>
                     </button>
                   )}
                 </div>

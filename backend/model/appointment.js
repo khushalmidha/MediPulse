@@ -20,8 +20,8 @@ const appointmentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["queued", "active", "completed", "cancelled"],
-      default: "queued",
+      enum: ["pending_approval", "queued", "active", "completed", "cancelled"],
+      default: "pending_approval",
       index: true,
     },
     startedAt: {
@@ -36,7 +36,7 @@ const appointmentSchema = new mongoose.Schema(
     },
     endedReason: {
       type: String,
-      enum: ["doctor-ended", "auto-timeout"],
+      enum: ["doctor-ended", "auto-timeout", "refunded", "cancelled"],
     },
     doctorNotes: {
       type: String,
@@ -49,10 +49,53 @@ const appointmentSchema = new mongoose.Schema(
     receiptGeneratedAt: {
       type: Date,
     },
+    voiceConsentRecorded: {
+      type: Boolean,
+      default: false,
+    },
+    voiceConsentTimestamp: {
+      type: Date,
+    },
+    voiceConsentKeywords: {
+      type: [String],
+      default: [],
+    },
+    payment: {
+      provider: {
+        type: String,
+        enum: ["razorpay", "upi", "wallet"],
+      },
+      orderId: {
+        type: String,
+      },
+      paymentId: {
+        type: String,
+      },
+      amount: {
+        type: Number,
+      },
+      currency: {
+        type: String,
+      },
+      paidAt: {
+        type: Date,
+      },
+      refundId: {
+        type: String,
+      },
+      refundedAt: {
+        type: Date,
+      },
+    },
   },
   {
     timestamps: true,
   },
+);
+
+appointmentSchema.index(
+  { "payment.orderId": 1 },
+  { unique: true, sparse: true },
 );
 
 const Appointment = mongoose.model("appointment", appointmentSchema);

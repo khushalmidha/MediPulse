@@ -10,12 +10,18 @@ import { useAuth } from '../context/AuthContext'
 import Cookies from 'js-cookie'
 import React from 'react'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
+import axios from 'axios'
+import { BACKEND_URL } from '../utils'
 
 const Navbar = () => {
   const [showProfile, setShowProfile] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [walletBalance, setWalletBalance] = useState(null)
+  const [walletError, setWalletError] = useState('')
   const navigate = useNavigate()
   const { user, isAuth, role, setIsAuth, setUser } = useAuth()
+  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Profile'
+  const initials = `${user?.firstName?.trim()?.[0] || 'M'}${user?.lastName?.trim()?.[0] || ''}`.toUpperCase()
   
   // Reference to detect clicks outside dropdown menus
   const profileRef = useRef(null)
@@ -36,6 +42,32 @@ const Navbar = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (!showProfile || !isAuth) return
+    let ignore = false
+
+    const fetchWallet = async () => {
+      setWalletError('')
+      try {
+        const res = await axios.get(`${BACKEND_URL}/vpay/wallet/dashboard`, {
+          withCredentials: true,
+        })
+        if (!ignore) {
+          setWalletBalance(Number(res.data?.wallet?.balance || 0))
+        }
+      } catch (error) {
+        if (!ignore) {
+          setWalletError(error.response?.data?.message || 'Balance unavailable')
+        }
+      }
+    }
+
+    fetchWallet()
+    return () => {
+      ignore = true
+    }
+  }, [showProfile, isAuth])
 
   // Active link style
   const activeStyle = "text-blue-600 font-medium border-b-2 border-blue-600 pb-1"
@@ -81,6 +113,12 @@ const Navbar = () => {
               className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
             >
               Communities
+            </NavLink>
+            <NavLink
+              to="/events"
+              className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+            >
+              Events
             </NavLink>
             <NavLink
               to="/chat"
@@ -131,11 +169,28 @@ const Navbar = () => {
                     <CircleUserRound className="size-10 text-blue-600 bg-blue-100 p-0.5 border rounded-full" />
                   </button>
                   <span className="text-gray-700 hidden lg:inline-block">
-                    {user?.firstName + " " + user?.lastName}
+                    {displayName}
                   </span>
                 </div>
                 {showProfile && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden z-50">
+                  <div className="absolute right-0 mt-2 w-72 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg z-50">
+                    <div className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-base font-bold text-white">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-gray-900">{displayName}</p>
+                          <p className="truncate text-sm text-gray-500">{user?.email || 'Email not available'}</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-3">
+                        <p className="text-xs text-gray-500">Wallet Balance</p>
+                        <p className="mt-1 text-xl font-bold text-gray-900">
+                          {walletError ? walletError : walletBalance === null ? 'Loading...' : `INR ${walletBalance.toFixed(2)}`}
+                        </p>
+                      </div>
+                    </div>
                     <button
                       onClick={() => {
                         setIsAuth(false)
@@ -145,7 +200,7 @@ const Navbar = () => {
                         Cookies.remove('id')
                         navigate('/')
                       }}
-                      className="flex items-center w-full px-4 py-2 text-left text-red-500 hover:bg-gray-100"
+                      className="flex items-center w-full border-t border-gray-100 px-4 py-3 text-left text-red-500 hover:bg-gray-100"
                     >
                       <LogOut className="w-4 h-4 mr-2" />
                       Log out
@@ -202,7 +257,7 @@ const Navbar = () => {
               </NavLink>
             )}
             <NavLink
-              to="/new"
+              to="/communities"
               onClick={() => setShowMobileMenu(false)}
               className={({ isActive }) => 
                 `block px-3 py-2 rounded-md ${isActive 
@@ -211,6 +266,17 @@ const Navbar = () => {
               }
             >
               Communities
+            </NavLink>
+            <NavLink
+              to="/events"
+              onClick={() => setShowMobileMenu(false)}
+              className={({ isActive }) => 
+                `block px-3 py-2 rounded-md ${isActive 
+                  ? 'bg-blue-50 text-blue-600 font-medium' 
+                  : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'}`
+              }
+            >
+              Events
             </NavLink>
             <NavLink
               to="/chat"
@@ -255,7 +321,7 @@ const Navbar = () => {
                   <div className="px-3 py-2 flex items-center">
                     <CircleUserRound className="size-8 text-blue-600 bg-blue-100 p-0.5 border rounded-full mr-2" />
                     <span className="text-gray-700 font-medium">
-                      {user?.firstName + " " + user?.lastName}
+                      {displayName}
                     </span>
                   </div>
                   <button

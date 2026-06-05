@@ -5,12 +5,18 @@ const rtcConfig = {
   iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }],
 };
 
-const AppointmentVideoCall = ({ appointmentId }) => {
+const CONSENT_KEYWORDS = ["yes", "i consent", "i agree", "agree", "consent", "i do"];
+
+const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
   const peerConnectionRef = useRef(null);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const [error, setError] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [consentStatus, setConsentStatus] = useState(null);
 
   const ensurePeerConnection = (socket) => {
     if (peerConnectionRef.current) return peerConnectionRef.current;
@@ -39,11 +45,85 @@ const AppointmentVideoCall = ({ appointmentId }) => {
     return connection;
   };
 
+  const startVoiceRecording = () => {
+    if (!localStreamRef.current) return;
+    
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const analyser = audioContext.createAnalyser();
+      const microphone = audioContext.createMediaStreamSource(localStreamRef.current);
+      const scriptProcessor = audioContext.createScriptProcessor(2048, 1, 1);
+      
+      analyser.smoothingTimeConstant = 0.8;
+      analyser.fftSize = 1024;
+      
+      microphone.connect(analyser);
+      analyser.connect(scriptProcessor);
+      scriptProcessor.connect(audioContext.destination);
+      
+      const buffer = new Uint8Array(analyser.frequencyBinCount);
+      
+      scriptProcessor.onaudioprocess = () => {
+        analyser.getByteFrequencyData(buffer);
+        const average = buffer.reduce((a, b) => a + b) / buffer.length;
+        
+        if (average > 30) {
+          detectVoiceConsent();
+        }
+      };
+      
+      setIsRecording(true);
+      
+      return () => {
+        scriptProcessor.disconnect();
+        analyser.disconnect();
+        microphone.disconnect();
+      };
+    } catch (err) {
+      console.error("Voice recording setup error:", err);
+    }
+  };
+
+  const detectVoiceConsent = async () => {
+    if (consentStatus === "detected") return;
+    
+    try {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase().trim();
+        const hasConsent = CONSENT_KEYWORDS.some(keyword => transcript.includes(keyword));
+        
+        if (hasConsent) {
+          setConsentStatus("detected");
+          if (onConsentDetected) {
+            onConsentDetected({
+              detected: true,
+              keywords: transcript.split(" "),
+              timestamp: new Date(),
+            });
+          }
+        }
+      };
+      
+      recognition.onerror = () => {
+        // Silent error handling for consent detection
+      };
+      
+      recognition.start();
+    } catch (err) {
+      console.error("Voice recognition error:", err);
+    }
+  };
+
   const createOffer = async (socket) => {
     const connection = ensurePeerConnection(socket);
     const offer = await connection.createOffer();
     await connection.setLocalDescription(offer);
     socket.emit("appointment:offer", { appointmentId, sdp: offer });
+    startVoiceRecording();
   };
 
   useEffect(() => {

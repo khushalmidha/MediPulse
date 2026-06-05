@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../utils";
 import { useAuth } from "../context/AuthContext";
 import AppointmentVideoCall from "../components/AppointmentVideoCall";
+import { getSocket } from "../socket";
 
 const DoctorAppointments = () => {
   const navigate = useNavigate();
@@ -16,6 +17,8 @@ const DoctorAppointments = () => {
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
   const [doctorNotes, setDoctorNotes] = useState("");
+  const [voiceConsent, setVoiceConsent] = useState(null);
+  const [showConsentPrompt, setShowConsentPrompt] = useState(false);
 
   useEffect(() => {
     setDoctorNotes(queueData.activeAppointment?.doctorNotes || "");
@@ -46,10 +49,30 @@ const DoctorAppointments = () => {
 
   useEffect(() => {
     if (!isAuth || role !== "doctor") return;
+    const socket = getSocket();
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const handleQueueUpdated = (payload) => {
+      setQueueData(payload);
+    };
+
+    const handleAppointmentEnded = () => {
+      fetchQueue().catch(() => {});
+    };
+
+    socket.on("appointment:queue-updated", handleQueueUpdated);
+    socket.on("appointment:ended", handleAppointmentEnded);
+
     const interval = setInterval(() => {
       fetchQueue().catch(() => {});
     }, 4000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      socket.off("appointment:queue-updated", handleQueueUpdated);
+      socket.off("appointment:ended", handleAppointmentEnded);
+    };
   }, [isAuth, role]);
 
   const startAppointment = async (appointmentId) => {
@@ -84,6 +107,21 @@ const DoctorAppointments = () => {
     }
   };
 
+  const refundAppointment = async (appointmentId) => {
+    setActionMessage("");
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/appointment/${appointmentId}/refund`,
+        { reason: "doctor-requested-refund" },
+        { withCredentials: true },
+      );
+      setActionMessage(response.data.message);
+      await fetchQueue();
+    } catch (error) {
+      setActionMessage(error.response?.data?.message || "Could not process refund");
+    }
+  };
+
   const saveDoctorNotes = async (appointmentId) => {
     setActionMessage("");
     try {
@@ -104,7 +142,12 @@ const DoctorAppointments = () => {
     try {
       const response = await axios.post(
         `${BACKEND_URL}/appointment/${appointmentId}/receipt`,
-        { doctorNotes },
+        { 
+          doctorNotes,
+          voiceConsentRecorded: voiceConsent?.detected || false,
+          voiceConsentKeywords: voiceConsent?.keywords || [],
+          voiceConsentTimestamp: voiceConsent?.timestamp || null,
+        },
         { withCredentials: true },
       );
       setDoctorNotes(response.data.doctorNotes || "");
@@ -113,6 +156,11 @@ const DoctorAppointments = () => {
     } catch (error) {
       setActionMessage(error.response?.data?.message || "Could not generate receipt");
     }
+  };
+
+  const handleVoiceConsentDetected = (consentData) => {
+    setVoiceConsent(consentData);
+    setActionMessage("✓ Voice consent detected successfully!");
   };
 
   if (loading) {
@@ -154,7 +202,15 @@ const DoctorAppointments = () => {
             </p>
             <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
               <div>
-                <AppointmentVideoCall appointmentId={queueData.activeAppointment._id} />
+                <AppointmentVideoCall
+                  appointmentId={queueData.activeAppointment._id}
+                  onConsentDetected={handleVoiceConsentDetected}
+                />
+                {voiceConsent?.detected && (
+                  <p className="mt-2 text-sm text-green-700">
+                    Voice consent recorded for this appointment.
+                  </p>
+                )}
               </div>
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <h3 className="text-sm font-semibold text-gray-900">Doctor Notes</h3>
@@ -212,14 +268,23 @@ const DoctorAppointments = () => {
                       Booked at {new Date(appointment.createdAt).toLocaleTimeString()}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => startAppointment(appointment._id)}
-                    disabled={index !== 0 || Boolean(queueData.activeAppointment)}
-                    className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
-                  >
-                    Start Appointment
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => refundAppointment(appointment._id)}
+                      className="rounded-md border border-red-300 px-4 py-2 text-red-700 hover:bg-red-50"
+                    >
+                      Refund
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startAppointment(appointment._id)}
+                      disabled={index !== 0 || Boolean(queueData.activeAppointment)}
+                      className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+                    >
+                      Start Appointment
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
