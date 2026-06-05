@@ -1,27 +1,129 @@
 # MediPulse
 
-MediPulse is a full-stack healthcare web application built to connect patients, doctors, and health-focused communities through one smooth digital experience. The platform helps users discover doctors, join support communities, attend community events, book consultations, and communicate in real time.
+**MediPulse** is a full-stack healthcare platform for patients, doctors, and health communities. It brings doctor discovery, appointment booking, real-time consultations, community support, events, wallet payments, refunds, and AI guidance into one connected web app.
 
-## Key Features
+---
 
-- **Authentication:** Secure user and doctor login/signup with JWT cookies, password reset OTP, and Google authentication.
-- **Doctor Discovery:** Patients can browse doctors, view detailed profiles, clinic information, expertise, and start appointment booking.
-- **Appointment Booking:** Email OTP verification, wallet-based booking fee debit, email approval/cancellation links, queue placement after approval, doctor-controlled meeting start, appointment history, refunds, and downloadable receipts.
-- **Live Consultation:** Real-time appointment rooms use Socket.IO and WebRTC-style signaling so calls begin only when the doctor starts the appointment.
-- **Virtual Wallet:** Every user receives a starting wallet balance, booking deducts a small fee, cancellations refund the amount, and profile popover shows name, email, initials, role, and balance.
-- **Communities:** Users and doctors can join communities, chat in real time, and participate in health support groups.
-- **Events:** Doctors can create community events, while users see upcoming events from communities they have joined directly on the dashboard.
-- **AI Assistance:** Gemini-powered recommendations and chat support help users explore doctors, communities, and general health guidance.
-- **Admin/Payment Tools:** Virtual payment ledgers, transactions, refunds, notifications, analytics-ready events, and admin wallet controls are included.
+## What MediPulse Does
 
-## Tech Stack
+MediPulse is designed for a practical healthcare workflow:
 
-**Frontend:** React, Vite, React Router, Tailwind CSS, Axios, Socket.IO Client, Lucide React, jsPDF, Google Identity Services, and responsive UI components.
+- Patients can find doctors and book consultations.
+- Doctors can manage appointment queues and start meetings.
+- Users can join health communities and chat in real time.
+- Community events appear on dashboards for joined members.
+- Wallet balance, booking debit, cancellation, and refunds are handled virtually.
+- AI support helps users explore doctors, communities, and health guidance.
 
-**Backend:** Node.js, Express, MongoDB, Mongoose, JWT, cookie-based auth, Nodemailer, Socket.IO, Redis-compatible caching and locks, Kafka-ready event publishing, Razorpay support, Google Auth Library, and Gemini AI.
+---
 
-**Infrastructure:** Dockerfiles, Docker Compose, environment-based configuration, virtual gateway scripts, and deployable frontend/backend separation.
+## Core Features
+
+### Authentication
+
+- User and doctor signup/login
+- JWT cookie-based sessions
+- Google sign-in and signup
+- Forgot password with email OTP
+- Role-based access for users, doctors, and admins
+
+### Doctor Discovery
+
+- Browse doctor listings
+- View doctor profile details
+- See expertise, clinic data, and contact information
+- Start appointment booking directly from a doctor profile
+
+### Appointment Booking
+
+- Email OTP verification before booking
+- Virtual wallet booking fee debit
+- Email approval and cancellation links
+- Approved appointments move into the doctor queue
+- Meeting starts only when the doctor clicks **Start**
+- Appointment history for patients
+- Doctor notes and generated receipts
+- Refund flow for cancelled bookings
+
+### Live Consultation
+
+- Real-time appointment rooms
+- Socket.IO event updates
+- WebRTC-style signaling for video call setup
+- Doctor-controlled start and end flow
+- Auto session timeout support
+
+### Virtual Wallet
+
+- New users receive an initial wallet balance
+- Booking deducts appointment fee
+- Cancellation refunds money to the user wallet
+- Profile popover shows initials, name, email, role, and balance
+- Transaction, refund, notification, and admin wallet tools
+
+### Communities and Events
+
+- Join and leave health communities
+- Real-time community chat
+- Doctors can create communities
+- Doctors can publish community events
+- Dashboard shows upcoming events from joined communities
+
+### AI Assistance
+
+- Gemini-powered recommendations
+- AI chat support
+- Doctor and community discovery assistance
+- General health guidance prompts
+
+---
+
+## Technology Stack
+
+### Frontend
+
+- React
+- Vite
+- React Router
+- Tailwind CSS
+- Axios
+- Socket.IO Client
+- Lucide React
+- jsPDF
+- Google Identity Services
+
+### Backend
+
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JWT authentication
+- Cookie-based sessions
+- Nodemailer
+- Socket.IO
+- Google Auth Library
+- Gemini AI SDK
+- Razorpay integration support
+
+### Wallet, Queue, and Events
+
+- Redis-compatible caching
+- Redis-style locks for wallet safety
+- Kafka-ready virtual payment events
+- Payment, refund, wallet, notification, and analytics event topics
+- Virtual ledger for wallet transactions
+
+### DevOps and Deployment
+
+- Dockerfiles for frontend and backend
+- Docker Compose setup
+- Environment-based configuration
+- Separate frontend and backend services
+- Deployment-ready structure for cloud hosting
+
+---
 
 ## Project Goal
 
-MediPulse focuses on fast access to doctors, trusted community support, transparent appointment flow, and a practical healthcare experience that feels simple for patients and manageable for doctors.
+MediPulse focuses on making healthcare access faster, clearer, and more organized. It gives patients a simple path to book doctors, gives doctors a controlled appointment queue, and gives communities a shared space for support, events, and communication.
