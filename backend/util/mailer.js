@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 
 const requiredMailConfig = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"];
+const RESEND_API_URL = "https://api.resend.com/emails";
 
 const getTransporter = () => {
   const missing = requiredMailConfig.filter((key) => !process.env[key]);
@@ -39,7 +40,50 @@ const getTransporter = () => {
   });
 };
 
+const sendWithResend = async ({ from, to, subject, text, html }) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(RESEND_API_URL, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        text,
+        html,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.message || `Resend email failed with status ${response.status}`);
+    }
+
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const sendMail = async (mailOptions) => {
+  if (process.env.RESEND_API_KEY) {
+    try {
+      return await sendWithResend(mailOptions);
+    } catch (error) {
+      if (error.name === "AbortError") {
+        throw new Error("Resend email request timed out");
+      }
+      throw error;
+    }
+  }
+
   const transporter = getTransporter();
 
   try {
