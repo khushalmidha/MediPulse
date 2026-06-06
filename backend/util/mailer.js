@@ -44,10 +44,10 @@ const getTransporter = async () => {
     };
   }
 
-  await resolveSmtpHost();
+  const smtpHost = await resolveSmtpHost();
 
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: smtpHost,
     port: Number(process.env.SMTP_PORT),
     secure: process.env.SMTP_SECURE === "true",
     family: 4,
