@@ -1,8 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { getSocket } from "../socket";
 
+const getIceServers = () => {
+  const servers = [
+    { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+  ];
+  const turnUrls = (import.meta.env.VITE_TURN_URLS || "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+
+  if (turnUrls.length) {
+    servers.push({
+      urls: turnUrls,
+      username: import.meta.env.VITE_TURN_USERNAME || undefined,
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || undefined,
+    });
+  }
+
+  return servers;
+};
+
 const rtcConfig = {
-  iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }],
+  iceServers: getIceServers(),
 };
 
 const CONSENT_KEYWORDS = ["yes", "i consent", "i agree", "agree", "consent", "i do"];
@@ -12,11 +32,27 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+  const pendingIceCandidatesRef = useRef([]);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const [error, setError] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [consentStatus, setConsentStatus] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState("Waiting for the other participant");
+
+  const flushPendingIceCandidates = async (connection) => {
+    if (!connection.remoteDescription) return;
+
+    const candidates = pendingIceCandidatesRef.current.splice(0);
+    for (const candidate of candidates) {
+      try {
+        await connection.addIceCandidate(candidate);
+      } catch (err) {
+        console.error("Failed to add queued ICE candidate:", err);
+      }
+    }
+  };
 
   const ensurePeerConnection = (socket) => {
     if (peerConnectionRef.current) return peerConnectionRef.current;
@@ -30,9 +66,24 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
       });
     };
     connection.ontrack = (event) => {
-      const [stream] = event.streams;
+      const stream = event.streams?.[0] || remoteStreamRef.current || new MediaStream();
+      if (!event.streams?.[0]) {
+        stream.addTrack(event.track);
+      }
+      remoteStreamRef.current = stream;
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = stream;
+        remoteVideoRef.current.play().catch(() => {});
+      }
+      setConnectionStatus("Remote video connected");
+    };
+    connection.onconnectionstatechange = () => {
+      const state = connection.connectionState;
+      if (state === "connected") setConnectionStatus("Connected");
+      if (state === "connecting") setConnectionStatus("Connecting video");
+      if (state === "disconnected") setConnectionStatus("Reconnecting video");
+      if (state === "failed") {
+        setConnectionStatus("Video connection failed. A TURN server may be required.");
       }
     };
 
@@ -120,6 +171,7 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
 
   const createOffer = async (socket) => {
     const connection = ensurePeerConnection(socket);
+    if (connection.signalingState !== "stable") return;
     const offer = await connection.createOffer();
     await connection.setLocalDescription(offer);
     socket.emit("appointment:offer", { appointmentId, sdp: offer });
@@ -157,6 +209,7 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
       if (incomingId !== appointmentId) return;
       const connection = ensurePeerConnection(socket);
       await connection.setRemoteDescription(new RTCSessionDescription(sdp));
+      await flushPendingIceCandidates(connection);
       const answer = await connection.createAnswer();
       await connection.setLocalDescription(answer);
       socket.emit("appointment:answer", { appointmentId, sdp: answer });
@@ -165,11 +218,21 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
     const onAnswer = async ({ appointmentId: incomingId, sdp }) => {
       if (incomingId !== appointmentId || !peerConnectionRef.current) return;
       await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+      await flushPendingIceCandidates(peerConnectionRef.current);
     };
 
     const onIceCandidate = async ({ appointmentId: incomingId, candidate }) => {
       if (incomingId !== appointmentId || !peerConnectionRef.current) return;
-      await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      const iceCandidate = new RTCIceCandidate(candidate);
+      if (!peerConnectionRef.current.remoteDescription) {
+        pendingIceCandidatesRef.current.push(iceCandidate);
+        return;
+      }
+      try {
+        await peerConnectionRef.current.addIceCandidate(iceCandidate);
+      } catch (err) {
+        console.error("Failed to add ICE candidate:", err);
+      }
     };
 
     const onCallEnded = ({ appointmentId: incomingId }) => {
@@ -179,6 +242,8 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
         localStream.getTracks().forEach((track) => track.stop());
       }
       localStreamRef.current = null;
+      remoteStreamRef.current = null;
+      pendingIceCandidatesRef.current = [];
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       if (peerConnectionRef.current) {
@@ -221,6 +286,8 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
         localStreamRef.current = null;
       }
+      remoteStreamRef.current = null;
+      pendingIceCandidatesRef.current = [];
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
     };
@@ -236,7 +303,7 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
           <video ref={remoteVideoRef} autoPlay playsInline className="h-60 w-full object-cover" />
-          <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">Remote video</div>
+          <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">{connectionStatus}</div>
         </div>
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
           <video
