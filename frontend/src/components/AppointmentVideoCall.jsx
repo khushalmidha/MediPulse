@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getSocket } from "../socket";
 
-const getIceServers = () => {
+const getStaticIceServers = () => {
   const servers = [
     { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
   ];
@@ -21,8 +21,42 @@ const getIceServers = () => {
   return servers;
 };
 
-const rtcConfig = {
-  iceServers: getIceServers(),
+let meteredIceServersPromise = null;
+
+const fetchMeteredIceServers = async () => {
+  const meteredApp = import.meta.env.VITE_METERED_TURN_APP || "";
+  const meteredApiKey = import.meta.env.VITE_METERED_TURN_API_KEY || "";
+  const meteredUrl =
+    import.meta.env.VITE_METERED_TURN_URL ||
+    (meteredApp && meteredApiKey
+      ? `https://${meteredApp}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(meteredApiKey)}`
+      : "");
+
+  if (!meteredUrl) return null;
+
+  if (!meteredIceServersPromise) {
+    meteredIceServersPromise = fetch(meteredUrl)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Metered TURN request failed with status ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((iceServers) => (Array.isArray(iceServers) && iceServers.length ? iceServers : null))
+      .catch((err) => {
+        console.error("Metered TURN credentials error:", err);
+        return null;
+      });
+  }
+
+  return meteredIceServersPromise;
+};
+
+const getRtcConfig = async () => {
+  const meteredIceServers = await fetchMeteredIceServers();
+  return {
+    iceServers: meteredIceServers || getStaticIceServers(),
+  };
 };
 
 const CONSENT_KEYWORDS = ["yes", "i consent", "i agree", "agree", "consent", "i do"];
@@ -54,10 +88,10 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
     }
   };
 
-  const ensurePeerConnection = (socket) => {
+  const ensurePeerConnection = async (socket) => {
     if (peerConnectionRef.current) return peerConnectionRef.current;
 
-    const connection = new RTCPeerConnection(rtcConfig);
+    const connection = new RTCPeerConnection(await getRtcConfig());
     connection.onicecandidate = (event) => {
       if (!event.candidate) return;
       socket.emit("appointment:ice-candidate", {
@@ -170,7 +204,7 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
   };
 
   const createOffer = async (socket) => {
-    const connection = ensurePeerConnection(socket);
+    const connection = await ensurePeerConnection(socket);
     if (connection.signalingState !== "stable") return;
     const offer = await connection.createOffer();
     await connection.setLocalDescription(offer);
@@ -207,7 +241,7 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
 
     const onOffer = async ({ appointmentId: incomingId, sdp }) => {
       if (incomingId !== appointmentId) return;
-      const connection = ensurePeerConnection(socket);
+      const connection = await ensurePeerConnection(socket);
       await connection.setRemoteDescription(new RTCSessionDescription(sdp));
       await flushPendingIceCandidates(connection);
       const answer = await connection.createAnswer();
