@@ -4,6 +4,7 @@ import { lookup as lookupDns } from "node:dns/promises";
 
 const requiredMailConfig = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"];
 const RESEND_API_URL = "https://api.resend.com/emails";
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 const smtpConnectionErrorCodes = new Set(["ECONNECTION", "ESOCKET", "ETIMEDOUT", "ENETUNREACH", "ECONNREFUSED"]);
 
 dns.setDefaultResultOrder("ipv4first");
@@ -91,6 +92,11 @@ const getTransporter = async (smtpConfig = getSmtpConfigs()[0]) => {
 };
 
 const verifyMailTransport = async () => {
+  if (process.env.BREVO_API_KEY) {
+    console.log("Mail provider: Brevo API");
+    return;
+  }
+
   if (process.env.RESEND_API_KEY) {
     console.log("Mail provider: Resend API");
     return;
@@ -172,7 +178,68 @@ const sendWithResend = async ({ from, to, subject, text, html }) => {
   }
 };
 
+const parseMailFrom = (from) => {
+  const fallbackEmail = process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+  const match = String(from || "").match(/^(.*?)\s*<([^>]+)>$/);
+
+  if (match) {
+    return {
+      name: match[1].replace(/^"|"$/g, "").trim() || "MediPulse",
+      email: match[2].trim(),
+    };
+  }
+
+  return {
+    name: process.env.BREVO_SENDER_NAME || "MediPulse",
+    email: String(from || process.env.BREVO_SENDER_EMAIL || fallbackEmail || "").trim(),
+  };
+};
+
+const sendWithBrevo = async ({ from, to, subject, text, html }) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  const sender = parseMailFrom(process.env.BREVO_SENDER_EMAIL || from);
+
+  try {
+    const response = await fetch(BREVO_API_URL, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "api-key": process.env.BREVO_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sender,
+        to: (Array.isArray(to) ? to : [to]).map((email) => ({ email })),
+        subject,
+        textContent: text,
+        htmlContent: html,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.message || `Brevo email failed with status ${response.status}`);
+    }
+
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const sendMail = async (mailOptions) => {
+  if (process.env.BREVO_API_KEY) {
+    try {
+      return await sendWithBrevo(mailOptions);
+    } catch (error) {
+      if (error.name === "AbortError") {
+        throw new Error("Brevo email request timed out");
+      }
+      throw error;
+    }
+  }
+
   if (process.env.RESEND_API_KEY) {
     try {
       return await sendWithResend(mailOptions);
