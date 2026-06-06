@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import dns from "node:dns";
-import { lookup } from "node:dns/promises";
+import { lookup as lookupDns } from "node:dns/promises";
 
 const requiredMailConfig = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"];
 const RESEND_API_URL = "https://api.resend.com/emails";
@@ -12,8 +12,17 @@ const resolveSmtpHost = async () => {
     return process.env.SMTP_HOST;
   }
 
-  const { address } = await lookup(process.env.SMTP_HOST, { family: 4 });
+  const { address } = await lookupDns(process.env.SMTP_HOST, { family: 4 });
   return address;
+};
+
+const lookupSmtpHost = (hostname, options, callback) => {
+  if (process.env.SMTP_FORCE_IPV4 === "false") {
+    dns.lookup(hostname, options, callback);
+    return;
+  }
+
+  dns.lookup(hostname, { ...options, family: 4 }, callback);
 };
 
 const getTransporter = async () => {
@@ -35,19 +44,22 @@ const getTransporter = async () => {
     };
   }
 
-  const smtpHost = await resolveSmtpHost();
+  await resolveSmtpHost();
 
   return nodemailer.createTransport({
-    host: smtpHost,
+    host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
     secure: process.env.SMTP_SECURE === "true",
     family: 4,
+    lookup: lookupSmtpHost,
     connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 60000),
     greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 30000),
     socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 60000),
     tls: {
       servername: process.env.SMTP_HOST,
     },
+    logger: process.env.SMTP_DEBUG === "true",
+    debug: process.env.SMTP_DEBUG === "true",
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -68,6 +80,14 @@ const verifyMailTransport = async () => {
   }
 
   try {
+    const resolvedHost = await resolveSmtpHost().catch(() => null);
+    console.log("SMTP provider:", {
+      host: process.env.SMTP_HOST,
+      resolvedHost,
+      port: process.env.SMTP_PORT,
+      secure: process.env.SMTP_SECURE,
+      forceIpv4: process.env.SMTP_FORCE_IPV4 !== "false",
+    });
     const transporter = await getTransporter();
     await transporter.verify();
     console.log("SMTP Ready");
@@ -80,6 +100,8 @@ const verifyMailTransport = async () => {
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT,
       secure: process.env.SMTP_SECURE,
+      forceIpv4: process.env.SMTP_FORCE_IPV4 !== "false",
+      resolvedHost: await resolveSmtpHost().catch(() => null),
     });
   }
 };
