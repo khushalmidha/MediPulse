@@ -4,6 +4,7 @@ import { lookup as lookupDns } from "node:dns/promises";
 
 const requiredMailConfig = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"];
 const RESEND_API_URL = "https://api.resend.com/emails";
+const smtpConnectionErrorCodes = new Set(["ECONNECTION", "ESOCKET", "ETIMEDOUT", "ENETUNREACH", "ECONNREFUSED"]);
 
 dns.setDefaultResultOrder("ipv4first");
 
@@ -25,7 +26,29 @@ const lookupSmtpHost = (hostname, options, callback) => {
   dns.lookup(hostname, { ...options, family: 4 }, callback);
 };
 
-const getTransporter = async () => {
+const getSmtpConfigs = () => {
+  const primary = {
+    label: "primary",
+    port: Number(process.env.SMTP_PORT),
+    secure: process.env.SMTP_SECURE === "true",
+  };
+
+  const configs = [primary];
+  const isGmail = (process.env.SMTP_HOST || "").toLowerCase() === "smtp.gmail.com";
+
+  if (isGmail && primary.port !== 465) {
+    configs.push({ label: "gmail-ssl-fallback", port: 465, secure: true });
+  }
+
+  return configs;
+};
+
+const isSmtpConnectionError = (error) => {
+  const message = error?.message || "";
+  return smtpConnectionErrorCodes.has(error?.code) || /timeout|ENETUNREACH|ECONNREFUSED/i.test(message);
+};
+
+const getTransporter = async (smtpConfig = getSmtpConfigs()[0]) => {
   const missing = requiredMailConfig.filter((key) => !process.env[key]);
   if (missing.length) {
     if (process.env.NODE_ENV === "production") {
@@ -48,8 +71,8 @@ const getTransporter = async () => {
 
   return nodemailer.createTransport({
     host: smtpHost,
-    port: Number(process.env.SMTP_PORT),
-    secure: process.env.SMTP_SECURE === "true",
+    port: smtpConfig.port,
+    secure: smtpConfig.secure,
     family: 4,
     lookup: lookupSmtpHost,
     connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 60000),
@@ -79,30 +102,41 @@ const verifyMailTransport = async () => {
     return;
   }
 
-  try {
-    const resolvedHost = await resolveSmtpHost().catch(() => null);
-    console.log("SMTP provider:", {
-      host: process.env.SMTP_HOST,
-      resolvedHost,
-      port: process.env.SMTP_PORT,
-      secure: process.env.SMTP_SECURE,
-      forceIpv4: process.env.SMTP_FORCE_IPV4 !== "false",
-    });
-    const transporter = await getTransporter();
-    await transporter.verify();
-    console.log("SMTP Ready");
-  } catch (error) {
-    console.error("SMTP Error:", {
-      message: error.message,
-      code: error.code,
-      command: error.command,
-      responseCode: error.responseCode,
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      secure: process.env.SMTP_SECURE,
-      forceIpv4: process.env.SMTP_FORCE_IPV4 !== "false",
-      resolvedHost: await resolveSmtpHost().catch(() => null),
-    });
+  const configs = getSmtpConfigs();
+
+  for (const [index, smtpConfig] of configs.entries()) {
+    try {
+      const resolvedHost = await resolveSmtpHost().catch(() => null);
+      console.log("SMTP provider:", {
+        host: process.env.SMTP_HOST,
+        resolvedHost,
+        port: smtpConfig.port,
+        secure: smtpConfig.secure,
+        label: smtpConfig.label,
+        forceIpv4: process.env.SMTP_FORCE_IPV4 !== "false",
+      });
+      const transporter = await getTransporter(smtpConfig);
+      await transporter.verify();
+      console.log(`SMTP Ready (${smtpConfig.label})`);
+      return;
+    } catch (error) {
+      console.error("SMTP Error:", {
+        message: error.message,
+        code: error.code,
+        command: error.command,
+        responseCode: error.responseCode,
+        host: process.env.SMTP_HOST,
+        port: smtpConfig.port,
+        secure: smtpConfig.secure,
+        label: smtpConfig.label,
+        forceIpv4: process.env.SMTP_FORCE_IPV4 !== "false",
+        resolvedHost: await resolveSmtpHost().catch(() => null),
+      });
+
+      if (!isSmtpConnectionError(error) || index === configs.length - 1) {
+        return;
+      }
+    }
   }
 };
 
@@ -150,19 +184,35 @@ const sendMail = async (mailOptions) => {
     }
   }
 
-  const transporter = await getTransporter();
+  const configs = getSmtpConfigs();
+  let lastError;
 
-  try {
-    return await transporter.sendMail(mailOptions);
-  } catch (error) {
-    if (error?.code === "EAUTH" || /Username and Password not accepted/i.test(error?.message || "")) {
-      throw new Error(
-        "Gmail authentication failed. Use a Google App Password in SMTP_PASS, not your normal Gmail password.",
-      );
+  for (const [index, smtpConfig] of configs.entries()) {
+    const transporter = await getTransporter(smtpConfig);
+
+    try {
+      return await transporter.sendMail(mailOptions);
+    } catch (error) {
+      lastError = error;
+
+      if (error?.code === "EAUTH" || /Username and Password not accepted/i.test(error?.message || "")) {
+        throw new Error(
+          "Gmail authentication failed. Use a Google App Password in SMTP_PASS, not your normal Gmail password.",
+        );
+      }
+
+      if (!isSmtpConnectionError(error) || index === configs.length - 1) {
+        throw error;
+      }
+
+      console.warn(`SMTP send failed on ${smtpConfig.label}; trying next SMTP option.`, {
+        message: error.message,
+        code: error.code,
+      });
     }
-
-    throw error;
   }
+
+  throw lastError;
 };
 
 const sendAppointmentOtpMail = async ({ to, patientName, doctorName, otp }) => {
