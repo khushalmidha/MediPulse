@@ -27,9 +27,9 @@ const getTransporter = () => {
     port: Number(process.env.SMTP_PORT),
     secure: process.env.SMTP_SECURE === "true",
     family: 4,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 60000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 30000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 60000),
     tls: {
       servername: process.env.SMTP_HOST,
     },
@@ -38,6 +38,34 @@ const getTransporter = () => {
       pass: process.env.SMTP_PASS,
     },
   });
+};
+
+const verifyMailTransport = async () => {
+  if (process.env.RESEND_API_KEY) {
+    console.log("Mail provider: Resend API");
+    return;
+  }
+
+  const missing = requiredMailConfig.filter((key) => !process.env[key]);
+  if (missing.length) {
+    console.warn(`SMTP verify skipped. Missing: ${missing.join(", ")}`);
+    return;
+  }
+
+  try {
+    await getTransporter().verify();
+    console.log("SMTP Ready");
+  } catch (error) {
+    console.error("SMTP Error:", {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      responseCode: error.responseCode,
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: process.env.SMTP_SECURE,
+    });
+  }
 };
 
 const sendWithResend = async ({ from, to, subject, text, html }) => {
@@ -255,4 +283,5 @@ export {
   sendAppointmentOtpMail,
   sendAppointmentRefundMail,
   sendPasswordResetOtpMail,
+  verifyMailTransport,
 };

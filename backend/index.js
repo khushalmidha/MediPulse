@@ -19,12 +19,14 @@ import User from './model/user.js'
 import Doctor from './model/doctor.js'
 import Community from './model/community.js'
 import { initSocket } from './socket.js'
+import { verifyMailTransport } from './util/mailer.js'
 
 const app = express()
 const server = createServer(app)
 const PORT = process.env.PORT || 8080
 configDotenv({ path: ['.env', '../.env', '../../.env'] })
 await connectMongo(process.env.DATABASE_URL)
+await verifyMailTransport()
 
 // Initialize Socket.IO
 const io = initSocket(server)
