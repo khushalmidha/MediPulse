@@ -1,9 +1,22 @@
 import nodemailer from "nodemailer";
+import dns from "node:dns";
+import { lookup } from "node:dns/promises";
 
 const requiredMailConfig = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"];
 const RESEND_API_URL = "https://api.resend.com/emails";
 
-const getTransporter = () => {
+dns.setDefaultResultOrder("ipv4first");
+
+const resolveSmtpHost = async () => {
+  if (process.env.SMTP_FORCE_IPV4 === "false") {
+    return process.env.SMTP_HOST;
+  }
+
+  const { address } = await lookup(process.env.SMTP_HOST, { family: 4 });
+  return address;
+};
+
+const getTransporter = async () => {
   const missing = requiredMailConfig.filter((key) => !process.env[key]);
   if (missing.length) {
     if (process.env.NODE_ENV === "production") {
@@ -22,8 +35,10 @@ const getTransporter = () => {
     };
   }
 
+  const smtpHost = await resolveSmtpHost();
+
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: smtpHost,
     port: Number(process.env.SMTP_PORT),
     secure: process.env.SMTP_SECURE === "true",
     family: 4,
@@ -53,7 +68,8 @@ const verifyMailTransport = async () => {
   }
 
   try {
-    await getTransporter().verify();
+    const transporter = await getTransporter();
+    await transporter.verify();
     console.log("SMTP Ready");
   } catch (error) {
     console.error("SMTP Error:", {
@@ -112,7 +128,7 @@ const sendMail = async (mailOptions) => {
     }
   }
 
-  const transporter = getTransporter();
+  const transporter = await getTransporter();
 
   try {
     return await transporter.sendMail(mailOptions);
