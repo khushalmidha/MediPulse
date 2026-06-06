@@ -579,6 +579,7 @@ const sendAppointmentOtp = async (req, res) => {
 
   const user = await User.findById(req.auth.id);
   const otp = generateOtp();
+
   try {
     await getRedis().set(
       otpKey(req.auth.id, doctorId),
@@ -590,7 +591,18 @@ const sendAppointmentOtp = async (req, res) => {
       "PX",
       OTP_EXPIRY_MS,
     );
+  } catch (error) {
+    console.error("Appointment OTP Redis write failed:", {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+    });
+    return res.status(503).json({
+      message: `Redis OTP storage failed: ${error.message || "Check REDIS_URL"}`,
+    });
+  }
 
+  try {
     await sendAppointmentOtpMail({
       to: user.email,
       patientName: buildPersonName(user, "Patient"),
@@ -598,13 +610,14 @@ const sendAppointmentOtp = async (req, res) => {
       otp,
     });
   } catch (error) {
-    console.error("Appointment OTP send failed:", error.message);
-    const isProduction = process.env.NODE_ENV === "production";
+    console.error("Appointment OTP email failed:", {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      responseCode: error.responseCode,
+    });
     return res.status(503).json({
-      message: isProduction
-        ? "OTP could not be sent right now. Check Redis and SMTP configuration, then try again."
-        : error.message ||
-            "OTP could not be sent right now. Check Redis and SMTP configuration, then try again.",
+      message: `SMTP OTP email failed: ${error.message || "Check SMTP configuration"}`,
     });
   }
 
