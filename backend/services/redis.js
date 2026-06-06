@@ -263,12 +263,13 @@ const getRedis = () => {
   }
 
   if (!redisClient) {
-    redisClient = new Redis(process.env.REDIS_URL || "redis://127.0.0.1:6379", {
+    const redisUrl = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+    redisClient = new Redis(redisUrl, {
       connectTimeout: 5000,
       commandTimeout: 5000,
       lazyConnect: false,
       maxRetriesPerRequest: 1,
-      enableReadyCheck: true,
+      enableReadyCheck: !redisUrl.startsWith("rediss://"),
     });
 
     redisClient.on("error", (error) => {
