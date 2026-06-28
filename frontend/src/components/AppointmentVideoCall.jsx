@@ -1,5 +1,7 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
 import { getSocket } from "../socket";
+import { getSpeechRecognition } from "../speechRecognition";
 
 const getStaticIceServers = () => {
   const servers = [
@@ -68,10 +70,7 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
   const localStreamRef = useRef(null);
   const remoteStreamRef = useRef(null);
   const pendingIceCandidatesRef = useRef([]);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
   const [error, setError] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [consentStatus, setConsentStatus] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState("Waiting for the other participant");
 
@@ -157,8 +156,6 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
         }
       };
       
-      setIsRecording(true);
-      
       return () => {
         scriptProcessor.disconnect();
         analyser.disconnect();
@@ -173,7 +170,10 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
     if (consentStatus === "detected") return;
     
     try {
-      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      const SpeechRecognition = getSpeechRecognition();
+      if (!SpeechRecognition) return;
+
+      const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
       
@@ -218,6 +218,8 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
     if (!socket.connected) {
       socket.connect();
     }
+    const localVideoNode = localVideoRef.current;
+    const remoteVideoNode = remoteVideoRef.current;
 
     const setupMedia = async () => {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -322,9 +324,10 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
       }
       remoteStreamRef.current = null;
       pendingIceCandidatesRef.current = [];
-      if (localVideoRef.current) localVideoRef.current.srcObject = null;
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      if (localVideoNode) localVideoNode.srcObject = null;
+      if (remoteVideoNode) remoteVideoNode.srcObject = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointmentId]);
 
   return (
