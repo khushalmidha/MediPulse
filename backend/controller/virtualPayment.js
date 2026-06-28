@@ -38,6 +38,7 @@ const parsePagination = (query) => {
 };
 
 const walletCacheKey = (userId, userRole) => `wallet:${userRole}:${userId}`;
+const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
 const enforceRateLimit = async (req, action) => {
   const redis = getRedis();
@@ -198,6 +199,9 @@ const sendMoney = async (req, res) => {
   if (!receiverId || !amount) {
     return res.status(400).json({ message: "receiverId and amount are required" });
   }
+  if (!isObjectId(receiverId)) {
+    return res.status(400).json({ message: "Invalid receiver id" });
+  }
 
   try {
     await enforceRateLimit(req, "send");
@@ -235,6 +239,9 @@ const topupVirtualFunds = async (req, res) => {
   if (!targetId || !amount) {
     return res.status(400).json({ message: "targetId and amount are required" });
   }
+  if (!isObjectId(targetId)) {
+    return res.status(400).json({ message: "Invalid target id" });
+  }
 
   try {
     const result = await withIdempotency(req, "topup", async () => {
@@ -258,6 +265,9 @@ const merchantPayDoctor = async (req, res) => {
   const { doctorId, amount, description, referenceId } = req.body;
   if (!doctorId || !amount) {
     return res.status(400).json({ message: "doctorId and amount are required" });
+  }
+  if (!isObjectId(doctorId)) {
+    return res.status(400).json({ message: "Invalid doctor id" });
   }
 
   try {
@@ -421,6 +431,10 @@ const getNotifications = async (req, res) => {
 
 const markNotificationRead = async (req, res) => {
   const { id } = req.params;
+  if (!isObjectId(id)) {
+    return res.status(400).json({ message: "Invalid notification id" });
+  }
+
   const notification = await PaymentNotification.findOneAndUpdate(
     { _id: id, userId: req.auth.id, userRole: req.auth.role },
     { $set: { isRead: true } },
@@ -452,6 +466,10 @@ const getAllWallets = async (req, res) => {
 const freezeWallet = async (req, res) => {
   if (!assertAdmin(req, res)) return;
   const { walletId } = req.params;
+  if (!isObjectId(walletId)) {
+    return res.status(400).json({ message: "Invalid wallet id" });
+  }
+
   const wallet = await Wallet.findByIdAndUpdate(walletId, { $set: { status: "frozen" } }, { new: true });
   if (!wallet) return res.status(404).json({ message: "Wallet not found" });
   return res.status(200).json({ message: "Wallet frozen", wallet });
@@ -460,6 +478,10 @@ const freezeWallet = async (req, res) => {
 const unfreezeWallet = async (req, res) => {
   if (!assertAdmin(req, res)) return;
   const { walletId } = req.params;
+  if (!isObjectId(walletId)) {
+    return res.status(400).json({ message: "Invalid wallet id" });
+  }
+
   const wallet = await Wallet.findByIdAndUpdate(walletId, { $set: { status: "active" } }, { new: true });
   if (!wallet) return res.status(404).json({ message: "Wallet not found" });
   return res.status(200).json({ message: "Wallet unfrozen", wallet });

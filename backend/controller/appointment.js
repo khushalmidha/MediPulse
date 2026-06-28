@@ -40,6 +40,7 @@ const hashValue = (value) =>
   crypto.createHash("sha256").update(value).digest("hex");
 
 const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
+const isBookingToken = (value) => /^[a-f0-9]{64}$/i.test(String(value || ""));
 
 const buildPersonName = (account, fallback) =>
   [account?.firstName, account?.lastName].filter(Boolean).join(" ") || fallback;
@@ -695,6 +696,9 @@ const createPaymentOrder = async (req, res) => {
   if (req.auth.role !== "user") {
     return res.status(403).json({ message: "Only users can pay for appointments" });
   }
+  if (!isBookingToken(bookingToken)) {
+    return res.status(400).json({ message: "Valid booking token is required" });
+  }
 
   const tokenDataRaw = await getRedis().get(bookingTokenKey(bookingToken));
   if (!tokenDataRaw) {
@@ -759,6 +763,9 @@ const verifyPaymentAndBook = async (req, res) => {
 
   if (req.auth.role !== "user") {
     return res.status(403).json({ message: "Only users can book appointments" });
+  }
+  if (!isBookingToken(bookingToken)) {
+    return res.status(400).json({ message: "Valid booking token is required" });
   }
 
   const tokenDataRaw = await getRedis().get(bookingTokenKey(bookingToken));
@@ -1038,6 +1045,9 @@ const refundAppointmentPayment = async (req, res) => {
   if (!["doctor", "user"].includes(req.auth.role)) {
     return res.status(403).json({ message: "Unauthorized refund request" });
   }
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+    return res.status(400).json({ message: "Invalid appointment id" });
+  }
 
   const appointment = await Appointment.findById(appointmentId);
   if (!appointment) {
@@ -1174,6 +1184,9 @@ const bookAppointment = async (req, res) => {
 
   if (!bookingToken) {
     return res.status(400).json({ message: "Booking token is required" });
+  }
+  if (!isBookingToken(bookingToken)) {
+    return res.status(400).json({ message: "Valid booking token is required" });
   }
 
   const result = await createQueuedAppointmentFromDemoBooking({

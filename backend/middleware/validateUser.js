@@ -2,13 +2,13 @@ import User from "../model/user.js";
 import jwt from "jsonwebtoken";
 import { configDotenv } from "dotenv";
 import Doctor from "../model/doctor.js";
+import mongoose from "mongoose";
 
 configDotenv();
 
 const userValidation = async (req, res, next) => {
 	const token = req.cookies.token;
 	const userId = req.cookies.id
-	console.log(token);
 	if (!token) {
 		return res.status(401).json({ message: "No Token" });
 	}
@@ -16,7 +16,7 @@ const userValidation = async (req, res, next) => {
 		if (err) {
 			return res.status(401).json({ message: err.message || "Expired or Invalid Token" });
 		}
-		if(data.id !== userId){
+		if(data.id !== userId || !mongoose.Types.ObjectId.isValid(data.id)){
 			return res.status(401).json({message:"Unauthorized"});
 		}
 		const user = await (data.role === "user" ? User : Doctor).findById(data.id);
