@@ -16,7 +16,6 @@
     "axios": "^1.8.1",
     "date-fns": "^4.1.0",
     "js-cookie": "^3.0.5",
-    "js-cookies": "^1.0.4",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.475.0",
     "qrcode": "^1.5.4",
