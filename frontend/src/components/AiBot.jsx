@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Home } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
