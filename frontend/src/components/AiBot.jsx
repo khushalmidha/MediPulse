@@ -421,17 +421,4 @@ Only return the IDs, nothing else.`;
   );
 };
 
-// Add this CSS to your global styles or tailwind config
-// .custom-scrollbar::-webkit-scrollbar {
-//   width: 6px;
-//   height: 6px;
-// }
-// .custom-scrollbar::-webkit-scrollbar-track {
-//   background: #f1f5f9;
-// }
-// .custom-scrollbar::-webkit-scrollbar-thumb {
-//   background-color: #cbd5e1;
-//   border-radius: 20px;
-// }
-
 export default AiBot;
