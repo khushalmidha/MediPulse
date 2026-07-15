@@ -60,6 +60,22 @@ const appointmentSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    patientBrief: {
+      chiefComplaint: String,
+      symptomDuration: String,
+      severity: {
+        type: String,
+        enum: ["mild", "moderate", "severe"],
+      },
+      relevantHistory: String,
+      urgencyLevel: {
+        type: String,
+        enum: ["ROUTINE", "URGENT", "EMERGENCY"],
+      },
+      agentSummary: String,
+      generatedAt: Date,
+      conversationTurns: Number,
+    },
     payment: {
       provider: {
         type: String,

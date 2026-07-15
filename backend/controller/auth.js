@@ -62,6 +62,7 @@ const userSignup = async (req, res, next) => {
 		emergencyRelation,
 		emergencyPhone,
 	} = req.body;
+	console.log(req.body);
 	if (!cleanString(firstName) || !email || !password || !gender) {
 		return res.status(400).json({
 			message: "First name, email, password and gender are required",

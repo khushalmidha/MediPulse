@@ -1,18 +1,15 @@
-/* eslint-disable react/prop-types */
 import { useState } from 'react';
-import { getSpeechRecognition } from '../speechRecognition';
 
 const Voice = ({ setNewMessage }) => {
   const [isListening, setIsListening] = useState(false);
 
   const handleListen = () => {
-    const SpeechRecognition = getSpeechRecognition();
-    if (!SpeechRecognition) {
+    if (!('webkitSpeechRecognition' in window)) {
       alert('Web Speech API is not supported by this browser.');
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    const recognition = new window.webkitSpeechRecognition();
     recognition.continuous = false; 
     recognition.interimResults = false; 
     recognition.lang = 'en-US';

@@ -17,11 +17,8 @@ import {
   verifyPaymentAndBook,
 } from "../controller/appointment.js";
 import userValidation from "../middleware/validateUser.js";
-import { rejectUnsafeBodyKeys } from "../middleware/rejectUnsafeKeys.js";
 
 const appointmentRouter = Router();
-
-appointmentRouter.use(rejectUnsafeBodyKeys);
 
 appointmentRouter.post("/otp/send/:doctorId", userValidation, sendAppointmentOtp);
 appointmentRouter.post("/otp/verify/:doctorId", userValidation, verifyAppointmentOtp);
