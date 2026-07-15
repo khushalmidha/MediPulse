@@ -76,6 +76,18 @@ const appointmentSchema = new mongoose.Schema(
       generatedAt: Date,
       conversationTurns: Number,
     },
+    soapNote: {
+      subjective: String,
+      objective: String,
+      assessment: String,
+      plan: String,
+      generatedAt: Date,
+      generatedBy: {
+        type: String,
+        enum: ["ai-copilot", "doctor"],
+        default: "ai-copilot",
+      },
+    },
     payment: {
       provider: {
         type: String,
