@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { BACKEND_URL } from "../utils";
 import { useAuth } from "../context/AuthContext";
 import AppointmentVideoCall from "../components/AppointmentVideoCall";
+import TriageChat from "../components/TriageChat";
 import { getSocket } from "../socket";
 
 const APPOINTMENT_FEE_INR = Number(import.meta.env.VITE_APPOINTMENT_BOOKING_FEE_INR || 5);
@@ -24,6 +25,7 @@ const AppointmentBooking = () => {
   const [appointmentHistory, setAppointmentHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [approvalPopup, setApprovalPopup] = useState(false);
+  const [triageOpen, setTriageOpen] = useState(false);
   const previousAppointmentStatusRef = useRef(null);
 
   const fetchStatus = async () => {
@@ -421,6 +423,29 @@ const AppointmentBooking = () => {
           </div>
         )}
 
+        {triageOpen && myAppointment?._id && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="w-full max-w-2xl">
+              <div className="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setTriageOpen(false)}
+                  className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+              <TriageChat
+                appointmentId={myAppointment._id}
+                onCompleted={async () => {
+                  await Promise.all([fetchStatus(), fetchHistory()]);
+                  setTriageOpen(false);
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {myAppointment?.status === "active" && (
           <div className="rounded-xl bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -461,12 +486,27 @@ const AppointmentBooking = () => {
                   Booked on {new Date(status?.myAppointment?.createdAt || Date.now()).toLocaleString()}
                 </p>
                 {myAppointment.status === "queued" ? (
-                  <p className="mt-2 text-sm text-amber-700">
-                    Position in queue: {myAppointment.queuePosition}
-                  </p>
+                  <div className="mt-3 space-y-3">
+                    <p className="text-sm text-amber-700">
+                      Position in queue: {myAppointment.queuePosition}
+                    </p>
+                    {myAppointment.patientBrief ? (
+                      <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800">
+                        Health summary submitted ✓
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setTriageOpen(true)}
+                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                      >
+                        Prepare for Appointment →
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <p className="mt-2 text-sm text-amber-700">
-                    Check your email and approve the booking to join the doctor's queue.
+                    Check your email and approve the booking to join the doctor&apos;s queue.
                   </p>
                 )}
               </div>

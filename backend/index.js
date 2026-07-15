@@ -12,6 +12,7 @@ import eventRouter from './routes/event.js'
 import geminiRouter from './routes/gemini.js'
 import appointmentRouter from './routes/appointment.js'
 import virtualPaymentRouter from './routes/virtualPayment.js'
+import triageRouter from './routes/triage.js'
 import { handleRazorpayWebhook, startAutoRefundWorker } from './controller/appointment.js'
 import { configDotenv } from 'dotenv'
 import { Verifier } from './controller/auth.js'
@@ -20,7 +21,6 @@ import Doctor from './model/doctor.js'
 import Community from './model/community.js'
 import { initSocket } from './socket.js'
 import { verifyMailTransport } from './util/mailer.js'
-import { isAllowedOrigin } from './config/corsOrigins.js'
 
 const app = express()
 const server = createServer(app)
@@ -31,6 +31,32 @@ await verifyMailTransport()
 
 // Initialize Socket.IO
 const io = initSocket(server)
+
+const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://medipulse-azure.vercel.app',
+  'https://medipulse-git-main-lakshya0000s-projects.vercel.app',
+  'https://medipulse-lakshya0000s-projects.vercel.app',
+  'https://medipulse-dsk1.onrender.com',
+  'https://medi-pulse-three.vercel.app',
+  'https://medi-pulse-gamma.vercel.app',
+  'https://medi-pulse-khushalmidhas-projects.vercel.app',
+  'https://medi-pulse-git-main-khushalmidhas-projects.vercel.app',
+]
+
+const envAllowedOrigins = (process.env.CLIENT_URLS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])]
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true
+  if (allowedOrigins.includes(origin)) return true
+  return /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)
+}
 
 app.use(
   cors({
@@ -59,6 +85,8 @@ app.use('/ngo', ngoRouter)
 app.use('/event', eventRouter)
 app.use('/gemini', geminiRouter)
 app.use('/appointment', appointmentRouter)
+app.use('/triage', triageRouter)
+app.use('/api/triage', triageRouter)
 app.use('/vpay', virtualPaymentRouter)
 app.get('/verify', Verifier)
 app.get('/count', async (req, res) => {

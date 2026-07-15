@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -18,7 +19,6 @@ const DoctorAppointments = () => {
   const [actionMessage, setActionMessage] = useState("");
   const [doctorNotes, setDoctorNotes] = useState("");
   const [voiceConsent, setVoiceConsent] = useState(null);
-  const [showConsentPrompt, setShowConsentPrompt] = useState(false);
 
   useEffect(() => {
     setDoctorNotes(queueData.activeAppointment?.doctorNotes || "");
@@ -62,8 +62,13 @@ const DoctorAppointments = () => {
       fetchQueue().catch(() => {});
     };
 
+    const handleBriefReady = () => {
+      fetchQueue().catch(() => {});
+    };
+
     socket.on("appointment:queue-updated", handleQueueUpdated);
     socket.on("appointment:ended", handleAppointmentEnded);
+    socket.on("appointment:brief-ready", handleBriefReady);
 
     const interval = setInterval(() => {
       fetchQueue().catch(() => {});
@@ -72,6 +77,7 @@ const DoctorAppointments = () => {
       clearInterval(interval);
       socket.off("appointment:queue-updated", handleQueueUpdated);
       socket.off("appointment:ended", handleAppointmentEnded);
+      socket.off("appointment:brief-ready", handleBriefReady);
     };
   }, [isAuth, role]);
 
@@ -200,6 +206,7 @@ const DoctorAppointments = () => {
             <p className="mt-3 text-sm text-gray-600">
               This call auto-ends in 5 minutes if you do not end it manually.
             </p>
+            <PatientBriefCard brief={queueData.activeAppointment.patientBrief} />
             <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
               <div>
                 <AppointmentVideoCall
@@ -267,6 +274,15 @@ const DoctorAppointments = () => {
                     <p className="text-sm text-gray-500">
                       Booked at {new Date(appointment.createdAt).toLocaleTimeString()}
                     </p>
+                    {appointment.patientBrief ? (
+                      <p className="mt-1 text-sm font-medium text-green-700">
+                        AI patient brief ready
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-500">
+                        AI brief not submitted yet
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -290,6 +306,66 @@ const DoctorAppointments = () => {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+};
+
+const urgencyStyles = {
+  ROUTINE: {
+    label: "🟢 ROUTINE",
+    className: "bg-green-50 text-green-800 border-green-200",
+  },
+  URGENT: {
+    label: "🟡 URGENT",
+    className: "bg-amber-50 text-amber-800 border-amber-200",
+  },
+  EMERGENCY: {
+    label: "🔴 EMERGENCY",
+    className: "bg-red-50 text-red-800 border-red-200",
+  },
+};
+
+const PatientBriefCard = ({ brief }) => {
+  if (!brief) {
+    return (
+      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+        AI Patient Brief has not been submitted for this appointment yet.
+      </div>
+    );
+  }
+
+  const urgency = urgencyStyles[brief.urgencyLevel] || urgencyStyles.ROUTINE;
+
+  return (
+    <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-base font-bold text-blue-950">🤖 AI Patient Brief</h3>
+        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${urgency.className}`}>
+          {urgency.label}
+        </span>
+      </div>
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="font-semibold text-gray-900">Chief Complaint</dt>
+          <dd className="mt-1 text-gray-700">{brief.chiefComplaint || "Not provided"}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-gray-900">Duration</dt>
+          <dd className="mt-1 text-gray-700">{brief.symptomDuration || "Not provided"}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-gray-900">Severity</dt>
+          <dd className="mt-1 text-gray-700">{brief.severity || "Not provided"}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-gray-900">Relevant History</dt>
+          <dd className="mt-1 text-gray-700">{brief.relevantHistory || "Not provided"}</dd>
+        </div>
+      </dl>
+      <div className="mt-4 rounded-lg bg-white/80 p-3 text-sm text-gray-800">
+        <span className="font-semibold text-gray-950">Summary: </span>
+        {brief.agentSummary || "Not provided"}
       </div>
     </div>
   );
