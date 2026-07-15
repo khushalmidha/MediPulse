@@ -1,5 +1,11 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
+import axios from "axios";
+import { useAuth } from "../context/AuthContext";
 import { getSocket } from "../socket";
+import { BACKEND_URL } from "../utils";
+import CoPilotSidebar from "./CoPilotSidebar";
+import SoapNoteModal from "./SoapNoteModal";
 
 const getStaticIceServers = () => {
   const servers = [
@@ -60,20 +66,146 @@ const getRtcConfig = async () => {
 };
 
 const CONSENT_KEYWORDS = ["yes", "i consent", "i agree", "agree", "consent", "i do"];
+const MED_KEYWORDS = [
+  "aspirin",
+  "ibuprofen",
+  "paracetamol",
+  "acetaminophen",
+  "metformin",
+  "insulin",
+  "warfarin",
+  "atorvastatin",
+  "amoxicillin",
+  "azithromycin",
+  "omeprazole",
+  "amlodipine",
+];
+const SYMPTOM_KEYWORDS = [
+  "chest pain",
+  "chest tightness",
+  "left arm pain",
+  "jaw pain",
+  "severe headache",
+  "vision changes",
+  "difficulty breathing",
+  "shortness of breath",
+  "lip swelling",
+  "high fever",
+  "stiff neck",
+  "dizziness",
+  "vomiting",
+  "abdominal pain",
+];
 
-const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
+const AppointmentVideoCall = ({
+  appointmentId,
+  doctorNotes = "",
+  onConsentDetected,
+  onSoapSaved,
+}) => {
+  const { role } = useAuth();
   const peerConnectionRef = useRef(null);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const remoteStreamRef = useRef(null);
   const pendingIceCandidatesRef = useRef([]);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
+  const transcriptBufferRef = useRef("");
+  const fullTranscriptRef = useRef("");
+  const mentionedMedsRef = useRef([]);
+  const mentionedSymptomsRef = useRef([]);
+  const firstChunkRef = useRef(true);
   const [error, setError] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [consentStatus, setConsentStatus] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState("Waiting for the other participant");
+  const [copilotActive, setCopilotActive] = useState(false);
+  const [copilotCollapsed, setCopilotCollapsed] = useState(false);
+  const [copilotSuggestions, setCopilotSuggestions] = useState([]);
+  const [isGeneratingSoap, setIsGeneratingSoap] = useState(false);
+  const [showSoapModal, setShowSoapModal] = useState(false);
+  const [soapNote, setSoapNote] = useState(null);
+  const [voiceCaptureUnavailable, setVoiceCaptureUnavailable] = useState(false);
+
+  const appendTranscriptText = (text) => {
+    const cleanText = String(text || "").trim();
+    if (!cleanText) return;
+
+    transcriptBufferRef.current = `${transcriptBufferRef.current} ${cleanText}`.trim();
+    fullTranscriptRef.current = `${fullTranscriptRef.current} ${cleanText}`.trim();
+
+    const lower = cleanText.toLowerCase();
+    MED_KEYWORDS.forEach((keyword) => {
+      if (lower.includes(keyword) && !mentionedMedsRef.current.includes(keyword)) {
+        mentionedMedsRef.current.push(keyword);
+      }
+    });
+    SYMPTOM_KEYWORDS.forEach((keyword) => {
+      if (lower.includes(keyword) && !mentionedSymptomsRef.current.includes(keyword)) {
+        mentionedSymptomsRef.current.push(keyword);
+      }
+    });
+  };
+
+  const mergeSuggestions = (incoming = []) => {
+    if (!incoming.length) return;
+    setCopilotSuggestions((current) => {
+      const seen = new Set(current.map((item) => item.id || `${item.type}:${item.message}`));
+      const next = incoming.filter((item) => {
+        const key = item.id || `${item.type}:${item.message}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return [...current, ...next].slice(-30);
+    });
+    if (incoming.some((item) => item.severity === "high")) {
+      setCopilotCollapsed(false);
+    }
+  };
+
+  const sendTranscriptChunk = async () => {
+    if (role !== "doctor" || !appointmentId) return;
+    const chunk = transcriptBufferRef.current.trim();
+    if (!chunk) return;
+
+    transcriptBufferRef.current = "";
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/copilot/${appointmentId}/analyze`,
+        {
+          transcriptChunk: chunk,
+          isFirstChunk: firstChunkRef.current,
+          allMentionedMeds: mentionedMedsRef.current,
+          allMentionedSymptoms: mentionedSymptomsRef.current,
+        },
+        { withCredentials: true },
+      );
+      firstChunkRef.current = false;
+      mergeSuggestions(response.data.suggestions || []);
+    } catch (err) {
+      console.error("Co-Pilot analyze failed:", err);
+      transcriptBufferRef.current = `${chunk} ${transcriptBufferRef.current}`.trim();
+    }
+  };
+
+  const handleGenerateSoap = async () => {
+    await sendTranscriptChunk();
+    setIsGeneratingSoap(true);
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/copilot/${appointmentId}/generate-soap`,
+        { doctorNotes },
+        { withCredentials: true },
+      );
+      setSoapNote(response.data.soapNote);
+      setShowSoapModal(true);
+    } catch (err) {
+      console.error("SOAP generation failed:", err);
+      setError("Could not generate SOAP note right now");
+    } finally {
+      setIsGeneratingSoap(false);
+    }
+  };
 
   const flushPendingIceCandidates = async (connection) => {
     if (!connection.remoteDescription) return;
@@ -156,8 +288,6 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
           detectVoiceConsent();
         }
       };
-      
-      setIsRecording(true);
       
       return () => {
         scriptProcessor.disconnect();
@@ -327,6 +457,117 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
     };
   }, [appointmentId]);
 
+  useEffect(() => {
+    if (role !== "doctor" || !appointmentId) return undefined;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceCaptureUnavailable(true);
+      return undefined;
+    }
+
+    let mounted = true;
+    let shouldRestart = true;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-IN";
+
+    recognition.onresult = (event) => {
+      let finalText = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        if (event.results[index].isFinal) {
+          finalText = `${finalText} ${event.results[index][0].transcript}`.trim();
+        }
+      }
+      appendTranscriptText(finalText);
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        shouldRestart = false;
+        setVoiceCaptureUnavailable(true);
+        setCopilotActive(false);
+      }
+    };
+
+    recognition.onend = () => {
+      if (!mounted || !shouldRestart) return;
+      try {
+        recognition.start();
+      } catch {
+        // Browser may already be restarting recognition.
+      }
+    };
+
+    try {
+      recognition.start();
+      setCopilotActive(true);
+      setVoiceCaptureUnavailable(false);
+    } catch (err) {
+      console.error("Co-Pilot speech recognition failed:", err);
+      setVoiceCaptureUnavailable(true);
+    }
+
+    return () => {
+      mounted = false;
+      shouldRestart = false;
+      setCopilotActive(false);
+      try {
+        recognition.stop();
+      } catch {
+        // Ignore browser stop race.
+      }
+    };
+  }, [appointmentId, role]);
+
+  useEffect(() => {
+    if (role !== "doctor" || !appointmentId) return undefined;
+    const interval = setInterval(() => {
+      sendTranscriptChunk();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [appointmentId, role]);
+
+  useEffect(() => {
+    if (role !== "doctor" || !appointmentId) return undefined;
+    const socket = getSocket();
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const handleSuggestion = ({ appointmentId: incomingId, suggestions = [] }) => {
+      if (incomingId !== appointmentId) return;
+      mergeSuggestions(suggestions);
+    };
+
+    const handleSoapReady = ({ appointmentId: incomingId, soapNote: incomingSoap }) => {
+      if (incomingId !== appointmentId) return;
+      setSoapNote(incomingSoap);
+      setShowSoapModal(true);
+    };
+
+    socket.emit("joinCopilotSession", { appointmentId });
+    socket.on("copilot:suggestion", handleSuggestion);
+    socket.on("copilot:soap-ready", handleSoapReady);
+
+    axios
+      .get(`${BACKEND_URL}/api/copilot/${appointmentId}/suggestions`, {
+        withCredentials: true,
+      })
+      .then((response) => {
+        mergeSuggestions(response.data.suggestions || []);
+        if (response.data.soapNote) setSoapNote(response.data.soapNote);
+      })
+      .catch(() => {});
+
+    return () => {
+      socket.off("copilot:suggestion", handleSuggestion);
+      socket.off("copilot:soap-ready", handleSoapReady);
+    };
+  }, [appointmentId, role]);
+
   return (
     <div className="space-y-3">
       {error && (
@@ -334,22 +575,48 @@ const AppointmentVideoCall = ({ appointmentId, onConsentDetected }) => {
           {error}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
-          <video ref={remoteVideoRef} autoPlay playsInline className="h-60 w-full object-cover" />
-          <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">{connectionStatus}</div>
+      <div className="flex flex-col gap-3 xl:flex-row">
+        <div className="min-w-0 flex-1">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
+              <video ref={remoteVideoRef} autoPlay playsInline className="h-60 w-full object-cover" />
+              <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">{connectionStatus}</div>
+            </div>
+            <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className="h-60 w-full object-cover"
+              />
+              <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">Your video</div>
+            </div>
+          </div>
         </div>
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted
-            playsInline
-            className="h-60 w-full object-cover"
+        {role === "doctor" && (
+          <CoPilotSidebar
+            collapsed={copilotCollapsed}
+            isActive={copilotActive}
+            isGenerating={isGeneratingSoap}
+            onGenerateSoap={handleGenerateSoap}
+            onToggle={() => setCopilotCollapsed((current) => !current)}
+            suggestions={copilotSuggestions}
+            voiceUnavailable={voiceCaptureUnavailable}
           />
-          <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">Your video</div>
-        </div>
+        )}
       </div>
+      {showSoapModal && (
+        <SoapNoteModal
+          appointmentId={appointmentId}
+          onClose={() => setShowSoapModal(false)}
+          onSaved={(savedSoap) => {
+            setSoapNote(savedSoap);
+            onSoapSaved?.(savedSoap);
+          }}
+          soapNote={soapNote}
+        />
+      )}
     </div>
   );
 };

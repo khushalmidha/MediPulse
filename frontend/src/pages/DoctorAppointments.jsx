@@ -106,7 +106,16 @@ const DoctorAppointments = () => {
         {},
         { withCredentials: true },
       );
-      setActionMessage(response.data.message);
+      try {
+        await axios.post(
+          `${BACKEND_URL}/api/copilot/${appointmentId}/generate-soap`,
+          { doctorNotes },
+          { withCredentials: true },
+        );
+        setActionMessage(`${response.data.message}. SOAP note generated for review.`);
+      } catch {
+        setActionMessage(`${response.data.message}. SOAP note can be generated manually.`);
+      }
       await fetchQueue();
     } catch (error) {
       setActionMessage(error.response?.data?.message || "Could not end appointment");
@@ -211,7 +220,9 @@ const DoctorAppointments = () => {
               <div>
                 <AppointmentVideoCall
                   appointmentId={queueData.activeAppointment._id}
+                  doctorNotes={doctorNotes}
                   onConsentDetected={handleVoiceConsentDetected}
+                  onSoapSaved={() => setActionMessage("SOAP note saved successfully")}
                 />
                 {voiceConsent?.detected && (
                   <p className="mt-2 text-sm text-green-700">

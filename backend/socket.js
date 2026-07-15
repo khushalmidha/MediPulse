@@ -206,6 +206,37 @@ export function initSocket(server) {
       socket.leave(`appointment:${appointmentId}`);
     });
 
+    socket.on("joinCopilotSession", async ({ appointmentId }, callback) => {
+      if (!appointmentId) {
+        if (callback) callback({ ok: false, message: "Appointment id is required" });
+        return;
+      }
+
+      if (socket.user.role !== "doctor") {
+        if (callback) callback({ ok: false, message: "Only doctors can join Co-Pilot" });
+        return;
+      }
+
+      const appointment = await Appointment.findById(appointmentId);
+      if (!appointment) {
+        if (callback) callback({ ok: false, message: "Appointment not found" });
+        return;
+      }
+
+      if (appointment.doctor.toString() !== socket.user._id.toString()) {
+        if (callback) callback({ ok: false, message: "Forbidden appointment access" });
+        return;
+      }
+
+      if (appointment.status !== "active") {
+        if (callback) callback({ ok: false, message: "Co-Pilot is only available during active appointments" });
+        return;
+      }
+
+      socket.join(`copilot:${appointmentId}`);
+      if (callback) callback({ ok: true });
+    });
+
     socket.on("appointment:offer", ({ appointmentId, sdp }) => {
       if (!appointmentId || !sdp) return;
       socket.to(`appointment:${appointmentId}`).emit("appointment:offer", {
