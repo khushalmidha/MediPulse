@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, UserCircle2, Stethoscope, ArrowLeft, AlertCircle } from "lucide-react";
+import { Mail, Lock, UserCircle2, Stethoscope, ArrowLeft, AlertCircle, Building2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import { BACKEND_URL } from "../utils";
@@ -107,7 +107,7 @@ const ProfileSelection = ({ setUserType }) => (
         Select how you want to sign in to MediPulse
       </p>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <button
         onClick={() => setUserType("user")}
         className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
@@ -132,11 +132,23 @@ const ProfileSelection = ({ setUserType }) => (
           Manage your practice and patient care
         </p>
       </button>
+      <button
+        onClick={() => setUserType("hospital-admin")}
+        className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+      >
+        <div className="bg-blue-100 p-4 rounded-full">
+          <Building2 className="h-10 w-10 text-blue-600" />
+        </div>
+        <h4 className="mt-4 text-lg font-medium text-gray-800">Sign in as Hospital Admin</h4>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          Manage hospital workspace, departments, and staff
+        </p>
+      </button>
     </div>
   </div>
 );
 
-const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail, password, setPassword, rememberMe, setRememberMe, loading, userType, onForgotPassword }) => (
+const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail, password, setPassword, hospitalId, setHospitalId, rememberMe, setRememberMe, loading, userType, onForgotPassword }) => (
   <form className="space-y-6" onSubmit={handleSubmit}>
     {message && (
       <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start">
@@ -191,6 +203,29 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
           />
         </div>
       </div>
+      {userType === "hospital-admin" && (
+        <div>
+          <label htmlFor="hospital-id" className="block text-sm font-medium text-gray-700 mb-1">
+            Hospital ID
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Building2 className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              id="hospital-id"
+              name="hospitalId"
+              type="text"
+              required
+              onChange={(e) => setHospitalId(e.target.value)}
+              value={hospitalId}
+              disabled={loading}
+              className="appearance-none block w-full px-3 py-3 pl-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+              placeholder="Paste hospital ID from portal"
+            />
+          </div>
+        </div>
+      )}
     </div>
     
     <div className="flex items-center justify-between">
@@ -214,7 +249,8 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
         <button
           type="button"
           onClick={onForgotPassword}
-          className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+          disabled={userType === "hospital-admin"}
+          className={`font-medium transition-colors ${userType === "hospital-admin" ? "cursor-not-allowed text-gray-400" : "text-blue-600 hover:text-blue-500"}`}
         >
           Forgot password?
         </button>
@@ -227,15 +263,19 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
         disabled={loading}
         className={`relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
       >
-        {loading ? 'Signing in...' : `Sign in as ${userType === 'user' ? 'User' : 'Doctor'}`}
+        {loading ? 'Signing in...' : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Admin'}`}
       </button>
     </div>
-    <AuthDivider />
-    <GoogleSigninButton
-      disabled={loading}
-      onCredential={handleGoogleSignin}
-      userType={userType}
-    />
+    {userType !== "hospital-admin" && (
+      <>
+        <AuthDivider />
+        <GoogleSigninButton
+          disabled={loading}
+          onCredential={handleGoogleSignin}
+          userType={userType}
+        />
+      </>
+    )}
   </form>
 );
 
@@ -336,6 +376,7 @@ const Login = () => {
   const [userType, setUserType] = useState("select");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [hospitalId, setHospitalId] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [authMode, setAuthMode] = useState("login");
   const [resetOtp, setResetOtp] = useState("");
@@ -357,6 +398,27 @@ const Login = () => {
     setMessage("");
     setLoading(true);
     try {
+      if (userType === "hospital-admin") {
+        if (!hospitalId) {
+          setMessage("Hospital ID is required for hospital admin login");
+          setLoading(false);
+          return;
+        }
+        const res = await axios.post(
+          `${BACKEND_URL}/api/auth/staff/login`,
+          { email, password, hospitalId, rememberMe },
+          { withCredentials: true, headers: { "Content-Type": "application/json" } }
+        );
+        if (res.status === 200) {
+          sessionStorage.setItem(
+            "medipulse.hospitalAdmin",
+            JSON.stringify({ hospital: res.data.hospital || { _id: res.data.result.hospitalId }, staff: res.data.result })
+          );
+          navigate("/hospital/admin");
+          return;
+        }
+      }
+
       const res = await axios.post(
         `${BACKEND_URL}/${userType}/login`,
         { email, password, rememberMe },
@@ -379,7 +441,7 @@ const Login = () => {
       }
     }
     setLoading(false);
-  }, [email, password, rememberMe, userType, navigate, setIsAuth, setUser, setRole]);
+  }, [email, password, hospitalId, rememberMe, userType, navigate, setIsAuth, setUser, setRole]);
 
   const handleGoogleSignin = useCallback(async (response) => {
     setMessage("");
@@ -461,7 +523,7 @@ const Login = () => {
       <div className="max-w-md w-full bg-white p-8 sm:p-10 rounded-2xl shadow-md border border-gray-100">
         <div className="mb-10 text-center">
           <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-            {userType === "select" ? "Welcome Back" : `Sign in as ${userType === 'user' ? 'User' : 'Doctor'}`}
+            {userType === "select" ? "Welcome Back" : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Admin'}`}
           </h2>
           <p className="mt-3 text-gray-600">
             Don't have an account?{" "}
@@ -507,6 +569,8 @@ const Login = () => {
               setEmail={setEmail}
               password={password}
               setPassword={setPassword}
+              hospitalId={hospitalId}
+              setHospitalId={setHospitalId}
               rememberMe={rememberMe}
               setRememberMe={setRememberMe}
               handleGoogleSignin={handleGoogleSignin}

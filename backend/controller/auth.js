@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import HospitalStaff from "../model/hospitalStaff.js";
+import Hospital from "../model/hospital.js";
 import { getRedis, passwordResetOtpKey } from "../services/redis.js";
 import { sendPasswordResetOtpMail } from "../util/mailer.js";
 import { ensureWallet } from "../services/virtualLedger.js";
@@ -444,6 +445,7 @@ const staffLogin = async (req, res) => {
 		return res.status(401).json({ message: "Invalid staff credentials" });
 	}
 
+	const hospital = await Hospital.findById(staff.hospitalId).select("name slug status address stats");
 	setStaffAuthCookies(res, staff, rememberMe);
 	return res.status(200).json({
 		message: "Staff logged in successfully",
@@ -456,6 +458,7 @@ const staffLogin = async (req, res) => {
 			hospitalId: staff.hospitalId,
 			departmentIds: staff.departmentIds,
 		},
+		hospital,
 	});
 };
 

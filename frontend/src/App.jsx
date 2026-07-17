@@ -25,6 +25,8 @@ import VirtualAdminDashboard from "./pages/VirtualAdminDashboard";
 import VirtualNotifications from "./pages/VirtualNotifications";
 import { getHospitalSlugFromHostname } from "./utils/hospitalSubdomain";
 import HospitalWebsite from "./pages/hospital-website/HospitalWebsite";
+import HospitalAdminSignup from "./pages/HospitalAdminSignup";
+import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
 
 
 function App() {
@@ -42,6 +44,8 @@ function App() {
       <Route path="/" element={<Home />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signup/:type" element={<SignUp/>} />
+        <Route path="/signup/hospital-admin" element={<HospitalAdminSignup />} />
+        <Route path="/hospital/admin" element={<HospitalAdminDashboard />} />
         <Route path="/login" element={<Login/>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/chat" element={<Chat />} />

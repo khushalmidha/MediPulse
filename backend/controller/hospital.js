@@ -269,11 +269,17 @@ const getHospitalQueueStatus = async (req, res) => {
 };
 
 const registerHospital = async (req, res) => {
-  const { name, email, phone, address = {}, type, registrationNumber } = req.body;
+  const { name, email, phone, address = {}, type, registrationNumber, adminName, adminPassword } = req.body;
 
   if (!name || !email || !address.city || !address.state || !type || !registrationNumber) {
     return res.status(400).json({
       message: "Name, email, city, state, type and registration number are required",
+    });
+  }
+
+  if (!adminName || !adminPassword || String(adminPassword).length < 8) {
+    return res.status(400).json({
+      message: "Hospital admin name and an 8+ character password are required",
     });
   }
 
@@ -300,11 +306,12 @@ const registerHospital = async (req, res) => {
 
   const admin = await HospitalStaff.create({
     hospitalId: hospital._id,
-    name: req.auth?.name || cleanString(name),
+    name: cleanString(adminName),
     email: cleanString(email).toLowerCase(),
     phone,
     role: "HOSPITAL_ADMIN",
     userId: req.auth?.role === "user" ? req.auth.id : undefined,
+    password: adminPassword,
     inviteStatus: "accepted",
     joinedAt: new Date(),
   });
