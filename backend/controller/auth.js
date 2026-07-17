@@ -6,6 +6,7 @@ import { configDotenv } from "dotenv";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
+import HospitalStaff from "../model/hospitalStaff.js";
 import { getRedis, passwordResetOtpKey } from "../services/redis.js";
 import { sendPasswordResetOtpMail } from "../util/mailer.js";
 import { ensureWallet } from "../services/virtualLedger.js";
@@ -47,6 +48,23 @@ const setAuthCookies = (res, accountId, role, rememberMe = false) => {
 	const options = getCookieOptions(rememberMe);
 	res.cookie("token", token, options);
 	res.cookie("id", accountId, options);
+};
+
+const setStaffAuthCookies = (res, staff, rememberMe = false) => {
+	const tokenExpiry = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 3;
+	const token = jwt.sign(
+		{
+			id: staff._id.toString(),
+			role: staff.role,
+			hospitalId: staff.hospitalId.toString(),
+			type: "staff",
+		},
+		process.env.TOKEN_KEY,
+		{ expiresIn: tokenExpiry },
+	);
+	const options = getCookieOptions(rememberMe);
+	res.cookie("staffToken", token, options);
+	res.cookie("staffId", staff._id.toString(), options);
 };
 const userSignup = async (req, res, next) => {
 	const {
@@ -404,6 +422,88 @@ const resetPasswordWithOtp = async (req, res) => {
 	return res.status(200).json({ message: "Password reset successfully" });
 };
 
+const staffLogin = async (req, res) => {
+	const { email, password, hospitalId, rememberMe } = req.body;
+
+	if (!email || !password || !hospitalId) {
+		return res.status(400).json({ message: "Email, password and hospital id are required" });
+	}
+
+	const staff = await HospitalStaff.findOne({
+		email: cleanString(email).toLowerCase(),
+		hospitalId,
+		isActive: true,
+	});
+
+	if (!staff || !staff.password || staff.inviteStatus !== "accepted") {
+		return res.status(401).json({ message: "Invalid staff credentials" });
+	}
+
+	const validPassword = await bcrypt.compare(password, staff.password);
+	if (!validPassword) {
+		return res.status(401).json({ message: "Invalid staff credentials" });
+	}
+
+	setStaffAuthCookies(res, staff, rememberMe);
+	return res.status(200).json({
+		message: "Staff logged in successfully",
+		success: true,
+		result: {
+			_id: staff._id,
+			name: staff.name,
+			email: staff.email,
+			role: staff.role,
+			hospitalId: staff.hospitalId,
+			departmentIds: staff.departmentIds,
+		},
+	});
+};
+
+const staffSetPassword = async (req, res) => {
+	const { hospitalId, token, password } = req.body;
+
+	if (!hospitalId || !token || !password) {
+		return res.status(400).json({ message: "Hospital id, invite token and password are required" });
+	}
+
+	if (String(password).length < 8) {
+		return res.status(400).json({ message: "Password must be at least 8 characters long" });
+	}
+
+	const tokenHash = hashValue(token);
+	const staff = await HospitalStaff.findOne({
+		hospitalId,
+		inviteToken: tokenHash,
+		inviteStatus: "pending",
+		isActive: true,
+	});
+
+	if (!staff || (staff.inviteExpiresAt && staff.inviteExpiresAt <= new Date())) {
+		return res.status(410).json({ message: "Invite is invalid or expired" });
+	}
+
+	staff.password = password;
+	staff.inviteStatus = "accepted";
+	staff.inviteToken = undefined;
+	staff.inviteExpiresAt = undefined;
+	staff.joinedAt = new Date();
+	await staff.save();
+
+	setStaffAuthCookies(res, staff);
+	return res.status(200).json({
+		message: "Staff password set successfully",
+		success: true,
+		result: {
+			_id: staff._id,
+			name: staff.name,
+			email: staff.email,
+			role: staff.role,
+			hospitalId: staff.hospitalId,
+			departmentIds: staff.departmentIds,
+		},
+	});
+};
+
 const Verifier = async (req,res) => {
 	const token = req.cookies.token;
 	if(!token){
@@ -427,6 +527,8 @@ export {
 	googleAuth,
 	resetPasswordWithOtp,
 	sendPasswordResetOtp,
+	staffLogin,
+	staffSetPassword,
 	userLogin,
 	userSignup,
 	Verifier,

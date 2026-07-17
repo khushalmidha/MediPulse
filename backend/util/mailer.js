@@ -432,11 +432,91 @@ MediPulse`,
   });
 };
 
+const sendHospitalWelcomeMail = async ({ to, hospitalName }) => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+
+  await sendMail({
+    from,
+    to,
+    subject: "MediPulse hospital registration received",
+    text: `Hi,
+
+Your hospital registration for ${hospitalName} has been received and is pending platform verification.
+
+MediPulse`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">Registration received</h2>
+        <p>Your hospital registration for <strong>${hospitalName}</strong> has been received.</p>
+        <p>Our platform team will verify it and activate your hospital workspace.</p>
+      </div>
+    `,
+  });
+};
+
+const sendHospitalAdminAlertMail = async ({ to, hospitalName, email, city }) => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+
+  if (!to) return;
+
+  await sendMail({
+    from,
+    to,
+    subject: `New MediPulse hospital registration: ${hospitalName}`,
+    text: `New hospital registration:
+
+Hospital: ${hospitalName}
+Email: ${email}
+City: ${city}
+
+Review it from the platform admin dashboard.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">New hospital registration</h2>
+        <p><strong>${hospitalName}</strong> has applied to join MediPulse.</p>
+        <p>Email: ${email}</p>
+        <p>City: ${city || "Not provided"}</p>
+      </div>
+    `,
+  });
+};
+
+const sendStaffInviteMail = async ({ to, staffName, hospitalName, inviteUrl }) => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+
+  await sendMail({
+    from,
+    to,
+    subject: `You're invited to join ${hospitalName} on MediPulse`,
+    text: `Hi ${staffName || "there"},
+
+You have been invited to join ${hospitalName} on MediPulse.
+
+Accept invite: ${inviteUrl}
+
+This invite expires in 48 hours.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">MediPulse staff invite</h2>
+        <p>Hi ${staffName || "there"},</p>
+        <p>You have been invited to join <strong>${hospitalName}</strong> on MediPulse.</p>
+        <p style="margin: 24px 0;">
+          <a href="${inviteUrl}" style="display: inline-block; padding: 12px 18px; border-radius: 8px; background: #2563eb; color: #ffffff; text-decoration: none; font-weight: 700;">Accept invite</a>
+        </p>
+        <p style="color: #6b7280;">This invite expires in 48 hours.</p>
+      </div>
+    `,
+  });
+};
+
 export {
+  sendHospitalAdminAlertMail,
+  sendHospitalWelcomeMail,
   sendAppointmentApprovalMail,
   sendAppointmentBookedMail,
   sendAppointmentOtpMail,
   sendAppointmentRefundMail,
   sendPasswordResetOtpMail,
+  sendStaffInviteMail,
   verifyMailTransport,
 };
