@@ -1,333 +1,124 @@
-# MediPulse
+<p align="center">
+  <img src="./frontend/public/heart.svg" alt="MediPulse logo" width="86" />
+</p>
 
-MediPulse is a full-stack telehealth platform for patients, doctors, and health communities. It combines appointment booking, doctor queues, live video consultations, virtual wallet payments, real-time community chat, and AI-assisted clinical workflows in one web app.
+<h1 align="center">MediPulse</h1>
 
-> Medical AI features in this project are designed to assist clinicians. They are not a replacement for professional medical judgment, diagnosis, emergency care, or a verified drug-interaction database.
+<p align="center">
+  <b>A healthcare SaaS platform for hospitals, doctors, staff, and patients.</b>
+</p>
 
-## Highlights
+<p align="center">
+  <img alt="React" src="https://img.shields.io/badge/Frontend-React%20%2B%20Vite-2563eb?style=for-the-badge" />
+  <img alt="Node" src="https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-16a34a?style=for-the-badge" />
+  <img alt="MongoDB" src="https://img.shields.io/badge/Database-MongoDB-047857?style=for-the-badge" />
+  <img alt="Realtime" src="https://img.shields.io/badge/Realtime-Socket.IO-111827?style=for-the-badge" />
+</p>
 
-- Patient and doctor authentication with role-based access
-- Doctor discovery, appointment booking, queue management, refunds, and appointment history
-- Live appointment rooms with Socket.IO signaling and WebRTC video
-- Virtual wallet ledger for booking fees, transfers, refunds, and notifications
-- Health communities with real-time chat and doctor-created events
-- Gemini-powered pre-consultation triage for patients
-- Real-time AI Doctor Co-Pilot during live consultations
-- AI-generated SOAP notes with doctor review and edit flow
-- Email OTP, appointment approval/cancellation links, and receipt generation
+---
 
-## AI Workflows
+## Product Vision
 
-### Pre-Consultation Triage
+MediPulse started as a full-stack healthcare portfolio project, but the long-term vision is much bigger: a multi-tenant healthcare operating system for hospitals. The idea is to combine doctor discovery, smart OPD queues, staff communication, lab workflows, video consultation, wallet payments, health records, reviews, and AI guidance into one connected platform.
 
-Before a queued appointment starts, the patient can answer a short AI-guided triage chat. The triage agent gathers the chief complaint, duration, severity, relevant history, and urgency level, then saves a doctor-facing patient brief on the appointment.
+Think of MediPulse as **Practo for patients, Zoho for hospitals, and WhatsApp for medical staff**, brought together in a single B2B healthcare SaaS product. Patients can book appointments across registered hospitals, track queue status in real time, receive reports, manage family records, and consult doctors virtually. Hospitals get dashboards for OPD flow, staff roles, lab orders, billing, subscriptions, ratings, and analytics.
 
-### Real-Time Doctor Co-Pilot
+---
 
-During an active video consultation, the doctor-side browser captures live transcript text with the Web Speech API and sends chunks to the backend every 30 seconds. The backend runs a Gemini function-calling tool loop with:
+## Current Platform
 
-- `get_patient_context`
-- `check_drug_safety`
-- `flag_red_symptoms`
-- `get_relevant_guideline`
-- `generate_soap_note`
+The current version already proves the core loop. Users and doctors can sign up, authenticate with JWT sessions, use Google login, book appointments through email OTP verification, and join doctor-controlled queues. A virtual wallet supports booking debits, refunds, wallet updates, and transaction tracking. Doctors can start appointments, run video consultations, save notes, generate receipts, and end sessions.
 
-Suggestions are pushed back to the doctor over Socket.IO in real time. When the appointment ends, the Co-Pilot can generate a structured SOAP note and save it for doctor review.
+MediPulse also includes communities, realtime chat, and joined-community events on the dashboard. The Gemini-powered assistant helps with doctor discovery, community suggestions, and general health guidance. The platform is already structured for realtime events through Socket.IO, Redis-compatible services, Kafka-ready virtual payment events, and Docker-based deployment.
 
-## Core Features
+---
 
-### Authentication
+## Future SaaS Model
 
-- Patient and doctor signup/login
-- JWT cookie sessions
-- Google sign-in support
-- Forgot password with email OTP
-- Protected routes by role
+The next evolution is multi-tenancy. Each hospital becomes a tenant with its own departments, staff, OPD schedule, lab catalog, subscription, billing rules, and public profile. Patients remain platform-level accounts, so one patient can book anywhere and keep a unified health timeline.
 
-### Appointment System
-
-- Email OTP before booking
-- Doctor approval/cancellation through email action links
-- Queue-based doctor dashboard
-- Doctor-controlled appointment start/end
-- Auto-timeout support
-- Doctor notes, receipts, patient briefs, and SOAP notes
-- Refund support for cancelled appointments
-
-### Live Consultation
-
-- Socket.IO appointment rooms
-- WebRTC signaling for video calls
-- TURN/STUN configuration support
-- Doctor-only AI Co-Pilot sidebar
-- Voice consent detection support
-
-### Virtual Wallet
-
-- Initial wallet balance for new users
-- Booking fee debit
-- Doctor-side wallet transfer
-- Refund ledger entries
-- Transaction history and notifications
-- Redis-compatible safety locks
-- Kafka-ready event publishing
-
-### Communities and Events
-
-- Join/leave health communities
-- Real-time community chat
-- Doctor-managed communities
-- Community event publishing
-- Dashboard event visibility for joined members
-
-## Tech Stack
-
-### Frontend
-
-- React 19
-- Vite
-- React Router
-- Tailwind CSS
-- Axios
-- Socket.IO Client
-- Lucide React
-- jsPDF
-
-### Backend
-
-- Node.js
-- Express.js
-- MongoDB + Mongoose
-- Socket.IO
-- JWT + cookies
-- Nodemailer
-- Google Gemini SDK
-- Razorpay SDK
-- Redis/ioredis with local memory fallback
-- KafkaJS-ready event flow
-
-## Project Structure
-
-```text
-MediPulse/
-  backend/
-    controller/
-    middleware/
-    model/
-    routes/
-    scripts/
-    services/
-    util/
-    index.js
-    socket.js
-  frontend/
-    public/
-    src/
-      components/
-      context/
-      pages/
-      socket.js
-      utils.js
-  docker-compose.yml
-  README.md
-  .env.example
+```
+Platform
+  -> Hospital
+      -> Departments
+      -> Doctors, Nurses, Lab Techs, Receptionists
+      -> OPD Tokens, Lab Orders, Prescriptions
+      -> Billing, Reviews, Analytics
+Patient
+  -> Appointments across hospitals
+  -> Reports, prescriptions, family records
 ```
 
-## Local Setup
+---
 
-### 1. Clone
+## Core Modules
 
-```bash
-git clone https://github.com/khushalmidha/MediPulse.git
-cd MediPulse
-```
+### Hospital Onboarding
 
-### 2. Environment
+Hospitals can apply with license details, address, type, photos, facilities, timings, and departments. Platform admins approve or reject registrations. After approval, every hospital receives a unique profile and slug. Hospital admins can onboard staff through invite-based accounts with role-based access.
 
-Copy the example environment file:
+### Smart OPD Management
 
-```bash
-cp .env.example .env
-```
+The OPD token system is the heart of the product. Patients get a token, see estimated wait time, and receive updates when they are close to being called. Doctors get an OPD console showing current patient, vitals, complaint, notes, lab orders, prescriptions, referrals, and next queue item.
 
-At minimum, configure:
+### Internal Staff Communication
 
-```env
-PORT=8080
-DATABASE_URL=mongodb://127.0.0.1:27017/medipulse
-TOKEN_KEY=replace-with-a-strong-secret
-CLIENT_URLS=http://localhost:5173
-GEMINI_API_KEY=your-gemini-api-key
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=your-email@example.com
-SMTP_PASS=your-smtp-app-password
-MAIL_FROM="MediPulse <your-email@example.com>"
-REDIS_URL=redis://127.0.0.1:6379
-```
+MediPulse replaces generic chat with patient-context communication. Doctors can message nurses about a token, labs can notify doctors when reports are ready, departments can send referral handoffs, and admins can broadcast announcements.
 
-For the frontend, create `frontend/.env`:
+### Labs, Reports, and Prescriptions
 
-```env
-VITE_BACKEND_URL=http://localhost:8080
-VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
-VITE_GOOGLE_MAPS_API=your-google-maps-api-key
-VITE_CLOUDINARY_API=your-cloudinary-api-url
-VITE_TURN_URLS=
-VITE_TURN_USERNAME=
-VITE_TURN_CREDENTIAL=
-```
+Hospitals can maintain a lab test catalog with price and turnaround time. Doctors can order tests from the consultation screen. Lab technicians manage collection, processing, report upload, and critical-value alerts.
 
-### 3. Install Dependencies
+### Patient Portal
 
-```bash
-cd backend
-npm install
+Patients get a unified profile with appointment history, digital prescriptions, lab reports, health timeline, and family management. A single account can manage self, spouse, child, or parent appointments.
 
-cd ../frontend
-npm install
-```
+### Ratings and Reviews
 
-### 4. Run Development Servers
+After each visit, patients can rate doctor quality, wait time, staff behavior, cleanliness, and value for money. MediPulse can compute a composite hospital score using satisfaction, wait-time accuracy, completion rate, fee transparency, and lab turnaround time.
 
-Backend:
+---
 
-```bash
-cd backend
-npm run dev
-```
+## Technology Stack
 
-Frontend:
+| Layer | Technologies |
+|---|---|
+| Frontend | React, Vite, React Router, Tailwind CSS, Axios, Lucide React |
+| Realtime | Socket.IO, WebRTC signaling, live queue events |
+| Backend | Node.js, Express.js, JWT, Cookies, Mongoose |
+| Database | MongoDB |
+| Cache and Queue | Redis-compatible services |
+| Events | Kafka-ready virtual payment and analytics topics |
+| Payments | Virtual wallet, ledger, refunds, Razorpay-ready integration |
+| Email | OTP, booking approval, refund, password reset notifications |
+| AI | Gemini-powered assistant and recommendation layer |
+| Documents | jsPDF receipts, QR verification support |
+| DevOps | Dockerfiles, Docker Compose, environment-based deployment |
 
-```bash
-cd frontend
-npm run dev
-```
+---
 
-Open:
+## Reusable Building Blocks
 
-```text
-http://localhost:5173
-```
+The current implementation is not throwaway work. Socket.IO can power staff chat, OPD queue updates, and lab notifications. WebRTC can support telemedicine slots. Redis can manage token queues and delayed jobs. Kafka-style events can track appointments, refunds, wallet updates, ratings, and analytics.
 
-## Build
+---
 
-Frontend production build:
+## Roadmap
 
-```bash
-cd frontend
-npm run build
-```
+**Phase 1:** Multi-tenant hospital model, hospital admin dashboard, departments, staff invites, OPD token system, doctor console, patient booking, basic ratings.
 
-Backend production start:
+**Phase 2:** Doctor-nurse-lab communication, referral workflow, department announcements, patient notifications.
 
-```bash
-cd backend
-npm start
-```
+**Phase 3:** Lab orders, report uploads, prescriptions, patient health timeline, family manager.
 
-## Deployment
+**Phase 4:** AI wait-time prediction, smart slot suggestions, symptom triage, doctor co-pilot, no-show prediction, post-visit follow-up automation.
 
-### Frontend on Vercel
+**Phase 5:** ABHA integration, insurance support, mobile app, hospital APIs, enterprise subscriptions, multi-city expansion.
 
-Use these settings:
+---
 
-```text
-Root Directory: frontend
-Build Command: npm run build
-Output Directory: dist
-```
+## Why MediPulse Matters
 
-Set Vercel environment variables:
+Hospitals lose time because queues, communication, reports, billing, and records are scattered. Patients lose trust because wait times are unclear and follow-ups are manual. MediPulse aims to make the healthcare journey transparent, coordinated, and measurable.
 
-```env
-VITE_BACKEND_URL=https://your-backend-url
-VITE_GOOGLE_CLIENT_ID=...
-VITE_GOOGLE_MAPS_API=...
-VITE_CLOUDINARY_API=...
-VITE_TURN_URLS=...
-VITE_TURN_USERNAME=...
-VITE_TURN_CREDENTIAL=...
-```
-
-### Backend on Render/Railway/Fly
-
-Use:
-
-```text
-Root Directory: backend
-Build Command: npm install
-Start Command: npm start
-```
-
-Set backend environment variables:
-
-```env
-PORT=8080
-NODE_ENV=production
-DATABASE_URL=...
-TOKEN_KEY=...
-CLIENT_URLS=https://your-frontend-url
-GEMINI_API_KEY=...
-SMTP_HOST=...
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=...
-SMTP_PASS=...
-MAIL_FROM=...
-REDIS_URL=...
-```
-
-After deployment, make sure:
-
-- `CLIENT_URLS` includes your deployed frontend URL
-- `VITE_BACKEND_URL` points to your deployed backend URL
-- Cookies are allowed between frontend and backend
-- TURN credentials are configured for reliable video calls in production
-
-## Important API Areas
-
-```text
-/user
-/doctor
-/appointment
-/community
-/message
-/event
-/gemini
-/api/triage
-/api/copilot
-/vpay
-```
-
-## Validation Commands
-
-Backend syntax checks:
-
-```bash
-node --check backend/services/copilotTools.js
-node --check backend/controller/copilot.js
-node --check backend/routes/copilot.js
-node --check backend/index.js
-node --check backend/socket.js
-```
-
-Frontend build:
-
-```bash
-cd frontend
-npm run build
-```
-
-## Notes
-
-- Co-Pilot transcript storage is text-only and session-scoped through Redis keys.
-- SOAP notes are saved on the appointment after AI generation and doctor review.
-- If Redis is not enabled locally, the backend includes an in-memory fallback for development.
-- Gemini failures are handled gracefully so live consultations continue even if AI is unavailable.
-- High-risk clinical suggestions are phrased as flags for doctor review, not as confirmed diagnoses.
-
-## License
-
-This project is currently maintained as an educational and portfolio healthcare platform.
+It is a portfolio project today, but it is designed like a real startup product: modular, realtime, role-based, AI-assisted, and ready to grow into a serious healthcare SaaS platform.

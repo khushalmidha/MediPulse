@@ -23,10 +23,17 @@ import VirtualTransactions from "./pages/VirtualTransactions";
 import VirtualRefunds from "./pages/VirtualRefunds";
 import VirtualAdminDashboard from "./pages/VirtualAdminDashboard";
 import VirtualNotifications from "./pages/VirtualNotifications";
+import { getHospitalSlugFromHostname } from "./utils/hospitalSubdomain";
+import HospitalWebsite from "./pages/hospital-website/HospitalWebsite";
 
 
 function App() {
-  console.log("App");
+  const hospitalSlug = getHospitalSlugFromHostname();
+
+  if (hospitalSlug) {
+    return <HospitalWebsite slug={hospitalSlug} />;
+  }
+
   return (
     <>
       <Navbar/>

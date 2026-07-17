@@ -13,7 +13,7 @@ import geminiRouter from './routes/gemini.js'
 import appointmentRouter from './routes/appointment.js'
 import virtualPaymentRouter from './routes/virtualPayment.js'
 import triageRouter from './routes/triage.js'
-import copilotRouter from './routes/copilot.js'
+import hospitalRouter from './routes/hospital.js'
 import { handleRazorpayWebhook, startAutoRefundWorker } from './controller/appointment.js'
 import { configDotenv } from 'dotenv'
 import { Verifier } from './controller/auth.js'
@@ -79,6 +79,7 @@ app.post(
 )
 app.use(express.json())
 app.use('/user', userRouter)
+app.use('/api/auth', userRouter)
 app.use('/doctor', doctorRouter)
 app.use('/community', communityRouter)
 app.use('/message', messageRouter)
@@ -88,7 +89,7 @@ app.use('/gemini', geminiRouter)
 app.use('/appointment', appointmentRouter)
 app.use('/triage', triageRouter)
 app.use('/api/triage', triageRouter)
-app.use('/api/copilot', copilotRouter)
+app.use('/api/hospitals', hospitalRouter)
 app.use('/vpay', virtualPaymentRouter)
 app.get('/verify', Verifier)
 app.get('/count', async (req, res) => {
