@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { UserCircle2, Stethoscope, Mail, Lock, Phone, AlertCircle, User, FileText, HeartPulse, Users, MapPin, ArrowLeft } from "lucide-react";
+import { UserCircle2, Stethoscope, Mail, Lock, Phone, AlertCircle, User, FileText, HeartPulse, Users, MapPin, ArrowLeft, Building2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
@@ -99,7 +99,7 @@ const ProfileSelection = ({ setUserType }) => (
         Select how you want to join MediPulse
       </p>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <button
         onClick={() => setUserType("user")}
         className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
@@ -122,6 +122,18 @@ const ProfileSelection = ({ setUserType }) => (
         <h4 className="mt-4 text-lg font-medium text-gray-800">Join as Doctor</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
           Provide care and support to differently abled individuals
+        </p>
+      </button>
+      <button
+        onClick={() => setUserType("hospital-admin")}
+        className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+      >
+        <div className="bg-blue-100 p-4 rounded-full">
+          <Building2 className="h-10 w-10 text-blue-600" />
+        </div>
+        <h4 className="mt-4 text-lg font-medium text-gray-800">Join as Hospital Admin</h4>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          Register a hospital and manage departments, staff, and OPD setup
         </p>
       </button>
     </div>
@@ -566,6 +578,12 @@ const SignUp = () => {
   const [isloading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const { isAuth, setIsAuth, setUser, setRole } = useAuth();
+
+  useEffect(() => {
+    if (userType === "hospital-admin") {
+      navigate("/signup/hospital-admin");
+    }
+  }, [userType, navigate]);
   
   useEffect(() => {
     if (isAuth) {
@@ -656,7 +674,9 @@ const SignUp = () => {
                 ? "Create your account" 
                 : userType === "user" 
                   ? "Sign up as a Patient" 
-                  : "Sign up as a Doctor"}
+                  : userType === "doctor"
+                    ? "Sign up as a Doctor"
+                    : "Create Hospital Admin Portal"}
             </h1>
             <p className="mt-3 text-gray-600">
               Already have an account?{" "}

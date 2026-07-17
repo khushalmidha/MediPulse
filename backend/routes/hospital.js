@@ -32,7 +32,7 @@ hospitalRouter.get("/:slug", getHospitalProfile);
 hospitalRouter.get("/:slug/doctors", getHospitalDoctors);
 hospitalRouter.get("/:slug/queue-status", getHospitalQueueStatus);
 
-hospitalRouter.post("/register", userValidation, registerHospital);
+hospitalRouter.post("/register", registerHospital);
 hospitalRouter.patch("/:id/profile", validateStaff, updateHospitalProfile);
 hospitalRouter.post("/:id/departments", validateStaff, addDepartment);
 hospitalRouter.patch("/:id/departments/:deptId", validateStaff, updateDepartment);
