@@ -520,7 +520,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full bg-white p-8 sm:p-10 rounded-2xl shadow-md border border-gray-100">
+      <div className={`${userType === "select" ? "max-w-3xl" : "max-w-md"} w-full bg-white p-8 sm:p-10 rounded-2xl shadow-md border border-gray-100`}>
         <div className="mb-10 text-center">
           <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
             {userType === "select" ? "Welcome Back" : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Admin'}`}
