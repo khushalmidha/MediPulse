@@ -161,7 +161,6 @@ const mapHistoryAppointment = (appointment) => ({
   receiptText: appointment.receiptText || "",
   receiptGeneratedAt: appointment.receiptGeneratedAt || null,
   patientBrief: appointment.patientBrief || null,
-  soapNote: appointment.soapNote || null,
   payment: appointment.payment || null,
   endsAt: appointment.startedAt
     ? new Date(appointment.startedAt.getTime() + APPOINTMENT_DURATION_MS)
@@ -181,7 +180,6 @@ const mapActiveAppointment = (appointment) => {
     receiptText: appointment.receiptText || "",
     receiptGeneratedAt: appointment.receiptGeneratedAt || null,
     patientBrief: appointment.patientBrief || null,
-    soapNote: appointment.soapNote || null,
     payment: appointment.payment || null,
     endsAt: appointment.startedAt
       ? new Date(appointment.startedAt.getTime() + APPOINTMENT_DURATION_MS)
@@ -372,6 +370,7 @@ const createQueuedAppointmentFromPayment = async (payment) => {
     appointment = await Appointment.create({
       doctor: payment.doctor,
       user: payment.user,
+      familyMemberId: payment.metadata?.familyMemberId,
       roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
       status: "queued",
       payment: {
@@ -448,6 +447,7 @@ const createQueuedAppointmentFromDemoBooking = async ({
   const appointment = await Appointment.create({
     doctor: doctorId,
     user: userId,
+    familyMemberId: tokenData.familyMemberId,
     roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
     status: "pending_approval",
     payment: {
@@ -640,7 +640,7 @@ const sendAppointmentOtp = async (req, res) => {
 
 const verifyAppointmentOtp = async (req, res) => {
   const { doctorId } = req.params;
-  const { otp } = req.body;
+  const { otp, familyMemberId } = req.body;
 
   if (req.auth.role !== "user") {
     return res.status(403).json({ message: "Only users can verify booking OTP" });
@@ -675,7 +675,7 @@ const verifyAppointmentOtp = async (req, res) => {
     .del(key)
     .set(
       bookingTokenKey(bookingToken),
-      JSON.stringify({ doctorId, userId: req.auth.id }),
+      JSON.stringify({ doctorId, userId: req.auth.id, familyMemberId }),
       "PX",
       BOOKING_TOKEN_EXPIRY_MS,
     )
@@ -695,7 +695,7 @@ const verifyAppointmentOtp = async (req, res) => {
 
 const createPaymentOrder = async (req, res) => {
   const { doctorId } = req.params;
-  const { bookingToken } = req.body;
+  const { bookingToken, familyMemberId } = req.body;
 
   if (req.auth.role !== "user") {
     return res.status(403).json({ message: "Only users can pay for appointments" });
@@ -737,6 +737,7 @@ const createPaymentOrder = async (req, res) => {
     receipt,
     metadata: {
       bookingTokenHash: hashValue(bookingToken),
+      familyMemberId: familyMemberId || tokenData.familyMemberId,
     },
   });
 
@@ -1296,7 +1297,7 @@ const updateDoctorNotes = async (req, res) => {
   }
 
   const { appointmentId } = req.params;
-  const { doctorNotes = "", soapNote = null } = req.body;
+  const { doctorNotes = "" } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
     return res.status(400).json({ message: "Invalid appointment id" });
@@ -1312,23 +1313,12 @@ const updateDoctorNotes = async (req, res) => {
   }
 
   appointment.doctorNotes = doctorNotes.trim();
-  if (soapNote && typeof soapNote === "object") {
-    appointment.soapNote = {
-      subjective: String(soapNote.subjective || "").trim(),
-      objective: String(soapNote.objective || "").trim(),
-      assessment: String(soapNote.assessment || "").trim(),
-      plan: String(soapNote.plan || "").trim(),
-      generatedAt: soapNote.generatedAt ? new Date(soapNote.generatedAt) : new Date(),
-      generatedBy: soapNote.generatedBy === "doctor" ? "doctor" : "ai-copilot",
-    };
-  }
   await appointment.save();
 
   return res.status(200).json({
     message: "Doctor notes saved",
     appointmentId: appointment._id,
     doctorNotes: appointment.doctorNotes,
-    soapNote: appointment.soapNote || null,
   });
 };
 
@@ -1423,8 +1413,6 @@ const getAppointmentById = async (req, res) => {
     doctorNotes: appointment.doctorNotes || "",
     receiptText: appointment.receiptText || "",
     receiptGeneratedAt: appointment.receiptGeneratedAt || null,
-    patientBrief: appointment.patientBrief || null,
-    soapNote: appointment.soapNote || null,
     endsAt: appointment.startedAt
       ? new Date(appointment.startedAt.getTime() + APPOINTMENT_DURATION_MS)
       : null,

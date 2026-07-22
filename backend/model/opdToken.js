@@ -8,6 +8,7 @@ const opdTokenSchema = new mongoose.Schema(
     departmentId: { type: objectId, ref: "Department", required: true },
     doctorId: { type: objectId, ref: "HospitalStaff", required: true },
     patientId: { type: objectId, ref: "user" },
+    familyMemberId: { type: objectId },
     tokenNumber: { type: Number, required: true },
     displayToken: String,
     date: { type: Date, required: true },

@@ -32,6 +32,7 @@ import NursingStation from "./pages/hospital-staff/NursingStation";
 import StaffCommunication from "./pages/hospital-staff/StaffCommunication";
 import ReviewVisit from "./pages/ReviewVisit";
 import OpdTriage from "./pages/OpdTriage";
+import PatientHealthPortal from "./pages/PatientHealthPortal";
 
 
 function App() {
@@ -56,6 +57,7 @@ function App() {
         <Route path="/hospital/staff-communication" element={<StaffCommunication />} />
         <Route path="/review" element={<ReviewVisit />} />
         <Route path="/opd/triage" element={<OpdTriage />} />
+        <Route path="/health-records" element={<PatientHealthPortal />} />
         <Route path="/login" element={<Login/>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/chat" element={<Chat />} />

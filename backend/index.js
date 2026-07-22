@@ -18,6 +18,7 @@ import opdRouter from './routes/opd.js'
 import staffMessageRouter from './routes/staffMessage.js'
 import reviewRouter from './routes/review.js'
 import opdAiRouter from './routes/opdAi.js'
+import patientPortalRouter from './routes/patientPortal.js'
 import { handleRazorpayWebhook, startAutoRefundWorker } from './controller/appointment.js'
 import { startReviewRequestWorker } from './services/reviewRequestWorker.js'
 import { configDotenv } from 'dotenv'
@@ -99,6 +100,7 @@ app.use('/api/opd', opdRouter)
 app.use('/api/staff-messages', staffMessageRouter)
 app.use('/api/reviews', reviewRouter)
 app.use('/api/opd-ai', opdAiRouter)
+app.use('/api/patients', patientPortalRouter)
 app.use('/vpay', virtualPaymentRouter)
 app.get('/verify', Verifier)
 app.get('/count', async (req, res) => {

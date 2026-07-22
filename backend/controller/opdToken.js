@@ -72,7 +72,7 @@ const issueToken = async (req, res) => {
     return res.status(403).json({ message: "Forbidden hospital access" });
   }
 
-  const { doctorId, patientId, patientInfo = {}, visitType = "new", chiefComplaint } = req.body;
+  const { doctorId, patientId, familyMemberId, patientInfo = {}, visitType = "new", chiefComplaint } = req.body;
   if (!doctorId) {
     return res.status(400).json({ message: "Doctor id is required" });
   }
@@ -103,6 +103,7 @@ const issueToken = async (req, res) => {
     departmentId,
     doctorId,
     patientId: patientId || req.auth?.id,
+    familyMemberId,
     tokenNumber,
     displayToken,
     date: start,
