@@ -44,6 +44,31 @@ const opdTokenSchema = new mongoose.Schema(
     paymentAmount: Number,
     paymentMode: { type: String, enum: ["cash", "upi", "card", "wallet", "insurance"] },
     appointmentId: { type: objectId, ref: "Appointment" },
+    aiTriage: {
+      status: { type: String, enum: ["not_started", "in_progress", "completed"], default: "not_started" },
+      messages: [
+        {
+          role: { type: String, enum: ["patient", "agent"] },
+          text: String,
+          createdAt: { type: Date, default: Date.now },
+        },
+      ],
+      patientBrief: {
+        chiefComplaint: String,
+        symptomDuration: String,
+        severity: String,
+        relevantHistory: String,
+        urgencyLevel: String,
+        agentSummary: String,
+        generatedAt: Date,
+        conversationTurns: Number,
+      },
+    },
+    doctorCopilot: {
+      lastSuggestion: String,
+      lastPrompt: String,
+      updatedAt: Date,
+    },
   },
   { timestamps: true },
 );
