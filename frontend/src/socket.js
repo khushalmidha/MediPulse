@@ -11,7 +11,7 @@ let socket = null;
  */
 export function getSocket() {
   if (!socket) {
-    const token = Cookies.get("token");
+    const token = Cookies.get("staffToken") || Cookies.get("token");
     socket = io(BACKEND_URL, {
       withCredentials: true,
       autoConnect: false,

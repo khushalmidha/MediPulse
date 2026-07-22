@@ -4,6 +4,7 @@ import { configDotenv } from "dotenv";
 import cookie from "cookie";
 import User from "./model/user.js";
 import Doctor from "./model/doctor.js";
+import HospitalStaff from "./model/hospitalStaff.js";
 import Message from "./model/message.js";
 import Community from "./model/community.js";
 import Appointment from "./model/appointment.js";
@@ -66,7 +67,7 @@ export function initSocket(server) {
         const rawCookies = socket.handshake.headers.cookie;
         if (rawCookies) {
           const cookies = cookie.parse(rawCookies);
-          token = cookies.token;
+          token = cookies.staffToken || cookies.token;
         }
       }
 
@@ -75,9 +76,21 @@ export function initSocket(server) {
       jwt.verify(token, process.env.TOKEN_KEY, async (err, data) => {
         if (err) return next(new Error("Authentication error"));
 
-        const user = await (data.role === "user" ? User : Doctor).findById(
-          data.id
-        );
+        if (data.type === "staff") {
+          const staff = await HospitalStaff.findOne({ _id: data.id, hospitalId: data.hospitalId, isActive: true });
+          if (!staff) return next(new Error("Authentication error"));
+          socket.user = {
+            _id: staff._id.toString(),
+            firstName: staff.name,
+            role: staff.role,
+            type: "staff",
+            hospitalId: staff.hospitalId.toString(),
+            departmentIds: staff.departmentIds.map((departmentId) => departmentId.toString()),
+          };
+          return next();
+        }
+
+        const user = await (data.role === "user" ? User : Doctor).findById(data.id);
         if (!user) return next(new Error("Authentication error"));
 
         // Attach user info to the socket for later use
@@ -97,6 +110,12 @@ export function initSocket(server) {
   io.on("connection", (socket) => {
     console.log(`⚡ Socket connected: ${socket.user.firstName} (${socket.id})`);
     socket.join(`${socket.user.role}:${socket.user._id}`);
+    if (socket.user.type === "staff") {
+      socket.join(`hospital:${socket.user.hospitalId}`);
+      socket.join(`doctor:${socket.user._id}`);
+      socket.user.departmentIds.forEach((departmentId) => socket.join(`dept:${departmentId}`));
+      if (socket.user.role === "LAB_TECH") socket.join(`staff:lab:${socket.user.hospitalId}`);
+    }
 
     // ── Join a community room ─────────────────────────────
     socket.on("joinCommunity", (communityId) => {
@@ -204,37 +223,6 @@ export function initSocket(server) {
     socket.on("leaveAppointmentRoom", ({ appointmentId }) => {
       if (!appointmentId) return;
       socket.leave(`appointment:${appointmentId}`);
-    });
-
-    socket.on("joinCopilotSession", async ({ appointmentId }, callback) => {
-      if (!appointmentId) {
-        if (callback) callback({ ok: false, message: "Appointment id is required" });
-        return;
-      }
-
-      if (socket.user.role !== "doctor") {
-        if (callback) callback({ ok: false, message: "Only doctors can join Co-Pilot" });
-        return;
-      }
-
-      const appointment = await Appointment.findById(appointmentId);
-      if (!appointment) {
-        if (callback) callback({ ok: false, message: "Appointment not found" });
-        return;
-      }
-
-      if (appointment.doctor.toString() !== socket.user._id.toString()) {
-        if (callback) callback({ ok: false, message: "Forbidden appointment access" });
-        return;
-      }
-
-      if (appointment.status !== "active") {
-        if (callback) callback({ ok: false, message: "Co-Pilot is only available during active appointments" });
-        return;
-      }
-
-      socket.join(`copilot:${appointmentId}`);
-      if (callback) callback({ ok: true });
     });
 
     socket.on("appointment:offer", ({ appointmentId, sdp }) => {
