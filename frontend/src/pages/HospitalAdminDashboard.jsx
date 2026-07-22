@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Building2, ClipboardList, Send, Stethoscope, Users } from "lucide-react";
+import { Building2, ClipboardList, MessageSquare, Send, Stethoscope, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BACKEND_URL } from "../utils";
 
@@ -115,7 +115,7 @@ const HospitalAdminDashboard = () => {
           ))}
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2">
+        <section className="grid gap-4 md:grid-cols-3">
           <Link to="/hospital/nursing-station" className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
             <ClipboardList className="text-blue-600" size={26} />
             <h2 className="mt-4 text-xl font-bold text-gray-950">Nursing Station</h2>
@@ -125,6 +125,11 @@ const HospitalAdminDashboard = () => {
             <Stethoscope className="text-blue-600" size={26} />
             <h2 className="mt-4 text-xl font-bold text-gray-950">Doctor OPD Console</h2>
             <p className="mt-2 text-sm text-gray-600">Start consultations, complete visits, and mark no-shows from the live queue.</p>
+          </Link>
+          <Link to="/hospital/staff-communication" className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <MessageSquare className="text-blue-600" size={26} />
+            <h2 className="mt-4 text-xl font-bold text-gray-950">Staff Communication</h2>
+            <p className="mt-2 text-sm text-gray-600">Share patient updates, department messages, and lab alerts across hospital teams.</p>
           </Link>
         </section>
 

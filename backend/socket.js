@@ -5,6 +5,7 @@ import cookie from "cookie";
 import User from "./model/user.js";
 import Doctor from "./model/doctor.js";
 import HospitalStaff from "./model/hospitalStaff.js";
+import StaffMessage from "./model/staffMessage.js";
 import Message from "./model/message.js";
 import Community from "./model/community.js";
 import Appointment from "./model/appointment.js";
@@ -116,6 +117,111 @@ export function initSocket(server) {
       socket.user.departmentIds.forEach((departmentId) => socket.join(`dept:${departmentId}`));
       if (socket.user.role === "LAB_TECH") socket.join(`staff:lab:${socket.user.hospitalId}`);
     }
+
+    socket.on("staff:joinHospital", ({ hospitalId } = {}, callback) => {
+      if (socket.user.type !== "staff" || hospitalId !== socket.user.hospitalId) {
+        if (callback) callback({ ok: false, message: "Invalid hospital staff room" });
+        return;
+      }
+
+      socket.join(`hospital:${hospitalId}`);
+      socket.join(`doctor:${socket.user._id}`);
+      socket.user.departmentIds.forEach((departmentId) => socket.join(`dept:${departmentId}`));
+      if (socket.user.role === "LAB_TECH") socket.join(`staff:lab:${hospitalId}`);
+      if (callback) callback({ ok: true });
+    });
+
+    socket.on("staff:sendMessage", async (payload = {}, callback) => {
+      try {
+        if (socket.user.type !== "staff") {
+          if (callback) callback({ ok: false, message: "Staff session required" });
+          return;
+        }
+
+        const {
+          hospitalId,
+          conversationType,
+          content,
+          tokenId,
+          patientId,
+          departmentId,
+          recipientStaffId,
+          messageType = "text",
+          metadata,
+        } = payload;
+        const trimmedContent = String(content || "").trim();
+
+        if (hospitalId !== socket.user.hospitalId) {
+          if (callback) callback({ ok: false, message: "Invalid hospital" });
+          return;
+        }
+
+        if (!["direct", "patient_context", "department", "announcement"].includes(conversationType) || !trimmedContent) {
+          if (callback) callback({ ok: false, message: "Message type and content are required" });
+          return;
+        }
+
+        if (conversationType === "department" && !socket.user.departmentIds.includes(departmentId) && socket.user.role !== "HOSPITAL_ADMIN") {
+          if (callback) callback({ ok: false, message: "You cannot post in this department" });
+          return;
+        }
+
+        if (conversationType === "direct" && !recipientStaffId) {
+          if (callback) callback({ ok: false, message: "Recipient is required" });
+          return;
+        }
+
+        const staffMessage = await StaffMessage.create({
+          hospitalId,
+          conversationType,
+          tokenId,
+          patientId,
+          departmentId,
+          recipientStaffId,
+          sender: socket.user._id,
+          senderName: socket.user.firstName,
+          senderRole: socket.user.role,
+          content: trimmedContent,
+          messageType,
+          metadata,
+          readBy: [{ staffId: socket.user._id, readAt: new Date() }],
+        });
+
+        const messagePayload = {
+          _id: staffMessage._id,
+          hospitalId: staffMessage.hospitalId,
+          conversationType: staffMessage.conversationType,
+          tokenId: staffMessage.tokenId,
+          patientId: staffMessage.patientId,
+          departmentId: staffMessage.departmentId,
+          recipientStaffId: staffMessage.recipientStaffId,
+          sender: staffMessage.sender,
+          senderName: staffMessage.senderName,
+          senderRole: staffMessage.senderRole,
+          content: staffMessage.content,
+          messageType: staffMessage.messageType,
+          metadata: staffMessage.metadata,
+          createdAt: staffMessage.createdAt,
+        };
+
+        if (conversationType === "direct") {
+          io.to(`doctor:${recipientStaffId}`).to(`doctor:${socket.user._id}`).emit("staff:newMessage", messagePayload);
+        } else if (conversationType === "department") {
+          io.to(`dept:${departmentId}`).emit("staff:newMessage", messagePayload);
+        } else {
+          io.to(`hospital:${hospitalId}`).emit("staff:newMessage", messagePayload);
+        }
+
+        if (messageType === "lab_alert") {
+          io.to(`staff:lab:${hospitalId}`).emit("lab:order-received", messagePayload);
+        }
+
+        if (callback) callback({ ok: true, message: messagePayload });
+      } catch (err) {
+        console.error("Error sending staff message via socket:", err);
+        if (callback) callback({ ok: false, message: "Could not send staff message" });
+      }
+    });
 
     // ── Join a community room ─────────────────────────────
     socket.on("joinCommunity", (communityId) => {

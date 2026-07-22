@@ -15,6 +15,7 @@ import virtualPaymentRouter from './routes/virtualPayment.js'
 import triageRouter from './routes/triage.js'
 import hospitalRouter from './routes/hospital.js'
 import opdRouter from './routes/opd.js'
+import staffMessageRouter from './routes/staffMessage.js'
 import { handleRazorpayWebhook, startAutoRefundWorker } from './controller/appointment.js'
 import { configDotenv } from 'dotenv'
 import { Verifier } from './controller/auth.js'
@@ -92,6 +93,7 @@ app.use('/triage', triageRouter)
 app.use('/api/triage', triageRouter)
 app.use('/api/hospitals', hospitalRouter)
 app.use('/api/opd', opdRouter)
+app.use('/api/staff-messages', staffMessageRouter)
 app.use('/vpay', virtualPaymentRouter)
 app.get('/verify', Verifier)
 app.get('/count', async (req, res) => {
