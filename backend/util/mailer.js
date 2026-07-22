@@ -509,6 +509,34 @@ This invite expires in 48 hours.`,
   });
 };
 
+const sendReviewRequestMail = async ({ to, patientName, hospitalName, tokenDisplay, reviewUrl }) => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+
+  await sendMail({
+    from,
+    to,
+    subject: `How was your visit at ${hospitalName}?`,
+    text: `Hi ${patientName || "there"},
+
+Thanks for visiting ${hospitalName}. Please rate your experience for token ${tokenDisplay || ""}.
+
+Review link: ${reviewUrl}
+
+MediPulse`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">How was your visit?</h2>
+        <p>Hi ${patientName || "there"},</p>
+        <p>Thanks for visiting <strong>${hospitalName}</strong>. Your feedback helps patients choose better care.</p>
+        ${tokenDisplay ? `<p>Visit token: <strong>${tokenDisplay}</strong></p>` : ""}
+        <p style="margin: 24px 0;">
+          <a href="${reviewUrl}" style="display: inline-block; padding: 12px 18px; border-radius: 8px; background: #2563eb; color: #ffffff; text-decoration: none; font-weight: 700;">Rate your experience</a>
+        </p>
+      </div>
+    `,
+  });
+};
+
 export {
   sendHospitalAdminAlertMail,
   sendHospitalWelcomeMail,
@@ -517,6 +545,7 @@ export {
   sendAppointmentOtpMail,
   sendAppointmentRefundMail,
   sendPasswordResetOtpMail,
+  sendReviewRequestMail,
   sendStaffInviteMail,
   verifyMailTransport,
 };

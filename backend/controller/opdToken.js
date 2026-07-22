@@ -4,6 +4,7 @@ import Department from "../model/department.js";
 import Hospital from "../model/hospital.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 import { getRedis } from "../services/redis.js";
+import { scheduleReviewRequest } from "../services/reviewRequestWorker.js";
 import { getIO } from "../socket.js";
 
 const dayRange = (date = new Date()) => {
@@ -233,6 +234,7 @@ const completeConsultation = async (req, res) => {
   token.consultationEndedAt = new Date();
   await token.save();
   await clearOpdCache({ hospitalId: token.hospitalId, doctorId: token.doctorId });
+  await scheduleReviewRequest({ tokenId: token._id, patientId: token.patientId, hospitalId: token.hospitalId });
   emitHospital(token.hospitalId, "opd:consultation-completed", { token, notes: req.body.notes, diagnosis: req.body.diagnosis, followUpDate: req.body.followUpDate });
   return res.status(200).json({ message: "Consultation completed", token });
 };

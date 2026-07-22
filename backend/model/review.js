@@ -24,6 +24,7 @@ const reviewSchema = new mongoose.Schema(
       respondedAt: Date,
       respondedBy: { type: objectId, ref: "HospitalStaff" },
     },
+    metadata: mongoose.Schema.Types.Mixed,
     status: { type: String, enum: ["published", "flagged", "removed"], default: "published" },
   },
   { timestamps: true },
