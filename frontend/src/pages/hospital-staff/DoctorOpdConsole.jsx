@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Activity, CheckCircle2, Clock, FileText, RefreshCcw, Stethoscope, UserRound, XCircle } from "lucide-react";
+import { Activity, Bot, CheckCircle2, Clock, RefreshCcw, Stethoscope, UserRound, XCircle } from "lucide-react";
 import { BACKEND_URL } from "../../utils";
 import { getSocket } from "../../socket";
 
@@ -54,6 +54,9 @@ const DoctorOpdConsole = () => {
   const [message, setMessage] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
+  const [aiPrompt, setAiPrompt] = useState("Suggest focused consultation questions and red flags");
+  const [aiSuggestion, setAiSuggestion] = useState("");
+  const [aiBrief, setAiBrief] = useState(null);
 
   const loadQueue = async () => {
     if (!hospitalId || !doctorId) return;
@@ -99,6 +102,33 @@ const DoctorOpdConsole = () => {
       await loadQueue();
     } catch (error) {
       setMessage(error.response?.data?.message || "Could not complete consultation");
+    }
+  };
+
+  const loadAiContext = async (tokenId) => {
+    if (!tokenId) return;
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/opd-ai/tokens/${tokenId}/context`, { withCredentials: true });
+      setAiBrief(response.data.aiTriage?.patientBrief || null);
+      setAiSuggestion(response.data.doctorCopilot?.lastSuggestion || "");
+    } catch {
+      setAiBrief(null);
+    }
+  };
+
+  useEffect(() => {
+    loadAiContext(queue.currentlyServing?._id);
+  }, [queue.currentlyServing?._id]);
+
+  const askCopilot = async () => {
+    if (!queue.currentlyServing?._id) return;
+    setMessage("");
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/opd-ai/tokens/${queue.currentlyServing._id}/copilot`, { prompt: aiPrompt }, { withCredentials: true });
+      setAiSuggestion(response.data.suggestion);
+      setAiBrief(response.data.context?.patientBrief || aiBrief);
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Co-Pilot unavailable right now");
     }
   };
 
@@ -175,6 +205,27 @@ const DoctorOpdConsole = () => {
           </div>
 
           <div className="rounded-xl bg-white p-6 shadow-sm">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
+              <Bot className="text-blue-600" />
+              Doctor Co-Pilot
+            </h2>
+            {aiBrief ? (
+              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+                <p className="font-bold">Patient brief</p>
+                <p className="mt-1">{aiBrief.agentSummary}</p>
+                <p className="mt-2 text-xs">Urgency: {aiBrief.urgencyLevel || "ROUTINE"}</p>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-500">AI triage brief will appear when the patient completes OPD triage.</p>
+            )}
+            <textarea value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} className="mt-4 min-h-24 w-full rounded-md border border-gray-300 p-3 text-sm outline-none focus:border-blue-500" />
+            <button onClick={askCopilot} disabled={!queue.currentlyServing} className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">
+              Ask Co-Pilot
+            </button>
+            {aiSuggestion && <p className="mt-4 whitespace-pre-wrap rounded-lg bg-blue-50 p-4 text-sm text-blue-950">{aiSuggestion}</p>}
+          </div>
+
+          <div className="rounded-xl bg-white p-6 shadow-sm lg:col-span-2">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
               <UserRound className="text-blue-600" />
               Queue
