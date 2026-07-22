@@ -27,6 +27,8 @@ import { getHospitalSlugFromHostname } from "./utils/hospitalSubdomain";
 import HospitalWebsite from "./pages/hospital-website/HospitalWebsite";
 import HospitalAdminSignup from "./pages/HospitalAdminSignup";
 import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
+import DoctorOpdConsole from "./pages/hospital-staff/DoctorOpdConsole";
+import NursingStation from "./pages/hospital-staff/NursingStation";
 
 
 function App() {
@@ -46,6 +48,8 @@ function App() {
         <Route path="/signup/:type" element={<SignUp/>} />
         <Route path="/signup/hospital-admin" element={<HospitalAdminSignup />} />
         <Route path="/hospital/admin" element={<HospitalAdminDashboard />} />
+        <Route path="/hospital/doctor-opd" element={<DoctorOpdConsole />} />
+        <Route path="/hospital/nursing-station" element={<NursingStation />} />
         <Route path="/login" element={<Login/>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/chat" element={<Chat />} />
