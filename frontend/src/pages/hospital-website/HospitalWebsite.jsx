@@ -11,6 +11,7 @@ const HospitalWebsite = ({ slug }) => {
   const hospitalKey = resolveHospitalKey(slug);
   const [profile, setProfile] = useState(null);
   const [queue, setQueue] = useState(null);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -33,10 +34,15 @@ const HospitalWebsite = ({ slug }) => {
 
         const profilePayload = await profileResponse.json();
         const queuePayload = queueResponse.ok ? await queueResponse.json() : null;
+        const reviewsResponse = profilePayload?.hospital?._id
+          ? await fetch(`${BACKEND_URL}/api/reviews/hospital/${profilePayload.hospital._id}?limit=6`)
+          : null;
+        const reviewsPayload = reviewsResponse?.ok ? await reviewsResponse.json() : { items: [] };
 
         if (active) {
           setProfile(profilePayload);
           setQueue(queuePayload);
+          setReviews(reviewsPayload.items || []);
         }
       } catch (err) {
         if (active) setError(err.message || "Could not load hospital website");
@@ -194,6 +200,31 @@ const HospitalWebsite = ({ slug }) => {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-50 py-12">
+        <div className="mx-auto max-w-7xl px-4">
+          <h2 className="text-2xl font-bold">Patient Reviews</h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {reviews.map((review) => (
+              <div key={review._id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex text-yellow-500">
+                    {[1, 2, 3, 4, 5].map((score) => (
+                      <Star key={score} size={17} fill={score <= review.overallRating ? "currentColor" : "none"} />
+                    ))}
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500">{review.overallRating}/5</span>
+                </div>
+                <p className="mt-4 text-sm text-slate-700">{review.comment || "Good care experience."}</p>
+                {review.hospitalResponse?.text && (
+                  <p className="mt-3 rounded-md bg-slate-50 p-3 text-xs text-slate-600">Hospital response: {review.hospitalResponse.text}</p>
+                )}
+              </div>
+            ))}
+          </div>
+          {!reviews.length && <p className="mt-4 text-sm text-slate-500">Patient reviews will appear here after completed visits.</p>}
         </div>
       </section>
 
