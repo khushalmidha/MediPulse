@@ -54,6 +54,15 @@ const userSchema = new mongoose.Schema(
 				max: 9999999999,
 			},
 		},
+		familyMembers: [
+			{
+				name: String,
+				relation: String,
+				dob: Date,
+				gender: String,
+				bloodGroup: String,
+			},
+		],
 	},
 	{
 		timestamps: true,

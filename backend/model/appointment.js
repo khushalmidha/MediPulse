@@ -14,6 +14,9 @@ const appointmentSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    familyMemberId: {
+      type: mongoose.Schema.Types.ObjectId,
+    },
     roomId: {
       type: String,
       required: true,
@@ -75,18 +78,6 @@ const appointmentSchema = new mongoose.Schema(
       agentSummary: String,
       generatedAt: Date,
       conversationTurns: Number,
-    },
-    soapNote: {
-      subjective: String,
-      objective: String,
-      assessment: String,
-      plan: String,
-      generatedAt: Date,
-      generatedBy: {
-        type: String,
-        enum: ["ai-copilot", "doctor"],
-        default: "ai-copilot",
-      },
     },
     payment: {
       provider: {

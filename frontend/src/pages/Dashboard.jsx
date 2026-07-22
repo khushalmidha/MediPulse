@@ -114,6 +114,19 @@ const Dashboard = () => {
 				<RecommendationDoctors />
 			</div>
 
+			<div className="mb-10 rounded-lg border border-blue-200 bg-white p-5 shadow-sm">
+				<h3 className="text-lg font-semibold text-gray-900">Your Health Records</h3>
+				<p className="mt-2 text-sm text-gray-600">
+					View OPD visits, completed appointments, AI summaries, and family profiles in one place.
+				</p>
+				<Link
+					to="/health-records"
+					className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+				>
+					Open Health Records
+				</Link>
+			</div>
+
 			<div className="mb-10 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div>
