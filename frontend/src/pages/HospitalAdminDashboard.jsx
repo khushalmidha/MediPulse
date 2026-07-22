@@ -18,7 +18,17 @@ const HospitalAdminDashboard = () => {
   const [staff, setStaff] = useState([]);
   const [message, setMessage] = useState("");
   const [department, setDepartment] = useState({ name: "", consultationFee: "" });
-  const [invite, setInvite] = useState({ name: "", email: "", role: "DOCTOR" });
+  const [invite, setInvite] = useState({
+    name: "",
+    email: "",
+    role: "DOCTOR",
+    profilePhoto: "",
+    specialization: "",
+    qualification: "",
+    experience: "",
+    consultationFee: "",
+    bio: "",
+  });
 
   const hospitalId = hospital?._id;
 
@@ -60,8 +70,31 @@ const HospitalAdminDashboard = () => {
     event.preventDefault();
     setMessage("");
     try {
-      await axios.post(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/invite`, invite, { withCredentials: true });
-      setInvite({ name: "", email: "", role: "DOCTOR" });
+      await axios.post(
+        `${BACKEND_URL}/api/hospitals/${hospitalId}/staff/invite`,
+        {
+          ...invite,
+          doctorProfile: {
+            specialization: invite.specialization,
+            qualification: invite.qualification,
+            experience: Number(invite.experience || 0),
+            consultationFee: Number(invite.consultationFee || 0),
+            bio: invite.bio,
+          },
+        },
+        { withCredentials: true },
+      );
+      setInvite({
+        name: "",
+        email: "",
+        role: "DOCTOR",
+        profilePhoto: "",
+        specialization: "",
+        qualification: "",
+        experience: "",
+        consultationFee: "",
+        bio: "",
+      });
       setMessage("Staff invite sent");
       await loadPortal();
     } catch (error) {
@@ -161,9 +194,19 @@ const HospitalAdminDashboard = () => {
             <div className="mt-4 grid gap-4">
               <input value={invite.name} onChange={(e) => setInvite({ ...invite, name: e.target.value })} required placeholder="Staff name" className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
               <input value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} required type="email" placeholder="staff@hospital.com" className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+              <input value={invite.profilePhoto} onChange={(e) => setInvite({ ...invite, profilePhoto: e.target.value })} type="url" placeholder="Profile photo URL" className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
               <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 {["DOCTOR", "NURSE", "LAB_TECH", "RECEPTIONIST", "PHARMACIST", "DEPARTMENT_HEAD"].map((role) => <option key={role} value={role}>{role}</option>)}
               </select>
+              {invite.role === "DOCTOR" && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input value={invite.specialization} onChange={(e) => setInvite({ ...invite, specialization: e.target.value })} placeholder="Specialization" className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                  <input value={invite.qualification} onChange={(e) => setInvite({ ...invite, qualification: e.target.value })} placeholder="Qualification" className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                  <input value={invite.experience} onChange={(e) => setInvite({ ...invite, experience: e.target.value })} type="number" placeholder="Experience years" className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                  <input value={invite.consultationFee} onChange={(e) => setInvite({ ...invite, consultationFee: e.target.value })} type="number" placeholder="Consultation fee" className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                  <textarea value={invite.bio} onChange={(e) => setInvite({ ...invite, bio: e.target.value })} placeholder="Doctor bio" className="min-h-20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 sm:col-span-2" />
+                </div>
+              )}
             </div>
             <button className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
               <Send size={16} />
@@ -180,7 +223,10 @@ const HospitalAdminDashboard = () => {
                 <span className="font-medium text-gray-900">{member.name}</span>
                 <span className="text-sm text-gray-600">{member.email}</span>
                 <span className="text-sm text-gray-600">{member.role}</span>
-                <span className="text-sm text-gray-500">{member.inviteStatus}</span>
+                <span className="flex items-center gap-2 text-sm text-gray-500">
+                  {member.profilePhoto && <img src={member.profilePhoto} alt={member.name} className="h-8 w-8 rounded-full object-cover" />}
+                  {member.inviteStatus}
+                </span>
               </div>
             ))}
             {!staff.length && <p className="p-4 text-sm text-gray-500">No staff members yet.</p>}

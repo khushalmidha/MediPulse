@@ -405,7 +405,7 @@ const inviteStaff = async (req, res) => {
   const { id } = req.params;
   if (!requireHospitalAdminAccess(req, res, id)) return;
 
-  const { email, name, role, departmentIds = [] } = req.body;
+  const { email, name, role, departmentIds = [], profilePhoto, doctorProfile = {} } = req.body;
   if (!email || !name || !role) {
     return res.status(400).json({ message: "Name, email and role are required" });
   }
@@ -419,7 +419,17 @@ const inviteStaff = async (req, res) => {
     departmentIds,
     name: cleanString(name),
     email: cleanString(email).toLowerCase(),
+    profilePhoto: cleanString(profilePhoto),
     role,
+    doctorProfile: role === "DOCTOR"
+      ? {
+          qualification: cleanString(doctorProfile.qualification),
+          specialization: cleanString(doctorProfile.specialization),
+          experience: Number(doctorProfile.experience || 0),
+          consultationFee: Number(doctorProfile.consultationFee || 0),
+          bio: cleanString(doctorProfile.bio),
+        }
+      : undefined,
     inviteToken: hashValue(rawToken),
     inviteExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
     invitedBy: req.staff.id,
@@ -439,7 +449,7 @@ const inviteStaff = async (req, res) => {
   await invalidateHospitalCache(hospital);
   return res.status(201).json({
     message: "Staff invite sent",
-    staff: { _id: staff._id, name: staff.name, email: staff.email, role: staff.role, inviteStatus: staff.inviteStatus },
+    staff: { _id: staff._id, name: staff.name, email: staff.email, role: staff.role, profilePhoto: staff.profilePhoto, inviteStatus: staff.inviteStatus },
   });
 };
 
