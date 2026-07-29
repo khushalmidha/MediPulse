@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import Home from "./pages/Home";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -37,6 +37,11 @@ import PatientHealthPortal from "./pages/PatientHealthPortal";
 
 function App() {
   const hospitalSlug = getHospitalSlugFromHostname();
+  const location = useLocation();
+  const isHospitalWorkspace =
+    location.pathname.startsWith("/hospital") ||
+    location.pathname === "/signup/hospital-admin" ||
+    location.pathname.startsWith("/staff/");
 
   if (hospitalSlug) {
     return <HospitalWebsite slug={hospitalSlug} />;
@@ -44,7 +49,7 @@ function App() {
 
   return (
     <>
-      <Navbar/>
+      {!isHospitalWorkspace && <Navbar/>}
 
       <Routes>
       <Route path="/" element={<Home />} />
@@ -78,8 +83,8 @@ function App() {
         <Route path="/terms" element={<Terms />}/>
         <Route path="/cookiepolicy" element={<DataUsagePolicy />}/>
       </Routes>
-      <AiBot />
-      <Footer />
+      {!isHospitalWorkspace && <AiBot />}
+      {!isHospitalWorkspace && <Footer />}
     </>
   );
 }

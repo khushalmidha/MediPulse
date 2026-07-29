@@ -506,6 +506,36 @@ const staffSetPassword = async (req, res) => {
 	});
 };
 
+const staffChangePassword = async (req, res) => {
+	const { currentPassword, newPassword } = req.body;
+
+	if (!currentPassword || !newPassword) {
+		return res.status(400).json({ message: "Current password and new password are required" });
+	}
+
+	if (String(newPassword).length < 8) {
+		return res.status(400).json({ message: "New password must be at least 8 characters long" });
+	}
+
+	const staff = await HospitalStaff.findOne({
+		_id: req.staff.id,
+		hospitalId: req.staff.hospitalId,
+		isActive: true,
+	});
+	if (!staff?.password) {
+		return res.status(404).json({ message: "Staff account not found" });
+	}
+
+	const validPassword = await bcrypt.compare(currentPassword, staff.password);
+	if (!validPassword) {
+		return res.status(401).json({ message: "Current password is incorrect" });
+	}
+
+	staff.password = newPassword;
+	await staff.save();
+	return res.status(200).json({ message: "Password changed successfully" });
+};
+
 const Verifier = async (req,res) => {
 	const token = req.cookies.token;
 	if(!token){
@@ -529,6 +559,7 @@ export {
 	googleAuth,
 	resetPasswordWithOtp,
 	sendPasswordResetOtp,
+	staffChangePassword,
 	staffLogin,
 	staffSetPassword,
 	userLogin,

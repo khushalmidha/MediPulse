@@ -9,11 +9,45 @@ import Review from "../model/review.js";
 import { getRedis } from "../services/redis.js";
 import {
   sendHospitalAdminAlertMail,
+  sendHospitalApprovedMail,
+  sendHospitalRejectedMail,
   sendHospitalWelcomeMail,
   sendStaffInviteMail,
 } from "../util/mailer.js";
 
 const hashValue = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
+const secretKey = (purpose) =>
+  crypto.createHash("sha256").update(`${process.env.TOKEN_KEY || "medipulse"}:${purpose}`).digest();
+
+const encryptAdminPassword = (password) => {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", secretKey("hospital-admin-password"), iv);
+  const encrypted = Buffer.concat([cipher.update(String(password), "utf8"), cipher.final()]);
+  return {
+    encrypted: encrypted.toString("base64"),
+    iv: iv.toString("base64"),
+    tag: cipher.getAuthTag().toString("base64"),
+  };
+};
+
+const decryptAdminPassword = (hospital) => {
+  const data = hospital?.onboarding;
+  if (!data?.initialAdminPasswordEncrypted || !data?.initialAdminPasswordIv || !data?.initialAdminPasswordTag) {
+    return null;
+  }
+
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    secretKey("hospital-admin-password"),
+    Buffer.from(data.initialAdminPasswordIv, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(data.initialAdminPasswordTag, "base64"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(data.initialAdminPasswordEncrypted, "base64")),
+    decipher.final(),
+  ]).toString("utf8");
+};
+
 const signHospitalAction = ({ hospitalId, action }) =>
   crypto
     .createHmac("sha256", process.env.HOSPITAL_APPROVAL_SECRET || process.env.TOKEN_KEY || "medipulse-hospital-approval")
@@ -74,6 +108,8 @@ const generateHospitalSlug = async (name) => {
   return candidate;
 };
 
+const generateTemporaryPassword = () => `MediPulse@${crypto.randomBytes(4).toString("hex")}`;
+
 const isHospitalAdmin = (req, hospitalId) =>
   req.staff?.hospitalId === hospitalId && req.staff?.role === "HOSPITAL_ADMIN";
 
@@ -100,6 +136,9 @@ const requirePlatformAdmin = (req, res, next) => {
 
   return next();
 };
+
+const buildFrontendUrl = () =>
+  (process.env.FRONTEND_URL || process.env.CLIENT_URLS || "http://localhost:5173").split(",")[0].trim().replace(/\/$/, "");
 
 const parsePagination = (req) => {
   const page = Math.max(1, Number(req.query.page) || 1);
@@ -295,6 +334,7 @@ const registerHospital = async (req, res) => {
   }
 
   const slug = await generateHospitalSlug(name);
+  const encryptedAdminPassword = encryptAdminPassword(adminPassword);
   const hospital = await Hospital.create({
     name: cleanString(name),
     slug,
@@ -307,6 +347,11 @@ const registerHospital = async (req, res) => {
       plan: "starter",
       status: "trial",
       trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+    onboarding: {
+      initialAdminPasswordEncrypted: encryptedAdminPassword.encrypted,
+      initialAdminPasswordIv: encryptedAdminPassword.iv,
+      initialAdminPasswordTag: encryptedAdminPassword.tag,
     },
   });
 
@@ -348,9 +393,12 @@ const registerHospital = async (req, res) => {
 
   setStaffCookies(res, admin);
 
+  const hospitalPayload = hospital.toObject();
+  delete hospitalPayload.onboarding;
+
   return res.status(201).json({
     message: "Hospital registration submitted for verification",
-    hospital,
+    hospital: hospitalPayload,
     staff: {
       _id: admin._id,
       name: admin.name,
@@ -454,9 +502,7 @@ const inviteStaff = async (req, res) => {
     inviteStatus: "pending",
   });
 
-  const frontendUrl = (process.env.FRONTEND_URL || process.env.CLIENT_URLS || "http://localhost:5173")
-    .split(",")[0]
-    .trim();
+  const frontendUrl = buildFrontendUrl();
   const inviteUrl = `${frontendUrl}/staff/accept-invite?token=${rawToken}&hospital=${id}`;
   await sendStaffInviteMail({ to: staff.email, staffName: staff.name, hospitalName: hospital.name, inviteUrl });
 
@@ -503,6 +549,16 @@ const getStaff = async (req, res) => {
   ]);
 
   return res.status(200).json({ items, total, page, limit });
+};
+
+const getHospitalAdminProfile = async (req, res) => {
+  const { id } = req.params;
+  if (!requireHospitalAdminAccess(req, res, id)) return;
+
+  const hospital = await Hospital.findById(id).select("-onboarding");
+  if (!hospital) return res.status(404).json({ message: "Hospital not found" });
+
+  return res.status(200).json({ hospital });
 };
 
 const getAnalytics = async (req, res) => {
@@ -585,8 +641,56 @@ const verifyHospital = async (req, res) => {
   const hospital = await Hospital.findByIdAndUpdate(id, update, { new: true });
   if (!hospital) return res.status(404).json({ message: "Hospital not found" });
 
+  await sendHospitalDecisionMail({ hospital, action });
   await invalidateHospitalCache(hospital);
   return res.status(200).json({ message: "Hospital status updated", hospital });
+};
+
+const sendHospitalDecisionMail = async ({ hospital, action }) => {
+  const admin = await HospitalStaff.findOne({
+    hospitalId: hospital._id,
+    role: "HOSPITAL_ADMIN",
+    inviteStatus: "accepted",
+  });
+
+  if (!admin?.email) return;
+
+  if (action === "approve") {
+    let password = decryptAdminPassword(hospital);
+    if (!password) {
+      password = generateTemporaryPassword();
+      admin.password = password;
+      await admin.save();
+    }
+
+    await sendHospitalApprovedMail({
+      to: admin.email,
+      hospitalName: hospital.name,
+      adminName: admin.name,
+      hospitalId: hospital._id.toString(),
+      loginUrl: `${buildFrontendUrl()}/login`,
+      email: admin.email,
+      password,
+    });
+
+    await Hospital.findByIdAndUpdate(hospital._id, {
+      $unset: {
+        "onboarding.initialAdminPasswordEncrypted": 1,
+        "onboarding.initialAdminPasswordIv": 1,
+        "onboarding.initialAdminPasswordTag": 1,
+      },
+      $set: { "onboarding.approvalCredentialsSentAt": new Date() },
+    });
+    return;
+  }
+
+  if (action === "reject") {
+    await sendHospitalRejectedMail({
+      to: admin.email,
+      hospitalName: hospital.name,
+      reason: hospital.rejectionReason,
+    });
+  }
 };
 
 const verifyHospitalFromEmail = async (req, res) => {
@@ -616,6 +720,7 @@ const verifyHospitalFromEmail = async (req, res) => {
   const hospital = await Hospital.findByIdAndUpdate(id, update, { new: true });
   if (!hospital) return res.status(404).send("Hospital not found");
 
+  await sendHospitalDecisionMail({ hospital, action });
   await invalidateHospitalCache(hospital);
   return res.status(200).send(`
     <main style="font-family: Arial, sans-serif; padding: 48px; background: #f8fafc; min-height: 100vh;">
@@ -649,6 +754,7 @@ export {
   getAllHospitals,
   getAnalytics,
   getHospitalDoctors,
+  getHospitalAdminProfile,
   getHospitalProfile,
   getHospitalQueueStatus,
   getHospitals,

@@ -82,6 +82,12 @@ const hospitalSchema = new mongoose.Schema(
       workingDays: { type: [String], default: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] },
       emergencyContact: String,
     },
+    onboarding: {
+      initialAdminPasswordEncrypted: String,
+      initialAdminPasswordIv: String,
+      initialAdminPasswordTag: String,
+      approvalCredentialsSentAt: Date,
+    },
   },
   { timestamps: true },
 );
