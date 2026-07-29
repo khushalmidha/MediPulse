@@ -9,6 +9,7 @@
 		"consumer:vpay": "node scripts/runVirtualConsumers.js",
 		"seed:vpay": "node scripts/seedVirtualGateway.js",
 		"seed:alchemist": "node scripts/seedAlchemistHospital.js",
+		"seed:existing-alchemist": "node scripts/seedExistingAlchemistHospital.js",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"keywords": [],

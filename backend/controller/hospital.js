@@ -429,17 +429,25 @@ const addDepartment = async (req, res) => {
   const { id } = req.params;
   if (!requireHospitalAdminAccess(req, res, id)) return;
 
-  const department = await Department.create({
-    hospitalId: id,
-    name: req.body.name,
-    code: req.body.code,
-    description: req.body.description,
-    headDoctorId: req.body.headDoctorId,
-    icon: req.body.icon,
-    color: req.body.color,
-    opd: req.body.opd,
-    status: req.body.status || "active",
-  });
+  let department;
+  try {
+    department = await Department.create({
+      hospitalId: id,
+      name: req.body.name,
+      code: req.body.code,
+      description: req.body.description,
+      headDoctorId: req.body.headDoctorId,
+      icon: req.body.icon,
+      color: req.body.color,
+      opd: req.body.opd,
+      status: req.body.status || "active",
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "Department already exists for this hospital" });
+    }
+    throw error;
+  }
 
   const hospital = await Hospital.findByIdAndUpdate(
     id,

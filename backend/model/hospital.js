@@ -92,7 +92,6 @@ const hospitalSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-hospitalSchema.index({ slug: 1 });
 hospitalSchema.index({ "address.city": 1, status: 1 });
 hospitalSchema.index({ "address.coordinates": "2dsphere" });
 
