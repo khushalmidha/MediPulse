@@ -454,7 +454,7 @@ MediPulse`,
   });
 };
 
-const sendHospitalAdminAlertMail = async ({ to, hospitalName, email, city }) => {
+const sendHospitalAdminAlertMail = async ({ to, hospitalName, email, city, approveUrl, rejectUrl }) => {
   const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
 
   if (!to) return;
@@ -469,13 +469,22 @@ Hospital: ${hospitalName}
 Email: ${email}
 City: ${city}
 
-Review it from the platform admin dashboard.`,
+Approve: ${approveUrl || "Not available"}
+Reject: ${rejectUrl || "Not available"}`,
     html: `
       <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
         <h2 style="margin: 0 0 12px;">New hospital registration</h2>
         <p><strong>${hospitalName}</strong> has applied to join MediPulse.</p>
         <p>Email: ${email}</p>
         <p>City: ${city || "Not provided"}</p>
+        ${
+          approveUrl && rejectUrl
+            ? `<p style="margin: 24px 0;">
+                <a href="${approveUrl}" style="display: inline-block; margin-right: 12px; padding: 12px 18px; border-radius: 8px; background: #16a34a; color: #ffffff; text-decoration: none; font-weight: 700;">Approve Hospital</a>
+                <a href="${rejectUrl}" style="display: inline-block; padding: 12px 18px; border-radius: 8px; background: #dc2626; color: #ffffff; text-decoration: none; font-weight: 700;">Reject</a>
+              </p>`
+            : ""
+        }
       </div>
     `,
   });

@@ -14,6 +14,12 @@ import {
 } from "../util/mailer.js";
 
 const hashValue = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
+const signHospitalAction = ({ hospitalId, action }) =>
+  crypto
+    .createHmac("sha256", process.env.HOSPITAL_APPROVAL_SECRET || process.env.TOKEN_KEY || "medipulse-hospital-approval")
+    .update(`${hospitalId}:${action}`)
+    .digest("base64url");
+
 const publicHospitalCacheKey = (slug) => `hospital:public:${slug}`;
 const hospitalSearchCacheKey = (query) => `hospitals:search:${hashValue(JSON.stringify(query))}`;
 const hospitalQueueCacheKey = (hospitalId) => `hospital:queue-status:${hospitalId}`;
@@ -318,6 +324,16 @@ const registerHospital = async (req, res) => {
 
   await Hospital.findByIdAndUpdate(hospital._id, { "stats.totalDepartments": 0 });
 
+  const publicBackendUrl = (process.env.PUBLIC_BACKEND_URL || `http://localhost:${process.env.PORT || 8080}`).replace(/\/$/, "");
+  const approveUrl = `${publicBackendUrl}/api/hospitals/admin/${hospital._id}/action?action=approve&token=${signHospitalAction({
+    hospitalId: hospital._id,
+    action: "approve",
+  })}`;
+  const rejectUrl = `${publicBackendUrl}/api/hospitals/admin/${hospital._id}/action?action=reject&token=${signHospitalAction({
+    hospitalId: hospital._id,
+    action: "reject",
+  })}`;
+
   await Promise.allSettled([
     sendHospitalWelcomeMail({ to: hospital.email, hospitalName: hospital.name }),
     sendHospitalAdminAlertMail({
@@ -325,6 +341,8 @@ const registerHospital = async (req, res) => {
       hospitalName: hospital.name,
       email: hospital.email,
       city: hospital.address?.city,
+      approveUrl,
+      rejectUrl,
     }),
   ]);
 
@@ -571,6 +589,44 @@ const verifyHospital = async (req, res) => {
   return res.status(200).json({ message: "Hospital status updated", hospital });
 };
 
+const verifyHospitalFromEmail = async (req, res) => {
+  const { id } = req.params;
+  const action = String(req.query.action || "");
+  const token = String(req.query.token || "");
+
+  if (!["approve", "reject"].includes(action)) {
+    return res.status(400).send("Invalid hospital action");
+  }
+
+  const expected = signHospitalAction({ hospitalId: id, action });
+  const expectedBuffer = Buffer.from(expected);
+  const receivedBuffer = Buffer.from(token);
+  if (
+    expectedBuffer.length !== receivedBuffer.length ||
+    !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+  ) {
+    return res.status(403).send("Invalid or expired approval link");
+  }
+
+  const update =
+    action === "approve"
+      ? { status: "active", verifiedAt: new Date(), rejectionReason: undefined }
+      : { status: "rejected", rejectionReason: "Rejected from email approval link" };
+
+  const hospital = await Hospital.findByIdAndUpdate(id, update, { new: true });
+  if (!hospital) return res.status(404).send("Hospital not found");
+
+  await invalidateHospitalCache(hospital);
+  return res.status(200).send(`
+    <main style="font-family: Arial, sans-serif; padding: 48px; background: #f8fafc; min-height: 100vh;">
+      <section style="max-width: 560px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px;">
+        <h1 style="margin: 0 0 12px; color: #0f172a;">Hospital ${action === "approve" ? "approved" : "rejected"}</h1>
+        <p style="color: #475569;">${hospital.name} is now marked as <strong>${hospital.status}</strong>.</p>
+      </section>
+    </main>
+  `);
+};
+
 const getPlatformStats = async (_req, res) => {
   const [totalHospitals, activeHospitals, totalStaff, totalTokens] = await Promise.all([
     Hospital.countDocuments(),
@@ -603,5 +659,6 @@ export {
   requirePlatformAdmin,
   updateDepartment,
   updateHospitalProfile,
+  verifyHospitalFromEmail,
   verifyHospital,
 };

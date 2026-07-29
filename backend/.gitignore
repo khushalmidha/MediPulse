@@ -1,4 +1,5 @@
 node_modules
 .env
 *.log
-pnpm-lock.yaml
+*.out.log
+*.err.log

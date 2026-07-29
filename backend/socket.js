@@ -1,7 +1,7 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
-import { configDotenv } from "dotenv";
 import cookie from "cookie";
+import { isAllowedOrigin } from "./config/corsOrigins.js";
 import User from "./model/user.js";
 import Doctor from "./model/doctor.js";
 import HospitalStaff from "./model/hospitalStaff.js";
@@ -10,7 +10,6 @@ import Message from "./model/message.js";
 import Community from "./model/community.js";
 import Appointment from "./model/appointment.js";
 
-configDotenv();
 let ioInstance = null;
 
 export function getIO() {
@@ -22,28 +21,6 @@ export function getIO() {
  * Returns the io instance so it can be used elsewhere if needed.
  */
 export function initSocket(server) {
-  const defaultAllowedOrigins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://medipulse-azure.vercel.app",
-    "https://medipulse-git-main-lakshya0000s-projects.vercel.app",
-    "https://medipulse-lakshya0000s-projects.vercel.app",
-    "https://medipulse-dsk1.onrender.com",
-    "https://medi-pulse-three.vercel.app",
-    "https://medi-pulse-gamma.vercel.app",
-    "https://medi-pulse-khushalmidhas-projects.vercel.app",
-    "https://medi-pulse-git-main-khushalmidhas-projects.vercel.app",
-  ];
-  const envAllowedOrigins = (process.env.CLIENT_URLS || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
-  const isAllowedOrigin = (origin) =>
-    !origin ||
-    allowedOrigins.includes(origin) ||
-    /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
-
   const io = new Server(server, {
     cors: {
       origin(origin, callback) {

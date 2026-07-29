@@ -233,10 +233,21 @@ const completeConsultation = async (req, res) => {
 
   token.status = "completed";
   token.consultationEndedAt = new Date();
+  token.consultationNotes = String(req.body.notes || "").trim();
+  token.diagnosis = String(req.body.diagnosis || "").trim();
+  if (req.body.followUpDate) {
+    const followUp = new Date(req.body.followUpDate);
+    if (!Number.isNaN(followUp.getTime())) token.followUpDate = followUp;
+  }
   await token.save();
   await clearOpdCache({ hospitalId: token.hospitalId, doctorId: token.doctorId });
   await scheduleReviewRequest({ tokenId: token._id, patientId: token.patientId, hospitalId: token.hospitalId });
-  emitHospital(token.hospitalId, "opd:consultation-completed", { token, notes: req.body.notes, diagnosis: req.body.diagnosis, followUpDate: req.body.followUpDate });
+  emitHospital(token.hospitalId, "opd:consultation-completed", {
+    token,
+    notes: token.consultationNotes,
+    diagnosis: token.diagnosis,
+    followUpDate: token.followUpDate,
+  });
   return res.status(200).json({ message: "Consultation completed", token });
 };
 

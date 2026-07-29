@@ -11,20 +11,14 @@ const defaultAllowedOrigins = [
   "https://medi-pulse-git-main-khushalmidhas-projects.vercel.app",
 ];
 
-const envAllowedOrigins = () =>
-  (process.env.CLIENT_URLS || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+const envAllowedOrigins = (process.env.CLIENT_URLS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-const getAllowedOrigins = () => [
-  ...new Set([...defaultAllowedOrigins, ...envAllowedOrigins()]),
-];
+export const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 
-const isAllowedOrigin = (origin) => {
-  if (!origin) return true;
-  if (getAllowedOrigins().includes(origin)) return true;
-  return /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
-};
-
-export { getAllowedOrigins, isAllowedOrigin };
+export const isAllowedOrigin = (origin) =>
+  !origin ||
+  allowedOrigins.includes(origin) ||
+  /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
