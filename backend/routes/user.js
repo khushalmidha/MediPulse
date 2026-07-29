@@ -3,12 +3,14 @@ import {
 	googleAuth,
 	resetPasswordWithOtp,
 	sendPasswordResetOtp,
+	staffChangePassword,
 	staffLogin,
 	staffSetPassword,
 	userLogin,
 	userSignup,
 } from "../controller/auth.js";
 import userValidation from "../middleware/validateUser.js";
+import validateStaff from "../middleware/validateStaff.js";
 import {
 	deleteUserById,
 	getAllUsers,
@@ -25,6 +27,7 @@ userRouter.post("/forgot-password/send-otp", sendPasswordResetOtp);
 userRouter.post("/forgot-password/reset", resetPasswordWithOtp);
 userRouter.post("/staff/login", staffLogin);
 userRouter.post("/staff/set-password", staffSetPassword);
+userRouter.patch("/staff/password", validateStaff, staffChangePassword);
 
 // userRouter.get("/:id", userValidation, getUserById);
 userRouter.delete("/:id", userValidation, deleteUserById);

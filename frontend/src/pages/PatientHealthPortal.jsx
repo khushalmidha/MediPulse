@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Building2, CalendarDays, HeartPulse, Plus, Trash2, UserRound } from "lucide-react";
+import { Building2, CalendarDays, HeartPulse, Plus, Search, Star, Trash2, UserRound } from "lucide-react";
 import { BACKEND_URL } from "../utils";
 
 const formatDate = (value) =>
@@ -11,6 +11,7 @@ const formatDate = (value) =>
 const PatientHealthPortal = () => {
   const [timeline, setTimeline] = useState([]);
   const [hospitals, setHospitals] = useState([]);
+  const [browseHospitals, setBrowseHospitals] = useState([]);
   const [family, setFamily] = useState([]);
   const [member, setMember] = useState({ name: "", relation: "", dob: "", gender: "", bloodGroup: "" });
   const [message, setMessage] = useState("");
@@ -29,14 +30,16 @@ const PatientHealthPortal = () => {
     setLoading(true);
     setMessage("");
     try {
-      const [timelineRes, hospitalsRes, familyRes] = await Promise.all([
+      const [timelineRes, hospitalsRes, familyRes, browseRes] = await Promise.all([
         axios.get(`${BACKEND_URL}/api/patients/me/health-timeline`, { withCredentials: true }),
         axios.get(`${BACKEND_URL}/api/patients/me/hospitals`, { withCredentials: true }),
         axios.get(`${BACKEND_URL}/api/patients/me/family`, { withCredentials: true }),
+        axios.get(`${BACKEND_URL}/api/hospitals?limit=12`),
       ]);
       setTimeline(timelineRes.data.items || []);
       setHospitals(hospitalsRes.data.items || []);
       setFamily(familyRes.data.items || []);
+      setBrowseHospitals(browseRes.data.items || []);
     } catch (error) {
       setMessage(error.response?.data?.message || "Unable to load patient portal");
     } finally {
@@ -178,6 +181,46 @@ const PatientHealthPortal = () => {
               </div>
             </section>
           </aside>
+        </section>
+
+        <section className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
+                <Search className="text-blue-600" />
+                Browse Hospitals
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">Explore active hospitals available on MediPulse.</p>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {browseHospitals.map((hospital) => (
+              <div key={hospital._id} className="rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center gap-3">
+                  {hospital.branding?.logo ? (
+                    <img src={hospital.branding.logo} alt={hospital.name} className="h-12 w-12 rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                      <Building2 size={22} />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-gray-950">{hospital.name}</p>
+                    <p className="text-sm text-gray-600">{hospital.address?.city}, {hospital.address?.state}</p>
+                  </div>
+                </div>
+                <p className="mt-3 line-clamp-2 text-sm text-gray-600">{hospital.branding?.tagline || "Smart OPD hospital on MediPulse."}</p>
+                <div className="mt-3 flex items-center justify-between text-sm">
+                  <span className="inline-flex items-center gap-1 text-yellow-600">
+                    <Star size={15} fill="currentColor" />
+                    {Number(hospital.stats?.avgRating || 0).toFixed(1)}
+                  </span>
+                  <span className="text-gray-500">{hospital.stats?.totalDoctors || 0} doctors</span>
+                </div>
+              </div>
+            ))}
+            {!browseHospitals.length && !loading && <p className="text-sm text-gray-500">No active hospitals available yet.</p>}
+          </div>
         </section>
       </div>
     </main>

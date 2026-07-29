@@ -4,6 +4,7 @@ import {
   addDepartment,
   getAllHospitals,
   getAnalytics,
+  getHospitalAdminProfile,
   getHospitalDoctors,
   getHospitalProfile,
   getHospitalQueueStatus,
@@ -42,6 +43,7 @@ hospitalRouter.post("/:id/staff/invite", validateStaff, inviteStaff);
 hospitalRouter.get("/:id/staff/invite/accept", acceptStaffInvite);
 hospitalRouter.get("/:id/staff", validateStaff, getStaff);
 hospitalRouter.get("/:id/analytics", validateStaff, getAnalytics);
+hospitalRouter.get("/:id/admin-profile", validateStaff, getHospitalAdminProfile);
 hospitalRouter.post("/:id/website/custom-domain", validateStaff, addCustomDomain);
 hospitalRouter.post("/:id/website/verify-domain", validateStaff, verifyCustomDomain);
 hospitalRouter.delete("/:id/website/custom-domain", validateStaff, removeCustomDomain);

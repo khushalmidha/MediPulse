@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Building2, ClipboardList, MessageSquare, Send, Stethoscope, Users } from "lucide-react";
+import { Building2, ClipboardList, Lock, MessageSquare, Send, Stethoscope, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BACKEND_URL } from "../utils";
 
@@ -13,11 +13,13 @@ const HospitalAdminDashboard = () => {
     }
   }, []);
 
-  const hospital = saved?.hospital;
+  const [hospital, setHospital] = useState(saved?.hospital || null);
   const [analytics, setAnalytics] = useState(null);
   const [staff, setStaff] = useState([]);
   const [message, setMessage] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
   const [department, setDepartment] = useState({ name: "", consultationFee: "" });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
   const [invite, setInvite] = useState({
     name: "",
     email: "",
@@ -38,12 +40,19 @@ const HospitalAdminDashboard = () => {
       axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/analytics`, { withCredentials: true }),
       axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff`, { withCredentials: true }),
     ]);
+    const profileRes = await axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/admin-profile`, { withCredentials: true });
+    setHospital(profileRes.data.hospital);
+    sessionStorage.setItem("medipulse.hospitalAdmin", JSON.stringify({ ...saved, hospital: profileRes.data.hospital }));
     setAnalytics(analyticsRes.data);
     setStaff(staffRes.data.items || []);
   };
 
   useEffect(() => {
     loadPortal().catch((error) => setMessage(error.response?.data?.message || "Unable to load hospital portal"));
+    const interval = window.setInterval(() => {
+      loadPortal().catch(() => {});
+    }, 15000);
+    return () => window.clearInterval(interval);
   }, [hospitalId]);
 
   const addDepartment = async (event) => {
@@ -102,6 +111,18 @@ const HospitalAdminDashboard = () => {
     }
   };
 
+  const changePassword = async (event) => {
+    event.preventDefault();
+    setPasswordMessage("");
+    try {
+      const response = await axios.patch(`${BACKEND_URL}/api/auth/staff/password`, passwordForm, { withCredentials: true });
+      setPasswordMessage(response.data.message || "Password changed successfully");
+      setPasswordForm({ currentPassword: "", newPassword: "" });
+    } catch (error) {
+      setPasswordMessage(error.response?.data?.message || "Could not change password");
+    }
+  };
+
   if (!hospitalId) {
     return (
       <main className="min-h-screen bg-gray-50 px-4 py-10">
@@ -122,14 +143,22 @@ const HospitalAdminDashboard = () => {
               <p className="text-sm font-semibold uppercase text-blue-600">Hospital Admin Portal</p>
               <h1 className="mt-1 text-3xl font-extrabold text-gray-950">{hospital.name}</h1>
               <p className="mt-2 text-gray-600">
-                Status: <span className="font-semibold">{hospital.status}</span> | Public slug: {hospital.slug}
+                Status: <span className={`font-semibold ${hospital.status === "active" ? "text-green-700" : hospital.status === "rejected" ? "text-red-700" : "text-amber-700"}`}>{hospital.status}</span> | Public slug: {hospital.slug}
               </p>
             </div>
             <div className="rounded-xl bg-blue-50 p-4 text-blue-900">
               <Building2 size={24} />
-              <p className="mt-2 text-sm">Trial workspace created</p>
+              <p className="mt-2 text-sm">{hospital.status === "active" ? "Workspace approved" : "Verification pending"}</p>
             </div>
           </div>
+          <button onClick={loadPortal} className="mt-4 rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50">
+            Refresh portal status
+          </button>
+          {hospital.status !== "active" && (
+            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Your portal is created. Full OPD and public website features activate after platform approval.
+            </p>
+          )}
           {message && <p className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
         </section>
 
@@ -213,6 +242,34 @@ const HospitalAdminDashboard = () => {
               Send Invite
             </button>
           </form>
+        </section>
+
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
+            <Lock size={18} className="text-blue-600" />
+            Change Admin Password
+          </h2>
+          <form onSubmit={changePassword} className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+            <input
+              value={passwordForm.currentPassword}
+              onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })}
+              type="password"
+              required
+              placeholder="Current password"
+              className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+            />
+            <input
+              value={passwordForm.newPassword}
+              onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })}
+              type="password"
+              required
+              minLength={8}
+              placeholder="New password"
+              className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+            />
+            <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">Update</button>
+          </form>
+          {passwordMessage && <p className="mt-3 text-sm text-blue-700">{passwordMessage}</p>}
         </section>
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">

@@ -490,6 +490,68 @@ Reject: ${rejectUrl || "Not available"}`,
   });
 };
 
+const sendHospitalApprovedMail = async ({ to, hospitalName, adminName, hospitalId, loginUrl, email, password }) => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+
+  await sendMail({
+    from,
+    to,
+    subject: `${hospitalName} is approved on MediPulse`,
+    text: `Hi ${adminName || "there"},
+
+Your hospital ${hospitalName} has been approved on MediPulse.
+
+Login URL: ${loginUrl}
+Hospital ID: ${hospitalId}
+Email: ${email}
+${password ? `Password: ${password}` : "Password: Use the password you created during signup."}
+
+After signing in, change your password from the staff account settings when available.
+
+MediPulse`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">Hospital approved</h2>
+        <p>Hi ${adminName || "there"},</p>
+        <p><strong>${hospitalName}</strong> has been approved on MediPulse.</p>
+        <div style="margin: 18px 0; padding: 16px; border-radius: 10px; background: #f8fafc; border: 1px solid #e5e7eb;">
+          <p style="margin: 0 0 8px;"><strong>Hospital ID:</strong> ${hospitalId}</p>
+          <p style="margin: 0 0 8px;"><strong>Email:</strong> ${email}</p>
+          <p style="margin: 0;"><strong>Password:</strong> ${password || "Use the password created during signup"}</p>
+        </div>
+        <p style="margin: 24px 0;">
+          <a href="${loginUrl}" style="display: inline-block; padding: 12px 18px; border-radius: 8px; background: #2563eb; color: #ffffff; text-decoration: none; font-weight: 700;">Open MediPulse Login</a>
+        </p>
+        <p style="color: #6b7280;">You can change the password later from staff account settings.</p>
+      </div>
+    `,
+  });
+};
+
+const sendHospitalRejectedMail = async ({ to, hospitalName, reason }) => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+
+  await sendMail({
+    from,
+    to,
+    subject: `${hospitalName} registration update`,
+    text: `Hi,
+
+Your hospital registration for ${hospitalName} was not approved right now.
+
+Reason: ${reason || "Please contact MediPulse support for details."}
+
+MediPulse`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">Hospital registration update</h2>
+        <p>Your hospital registration for <strong>${hospitalName}</strong> was not approved right now.</p>
+        <p><strong>Reason:</strong> ${reason || "Please contact MediPulse support for details."}</p>
+      </div>
+    `,
+  });
+};
+
 const sendStaffInviteMail = async ({ to, staffName, hospitalName, inviteUrl }) => {
   const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
 
@@ -548,6 +610,8 @@ MediPulse`,
 
 export {
   sendHospitalAdminAlertMail,
+  sendHospitalApprovedMail,
+  sendHospitalRejectedMail,
   sendHospitalWelcomeMail,
   sendAppointmentApprovalMail,
   sendAppointmentBookedMail,
