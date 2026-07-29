@@ -18,7 +18,7 @@ const HospitalAdminDashboard = () => {
   const [staff, setStaff] = useState([]);
   const [message, setMessage] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
-  const [department, setDepartment] = useState({ name: "", consultationFee: "" });
+  const [department, setDepartment] = useState({ name: "", code: "", description: "", consultationFee: "" });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
   const [invite, setInvite] = useState({
     name: "",
@@ -63,15 +63,18 @@ const HospitalAdminDashboard = () => {
         `${BACKEND_URL}/api/hospitals/${hospitalId}/departments`,
         {
           name: department.name,
-          opd: { consultationFee: Number(department.consultationFee || 0) },
+          code: department.code,
+          description: department.description,
+          opd: { consultationFee: Number(department.consultationFee || 0), isActive: true },
         },
         { withCredentials: true },
       );
-      setDepartment({ name: "", consultationFee: "" });
+      setDepartment({ name: "", code: "", description: "", consultationFee: "" });
       setMessage("Department added successfully");
       await loadPortal();
     } catch (error) {
-      setMessage(error.response?.data?.message || "Could not add department");
+      const duplicate = error.response?.data?.message?.includes("duplicate") || error.response?.status === 409;
+      setMessage(duplicate ? "Department already exists for this hospital" : error.response?.data?.message || "Could not add department");
     }
   };
 
@@ -207,12 +210,24 @@ const HospitalAdminDashboard = () => {
                 className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
               />
               <input
+                value={department.code}
+                onChange={(event) => setDepartment({ ...department, code: event.target.value.toUpperCase() })}
+                placeholder="CARD"
+                className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              />
+              <input
                 value={department.consultationFee}
                 onChange={(event) => setDepartment({ ...department, consultationFee: event.target.value })}
                 required
                 type="number"
                 placeholder="Consultation fee"
                 className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              />
+              <textarea
+                value={department.description}
+                onChange={(event) => setDepartment({ ...department, description: event.target.value })}
+                placeholder="Department description"
+                className="min-h-20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 sm:col-span-2"
               />
             </div>
             <button className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">Add Department</button>
