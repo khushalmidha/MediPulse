@@ -1,14 +1,10 @@
 import User from "../model/user.js";
 import jwt from "jsonwebtoken";
-import { configDotenv } from "dotenv";
 import Doctor from "../model/doctor.js";
-
-configDotenv();
 
 const userValidation = async (req, res, next) => {
 	const token = req.cookies.token;
 	const userId = req.cookies.id
-	console.log(token);
 	if (!token) {
 		return res.status(401).json({ message: "No Token" });
 	}

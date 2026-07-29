@@ -15,6 +15,7 @@ import {
   requirePlatformAdmin,
   updateDepartment,
   updateHospitalProfile,
+  verifyHospitalFromEmail,
   verifyHospital,
 } from "../controller/hospital.js";
 import {
@@ -28,9 +29,10 @@ import userValidation from "../middleware/validateUser.js";
 const hospitalRouter = Router();
 
 hospitalRouter.get("/", getHospitals);
-hospitalRouter.get("/:slug", getHospitalProfile);
-hospitalRouter.get("/:slug/doctors", getHospitalDoctors);
-hospitalRouter.get("/:slug/queue-status", getHospitalQueueStatus);
+hospitalRouter.get("/admin/all", userValidation, requirePlatformAdmin, getAllHospitals);
+hospitalRouter.get("/admin/:id/action", verifyHospitalFromEmail);
+hospitalRouter.patch("/admin/:id/verify", userValidation, requirePlatformAdmin, verifyHospital);
+hospitalRouter.get("/admin/platform-stats", userValidation, requirePlatformAdmin, getPlatformStats);
 
 hospitalRouter.post("/register", registerHospital);
 hospitalRouter.patch("/:id/profile", validateStaff, updateHospitalProfile);
@@ -44,8 +46,8 @@ hospitalRouter.post("/:id/website/custom-domain", validateStaff, addCustomDomain
 hospitalRouter.post("/:id/website/verify-domain", validateStaff, verifyCustomDomain);
 hospitalRouter.delete("/:id/website/custom-domain", validateStaff, removeCustomDomain);
 
-hospitalRouter.get("/admin/all", userValidation, requirePlatformAdmin, getAllHospitals);
-hospitalRouter.patch("/admin/:id/verify", userValidation, requirePlatformAdmin, verifyHospital);
-hospitalRouter.get("/admin/platform-stats", userValidation, requirePlatformAdmin, getPlatformStats);
+hospitalRouter.get("/:slug", getHospitalProfile);
+hospitalRouter.get("/:slug/doctors", getHospitalDoctors);
+hospitalRouter.get("/:slug/queue-status", getHospitalQueueStatus);
 
 export default hospitalRouter;

@@ -1,8 +1,5 @@
 import jwt from "jsonwebtoken";
-import { configDotenv } from "dotenv";
 import HospitalStaff from "../model/hospitalStaff.js";
-
-configDotenv();
 
 const validateStaff = async (req, res, next) => {
   const token = req.cookies.staffToken || req.cookies.token || req.headers.authorization?.replace(/^Bearer\s+/i, "");
