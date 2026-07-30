@@ -553,6 +553,41 @@ const Verifier = async (req,res) => {
 	})
 }
 
+const StaffVerifier = async (req, res) => {
+	const token = req.cookies.staffToken;
+	if (!token) {
+		return res.status(401).json({ message: "No staff token" });
+	}
+
+	jwt.verify(token, process.env.TOKEN_KEY, async (err, data) => {
+		if (err) {
+			return res.status(401).json({ message: "Expired or invalid staff token" });
+		}
+		if (data.type !== "staff") {
+			return res.status(401).json({ message: "Not a staff token" });
+		}
+
+		const staff = await HospitalStaff.findOne({
+			_id: data.id,
+			hospitalId: data.hospitalId,
+			isActive: true,
+		}).select("-password -inviteToken");
+
+		if (!staff) {
+			return res.status(401).json({ message: "Staff account not found" });
+		}
+
+		const hospital = await Hospital.findById(data.hospitalId).select("name slug status address branding stats");
+		return res.status(200).json({
+			message: "Authorized",
+			data: staff,
+			role: staff.role,
+			hospitalId: data.hospitalId,
+			hospital,
+		});
+	});
+};
+
 export {
 	doctorLogin,
 	doctorSignup,
@@ -565,4 +600,5 @@ export {
 	userLogin,
 	userSignup,
 	Verifier,
+	StaffVerifier,
 };

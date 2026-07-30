@@ -22,7 +22,7 @@ import patientPortalRouter from './routes/patientPortal.js'
 import { handleRazorpayWebhook, startAutoRefundWorker } from './controller/appointment.js'
 import { startReviewRequestWorker } from './services/reviewRequestWorker.js'
 import { configDotenv } from 'dotenv'
-import { Verifier } from './controller/auth.js'
+import { StaffVerifier, Verifier } from './controller/auth.js'
 import User from './model/user.js'
 import Doctor from './model/doctor.js'
 import Community from './model/community.js'
@@ -77,6 +77,7 @@ app.use('/api/opd-ai', opdAiRouter)
 app.use('/api/patients', patientPortalRouter)
 app.use('/vpay', virtualPaymentRouter)
 app.get('/verify', Verifier)
+app.get('/verify/staff', StaffVerifier)
 app.get('/count', async (req, res) => {
   const users = await User.countDocuments()
   const doctors = await Doctor.countDocuments()

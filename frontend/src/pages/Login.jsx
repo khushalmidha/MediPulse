@@ -382,7 +382,7 @@ const Login = () => {
   const [resetOtp, setResetOtp] = useState("");
   const [resetOtpSent, setResetOtpSent] = useState(false);
   const [newPassword, setNewPassword] = useState("");
-  const { isAuth, setIsAuth, setUser, setRole } = useAuth();
+  const { isAuth, setIsAuth, setUser, setRole, syncStaffSession } = useAuth();
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -410,10 +410,16 @@ const Login = () => {
           { withCredentials: true, headers: { "Content-Type": "application/json" } }
         );
         if (res.status === 200) {
+          const staffPayload = {
+            data: res.data.result,
+            role: res.data.result.role,
+            hospital: res.data.hospital || { _id: res.data.result.hospitalId },
+          };
           sessionStorage.setItem(
             "medipulse.hospitalAdmin",
-            JSON.stringify({ hospital: res.data.hospital || { _id: res.data.result.hospitalId }, staff: res.data.result })
+            JSON.stringify({ hospital: staffPayload.hospital, staff: staffPayload.data })
           );
+          syncStaffSession(staffPayload);
           navigate("/hospital/admin");
           return;
         }
@@ -441,7 +447,7 @@ const Login = () => {
       }
     }
     setLoading(false);
-  }, [email, password, hospitalId, rememberMe, userType, navigate, setIsAuth, setUser, setRole]);
+  }, [email, password, hospitalId, rememberMe, userType, navigate, setIsAuth, setUser, setRole, syncStaffSession]);
 
   const handleGoogleSignin = useCallback(async (response) => {
     setMessage("");

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { createContext, useContext, useEffect, useState } from 'react'
+import Cookies from 'js-cookie'
 import { BACKEND_URL } from '../utils'
 
 const AuthContext = createContext(null)
@@ -10,60 +11,96 @@ export const AuthProvider = ({ children }) => {
   const [role, setRole] = useState('user')
   const [communities, setcommunities] = useState(null)
   const [loader, setLoading] = useState(true)
+  const [staffUser, setStaffUser] = useState(null)
+  const [isStaffAuth, setIsStaffAuth] = useState(false)
+  const [staffRole, setStaffRole] = useState(null)
+  const [staffHospital, setStaffHospital] = useState(null)
+
+  const syncStaffSession = (payload) => {
+    setStaffUser(payload.data)
+    setStaffRole(payload.role)
+    setStaffHospital(payload.hospital)
+    setIsStaffAuth(true)
+    sessionStorage.setItem(
+      'medipulse.hospitalAdmin',
+      JSON.stringify({ hospital: payload.hospital, staff: payload.data }),
+    )
+  }
+
+  const clearStaffSession = () => {
+    Cookies.remove('staffToken')
+    Cookies.remove('staffId')
+    sessionStorage.removeItem('medipulse.hospitalAdmin')
+    setStaffUser(null)
+    setIsStaffAuth(false)
+    setStaffRole(null)
+    setStaffHospital(null)
+  }
+
   useEffect(() => {
-    const check = async () => {
+    const checkBoth = async () => {
       try {
-        const res = await axios.get(`${BACKEND_URL}/verify/`, {
-          withCredentials: true,
-          credentials: 'include',
-        })
+        const res = await axios.get(`${BACKEND_URL}/verify/`, { withCredentials: true })
         if (res.status === 200) {
-          console.log({ hi: res.data })
           setUser(res.data.data)
           setRole(res.data.role)
           setIsAuth(true)
-          return
         }
-      } catch (err) {
-        console.log(err)
+      } catch {
         setUser(null)
         setIsAuth(false)
       }
-      finally{
+
+      try {
+        const res = await axios.get(`${BACKEND_URL}/verify/staff`, { withCredentials: true })
+        if (res.status === 200) {
+          syncStaffSession(res.data)
+        }
+      } catch {
+        setStaffUser(null)
+        setIsStaffAuth(false)
+        setStaffRole(null)
+        setStaffHospital(null)
+      } finally {
         setLoading(false)
       }
     }
-    check()
+
+    checkBoth()
   }, [])
-  useEffect(()=>{
-    if(isAuth){
+
+  useEffect(() => {
+    if (isAuth) {
       fetchCommunities()
     }
-  },[user])
+  }, [isAuth, user])
+
   const fetchCommunities = async () => {
     try {
       const res = await axios.get(`${BACKEND_URL}/community/user`, {
         withCredentials: true,
         credentials: 'include',
       })
-      console.log(res.data)
       setcommunities(res.data)
-    } catch (err) {
-      console.log(err)
+    } catch {
+      setcommunities(null)
     }
   }
 
   const leaveCommunity = async (id) => {
-    try{
-      const res = await axios.post(`${BACKEND_URL}/community/leave`,{ id },{ withCredentials: true, credentials: 'include' })
-      console.log("leave" , res.data)
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/community/leave`,
+        { id },
+        { withCredentials: true, credentials: 'include' },
+      )
       setUser(res.data.user)
       fetchCommunities()
-    }
-    catch(err){
-      console.log(err)
+    } catch {
+      // Leave the current UI state untouched if the request fails.
     }
   }
+
   return (
     <AuthContext.Provider
       value={{
@@ -76,7 +113,17 @@ export const AuthProvider = ({ children }) => {
         communities,
         fetchCommunities,
         leaveCommunity,
-        loader
+        loader,
+        isStaffAuth,
+        staffUser,
+        staffRole,
+        staffHospital,
+        setStaffUser,
+        setStaffRole,
+        setStaffHospital,
+        setIsStaffAuth,
+        syncStaffSession,
+        logoutStaff: clearStaffSession,
       }}>
       {children}
     </AuthContext.Provider>

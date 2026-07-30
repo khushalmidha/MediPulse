@@ -20,4 +20,16 @@ const deleteDoctorById = async (req, res) => {
 	return res.json(result);
 };
 
-export { getDoctorById, getAllDoctors, deleteDoctorById };
+const getDoctorHospitals = async (req, res) => {
+	try {
+		const doctor = await Doctor.findById(req.params.id).select("hospitals").lean();
+		if (!doctor) {
+			return res.status(404).json({ message: "Doctor not found" });
+		}
+		return res.status(200).json({ hospitals: doctor.hospitals || [] });
+	} catch (error) {
+		return res.status(500).json({ message: error.message });
+	}
+};
+
+export { getDoctorById, getAllDoctors, deleteDoctorById, getDoctorHospitals };
