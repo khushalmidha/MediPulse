@@ -2,6 +2,7 @@ import { NavLink, Link, useNavigate } from 'react-router-dom'
 import {
   Building2,
   ClipboardList,
+  Heart,
   LogOut,
   Menu,
   MessageSquare,
@@ -11,7 +12,6 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Cookies from 'js-cookie'
-import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import axios from 'axios'
 import { BACKEND_URL } from '../utils'
 
@@ -85,8 +85,8 @@ const Navbar = () => {
     }
   }, [showProfile, isAuth, isStaffAuth])
 
-  const activeStyle = 'text-blue-600 font-medium border-b-2 border-blue-600 pb-1'
-  const inactiveStyle = 'text-gray-700 hover:text-blue-600 transition-colors'
+  const activeStyle = 'whitespace-nowrap text-blue-600 font-medium border-b-2 border-blue-600 pb-1'
+  const inactiveStyle = 'whitespace-nowrap text-gray-700 hover:text-blue-600 transition-colors'
   const mobileLinkStyle = ({ isActive }) =>
     `block rounded-md px-3 py-2 ${isActive ? 'bg-blue-50 font-medium text-blue-600' : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'}`
 
@@ -125,19 +125,14 @@ const Navbar = () => {
 
   return (
     <nav className="sticky top-0 z-50 bg-white shadow-sm">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 justify-between">
-          <div className="flex flex-shrink-0 items-center">
-            <Link to={isStaffAuth ? '/hospital/admin' : '/'} className="flex items-center">
-              <div className="h-20 w-25">
-                <DotLottieReact
-                  className="h-20 w-40"
-                  src="https://lottie.host/da10eca5-8e52-45a4-9f51-1b1271270105/jlZWD8WyC2.lottie"
-                  loop
-                  autoplay
-                />
-              </div>
-              <span className="ml-2 text-xl font-bold">MediPulse</span>
+      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between gap-5">
+          <div className="flex min-w-fit flex-shrink-0 items-center">
+            <Link to={isStaffAuth ? '/hospital/admin' : '/'} className="flex items-center gap-2">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                <Heart size={28} strokeWidth={1.8} />
+              </span>
+              <span className="text-xl font-bold leading-none text-slate-950">MediPulse</span>
             </Link>
             {isStaffAuth && staffHospital && (
               <span className="ml-3 hidden items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 sm:flex">
@@ -147,7 +142,7 @@ const Navbar = () => {
             )}
           </div>
 
-          <div className="hidden items-center space-x-6 md:flex">
+          <div className="hidden min-w-0 flex-1 items-center justify-center gap-4 text-sm lg:gap-5 xl:gap-6 md:flex">
             {isStaffAuth
               ? staffNavLinks.map(({ to, label, icon: Icon }) => (
                   <NavLink key={to} to={to} className={({ isActive }) => `flex items-center gap-1.5 ${isActive ? activeStyle : inactiveStyle}`}>
@@ -171,7 +166,7 @@ const Navbar = () => {
             </button>
           </div>
 
-          <div className="hidden items-center md:flex">
+          <div className="hidden min-w-fit items-center md:flex">
             {isLoggedIn ? (
               <div className="relative" ref={profileRef}>
                 <button onClick={() => setShowProfile(!showProfile)} className="flex items-center gap-2 focus:outline-none">
@@ -228,14 +223,14 @@ const Navbar = () => {
                 )}
               </div>
             ) : (
-              <div className="flex items-center space-x-4">
-                <Link to="/login" className="text-gray-700 hover:text-blue-600">
+              <div className="flex items-center gap-3 text-sm">
+                <Link to="/login" className="whitespace-nowrap px-1 font-medium text-gray-700 hover:text-blue-600">
                   Login
                 </Link>
-                <Link to="/signup" className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+                <Link to="/signup" className="whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700">
                   Sign Up
                 </Link>
-                <Link to="/signup/hospital-admin" className="rounded-md border border-blue-600 px-4 py-2 text-blue-600 hover:bg-blue-50">
+                <Link to="/signup/hospital-admin" className="hidden whitespace-nowrap rounded-lg border border-blue-600 px-4 py-2.5 font-semibold text-blue-600 hover:bg-blue-50 xl:inline-flex">
                   Register Hospital
                 </Link>
               </div>
