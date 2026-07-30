@@ -1,7 +1,29 @@
-.git.broken-onedrive*
+# Environment
 .env
-node_modules
-dist
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
 *.log
 *.out.log
 *.err.log
+
+# Lock files (using npm)
+pnpm-lock.yaml
+yarn.lock
+
+# OneDrive & broken git artifacts
+.git.broken*
+.git-temp/
+.git.onedrive*
+
+# OS
+.DS_Store
+Thumbs.db
