@@ -71,6 +71,15 @@ const doctorSchema = new mongoose.Schema(
         max: 9999999999,
       },
     },
+    hospitals: [
+      {
+        hospitalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hospital' },
+        hospitalName: String,
+        slug: String,
+        departmentName: String,
+        joinedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: true,
@@ -78,6 +87,7 @@ const doctorSchema = new mongoose.Schema(
 )
 
 doctorSchema.pre('save', async function () {
+  if (!this.isModified('password')) return
   this.password = await bcrypt.hash(this.password, 12)
 })
 

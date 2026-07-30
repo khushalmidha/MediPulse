@@ -12,6 +12,7 @@ const HospitalWebsite = ({ slug }) => {
   const [profile, setProfile] = useState(null);
   const [queue, setQueue] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [slide, setSlide] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -63,6 +64,18 @@ const HospitalWebsite = ({ slug }) => {
   const departments = profile?.departments || [];
   const doctors = profile?.doctors || [];
   const primaryColor = hospital?.branding?.primaryColor || "#2563eb";
+  const sliderImages = useMemo(
+    () =>
+      hospital?.branding?.galleryImages?.length
+        ? hospital.branding.galleryImages
+        : [
+            "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=1200&q=80",
+            "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200&q=80",
+            "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1200&q=80",
+            "https://images.unsplash.com/photo-1666214280557-f1b5022eb634?w=1200&q=80",
+          ],
+    [hospital?.branding?.galleryImages],
+  );
   const heroStyle = useMemo(
     () => ({
       backgroundImage: hospital?.branding?.coverImage
@@ -71,6 +84,14 @@ const HospitalWebsite = ({ slug }) => {
     }),
     [hospital?.branding?.coverImage, primaryColor],
   );
+
+  useEffect(() => {
+    if (!sliderImages.length) return undefined;
+    const timer = window.setInterval(() => {
+      setSlide((current) => (current + 1) % sliderImages.length);
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [sliderImages.length]);
 
   if (loading) {
     return <div className="min-h-screen bg-slate-50 px-6 py-10 text-slate-700">Loading hospital website...</div>;
@@ -134,6 +155,44 @@ const HospitalWebsite = ({ slug }) => {
               <div className="text-sm text-white/75">Rating</div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden">
+        <div className="relative h-64 md:h-80">
+          {sliderImages.map((src, index) => (
+            <div
+              key={src}
+              className={`absolute inset-0 transition-opacity duration-700 ${index === slide ? "opacity-100" : "opacity-0"}`}>
+              <img src={src} alt={`${hospital.name} facility ${index + 1}`} className="h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+            </div>
+          ))}
+          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+            {sliderImages.map((src, index) => (
+              <button
+                key={src}
+                type="button"
+                aria-label={`Show slide ${index + 1}`}
+                onClick={() => setSlide(index)}
+                className={`h-2 rounded-full transition-all ${index === slide ? "w-6 bg-white" : "w-2 bg-white/60"}`}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-label="Previous image"
+            onClick={() => setSlide((current) => (current - 1 + sliderImages.length) % sliderImages.length)}
+            className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-xl text-white hover:bg-black/50">
+            {'<'}
+          </button>
+          <button
+            type="button"
+            aria-label="Next image"
+            onClick={() => setSlide((current) => (current + 1) % sliderImages.length)}
+            className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-xl text-white hover:bg-black/50">
+            {'>'}
+          </button>
         </div>
       </section>
 

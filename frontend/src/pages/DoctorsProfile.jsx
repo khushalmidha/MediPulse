@@ -26,6 +26,7 @@ const DoctorsProfile = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showTab, setShowTab] = useState('about')
+  const [doctorHospitals, setDoctorHospitals] = useState([])
 
   // Google Maps API Key - Replace with your key
   const GOOGLE_MAPS_API_KEY = MAPS_API
@@ -37,8 +38,11 @@ const DoctorsProfile = () => {
         const response = await axios.get(`${BACKEND_URL}/doctor/${id}`, {
           withCredentials: true,
         })
-        console.log(response.data)
         setDoctor({...response.data.user, communities: response.data.communities})
+        const hospitalsResponse = await axios
+          .get(`${BACKEND_URL}/doctor/${id}/hospitals`)
+          .catch(() => ({ data: { hospitals: [] } }))
+        setDoctorHospitals(hospitalsResponse.data?.hospitals || [])
         setLoading(false)
       } catch (err) {
         console.error('Error fetching doctor details:', err)
@@ -252,6 +256,27 @@ const DoctorsProfile = () => {
                     </button>
                   )}
                 </div>
+
+                {doctorHospitals.length > 0 && (
+                  <div className='mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-left'>
+                    <h3 className='flex items-center gap-2 text-base font-bold text-gray-900'>
+                      <Building className='h-5 w-5 text-blue-600' />
+                      Hospital Affiliations
+                    </h3>
+                    <div className='mt-3 grid gap-3 sm:grid-cols-2'>
+                      {doctorHospitals.map((hospital, index) => (
+                        <Link
+                          key={`${hospital.hospitalId || hospital.slug}-${index}`}
+                          to={`/hospitals/${hospital.slug}`}
+                          className='rounded-lg border border-blue-200 bg-white p-3 transition hover:border-blue-400'>
+                          <p className='font-semibold text-gray-900'>{hospital.hospitalName}</p>
+                          {hospital.departmentName && <p className='mt-1 text-sm text-gray-500'>{hospital.departmentName}</p>}
+                          <p className='mt-2 text-xs font-semibold text-blue-600'>View hospital</p>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
               </div>
             </div>

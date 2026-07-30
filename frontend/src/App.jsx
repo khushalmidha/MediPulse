@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useParams } from "react-router-dom";
 import Home from "./pages/Home";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -25,6 +25,7 @@ import VirtualAdminDashboard from "./pages/VirtualAdminDashboard";
 import VirtualNotifications from "./pages/VirtualNotifications";
 import { getHospitalSlugFromHostname } from "./utils/hospitalSubdomain";
 import HospitalWebsite from "./pages/hospital-website/HospitalWebsite";
+import HospitalsListPage from "./pages/HospitalsListPage";
 import HospitalAdminSignup from "./pages/HospitalAdminSignup";
 import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
 import DoctorOpdConsole from "./pages/hospital-staff/DoctorOpdConsole";
@@ -58,6 +59,8 @@ function App() {
         <Route path="/review" element={<ReviewVisit />} />
         <Route path="/opd/triage" element={<OpdTriage />} />
         <Route path="/health-records" element={<PatientHealthPortal />} />
+        <Route path="/hospitals" element={<HospitalsListPage />} />
+        <Route path="/hospitals/:slug" element={<HospitalByPath />} />
         <Route path="/login" element={<Login/>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/chat" element={<Chat />} />
@@ -82,6 +85,11 @@ function App() {
       <Footer />
     </>
   );
+}
+
+function HospitalByPath() {
+  const { slug } = useParams();
+  return <HospitalWebsite slug={slug} />;
 }
 
 export default App;

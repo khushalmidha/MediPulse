@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Hospital from "../model/hospital.js";
 import Department from "../model/department.js";
+import Doctor from "../model/doctor.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 import OpdToken from "../model/opdToken.js";
 import Review from "../model/review.js";
@@ -233,7 +234,7 @@ const getHospitalProfile = async (req, res) => {
         isActive: true,
         inviteStatus: "accepted",
       })
-        .select("name email profilePhoto departmentIds doctorProfile")
+        .select("name email profilePhoto departmentIds doctorId doctorProfile")
         .lean(),
     ]);
 
@@ -265,7 +266,7 @@ const getHospitalDoctors = async (req, res) => {
   }
 
   const doctors = await HospitalStaff.find(filter)
-    .select("name email phone profilePhoto departmentIds doctorProfile")
+    .select("name email phone profilePhoto departmentIds doctorId doctorProfile")
     .lean();
 
   return res.status(200).json({ doctors });
@@ -509,6 +510,60 @@ const inviteStaff = async (req, res) => {
     invitedBy: req.staff.id,
     inviteStatus: "pending",
   });
+
+  if (role === "DOCTOR") {
+    try {
+      const emailKey = cleanString(email).toLowerCase();
+      const department = departmentIds.length
+        ? await Department.findOne({ _id: departmentIds[0], hospitalId: id }).select("name").lean()
+        : null;
+      const departmentName = department?.name || cleanString(doctorProfile.specialization) || "General Medicine";
+      const existingDoctor = await Doctor.findOne({ email: emailKey });
+
+      if (existingDoctor) {
+        const alreadyAffiliated = existingDoctor.hospitals?.some(
+          (item) => item.hospitalId?.toString() === String(id),
+        );
+        if (!alreadyAffiliated) {
+          existingDoctor.hospitals = existingDoctor.hospitals || [];
+          existingDoctor.hospitals.push({
+            hospitalId: id,
+            hospitalName: hospital.name,
+            slug: hospital.slug,
+            departmentName,
+          });
+          await existingDoctor.save();
+        }
+        await HospitalStaff.findByIdAndUpdate(staff._id, { doctorId: existingDoctor._id });
+      } else {
+        const [firstNamePart, ...rest] = cleanString(name).split(" ");
+        const newDoctor = await Doctor.create({
+          firstName: firstNamePart || cleanString(name),
+          lastName: rest.join(" "),
+          email: emailKey,
+          password: crypto.randomBytes(18).toString("base64url"),
+          gender: "other",
+          bio: cleanString(doctorProfile.bio),
+          experience: {
+            years: Number(doctorProfile.experience || 0),
+            expertise: cleanString(doctorProfile.specialization) || "General Medicine",
+            qualification: cleanString(doctorProfile.qualification),
+          },
+          hospitals: [
+            {
+              hospitalId: id,
+              hospitalName: hospital.name,
+              slug: hospital.slug,
+              departmentName,
+            },
+          ],
+        });
+        await HospitalStaff.findByIdAndUpdate(staff._id, { doctorId: newDoctor._id });
+      }
+    } catch (syncError) {
+      console.error("Doctor-Hospital sync failed (non-fatal):", syncError.message);
+    }
+  }
 
   const frontendUrl = buildFrontendUrl();
   const inviteUrl = `${frontendUrl}/staff/accept-invite?token=${rawToken}&hospital=${id}`;
