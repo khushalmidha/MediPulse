@@ -66,7 +66,6 @@ const hospitalSchema = new mongoose.Schema(
       status: { type: String, enum: ["trial", "active", "expired", "cancelled"], default: "trial" },
       trialEndsAt: Date,
       currentPeriodEnd: Date,
-      razorpaySubscriptionId: String,
     },
     stats: {
       totalDoctors: { type: Number, default: 0 },

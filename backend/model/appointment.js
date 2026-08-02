@@ -23,8 +23,8 @@ const appointmentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending_approval", "queued", "active", "completed", "cancelled"],
-      default: "pending_approval",
+      enum: ["queued", "active", "completed", "cancelled"],
+      default: "queued",
       index: true,
     },
     startedAt: {
@@ -82,7 +82,8 @@ const appointmentSchema = new mongoose.Schema(
     payment: {
       provider: {
         type: String,
-        enum: ["razorpay", "upi", "wallet"],
+        enum: ["wallet"],
+        default: "wallet",
       },
       orderId: {
         type: String,
@@ -112,10 +113,7 @@ const appointmentSchema = new mongoose.Schema(
   },
 );
 
-appointmentSchema.index(
-  { "payment.orderId": 1 },
-  { unique: true, sparse: true },
-);
+appointmentSchema.index({ "payment.orderId": 1 }, { unique: true, sparse: true });
 
 const Appointment = mongoose.model("appointment", appointmentSchema);
 

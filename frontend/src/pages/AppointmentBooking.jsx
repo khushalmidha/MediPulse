@@ -24,7 +24,7 @@ const AppointmentBooking = () => {
   const [loading, setLoading] = useState(true);
   const [appointmentHistory, setAppointmentHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [approvalPopup, setApprovalPopup] = useState(false);
+  const [callStartedPopup, setCallStartedPopup] = useState(false);
   const [triageOpen, setTriageOpen] = useState(false);
   const previousAppointmentStatusRef = useRef(null);
 
@@ -73,13 +73,13 @@ const AppointmentBooking = () => {
     const previousStatus = previousAppointmentStatusRef.current;
 
     if (previousStatus === "queued" && nextStatus === "active") {
-      setApprovalPopup(true);
+      setCallStartedPopup(true);
       setMessage("Your doctor has started the appointment.");
       fetchHistory().catch(() => {});
     }
 
     if (previousStatus === "active" && nextStatus === null) {
-      setApprovalPopup(false);
+      setCallStartedPopup(false);
       fetchHistory().catch(() => {});
     }
 
@@ -359,7 +359,7 @@ const AppointmentBooking = () => {
                   Verify your email before payment
                 </p>
                 <p className="mt-1 text-sm text-blue-800">
-                  After OTP verification, ₹{APPOINTMENT_FEE_INR} will be debited from your wallet and the doctor will receive an approval email.
+                  After OTP verification, ₹{APPOINTMENT_FEE_INR} will be debited from your wallet and your appointment will be added to the live queue.
                 </p>
                 {otpSent && (
                   <div className="mt-3 max-w-xs">
@@ -396,24 +396,24 @@ const AppointmentBooking = () => {
           {message && <p className="mt-3 text-sm text-blue-700">{message}</p>}
         </div>
 
-        {approvalPopup && (
+        {callStartedPopup && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-              <h2 className="text-xl font-bold text-gray-900">Appointment Approved</h2>
+              <h2 className="text-xl font-bold text-gray-900">Doctor Started the Appointment</h2>
               <p className="mt-2 text-sm text-gray-600">
                 The doctor has started your booking. Join the active appointment now.
               </p>
               <div className="mt-5 flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setApprovalPopup(false)}
+                onClick={() => setCallStartedPopup(false)}
                   className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   Close
                 </button>
                 <button
                   type="button"
-                  onClick={() => setApprovalPopup(false)}
+                onClick={() => setCallStartedPopup(false)}
                   className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
                 >
                   View Call
@@ -475,44 +475,36 @@ const AppointmentBooking = () => {
 
             {!myAppointment ? (
               <p className="mt-4 text-sm text-gray-500">No pending bookings yet.</p>
-            ) : ["pending_approval", "queued"].includes(myAppointment.status) ? (
+            ) : myAppointment.status === "queued" ? (
               <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <p className="font-medium text-amber-900">
-                  {myAppointment.status === "pending_approval"
-                    ? "Waiting for your email approval"
-                    : "Waiting for doctor to start"}
+                  Waiting for doctor to start
                 </p>
                 <p className="text-sm text-amber-800">
                   Booked on {new Date(status?.myAppointment?.createdAt || Date.now()).toLocaleString()}
                 </p>
-                {myAppointment.status === "queued" ? (
-                  <div className="mt-3 space-y-3">
-                    <p className="text-sm text-amber-700">
-                      Position in queue: {myAppointment.queuePosition}
-                    </p>
-                    {myAppointment.patientBrief ? (
-                      <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800">
-                        Health summary submitted ✓
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setTriageOpen(true)}
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                      >
-                        Prepare for Appointment →
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <p className="mt-2 text-sm text-amber-700">
-                    Check your email and approve the booking to join the doctor&apos;s queue.
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm text-amber-700">
+                    Position in queue: {myAppointment.queuePosition}
                   </p>
-                )}
+                  {myAppointment.patientBrief ? (
+                    <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800">
+                      Health summary submitted ✓
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setTriageOpen(true)}
+                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                    >
+                      Prepare for Appointment →
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <p className="font-medium text-blue-900">Approved and active</p>
+                <p className="font-medium text-blue-900">Appointment active</p>
                 <p className="text-sm text-blue-800">
                   Started at {myAppointment.startedAt ? new Date(myAppointment.startedAt).toLocaleString() : "Just now"}
                 </p>

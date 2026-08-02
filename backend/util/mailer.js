@@ -335,45 +335,6 @@ MediPulse`,
   });
 };
 
-const sendAppointmentApprovalMail = async ({
-  to,
-  doctorName,
-  patientName,
-  appointmentId,
-  approveUrl,
-  cancelUrl,
-}) => {
-  const from = process.env.MAIL_FROM || process.env.SMTP_USER;
-
-  await sendMail({
-    from,
-    to,
-    subject: "Confirm your MediPulse appointment request",
-    text: `Hi ${patientName || "there"},
-
-Please confirm your appointment request with Dr. ${doctorName || "Doctor"}.
-
-Approve: ${approveUrl}
-Cancel and refund: ${cancelUrl}
-
-Appointment ID: ${appointmentId}
-
-MediPulse`,
-    html: `
-      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
-        <h2 style="margin: 0 0 12px;">Confirm your appointment request</h2>
-        <p>Hi ${patientName || "there"},</p>
-        <p>Please confirm your appointment request with <strong>Dr. ${doctorName || "Doctor"}</strong>.</p>
-        <p style="margin: 24px 0;">
-          <a href="${approveUrl}" style="display: inline-block; margin-right: 12px; padding: 12px 18px; border-radius: 8px; background: #16a34a; color: #ffffff; text-decoration: none; font-weight: 700;">Approve</a>
-          <a href="${cancelUrl}" style="display: inline-block; padding: 12px 18px; border-radius: 8px; background: #dc2626; color: #ffffff; text-decoration: none; font-weight: 700;">Cancel & Refund</a>
-        </p>
-        <p style="color: #6b7280;">Appointment ID: ${appointmentId}</p>
-      </div>
-    `,
-  });
-};
-
 const sendAppointmentBookedMail = async ({ to, patientName, doctorName, appointmentId }) => {
   const from = process.env.MAIL_FROM || process.env.SMTP_USER;
 
@@ -383,7 +344,7 @@ const sendAppointmentBookedMail = async ({ to, patientName, doctorName, appointm
     subject: "Your MediPulse appointment is booked",
     text: `Hi ${patientName || "there"},
 
-Your appointment with Dr. ${doctorName || "Doctor"} has been approved and booked successfully.
+Your appointment with Dr. ${doctorName || "Doctor"} has been booked and added to the live queue.
 
 Appointment ID: ${appointmentId}
 
@@ -392,7 +353,7 @@ MediPulse`,
       <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
         <h2 style="margin: 0 0 12px;">Appointment booked successfully</h2>
         <p>Hi ${patientName || "there"},</p>
-        <p>Your appointment with <strong>Dr. ${doctorName || "Doctor"}</strong> has been approved and booked successfully.</p>
+        <p>Your appointment with <strong>Dr. ${doctorName || "Doctor"}</strong> has been booked and added to the live queue.</p>
         <p style="color: #6b7280;">Appointment ID: ${appointmentId}</p>
       </div>
     `,
@@ -613,7 +574,6 @@ export {
   sendHospitalApprovedMail,
   sendHospitalRejectedMail,
   sendHospitalWelcomeMail,
-  sendAppointmentApprovalMail,
   sendAppointmentBookedMail,
   sendAppointmentOtpMail,
   sendAppointmentRefundMail,

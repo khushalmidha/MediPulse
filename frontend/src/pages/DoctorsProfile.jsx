@@ -72,7 +72,10 @@ const DoctorsProfile = () => {
   }
 
   const handleBookAppointment = () => {
-    // Navigate to appointment booking page
+    if (doctor?.sourceType === "hospital" && doctor?.hospitalContext?.hospitalSlug) {
+      navigate(`/hospitals/${doctor.hospitalContext.hospitalSlug}`)
+      return
+    }
     navigate(`/appointment/book/${doctor._id}`)
   }
 
@@ -184,7 +187,7 @@ const DoctorsProfile = () => {
                 <div className='sm:flex sm:items-start sm:justify-between mb-4'>
                   <div>
                     <h1 className='text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900'>
-                      Dr. {doctor.firstName} {doctor.lastName || ''}
+                      Dr. {doctor.fullName || `${doctor.firstName || ''} ${doctor.lastName || ''}`}
                     </h1>
                     <p className='text-md sm:text-lg text-blue-600 font-medium mt-1'>
                       {doctor.experience?.expertise || 'Medical Professional'}
@@ -243,7 +246,7 @@ const DoctorsProfile = () => {
                       onClick={handleBookAppointment}
                       className='inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700'>
                       <CalendarPlus className='mr-2 h-4 w-4' />
-                      Book Appointment
+                      {doctor?.sourceType === "hospital" ? "Book at Hospital" : "Book Appointment"}
                     </button>
                   )}
                   {role === 'doctor' && (

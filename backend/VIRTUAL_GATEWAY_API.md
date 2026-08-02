@@ -1,7 +1,6 @@
 # MediPulse Virtual Payment Gateway
 
-This module is a virtual currency gateway. It does not use banks, UPI, cards,
-Razorpay, Stripe, PhonePe, Paytm, or any external payment provider.
+This module is a virtual currency gateway. It does not use any external payment provider.
 
 Base path: `/vpay`
 Auth: existing JWT cookie middleware.

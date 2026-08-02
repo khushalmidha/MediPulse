@@ -42,6 +42,7 @@ const hospitalStaffSchema = new mongoose.Schema(
 
 hospitalStaffSchema.index({ hospitalId: 1, email: 1 }, { unique: true });
 hospitalStaffSchema.index({ hospitalId: 1, role: 1 });
+hospitalStaffSchema.index({ role: 1, isActive: 1, inviteStatus: 1, name: 1 });
 
 hospitalStaffSchema.pre("save", async function () {
   if (!this.isModified("password") || !this.password) return;

@@ -4,6 +4,9 @@ import axios from 'axios';
 import { MapPin, Briefcase, Search, Filter, User, GraduationCap, Building, X } from 'lucide-react';
 import { BACKEND_URL } from '../utils';
 
+const getDoctorsFromPayload = (payload) =>
+  Array.isArray(payload) ? payload : payload?.items || [];
+
 const Doctors = () => {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,10 +23,11 @@ const Doctors = () => {
         const response = await axios.get(`${BACKEND_URL}/doctor`, {
           withCredentials: true
         });
-        const data = new Set(response.data.map(doctor => doctor.experience?.expertise))
+        const doctorItems = getDoctorsFromPayload(response.data);
+        const data = new Set(doctorItems.map(doctor => doctor.experience?.expertise).filter(Boolean))
         console.log("speciality",[...data])
         setSpecialities([...data])
-        setDoctors(response.data);
+        setDoctors(doctorItems);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching doctors:', err);
@@ -37,7 +41,7 @@ const Doctors = () => {
 
   // Filter doctors based on search term and filters
   const filteredDoctors = doctors.filter(doctor => {
-    const fullName = `${doctor.firstName} ${doctor.lastName || ''}`.toLowerCase();
+    const fullName = `${doctor.fullName || `${doctor.firstName || ''} ${doctor.lastName || ''}`}`.toLowerCase();
     const expertise = doctor.experience?.expertise?.toLowerCase() || '';
     const clinic = doctor.clinic?.name?.toLowerCase() || '';
     const qualification = doctor.experience?.qualification?.toLowerCase() || '';
@@ -204,13 +208,13 @@ const Doctors = () => {
                 >
                   <div className="p-6">
                     <div className="flex items-start">
-                      <div className={`flex-shrink-0 w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold mr-4 ${getAvatarColor(doctor.firstName)}`}>
-                        {doctor.firstName.charAt(0)}{doctor.lastName ? doctor.lastName.charAt(0) : ''}
+                      <div className={`flex-shrink-0 w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold mr-4 ${getAvatarColor((doctor.firstName || doctor.fullName || 'D').charAt(0))}`}>
+                        {(doctor.firstName || doctor.fullName || "D").charAt(0)}{doctor.lastName ? doctor.lastName.charAt(0) : ''}
                       </div>
                       
                       <div className="flex-1 min-w-0">
                         <h3 className="text-xl font-bold text-gray-800 truncate">
-                          Dr. {doctor.firstName} {doctor.lastName || ''}
+                          Dr. {doctor.fullName || `${doctor.firstName || ""} ${doctor.lastName || ""}`}
                         </h3>
                         
                         <p className="text-blue-600 font-medium truncate">
@@ -249,10 +253,14 @@ const Doctors = () => {
                     
                     <div className="mt-6">
                       <Link
-                        to={`/doctorsProfile/${doctor._id}`}
+                        to={
+                          doctor.sourceType === "hospital" && doctor.hospitalContext?.hospitalSlug
+                            ? `/hospitals/${doctor.hospitalContext.hospitalSlug}`
+                            : `/doctorsProfile/${doctor._id}`
+                        }
                         className="block w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-center rounded-md transition duration-200 font-medium"
                       >
-                        View Profile
+                        {doctor.sourceType === "hospital" ? "Book at Hospital" : "View Profile"}
                       </Link>
                     </div>
                   </div>

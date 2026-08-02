@@ -23,7 +23,8 @@ const RecommendationDoctors = () => {
         const res = await axios.get(`${BACKEND_URL}/doctor`, {
           withCredentials: true,
         })
-        const val = res.data.sort(
+        const doctorItems = Array.isArray(res.data) ? res.data : res.data?.items || []
+        const val = doctorItems.sort(
           (a, b) => b.experience?.years - a.experience?.years
         )
         setDoctors(val.slice(0, Math.min(8, val.length)))
@@ -184,9 +185,13 @@ const RecommendationDoctors = () => {
 
                 <div className='mt-6'>
                   <Link
-                    to={`/doctorsprofile/${doctor._id}`}
+                    to={
+                      doctor.sourceType === "hospital" && doctor.hospitalContext?.hospitalSlug
+                        ? `/hospitals/${doctor.hospitalContext.hospitalSlug}`
+                        : `/doctorsprofile/${doctor._id}`
+                    }
                     className='block w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-center rounded-md transition duration-200 font-medium'>
-                    View Profile
+                    {doctor.sourceType === "hospital" ? "Book at Hospital" : "View Profile"}
                   </Link>
                 </div>
               </div>
