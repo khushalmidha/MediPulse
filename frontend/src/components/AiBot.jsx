@@ -22,7 +22,7 @@ const AiBot = () => {
     const fetchData = async () => {
       try {
         const doctorsResponse = await axios.get(`${BACKEND_URL}/doctor`,{withCredentials: true});
-        setDoctors(doctorsResponse.data);
+        setDoctors(Array.isArray(doctorsResponse.data) ? doctorsResponse.data : doctorsResponse.data?.items || []);
         
         const communitiesResponse = await axios.get(`${BACKEND_URL}/community`,{withCredentials: true});
         setCommunities(communitiesResponse.data);
@@ -89,7 +89,7 @@ const AiBot = () => {
     setIsLoading(true);
     try {
       const doctorExpertiseList = doctors.map(doc => 
-        `ID: ${doc._id}, Name: ${doc.firstName} ${doc.lastName || ""}, Expertise: ${doc.experience.expertise}, Years: ${doc.experience.years}`
+        `ID: ${doc._id}, Name: ${doc.fullName || `${doc.firstName || ""} ${doc.lastName || ""}`}, Expertise: ${doc.experience?.expertise || ""}, Years: ${doc.experience?.years || 0}`
       ).join('\n');
       
       const prompt = `Based on the user query: "${query}"
@@ -190,7 +190,8 @@ Only return the IDs, nothing else.`;
   // Handle navigation for doctor and community cards
   const handleDoctorCardClick = (doctorId) => {
     setIsChatOpen(false);
-    navigate(`/doctorsprofile/${doctorId}`);
+    const selectedDoctor = doctors.find((doctor) => String(doctor._id) === String(doctorId));
+    navigate(getDoctorNavigationPath(selectedDoctor || { _id: doctorId }));
   };
 
   const handleCommunityCardClick = (communityId) => {
@@ -306,10 +307,10 @@ Only return the IDs, nothing else.`;
                       >
                         <div className="flex items-center space-x-2 mb-2">
                           <div className="w-9 h-9 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-lg font-semibold">
-                            {doctor.firstName[0]}
+                            {(doctor.firstName || doctor.fullName || "D")[0]}
                           </div>
                           <h4 className="font-medium text-gray-800">
-                            Dr. {doctor.firstName} {doctor.lastName || ""}
+                            Dr. {doctor.fullName || `${doctor.firstName || ""} ${doctor.lastName || ""}`}
                           </h4>
                         </div>
                         <div className="mb-2 pb-2 border-b border-gray-100">
@@ -435,3 +436,9 @@ Only return the IDs, nothing else.`;
 // }
 
 export default AiBot;
+  const getDoctorNavigationPath = (doctor) => {
+    if (doctor?.sourceType === "hospital" && doctor?.hospitalContext?.hospitalSlug) {
+      return `/hospitals/${doctor.hospitalContext.hospitalSlug}`;
+    }
+    return `/doctorsprofile/${doctor._id}`;
+  };

@@ -13,6 +13,7 @@ import userValidation from "../middleware/validateUser.js";
 
 const opdRouter = Router();
 
+opdRouter.post("/:hospitalId/:departmentId/book", userValidation, issueToken);
 opdRouter.post("/:hospitalId/:departmentId/token", validateStaff, requireRole("RECEPTIONIST", "HOSPITAL_ADMIN", "NURSE"), issueToken);
 opdRouter.get("/:hospitalId/:doctorId/queue", validateStaff, getDoctorQueue);
 opdRouter.patch("/tokens/:tokenId/vitals", validateStaff, requireRole("NURSE", "HOSPITAL_ADMIN"), recordVitals);

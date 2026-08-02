@@ -89,8 +89,8 @@ After each visit, patients can rate doctor quality, wait time, staff behavior, c
 | Database | MongoDB |
 | Cache and Queue | Redis-compatible services |
 | Events | Kafka-ready virtual payment and analytics topics |
-| Payments | Virtual wallet, ledger, refunds, Razorpay-ready integration |
-| Email | OTP, booking approval, refund, password reset notifications |
+| Payments | Virtual wallet, ledger, and refund automation |
+| Email | OTP, booking confirmation, refund, password reset notifications |
 | AI | Gemini-powered assistant and recommendation layer |
 | Documents | jsPDF receipts, QR verification support |
 | DevOps | Dockerfiles, Docker Compose, environment-based deployment |

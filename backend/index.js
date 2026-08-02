@@ -19,7 +19,7 @@ import staffMessageRouter from './routes/staffMessage.js'
 import reviewRouter from './routes/review.js'
 import opdAiRouter from './routes/opdAi.js'
 import patientPortalRouter from './routes/patientPortal.js'
-import { handleRazorpayWebhook, startAutoRefundWorker } from './controller/appointment.js'
+import { startAutoRefundWorker } from './controller/appointment.js'
 import { startReviewRequestWorker } from './services/reviewRequestWorker.js'
 import { configDotenv } from 'dotenv'
 import { StaffVerifier, Verifier } from './controller/auth.js'
@@ -53,11 +53,6 @@ app.use(
   })
 )
 app.use(cookieParser())
-app.post(
-  '/appointment/webhook/razorpay',
-  express.raw({ type: 'application/json' }),
-  handleRazorpayWebhook
-)
 app.use(express.json())
 app.use('/user', userRouter)
 app.use('/api/auth', userRouter)

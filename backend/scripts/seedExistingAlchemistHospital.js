@@ -2,6 +2,7 @@ import { configDotenv } from "dotenv";
 import mongoose from "mongoose";
 import connectMongo from "../connection.js";
 import Department from "../model/department.js";
+import Doctor from "../model/doctor.js";
 import Hospital from "../model/hospital.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 
@@ -35,6 +36,73 @@ const staff = [
   ["Aman Lab", "aman.lab@alchemist.demo", "LAB_TECH", "Diagnostics"],
 ];
 
+const syncPlatformDoctor = async ({ hospital, department, member, input }) => {
+  if (input.role !== "DOCTOR") return member;
+
+  const email = input.email.toLowerCase();
+  const [firstName, ...lastNameParts] = input.name.replace(/^Dr\.\s*/i, "").split(/\s+/);
+  const affiliation = {
+    hospitalId: hospital._id,
+    hospitalName: hospital.name,
+    slug: hospital.slug,
+    departmentName: department?.name || input.doctorProfile?.specialization || "General Medicine",
+  };
+
+  let doctor = await Doctor.findOne({ email });
+  if (!doctor) {
+    doctor = await Doctor.create({
+      firstName: firstName || input.name,
+      lastName: lastNameParts.join(" "),
+      email,
+      password: staffPassword,
+      gender: "other",
+      phone: 9811000000,
+      rating: input.doctorProfile?.rating || 4.8,
+      bio: input.doctorProfile?.bio,
+      experience: {
+        years: input.doctorProfile?.experience || 0,
+        expertise: input.doctorProfile?.specialization || department?.name || "General Medicine",
+        qualification: input.doctorProfile?.qualification || "",
+      },
+      clinic: {
+        name: hospital.name,
+        location: [hospital.address?.line1, hospital.address?.city, hospital.address?.state].filter(Boolean).join(", "),
+        pin: Number(hospital.address?.pincode) || undefined,
+        phoneNumber: 9811000000,
+      },
+      hospitals: [affiliation],
+    });
+  } else {
+    doctor.firstName = firstName || doctor.firstName;
+    doctor.lastName = lastNameParts.join(" ");
+    doctor.gender = doctor.gender || "other";
+    doctor.phone = doctor.phone || 9811000000;
+    doctor.rating = input.doctorProfile?.rating || doctor.rating || 4.8;
+    doctor.bio = input.doctorProfile?.bio || doctor.bio;
+    doctor.experience = {
+      years: input.doctorProfile?.experience || doctor.experience?.years || 0,
+      expertise: input.doctorProfile?.specialization || doctor.experience?.expertise || department?.name || "General Medicine",
+      qualification: input.doctorProfile?.qualification || doctor.experience?.qualification || "",
+    };
+    doctor.clinic = {
+      ...(doctor.clinic || {}),
+      name: hospital.name,
+      location: [hospital.address?.line1, hospital.address?.city, hospital.address?.state].filter(Boolean).join(", "),
+      pin: Number(hospital.address?.pincode) || doctor.clinic?.pin,
+      phoneNumber: doctor.clinic?.phoneNumber || 9811000000,
+    };
+    const alreadyAffiliated = doctor.hospitals?.some((item) => item.hospitalId?.toString() === hospital._id.toString());
+    if (!alreadyAffiliated) {
+      doctor.hospitals = [...(doctor.hospitals || []), affiliation];
+    }
+    await doctor.save();
+  }
+
+  member.doctorId = doctor._id;
+  await member.save();
+  return member;
+};
+
 const upsertStaff = async ({ hospital, department, input }) => {
   const member = await HospitalStaff.findOne({ hospitalId: hospital._id, email: input.email });
   const payload = {
@@ -51,12 +119,13 @@ const upsertStaff = async ({ hospital, department, input }) => {
   };
 
   if (!member) {
-    await HospitalStaff.create({ ...payload, password: staffPassword });
-    return;
+    const created = await HospitalStaff.create({ ...payload, password: staffPassword });
+    return syncPlatformDoctor({ hospital, department, member: created, input });
   }
 
   Object.assign(member, payload);
   await member.save();
+  return syncPlatformDoctor({ hospital, department, member, input });
 };
 
 const main = async () => {

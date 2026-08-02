@@ -235,6 +235,7 @@ const getHospitalProfile = async (req, res) => {
         inviteStatus: "accepted",
       })
         .select("name email profilePhoto departmentIds doctorId doctorProfile")
+        .populate("departmentIds", "name")
         .lean(),
     ]);
 
@@ -267,6 +268,7 @@ const getHospitalDoctors = async (req, res) => {
 
   const doctors = await HospitalStaff.find(filter)
     .select("name email phone profilePhoto departmentIds doctorId doctorProfile")
+    .populate("departmentIds", "name")
     .lean();
 
   return res.status(200).json({ doctors });

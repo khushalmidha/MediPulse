@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, CalendarDays, MapPin, Phone, Star, Stethoscope, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Activity, CalendarDays, MapPin, Phone, Search, Star, Stethoscope, Users, X } from "lucide-react";
 import { BACKEND_URL } from "../../utils";
+import { useAuth } from "../../context/AuthContext";
 
 const resolveHospitalKey = (slug) => (typeof slug === "string" ? slug : slug?.customDomain);
 
@@ -8,11 +10,20 @@ const money = (value) =>
   typeof value === "number" ? `INR ${value.toLocaleString("en-IN")}` : "Fee on request";
 
 const HospitalWebsite = ({ slug }) => {
+  const navigate = useNavigate();
+  const { isAuth, role, user } = useAuth();
   const hospitalKey = resolveHospitalKey(slug);
   const [profile, setProfile] = useState(null);
   const [queue, setQueue] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [slide, setSlide] = useState(0);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [doctorSearch, setDoctorSearch] = useState("");
+  const [bookingDoctor, setBookingDoctor] = useState(null);
+  const [chiefComplaint, setChiefComplaint] = useState("");
+  const [bookingMessage, setBookingMessage] = useState("");
+  const [bookingResult, setBookingResult] = useState(null);
+  const [booking, setBooking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -64,6 +75,29 @@ const HospitalWebsite = ({ slug }) => {
   const departments = profile?.departments || [];
   const doctors = profile?.doctors || [];
   const primaryColor = hospital?.branding?.primaryColor || "#2563eb";
+  const queueByDepartment = useMemo(() => {
+    const map = new Map();
+    (queue?.departments || []).forEach((item) => {
+      map.set(String(item.id), item);
+    });
+    return map;
+  }, [queue?.departments]);
+  const filteredDoctors = useMemo(() => {
+    const term = doctorSearch.trim().toLowerCase();
+    return doctors.filter((doctor) => {
+      const departmentIds = (doctor.departmentIds || []).map((item) => String(item?._id || item));
+      const matchesDepartment = !selectedDepartmentId || departmentIds.includes(String(selectedDepartmentId));
+      const searchBlob = [
+        doctor.name,
+        doctor.doctorProfile?.specialization,
+        ...(doctor.departmentIds || []).map((item) => item?.name),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return matchesDepartment && (!term || searchBlob.includes(term));
+    });
+  }, [doctors, doctorSearch, selectedDepartmentId]);
   const sliderImages = useMemo(
     () =>
       hospital?.branding?.galleryImages?.length
@@ -92,6 +126,51 @@ const HospitalWebsite = ({ slug }) => {
     }, 4000);
     return () => window.clearInterval(timer);
   }, [sliderImages.length]);
+
+  const openBooking = (doctor) => {
+    if (!isAuth || role !== "user") {
+      navigate("/login");
+      return;
+    }
+    setBookingDoctor(doctor);
+    setChiefComplaint("");
+    setBookingMessage("");
+    setBookingResult(null);
+  };
+
+  const bookOpdToken = async () => {
+    if (!bookingDoctor || !hospital?._id) return;
+    const departmentId = bookingDoctor.departmentIds?.[0]?._id || bookingDoctor.departmentIds?.[0];
+    if (!departmentId) {
+      setBookingMessage("Doctor department is not configured yet");
+      return;
+    }
+    setBooking(true);
+    setBookingMessage("");
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/opd/${hospital._id}/${departmentId}/book`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          doctorId: bookingDoctor._id,
+          visitType: "new",
+          chiefComplaint,
+          patientInfo: {
+            name: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+          },
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || "Could not book OPD token");
+      setBookingResult(payload);
+      setBookingMessage(`Token ${payload.displayToken} booked. Queue position ${payload.queuePosition}.`);
+    } catch (err) {
+      setBookingMessage(err.message || "Could not book OPD token");
+    } finally {
+      setBooking(false);
+    }
+  };
 
   if (loading) {
     return <div className="min-h-screen bg-slate-50 px-6 py-10 text-slate-700">Loading hospital website...</div>;
@@ -196,24 +275,37 @@ const HospitalWebsite = ({ slug }) => {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-12">
+      <section id="departments" className="mx-auto max-w-7xl px-4 py-12">
         <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
           <div>
             <h2 className="text-2xl font-bold">Departments and OPD Fees</h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {departments.map((department) => (
-                <div key={department._id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              {departments.map((department) => {
+                const stats = queueByDepartment.get(String(department._id));
+                const isSelected = selectedDepartmentId === String(department._id);
+                return (
+                <button
+                  key={department._id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDepartmentId(isSelected ? "" : String(department._id));
+                    document.getElementById("doctors")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className={`rounded-lg border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isSelected ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-bold">{department.icon || "🏥"} {department.name}</h3>
                       <p className="mt-2 text-sm text-slate-600">{department.description || "OPD consultation available."}</p>
+                      <p className="mt-3 text-xs font-semibold text-blue-700">
+                        {stats ? `${stats.todayTokensIssued || 0} tokens today, ~${stats.estimatedWait || 0} min wait` : "Queue opens when OPD starts"}
+                      </p>
                     </div>
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
                       {money(department.opd?.consultationFee)}
                     </span>
                   </div>
-                </div>
-              ))}
+                </button>
+              )})}
             </div>
           </div>
 
@@ -239,9 +331,27 @@ const HospitalWebsite = ({ slug }) => {
 
       <section id="doctors" className="bg-white py-12">
         <div className="mx-auto max-w-7xl px-4">
-          <h2 className="text-2xl font-bold">Doctors</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-bold">Doctors</h2>
+              {selectedDepartmentId && (
+                <button onClick={() => setSelectedDepartmentId("")} className="mt-1 text-sm font-semibold text-blue-600">
+                  Clear department filter
+                </button>
+              )}
+            </div>
+            <label className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+              <input
+                value={doctorSearch}
+                onChange={(event) => setDoctorSearch(event.target.value)}
+                placeholder="Search doctor or specialization"
+                className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
+              />
+            </label>
+          </div>
           <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {doctors.map((doctor) => (
+            {filteredDoctors.map((doctor) => (
               <div key={doctor._id} className="rounded-lg border border-slate-200 p-5">
                 <div className="flex items-center gap-3">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700">
@@ -253,14 +363,67 @@ const HospitalWebsite = ({ slug }) => {
                   </div>
                 </div>
                 <p className="mt-4 text-sm text-slate-600">{doctor.doctorProfile?.bio || "Available for OPD consultation."}</p>
-                <button className="mt-4 w-full rounded-md px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>
+                <button
+                  onClick={() => openBooking(doctor)}
+                  className="mt-4 w-full rounded-md px-4 py-2 text-sm font-semibold text-white"
+                  style={{ backgroundColor: primaryColor }}>
                   Book with doctor
                 </button>
               </div>
             ))}
           </div>
+          {!filteredDoctors.length && (
+            <p className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+              This hospital has not added matching doctors yet.
+            </p>
+          )}
         </div>
       </section>
+
+      {bookingDoctor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-slate-950">Book OPD Token</h2>
+                <p className="mt-1 text-sm text-slate-500">{bookingDoctor.name} · {bookingDoctor.doctorProfile?.specialization || "Doctor"}</p>
+              </div>
+              <button onClick={() => setBookingDoctor(null)} className="rounded-full p-2 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            {bookingResult ? (
+              <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
+                <p className="text-2xl font-black text-green-800">{bookingResult.displayToken}</p>
+                <p className="mt-2 text-sm text-green-700">Queue position: {bookingResult.queuePosition}</p>
+                <p className="text-sm text-green-700">Estimated wait: {bookingResult.estimatedWaitMinutes} minutes</p>
+                {bookingResult.payment?.amount && <p className="mt-2 text-sm font-semibold text-green-800">Paid by wallet: {money(bookingResult.payment.amount)}</p>}
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                <textarea
+                  value={chiefComplaint}
+                  onChange={(event) => setChiefComplaint(event.target.value)}
+                  placeholder="Chief complaint / reason for visit"
+                  className="min-h-28 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-blue-500"
+                />
+                <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+                  OPD fee will be debited from your MediPulse wallet and your token will be added to the live queue.
+                </p>
+                <button
+                  onClick={bookOpdToken}
+                  disabled={booking}
+                  className="w-full rounded-lg px-4 py-3 text-sm font-bold text-white disabled:bg-slate-400"
+                  style={{ backgroundColor: primaryColor }}>
+                  {booking ? "Booking..." : "Confirm OPD Token"}
+                </button>
+              </div>
+            )}
+            {bookingMessage && <p className="mt-4 text-sm font-medium text-blue-700">{bookingMessage}</p>}
+          </div>
+        </div>
+      )}
 
       <section className="bg-slate-50 py-12">
         <div className="mx-auto max-w-7xl px-4">

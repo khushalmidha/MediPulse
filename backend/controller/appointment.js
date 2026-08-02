@@ -2,12 +2,10 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import Appointment from "../model/appointment.js";
 import Doctor from "../model/doctor.js";
-import Payment from "../model/payment.js";
 import User from "../model/user.js";
 import { getIO } from "../socket.js";
 import { generateGeminiText } from "./gemini.js";
 import {
-  sendAppointmentApprovalMail,
   sendAppointmentBookedMail,
   sendAppointmentOtpMail,
   sendAppointmentRefundMail,
@@ -20,12 +18,6 @@ import {
   queueCacheKey,
 } from "../services/redis.js";
 import { publishEvent } from "../services/events.js";
-import {
-  getAppointmentAmount,
-  getRazorpayClient,
-  verifyRazorpayPaymentSignature,
-  verifyRazorpayWebhookSignature,
-} from "../services/payments.js";
 import { refundVirtualPayment, transferVirtualMoney } from "../services/virtualLedger.js";
 
 const APPOINTMENT_DURATION_MS = 5 * 60 * 1000;
@@ -33,7 +25,6 @@ const OTP_EXPIRY_MS = 10 * 60 * 1000;
 const BOOKING_TOKEN_EXPIRY_MS = 10 * 60 * 1000;
 const AUTO_REFUND_DELAY_MS = 30 * 60 * 1000;
 const WALLET_APPOINTMENT_FEE_INR = Number(process.env.APPOINTMENT_BOOKING_FEE_INR || 5);
-const APPROVAL_TOKEN_EXPIRY_SECONDS = 24 * 60 * 60;
 const appointmentTimeouts = new Map();
 
 const hashValue = (value) =>
@@ -43,56 +34,6 @@ const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
 
 const buildPersonName = (account, fallback) =>
   [account?.firstName, account?.lastName].filter(Boolean).join(" ") || fallback;
-
-const appointmentApprovalKey = (token) => `appointment:approval:${token}`;
-
-const buildRequestBaseUrl = (req) =>
-  process.env.PUBLIC_BACKEND_URL ||
-  `${req.protocol}://${req.get("host")}`;
-
-const base64UrlEncode = (value) => Buffer.from(value).toString("base64url");
-
-const base64UrlDecode = (value) => Buffer.from(value, "base64url").toString("utf8");
-
-const createAppointmentActionToken = ({ appointmentId, doctorId, userId }) => {
-  const payload = base64UrlEncode(
-    JSON.stringify({
-      appointmentId,
-      doctorId,
-      userId,
-      exp: Date.now() + APPROVAL_TOKEN_EXPIRY_SECONDS * 1000,
-    }),
-  );
-  const signature = crypto
-    .createHmac("sha256", process.env.TOKEN_KEY || "medipulse-dev-secret")
-    .update(payload)
-    .digest("base64url");
-
-  return `${payload}.${signature}`;
-};
-
-const verifyAppointmentActionToken = (token) => {
-  const [payload, signature] = String(token || "").split(".");
-  if (!payload || !signature) return null;
-
-  const expectedSignature = crypto
-    .createHmac("sha256", process.env.TOKEN_KEY || "medipulse-dev-secret")
-    .update(payload)
-    .digest("base64url");
-
-  const expectedBuffer = Buffer.from(expectedSignature);
-  const receivedBuffer = Buffer.from(signature);
-  if (
-    expectedBuffer.length !== receivedBuffer.length ||
-    !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
-  ) {
-    return null;
-  }
-
-  const data = JSON.parse(base64UrlDecode(payload));
-  if (!data.exp || data.exp < Date.now()) return null;
-  return data;
-};
 
 const ensureBookableAppointment = async (doctorId, userId) => {
   if (!mongoose.Types.ObjectId.isValid(doctorId)) {
@@ -104,7 +45,7 @@ const ensureBookableAppointment = async (doctorId, userId) => {
     Appointment.findOne({
       doctor: doctorId,
       user: userId,
-      status: { $in: ["pending_approval", "queued", "active"] },
+      status: { $in: ["queued", "active"] },
     }),
   ]);
 
@@ -351,67 +292,10 @@ const generateReceiptText = async (appointment, notes) => {
   return generateGeminiText(prompt, "general");
 };
 
-const createQueuedAppointmentFromPayment = async (payment) => {
-  if (payment.appointment) {
-    return Appointment.findById(payment.appointment);
-  }
-
-  const existingAppointment = await Appointment.findOne({
-    "payment.orderId": payment.orderId,
-  });
-  if (existingAppointment) {
-    payment.appointment = existingAppointment._id;
-    await payment.save();
-    return existingAppointment;
-  }
-
-  let appointment;
-  try {
-    appointment = await Appointment.create({
-      doctor: payment.doctor,
-      user: payment.user,
-      familyMemberId: payment.metadata?.familyMemberId,
-      roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
-      status: "queued",
-      payment: {
-        provider: "razorpay",
-        orderId: payment.orderId,
-        paymentId: payment.paymentId,
-        amount: payment.amount,
-        currency: payment.currency,
-        paidAt: payment.paidAt || new Date(),
-      },
-    });
-  } catch (error) {
-    if (error.code !== 11000) throw error;
-    appointment = await Appointment.findOne({ "payment.orderId": payment.orderId });
-  }
-
-  payment.appointment = appointment._id;
-  payment.autoRefundDueAt = new Date(Date.now() + AUTO_REFUND_DELAY_MS);
-  await payment.save();
-  await getRedis().zadd(
-    autoRefundSetKey,
-    payment.autoRefundDueAt.getTime(),
-    payment._id.toString(),
-  );
-  await emitQueueUpdates(payment.doctor.toString());
-  await publishEvent("appointment.booked", {
-    appointmentId: appointment._id.toString(),
-    orderId: payment.orderId,
-    paymentId: payment.paymentId,
-    doctorId: payment.doctor.toString(),
-    userId: payment.user.toString(),
-  });
-
-  return appointment;
-};
-
 const createQueuedAppointmentFromDemoBooking = async ({
   doctorId,
   userId,
   bookingToken,
-  requestBaseUrl,
 }) => {
   const tokenDataRaw = await getRedis().get(bookingTokenKey(bookingToken));
   if (!tokenDataRaw) {
@@ -449,7 +333,7 @@ const createQueuedAppointmentFromDemoBooking = async ({
     user: userId,
     familyMemberId: tokenData.familyMemberId,
     roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
-    status: "pending_approval",
+    status: "queued",
     payment: {
       provider: "wallet",
       orderId: transaction.transactionId,
@@ -460,29 +344,21 @@ const createQueuedAppointmentFromDemoBooking = async ({
     },
   });
 
+  const autoRefundDueAt = new Date(Date.now() + AUTO_REFUND_DELAY_MS);
+  await getRedis().zadd(autoRefundSetKey, autoRefundDueAt.getTime(), appointment._id.toString());
   await getRedis().del(bookingTokenKey(bookingToken));
   await emitQueueUpdates(doctorId);
 
   const user = await User.findById(userId);
-  const approvalToken = createAppointmentActionToken({
-      appointmentId: appointment._id.toString(),
-      doctorId,
-      userId,
-  });
-
-  const approveUrl = `${requestBaseUrl}/appointment/email-action/${approvalToken}?decision=approve`;
-  const cancelUrl = `${requestBaseUrl}/appointment/email-action/${approvalToken}?decision=cancel`;
   try {
-    await sendAppointmentApprovalMail({
+    await sendAppointmentBookedMail({
       to: user.email,
       doctorName: buildPersonName(bookable.doctor, "Doctor"),
       patientName: buildPersonName(user, "Patient"),
       appointmentId: appointment._id.toString(),
-      approveUrl,
-      cancelUrl,
     });
   } catch (error) {
-    console.error("Appointment approval email failed:", error.message);
+    console.error("Appointment booking email failed:", error.message);
   }
 
   await publishEvent("appointment.booked", {
@@ -506,70 +382,6 @@ const queuePositionForAppointment = async (appointment) =>
     status: "queued",
     createdAt: { $lte: appointment.createdAt },
   })) || 1;
-
-const requestPaymentRefund = async (payment, reason = "manual-refund") => {
-  if (!payment.paymentId) {
-    throw new Error("Payment id is missing");
-  }
-
-  if (payment.status === "refunded") {
-    return payment;
-  }
-
-  const refundRequestedAt = new Date();
-  payment.refunds.push({
-    amount: payment.amount,
-    status: "requested",
-    reason,
-    requestedAt: refundRequestedAt,
-  });
-  await payment.save();
-
-  try {
-    const refund = await getRazorpayClient().payments.refund(payment.paymentId, {
-      amount: payment.amount,
-      notes: { reason },
-    });
-    const lastRefund = payment.refunds[payment.refunds.length - 1];
-    lastRefund.refundId = refund.id;
-    lastRefund.status = "processed";
-    lastRefund.processedAt = new Date();
-    payment.status = "refunded";
-    await payment.save();
-
-    if (payment.appointment) {
-      await Appointment.findByIdAndUpdate(payment.appointment, {
-        status: "cancelled",
-        endedAt: new Date(),
-        endedBy: "system",
-        endedReason: "refunded",
-        "payment.refundId": refund.id,
-        "payment.refundedAt": lastRefund.processedAt,
-      });
-    }
-
-    await publishEvent("payment.refunded", {
-      paymentId: payment.paymentId,
-      orderId: payment.orderId,
-      refundId: refund.id,
-      reason,
-    });
-    return payment;
-  } catch (error) {
-    const lastRefund = payment.refunds[payment.refunds.length - 1];
-    lastRefund.status = "failed";
-    lastRefund.error = error.message;
-    payment.status = "refund_failed";
-    await payment.save();
-    await publishEvent("payment.refund_failed", {
-      paymentId: payment.paymentId,
-      orderId: payment.orderId,
-      reason,
-      error: error.message,
-    });
-    throw error;
-  }
-};
 
 const sendAppointmentOtp = async (req, res) => {
   const { doctorId } = req.params;
@@ -693,349 +505,6 @@ const verifyAppointmentOtp = async (req, res) => {
   });
 };
 
-const createPaymentOrder = async (req, res) => {
-  const { doctorId } = req.params;
-  const { bookingToken, familyMemberId } = req.body;
-
-  if (req.auth.role !== "user") {
-    return res.status(403).json({ message: "Only users can pay for appointments" });
-  }
-
-  const tokenDataRaw = await getRedis().get(bookingTokenKey(bookingToken));
-  if (!tokenDataRaw) {
-    return res.status(401).json({ message: "Please verify email OTP before payment" });
-  }
-
-  const tokenData = JSON.parse(tokenDataRaw);
-  if (tokenData.userId !== req.auth.id || tokenData.doctorId !== doctorId) {
-    return res.status(403).json({ message: "Invalid booking token" });
-  }
-
-  const bookable = await ensureBookableAppointment(doctorId, req.auth.id);
-  if (bookable.status) {
-    return res.status(bookable.status).json(bookable);
-  }
-
-  const amount = getAppointmentAmount();
-  const receipt = `appt_${Date.now()}_${req.auth.id.slice(-6)}`;
-  const razorpayOrder = await getRazorpayClient().orders.create({
-    amount,
-    currency: "INR",
-    receipt,
-    notes: {
-      userId: req.auth.id,
-      doctorId,
-    },
-  });
-
-  const payment = await Payment.create({
-    user: req.auth.id,
-    doctor: doctorId,
-    orderId: razorpayOrder.id,
-    amount,
-    currency: razorpayOrder.currency,
-    receipt,
-    metadata: {
-      bookingTokenHash: hashValue(bookingToken),
-      familyMemberId: familyMemberId || tokenData.familyMemberId,
-    },
-  });
-
-  await publishEvent("payment.order_created", {
-    orderId: payment.orderId,
-    doctorId,
-    userId: req.auth.id,
-    amount,
-  });
-
-  return res.status(201).json({
-    message: "Payment order created",
-    keyId: process.env.RAZORPAY_KEY_ID,
-    orderId: payment.orderId,
-    amount: payment.amount,
-    currency: payment.currency,
-    doctorName: `Dr. ${buildPersonName(bookable.doctor, "Doctor")}`,
-  });
-};
-
-const verifyPaymentAndBook = async (req, res) => {
-  const { doctorId } = req.params;
-  const { bookingToken, razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-    req.body;
-
-  if (req.auth.role !== "user") {
-    return res.status(403).json({ message: "Only users can book appointments" });
-  }
-
-  const tokenDataRaw = await getRedis().get(bookingTokenKey(bookingToken));
-  if (!tokenDataRaw) {
-    return res.status(401).json({ message: "Booking token expired. Verify OTP again" });
-  }
-
-  const tokenData = JSON.parse(tokenDataRaw);
-  if (tokenData.userId !== req.auth.id || tokenData.doctorId !== doctorId) {
-    return res.status(403).json({ message: "Invalid booking token" });
-  }
-
-  if (
-    !verifyRazorpayPaymentSignature({
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      signature: razorpay_signature,
-    })
-  ) {
-    return res.status(400).json({ message: "Payment signature verification failed" });
-  }
-
-  const payment = await Payment.findOne({
-    orderId: razorpay_order_id,
-    user: req.auth.id,
-    doctor: doctorId,
-  });
-  if (!payment) {
-    return res.status(404).json({ message: "Payment order not found" });
-  }
-
-  payment.paymentId = razorpay_payment_id;
-  payment.status = "paid";
-  payment.paidAt = new Date();
-  await payment.save();
-
-  const appointment = await createQueuedAppointmentFromPayment(payment);
-  const queuePosition = await queuePositionForAppointment(appointment);
-  await getRedis().del(bookingTokenKey(bookingToken));
-  await publishEvent("payment.verified", {
-    orderId: payment.orderId,
-    paymentId: payment.paymentId,
-    appointmentId: appointment._id.toString(),
-  });
-
-  return res.status(201).json({
-    message: "Payment verified and appointment booked successfully",
-    appointmentId: appointment._id,
-    status: appointment.status,
-    queuePosition,
-  });
-};
-
-const handleRazorpayWebhook = async (req, res) => {
-  const signature = req.headers["x-razorpay-signature"];
-  const rawBody = req.body;
-
-  if (!verifyRazorpayWebhookSignature(rawBody, signature)) {
-    return res.status(400).json({ message: "Invalid webhook signature" });
-  }
-
-  const event = JSON.parse(rawBody.toString("utf8"));
-  const paymentEntity = event.payload?.payment?.entity;
-  const refundEntity = event.payload?.refund?.entity;
-  const eventId = paymentEntity?.id || refundEntity?.id;
-  const orderId = paymentEntity?.order_id;
-
-  if (orderId) {
-    const payment = await Payment.findOne({ orderId });
-    if (payment && eventId && !payment.webhookEvents.includes(eventId)) {
-      payment.webhookEvents.push(eventId);
-      if (event.event === "payment.captured") {
-        payment.paymentId = paymentEntity.id;
-        payment.status = "paid";
-        payment.paidAt = payment.paidAt || new Date();
-      }
-      if (event.event === "payment.failed") {
-        payment.status = "failed";
-        payment.failedAt = new Date();
-      }
-      await payment.save();
-
-      if (event.event === "payment.captured") {
-        await createQueuedAppointmentFromPayment(payment);
-      }
-    }
-  }
-
-  if (refundEntity?.payment_id) {
-    const payment = await Payment.findOne({ paymentId: refundEntity.payment_id });
-    if (payment && eventId && !payment.webhookEvents.includes(eventId)) {
-      payment.webhookEvents.push(eventId);
-      const refund = payment.refunds.find((item) => item.refundId === refundEntity.id);
-      if (refund) {
-        refund.status = refundEntity.status === "processed" ? "processed" : refund.status;
-        refund.processedAt = refund.processedAt || new Date();
-      }
-      if (refundEntity.status === "processed") {
-        payment.status = "refunded";
-      }
-      await payment.save();
-    }
-  }
-
-  await publishEvent("razorpay.webhook_received", {
-    event: event.event,
-    orderId,
-    eventId,
-  });
-
-  return res.status(200).json({ received: true });
-};
-
-const renderEmailActionResult = (res, { title, message, statusCode = 200 }) =>
-  res.status(statusCode).send(`
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>${title}</title>
-        <style>
-          body { margin: 0; font-family: Arial, sans-serif; background: #f8fafc; color: #111827; }
-          main { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-          section { max-width: 520px; width: 100%; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 28px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); }
-          h1 { margin: 0 0 12px; font-size: 24px; }
-          p { margin: 0; line-height: 1.6; color: #4b5563; }
-        </style>
-      </head>
-      <body>
-        <main>
-          <section>
-            <h1>${title}</h1>
-            <p>${message}</p>
-          </section>
-        </main>
-      </body>
-    </html>
-  `);
-
-const handleEmailAppointmentAction = async (req, res) => {
-  const { token } = req.params;
-  const decision = String(req.query.decision || "").toLowerCase();
-
-  if (!["approve", "cancel"].includes(decision)) {
-    return renderEmailActionResult(res, {
-      title: "Invalid action",
-      message: "This appointment link is missing a valid action.",
-      statusCode: 400,
-    });
-  }
-
-  const tokenData = verifyAppointmentActionToken(token);
-  if (!tokenData) {
-    return renderEmailActionResult(res, {
-      title: "Link expired",
-      message: "This appointment approval link has expired or is invalid.",
-      statusCode: 410,
-    });
-  }
-
-  const appointment = await Appointment.findById(tokenData.appointmentId)
-    .populate("doctor", "firstName lastName email")
-    .populate("user", "firstName lastName email");
-
-  if (!appointment) {
-    return renderEmailActionResult(res, {
-      title: "Appointment not found",
-      message: "This appointment could not be found.",
-      statusCode: 404,
-    });
-  }
-
-  if (!["pending_approval", "queued"].includes(appointment.status)) {
-    return renderEmailActionResult(res, {
-      title: "Already handled",
-      message: `This appointment is already ${appointment.status}.`,
-    });
-  }
-
-  const doctorId = appointment.doctor._id.toString();
-  const userId = appointment.user._id.toString();
-  const doctorName = buildPersonName(appointment.doctor, "Doctor");
-  const patientName = buildPersonName(appointment.user, "Patient");
-
-  if (decision === "approve") {
-    if (appointment.status === "pending_approval") {
-      appointment.status = "queued";
-      appointment.startedAt = null;
-      appointment.endedAt = null;
-      appointment.endedBy = null;
-      appointment.endedReason = null;
-      await appointment.save();
-    }
-
-    await emitQueueUpdates(doctorId);
-    await publishEvent("appointment.approved_from_email", {
-      appointmentId: appointment._id.toString(),
-      doctorId,
-      userId,
-    });
-
-    try {
-      await sendAppointmentBookedMail({
-        to: appointment.user.email,
-        patientName,
-        doctorName,
-        appointmentId: appointment._id.toString(),
-      });
-    } catch (error) {
-      console.error("Appointment booked email failed:", error.message);
-    }
-
-    return renderEmailActionResult(res, {
-      title: "Appointment approved",
-      message: "The appointment has been approved and added to the doctor's queue. The meeting will start only when the doctor starts it.",
-    });
-  }
-
-  let refund;
-  try {
-    refund = await refundVirtualPayment({
-      actorId: doctorId,
-      actorRole: "doctor",
-      originalTransactionId: appointment.payment?.paymentId || appointment.payment?.orderId,
-      amount: appointment.payment?.amount || WALLET_APPOINTMENT_FEE_INR,
-      reason: "Appointment request cancelled from email",
-      isAdmin: false,
-      idempotencyKey: `appointment-email-cancel-${appointment._id.toString()}`,
-    });
-  } catch (error) {
-    console.error("Appointment email refund failed:", error.message);
-    return renderEmailActionResult(res, {
-      title: "Refund failed",
-      message: error.message || "The appointment could not be refunded right now.",
-      statusCode: 400,
-    });
-  }
-
-  appointment.status = "cancelled";
-  appointment.endedAt = new Date();
-  appointment.endedBy = "system";
-  appointment.endedReason = "refunded";
-  appointment.payment.refundId = refund.refund?.refundId || refund.refundTxn?.transactionId;
-  appointment.payment.refundedAt = new Date();
-  await appointment.save();
-  await emitQueueUpdates(doctorId);
-  await publishEvent("appointment.cancelled_from_email", {
-    appointmentId: appointment._id.toString(),
-    doctorId,
-    userId,
-    refundId: appointment.payment.refundId,
-  });
-
-  try {
-    await sendAppointmentRefundMail({
-      to: appointment.user.email,
-      patientName,
-      doctorName,
-      appointmentId: appointment._id.toString(),
-      amount: appointment.payment?.amount || WALLET_APPOINTMENT_FEE_INR,
-    });
-  } catch (error) {
-    console.error("Appointment refund email failed:", error.message);
-  }
-
-  return renderEmailActionResult(res, {
-    title: "Appointment cancelled",
-    message: "The appointment request has been cancelled, the wallet refund is complete, and the patient has been notified by email.",
-  });
-};
 
 const refundAppointmentPayment = async (req, res) => {
   const { appointmentId } = req.params;
@@ -1064,16 +533,82 @@ const refundAppointmentPayment = async (req, res) => {
       .json({ message: "Cannot refund an active or completed appointment" });
   }
 
-  if (appointment.payment?.provider === "wallet") {
+  try {
+    const refund = await refundVirtualPayment({
+      actorId: appointment.doctor.toString(),
+      actorRole: "doctor",
+      originalTransactionId: appointment.payment.paymentId || appointment.payment.orderId,
+      amount: appointment.payment.amount || WALLET_APPOINTMENT_FEE_INR,
+      reason,
+      isAdmin: false,
+      idempotencyKey: `appointment-manual-refund-${appointment._id.toString()}`,
+    });
+
+    appointment.status = "cancelled";
+    appointment.endedAt = new Date();
+    appointment.endedBy = "system";
+    appointment.endedReason = "refunded";
+    appointment.payment.refundId = refund.refund?.refundId || refund.refundTxn?.transactionId;
+    appointment.payment.refundedAt = new Date();
+    await appointment.save();
+    await emitQueueUpdates(appointment.doctor.toString());
+
+    const populated = await Appointment.findById(appointment._id)
+      .populate("doctor", "firstName lastName email")
+      .populate("user", "firstName lastName email");
+
+    try {
+      await sendAppointmentRefundMail({
+        to: populated.user.email,
+        patientName: buildPersonName(populated.user, "Patient"),
+        doctorName: buildPersonName(populated.doctor, "Doctor"),
+        appointmentId: populated._id.toString(),
+        amount: appointment.payment.amount || WALLET_APPOINTMENT_FEE_INR,
+      });
+    } catch (error) {
+      console.error("Appointment manual refund email failed:", error.message);
+    }
+
+    return res.status(200).json({ message: "Refund processed successfully" });
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Refund failed" });
+  }
+};
+
+const processDueAutoRefunds = async () => {
+  const redis = getRedis();
+  const dueAppointmentIds = await redis.zrangebyscore(
+    autoRefundSetKey,
+    0,
+    Date.now(),
+    "LIMIT",
+    0,
+    25,
+  );
+
+  for (const appointmentId of dueAppointmentIds) {
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      await redis.zrem(autoRefundSetKey, appointmentId);
+      continue;
+    }
+
+    const shouldRefund = appointment.status === "queued" && !appointment.startedAt;
+
+    if (!shouldRefund) {
+      await redis.zrem(autoRefundSetKey, appointmentId);
+      continue;
+    }
+
     try {
       const refund = await refundVirtualPayment({
         actorId: appointment.doctor.toString(),
         actorRole: "doctor",
-        originalTransactionId: appointment.payment.paymentId || appointment.payment.orderId,
-        amount: appointment.payment.amount || WALLET_APPOINTMENT_FEE_INR,
-        reason,
+        originalTransactionId: appointment.payment?.paymentId || appointment.payment?.orderId,
+        amount: appointment.payment?.amount || WALLET_APPOINTMENT_FEE_INR,
+        reason: "doctor-not-started-within-30-minutes",
         isAdmin: false,
-        idempotencyKey: `appointment-manual-refund-${appointment._id.toString()}`,
+        idempotencyKey: `appointment-auto-refund-${appointment._id.toString()}`,
       });
 
       appointment.status = "cancelled";
@@ -1084,79 +619,10 @@ const refundAppointmentPayment = async (req, res) => {
       appointment.payment.refundedAt = new Date();
       await appointment.save();
       await emitQueueUpdates(appointment.doctor.toString());
-
-      const populated = await Appointment.findById(appointment._id)
-        .populate("doctor", "firstName lastName email")
-        .populate("user", "firstName lastName email");
-
-      try {
-        await sendAppointmentRefundMail({
-          to: populated.user.email,
-          patientName: buildPersonName(populated.user, "Patient"),
-          doctorName: buildPersonName(populated.doctor, "Doctor"),
-          appointmentId: populated._id.toString(),
-          amount: appointment.payment.amount || WALLET_APPOINTMENT_FEE_INR,
-        });
-      } catch (error) {
-        console.error("Appointment manual refund email failed:", error.message);
-      }
-
-      return res.status(200).json({ message: "Refund processed successfully" });
-    } catch (error) {
-      return res.status(400).json({ message: error.message || "Refund failed" });
-    }
-  }
-
-  const payment = await Payment.findOne({ appointment: appointment._id, status: "paid" });
-  if (!payment) {
-    return res.status(404).json({ message: "Paid payment not found" });
-  }
-
-  await requestPaymentRefund(payment, reason);
-  await emitQueueUpdates(appointment.doctor.toString());
-
-  return res.status(200).json({ message: "Refund processed successfully" });
-};
-
-const processDueAutoRefunds = async () => {
-  const redis = getRedis();
-  const duePaymentIds = await redis.zrangebyscore(
-    autoRefundSetKey,
-    0,
-    Date.now(),
-    "LIMIT",
-    0,
-    25,
-  );
-
-  for (const paymentId of duePaymentIds) {
-    const payment = await Payment.findById(paymentId).populate("appointment");
-    if (!payment) {
-      await redis.zrem(autoRefundSetKey, paymentId);
-      continue;
-    }
-
-    payment.autoRefundCheckedAt = new Date();
-
-    const shouldRefund =
-      payment.status === "paid" &&
-      payment.appointment &&
-      payment.appointment.status === "queued" &&
-      !payment.appointment.startedAt;
-
-    if (!shouldRefund) {
-      await payment.save();
-      await redis.zrem(autoRefundSetKey, paymentId);
-      continue;
-    }
-
-    try {
-      await requestPaymentRefund(payment, "doctor-not-started-within-30-minutes");
-      await emitQueueUpdates(payment.doctor.toString());
     } catch (error) {
       console.error("Auto refund failed:", error.message);
     } finally {
-      await redis.zrem(autoRefundSetKey, paymentId);
+      await redis.zrem(autoRefundSetKey, appointmentId);
     }
   }
 };
@@ -1186,7 +652,6 @@ const bookAppointment = async (req, res) => {
     doctorId,
     userId: req.auth.id,
     bookingToken,
-    requestBaseUrl: buildRequestBaseUrl(req),
   });
 
   if (result.status && result.message) {
@@ -1194,7 +659,7 @@ const bookAppointment = async (req, res) => {
   }
 
   return res.status(201).json({
-    message: "Appointment request sent to doctor. INR 5 debited from your wallet.",
+    message: `Appointment booked and queued successfully. INR ${WALLET_APPOINTMENT_FEE_INR} debited from your wallet.`,
     appointmentId: result.appointment._id,
     status: result.appointment.status,
     queuePosition: result.queuePosition,
@@ -1238,7 +703,7 @@ const getDoctorPendingStatus = async (req, res) => {
     const myAppointment = await Appointment.findOne({
       doctor: doctorId,
       user: req.auth.id,
-      status: { $in: ["pending_approval", "queued", "active"] },
+      status: { $in: ["queued", "active"] },
     }).sort({ createdAt: 1 });
 
     if (myAppointment) {
@@ -1461,10 +926,7 @@ const startAppointment = async (req, res) => {
   appointment.endedBy = null;
   appointment.endedReason = null;
   await appointment.save();
-  const payment = await Payment.findOne({ appointment: appointment._id });
-  if (payment) {
-    await getRedis().zrem(autoRefundSetKey, payment._id.toString());
-  }
+  await getRedis().zrem(autoRefundSetKey, appointment._id.toString());
 
   scheduleAppointmentTimeout(appointmentId.toString());
   await emitQueueUpdates(req.auth.id.toString());
@@ -1539,20 +1001,16 @@ const endAppointment = async (req, res) => {
 export {
   APPOINTMENT_DURATION_MS,
   bookAppointment,
-  createPaymentOrder,
   endAppointment,
   getAppointmentById,
   getDoctorPendingStatus,
   getDoctorQueue,
   getUserAppointmentHistory,
   generateAppointmentReceipt,
-  handleEmailAppointmentAction,
-  handleRazorpayWebhook,
   refundAppointmentPayment,
   sendAppointmentOtp,
   startAppointment,
   startAutoRefundWorker,
   updateDoctorNotes,
   verifyAppointmentOtp,
-  verifyPaymentAndBook,
 };

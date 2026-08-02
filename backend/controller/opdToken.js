@@ -5,6 +5,7 @@ import Hospital from "../model/hospital.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 import { getRedis } from "../services/redis.js";
 import { scheduleReviewRequest } from "../services/reviewRequestWorker.js";
+import { transferVirtualMoney } from "../services/virtualLedger.js";
 import { getIO } from "../socket.js";
 
 const dayRange = (date = new Date()) => {
@@ -67,6 +68,7 @@ const buildDisplayToken = async (hospitalId, tokenNumber) => {
 
 const issueToken = async (req, res) => {
   const { hospitalId, departmentId } = req.params;
+  const isPatientBooking = req.auth?.role === "user" && !req.staff;
 
   if (req.staff && !sameHospital(req, hospitalId)) {
     return res.status(403).json({ message: "Forbidden hospital access" });
@@ -77,13 +79,27 @@ const issueToken = async (req, res) => {
     return res.status(400).json({ message: "Doctor id is required" });
   }
 
-  const [department, doctor] = await Promise.all([
+  const [department, doctor, existingPatientToken] = await Promise.all([
     Department.findOne({ _id: departmentId, hospitalId, status: "active" }),
     HospitalStaff.findOne({ _id: doctorId, hospitalId, role: "DOCTOR", isActive: true }),
+    isPatientBooking
+      ? OpdToken.findOne({
+          hospitalId,
+          doctorId,
+          patientId: req.auth.id,
+          status: { $in: ["waiting", "vitals_done", "in_consultation"] },
+        })
+      : null,
   ]);
 
   if (!department) return res.status(404).json({ message: "Department not found" });
   if (!doctor) return res.status(404).json({ message: "Doctor not found in this hospital" });
+  if (existingPatientToken) {
+    return res.status(409).json({
+      message: "You already have an active OPD token for this doctor",
+      token: existingPatientToken,
+    });
+  }
 
   const { start, end } = dayRange();
   const lastToken = await OpdToken.findOne({ doctorId, date: { $gte: start, $lt: end } })
@@ -97,6 +113,32 @@ const issueToken = async (req, res) => {
   });
   const estimatedWaitMinutes = queueAhead * (await avgConsultationMinutes(doctorId)) + 5;
   const displayToken = await buildDisplayToken(hospitalId, tokenNumber);
+  const fee = doctor.doctorProfile?.consultationFee || department.opd?.consultationFee || 0;
+  let transaction = null;
+
+  if (isPatientBooking && fee > 0) {
+    if (!doctor.doctorId) {
+      return res.status(409).json({ message: "This hospital doctor is still syncing. Please try again shortly." });
+    }
+
+    transaction = await transferVirtualMoney({
+      senderId: req.auth.id,
+      senderRole: "user",
+      receiverId: doctor.doctorId,
+      receiverRole: "doctor",
+      amount: fee,
+      type: "PAYMENT",
+      description: `OPD token fee for ${doctor.name}`,
+      referenceId: `OPD-${hospitalId}-${departmentId}-${doctorId}-${req.auth.id}-${Date.now()}`,
+      metadata: {
+        source: "hospital-opd-token",
+        hospitalId,
+        departmentId,
+        doctorStaffId: doctorId,
+        platformDoctorId: doctor.doctorId,
+      },
+    });
+  }
 
   const token = await OpdToken.create({
     hospitalId,
@@ -115,7 +157,9 @@ const issueToken = async (req, res) => {
     chiefComplaint,
     arrivedAt: new Date(),
     estimatedWaitMinutes,
-    paymentAmount: doctor.doctorProfile?.consultationFee || department.opd?.consultationFee || 0,
+    paymentStatus: isPatientBooking ? (fee > 0 ? "paid" : "waived") : "pending",
+    paymentAmount: fee,
+    paymentMode: isPatientBooking ? "wallet" : undefined,
   });
 
   await clearOpdCache({ hospitalId, doctorId });
@@ -126,6 +170,13 @@ const issueToken = async (req, res) => {
     displayToken,
     estimatedWaitMinutes,
     queuePosition: queueAhead + 1,
+    payment: transaction
+      ? {
+          transactionId: transaction.transactionId,
+          amount: fee,
+          mode: "wallet",
+        }
+      : null,
   });
 };
 
