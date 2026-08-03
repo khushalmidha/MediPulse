@@ -15,13 +15,20 @@ const readStaffSession = () => {
 const patientName = (token) =>
   token?.patientInfo?.name || token?.patientId?.firstName || "Walk-in patient";
 
-const TokenCard = ({ token, onStart, onNoShow }) => (
+const TokenCard = ({ token, index, onStart, onNoShow }) => {
+  const brief = token.aiTriage?.patientBrief;
+  const urgency = brief?.urgencyLevel || "ROUTINE";
+  const waitMinutes = token.estimatedWaitMinutes || (index + 1) * 12;
+  return (
   <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
     <div className="flex items-start justify-between gap-3">
       <div>
-        <p className="text-lg font-bold text-gray-950">{token.displayToken}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-lg font-bold text-gray-950">#{index + 1} · {token.displayToken}</p>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${urgency === "HIGH" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>{urgency}</span>
+        </div>
         <p className="text-sm text-gray-600">{patientName(token)}</p>
-        <p className="mt-1 text-xs font-semibold uppercase text-blue-600">{token.status.replace("_", " ")}</p>
+        <p className="mt-1 text-xs font-semibold uppercase text-blue-600">{token.status.replace("_", " ")} · ETA {waitMinutes} min</p>
       </div>
       <div className="flex gap-2">
         <button onClick={() => onNoShow(token._id)} className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
@@ -33,6 +40,15 @@ const TokenCard = ({ token, onStart, onNoShow }) => (
       </div>
     </div>
     {token.chiefComplaint && <p className="mt-3 text-sm text-gray-700">Complaint: {token.chiefComplaint}</p>}
+    {brief?.agentSummary && (
+      <div className="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-950">
+        <p className="font-bold">AI triage brief</p>
+        <p className="mt-1 line-clamp-2">{brief.agentSummary}</p>
+        {!!brief.uncoveredAreas?.length && (
+          <p className="mt-2 text-xs text-blue-700">Ask next: {brief.uncoveredAreas.slice(0, 3).join(", ")}</p>
+        )}
+      </div>
+    )}
     {token.vitals?.recordedAt && (
       <div className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-green-50 p-3 text-xs text-green-900">
         <span>BP: {token.vitals.bp || "-"}</span>
@@ -42,7 +58,8 @@ const TokenCard = ({ token, onStart, onNoShow }) => (
       </div>
     )}
   </div>
-);
+  );
+};
 
 const DoctorOpdConsole = () => {
   const saved = useMemo(readStaffSession, []);
@@ -74,12 +91,14 @@ const DoctorOpdConsole = () => {
     socket.on("opd:consultation-started", refresh);
     socket.on("opd:consultation-completed", refresh);
     socket.on("opd:no-show", refresh);
+    const interval = window.setInterval(refresh, 12000);
     return () => {
       socket.off("opd:token-issued", refresh);
       socket.off("opd:vitals-ready", refresh);
       socket.off("opd:consultation-started", refresh);
       socket.off("opd:consultation-completed", refresh);
       socket.off("opd:no-show", refresh);
+      window.clearInterval(interval);
     };
   }, [hospitalId, doctorId]);
 
@@ -214,6 +233,11 @@ const DoctorOpdConsole = () => {
                 <p className="font-bold">Patient brief</p>
                 <p className="mt-1">{aiBrief.agentSummary}</p>
                 <p className="mt-2 text-xs">Urgency: {aiBrief.urgencyLevel || "ROUTINE"}</p>
+                {!!aiBrief.suggestedDoctorQuestions?.length && (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-xs">
+                    {aiBrief.suggestedDoctorQuestions.slice(0, 4).map((question) => <li key={question}>{question}</li>)}
+                  </ul>
+                )}
               </div>
             ) : (
               <p className="mt-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-500">AI triage brief will appear when the patient completes OPD triage.</p>
@@ -234,8 +258,8 @@ const DoctorOpdConsole = () => {
               {loading ? (
                 <p className="text-sm text-gray-500">Loading queue...</p>
               ) : queue.waiting?.length ? (
-                queue.waiting.map((token) => (
-                  <TokenCard key={token._id} token={token} onStart={startConsultation} onNoShow={markNoShow} />
+                queue.waiting.map((token, index) => (
+                  <TokenCard key={token._id} token={token} index={index} onStart={startConsultation} onNoShow={markNoShow} />
                 ))
               ) : (
                 <p className="rounded-lg bg-gray-50 p-5 text-sm text-gray-500">No waiting patients.</p>

@@ -4,18 +4,31 @@ import axios from 'axios'
 import { Building2, MapPin, Search, Star } from 'lucide-react'
 import { BACKEND_URL } from '../utils'
 
+const careSystems = [
+  { value: '', label: 'All care systems' },
+  { value: 'allopathic', label: 'Allopathic' },
+  { value: 'ayurveda', label: 'Ayurveda' },
+  { value: 'homeopathy', label: 'Homeopathy' },
+  { value: 'yoga_wellness', label: 'Yoga & Wellness' },
+  { value: 'integrative', label: 'Integrative' },
+]
+
+const careLabel = (value) => careSystems.find((item) => item.value === value)?.label || 'Allopathic'
+
 const HospitalsListPage = () => {
   const [hospitals, setHospitals] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [city, setCity] = useState('')
+  const [medicineSystem, setMedicineSystem] = useState('')
 
   const query = useMemo(() => {
     const params = new URLSearchParams()
     if (search.trim()) params.set('name', search.trim())
     if (city.trim()) params.set('city', city.trim())
+    if (medicineSystem) params.set('medicineSystem', medicineSystem)
     return params.toString()
-  }, [search, city])
+  }, [search, city, medicineSystem])
 
   useEffect(() => {
     let ignore = false
@@ -47,7 +60,7 @@ const HospitalsListPage = () => {
           <p className="mx-auto mt-3 max-w-2xl text-blue-50">
             Browse approved hospitals, check OPD departments, and open their live hospital website.
           </p>
-          <div className="mx-auto mt-7 grid max-w-2xl gap-3 sm:grid-cols-[1fr_220px]">
+          <div className="mx-auto mt-7 grid max-w-4xl gap-3 md:grid-cols-[1fr_180px_220px]">
             <label className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
@@ -63,6 +76,15 @@ const HospitalsListPage = () => {
               placeholder="City"
               className="w-full rounded-lg border-0 px-4 py-3 text-sm text-gray-900 outline-none ring-1 ring-white/20 focus:ring-2 focus:ring-white"
             />
+            <select
+              value={medicineSystem}
+              onChange={(event) => setMedicineSystem(event.target.value)}
+              className="w-full rounded-lg border-0 px-4 py-3 text-sm text-gray-900 outline-none ring-1 ring-white/20 focus:ring-2 focus:ring-white"
+            >
+              {careSystems.map((system) => (
+                <option key={system.value || 'all'} value={system.value}>{system.label}</option>
+              ))}
+            </select>
           </div>
         </div>
       </section>
@@ -103,6 +125,9 @@ const HospitalsListPage = () => {
                   <p className="min-h-10 text-sm text-gray-600">
                     {hospital.branding?.tagline || 'Smart OPD care, transparent queues, and trusted hospital services.'}
                   </p>
+                  <span className="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                    {careLabel(hospital.medicineSystem)}
+                  </span>
                   <div className="mt-5 flex items-center justify-between">
                     <span className="flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
                       <Star size={15} fill="currentColor" />

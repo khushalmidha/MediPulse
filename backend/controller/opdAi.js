@@ -6,55 +6,114 @@ import { getIO } from "../socket.js";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const TRIAGE_TTL_SECONDS = 45 * 60;
 const triageKey = (tokenId) => `opd:triage:${tokenId}`;
+const TRIAGE_QUESTION_COUNT = 10;
+
+const intakeAreas = [
+  { area: "Chief complaint", keywords: /pain|fever|cough|vomit|rash|breath|headache|concern|problem|symptom/i },
+  { area: "Duration and onset", keywords: /day|week|month|hour|since|started|duration|long/i },
+  { area: "Severity", keywords: /\b[1-9]\b|10|mild|moderate|severe|worst/i },
+  { area: "Red flags", keywords: /chest pain|breathless|unconscious|bleeding|faint|seizure|weakness|vision/i },
+  { area: "Current medicines", keywords: /medicine|tablet|dose|taking|insulin|bp|thyroid|antibiotic/i },
+  { area: "Allergies", keywords: /allergy|allergic|reaction|rash after|penicillin/i },
+  { area: "Chronic conditions", keywords: /diabetes|hypertension|asthma|heart|kidney|liver|thyroid/i },
+  { area: "Past surgery or admission", keywords: /surgery|operation|admitted|hospitalized|procedure/i },
+  { area: "Family history", keywords: /family|mother|father|genetic|parents|siblings/i },
+  { area: "Lifestyle or pregnancy context", keywords: /smoke|alcohol|sleep|diet|exercise|pregnant|period|lifestyle/i },
+];
 
 const fallbackQuestion = (turn) => {
   const questions = [
     "What is the main health concern you want to discuss today?",
-    "How long have you had these symptoms?",
+    "When did it start, and was the onset sudden or gradual?",
     "On a scale of 1 to 10, how severe is it right now?",
-    "Do you have any relevant medical history or current medicines?",
+    "Do you have any red-flag symptoms like chest pain, breathing difficulty, fainting, severe bleeding, seizure, or sudden weakness?",
+    "Which medicines, supplements, or home remedies are you currently taking?",
+    "Do you have any allergies to medicines, food, or previous injections?",
+    "Do you have chronic conditions such as diabetes, BP, asthma, thyroid, heart, kidney, or liver disease?",
+    "Have you had any surgery, hospital admission, or major illness before?",
+    "Does anyone in your family have similar illness or major conditions that may matter?",
+    "Anything else the doctor should know, such as pregnancy, lifestyle, diet, sleep, stress, or a detail not covered above?",
   ];
   return questions[Math.min(turn, questions.length - 1)];
+};
+
+const buildCoverageChecklist = (patientText) => {
+  const lower = patientText || "";
+  return intakeAreas.map((item) => {
+    const covered = item.keywords.test(lower);
+    return {
+      area: item.area,
+      status: covered ? "covered" : "not_covered",
+      note: covered ? "Captured from patient response." : "Ask directly if clinically relevant.",
+    };
+  });
+};
+
+const enrichBrief = (brief, patientText, messages) => {
+  const coverageChecklist = Array.isArray(brief.coverageChecklist) && brief.coverageChecklist.length
+    ? brief.coverageChecklist
+    : buildCoverageChecklist(patientText);
+  const uncoveredAreas = coverageChecklist.filter((item) => item.status !== "covered").map((item) => item.area);
+  return {
+    ...brief,
+    coverageChecklist,
+    uncoveredAreas,
+    suggestedDoctorQuestions: Array.isArray(brief.suggestedDoctorQuestions) && brief.suggestedDoctorQuestions.length
+      ? brief.suggestedDoctorQuestions
+      : uncoveredAreas.slice(0, 4).map((area) => `Please confirm ${area.toLowerCase()}.`),
+    generatedAt: new Date(),
+    conversationTurns: messages.filter((item) => item.role === "patient").length,
+  };
 };
 
 const buildBrief = async ({ token, messages }) => {
   const patientText = messages.filter((item) => item.role === "patient").map((item) => item.text).join("\n");
 
   if (!process.env.GEMINI_API_KEY) {
-    return {
+    return enrichBrief({
       chiefComplaint: token.chiefComplaint || "Not specified",
       symptomDuration: "Captured in triage conversation",
       severity: "Captured in triage conversation",
       relevantHistory: "Captured in triage conversation",
       urgencyLevel: /chest pain|breathless|unconscious|severe bleeding/i.test(patientText) ? "HIGH" : "ROUTINE",
       agentSummary: patientText || "Patient did not provide details.",
-      generatedAt: new Date(),
-      conversationTurns: messages.filter((item) => item.role === "patient").length,
-    };
+    }, patientText, messages);
   }
 
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
     systemInstruction:
-      "You are a medical triage summarizer. Do not diagnose. Return concise JSON with chiefComplaint, symptomDuration, severity, relevantHistory, urgencyLevel, agentSummary.",
+      "You are a medical triage summarizer. Do not diagnose. Return strict JSON with chiefComplaint, symptomDuration, severity, relevantHistory, urgencyLevel, agentSummary, coverageChecklist, uncoveredAreas, suggestedDoctorQuestions. coverageChecklist items need area,status,note.",
   });
-  const result = await model.generateContent(`OPD token: ${token.displayToken}. Complaint: ${token.chiefComplaint || ""}. Conversation:\n${patientText}`);
-  const text = result.response.text();
+  let text = "";
+  try {
+    const result = await model.generateContent(`OPD token: ${token.displayToken}. Complaint: ${token.chiefComplaint || ""}. Conversation:\n${patientText}`);
+    text = result.response.text();
+  } catch (error) {
+    // FIXED: A Gemini outage should not block OPD consultation; doctors still get a structured fallback brief.
+    return enrichBrief({
+      chiefComplaint: token.chiefComplaint || "Not specified",
+      symptomDuration: "Captured in triage conversation",
+      severity: "Captured in triage conversation",
+      relevantHistory: "Captured in triage conversation",
+      urgencyLevel: /chest pain|breathless|unconscious|severe bleeding/i.test(patientText) ? "HIGH" : "ROUTINE",
+      agentSummary: patientText || error.message || "Patient triage completed.",
+    }, patientText, messages);
+  }
 
   try {
     const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-    return { ...parsed, generatedAt: new Date(), conversationTurns: messages.filter((item) => item.role === "patient").length };
+    // FIXED: The old AI brief was a plain paragraph, so missed-history areas leaked into the consultation.
+    return enrichBrief(parsed, patientText, messages);
   } catch {
-    return {
+    return enrichBrief({
       chiefComplaint: token.chiefComplaint || "Not specified",
       symptomDuration: "See summary",
       severity: "See summary",
       relevantHistory: "See summary",
       urgencyLevel: "ROUTINE",
       agentSummary: text,
-      generatedAt: new Date(),
-      conversationTurns: messages.filter((item) => item.role === "patient").length,
-    };
+    }, patientText, messages);
   }
 };
 
@@ -100,7 +159,7 @@ export const sendOpdTriageMessage = async (req, res) => {
     state.messages.push({ role: "patient", text: trimmed, createdAt: new Date() });
     const patientTurns = state.messages.filter((item) => item.role === "patient").length;
 
-    if (patientTurns >= 4) {
+    if (patientTurns >= TRIAGE_QUESTION_COUNT) {
       const patientBrief = await buildBrief({ token, messages: state.messages });
       token.aiTriage = { status: "completed", messages: state.messages, patientBrief };
       await token.save();

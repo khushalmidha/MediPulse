@@ -1,12 +1,14 @@
 import { configDotenv } from "dotenv";
 import mongoose from "mongoose";
 import connectMongo from "../connection.js";
+import BedInventory from "../model/bedInventory.js";
+import BloodBankInventory from "../model/bloodBankInventory.js";
 import Department from "../model/department.js";
 import Doctor from "../model/doctor.js";
 import Hospital from "../model/hospital.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 
-configDotenv({ path: [".env", "../.env", "../../.env"] });
+configDotenv({ path: ["backend/.env", ".env", "../.env", "../../.env"] });
 
 const hospitalId = process.env.SEED_HOSPITAL_ID || "6a6a2c4bd6a136ab21624c26";
 const staffPassword = process.env.DEMO_STAFF_PASSWORD || "Demo@12345";
@@ -135,6 +137,7 @@ const main = async () => {
 
   hospital.name = "Alchemist Hospital";
   hospital.status = "active";
+  hospital.medicineSystem = "allopathic";
   hospital.phone = hospital.phone || "+91 172 450 0000";
   hospital.website = hospital.website || "https://www.alchemisthospital.com";
   hospital.branding = {
@@ -225,6 +228,34 @@ const main = async () => {
     }));
     department.headDoctorId = departmentDoctors[0]?._id;
     await department.save();
+
+    const bedType = /Emergency/i.test(department.name) ? "emergency" : /Paediatrics/i.test(department.name) ? "pediatric" : /Cardiology|Neurology/i.test(department.name) ? "icu" : "general";
+    await BedInventory.findOneAndUpdate(
+      { hospitalId: hospital._id, departmentId: department._id, bedType },
+      {
+        // FIXED: Demo hospital had departments but no visible capacity data for forecast planning.
+        totalBeds: bedType === "icu" ? 18 : bedType === "emergency" ? 14 : 28,
+        occupiedBeds: bedType === "icu" ? 11 : bedType === "emergency" ? 7 : 16,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+  }
+
+  for (const [bloodGroup, availableUnits, minimumReserveUnits] of [
+    ["O+", 34, 18],
+    ["A+", 28, 16],
+    ["B+", 22, 14],
+    ["AB+", 10, 8],
+    ["O-", 8, 8],
+    ["A-", 6, 6],
+    ["B-", 5, 6],
+    ["AB-", 4, 5],
+  ]) {
+    await BloodBankInventory.findOneAndUpdate(
+      { hospitalId: hospital._id, bloodGroup },
+      { availableUnits, minimumReserveUnits, expiresSoonUnits: Math.max(0, Math.floor(availableUnits * 0.08)) },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
   }
 
   const [doctorCount, departmentCount] = await Promise.all([
