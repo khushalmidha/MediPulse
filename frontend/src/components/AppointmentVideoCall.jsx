@@ -118,6 +118,7 @@ const AppointmentVideoCall = ({
   const [error, setError] = useState("");
   const [consentStatus, setConsentStatus] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState("Waiting for the other participant");
+  const [presence, setPresence] = useState({ doctorJoined: false, patientJoined: false, ready: false });
   const [copilotActive, setCopilotActive] = useState(false);
   const [copilotCollapsed, setCopilotCollapsed] = useState(false);
   const [copilotSuggestions, setCopilotSuggestions] = useState([]);
@@ -334,6 +335,7 @@ const AppointmentVideoCall = ({
   };
 
   const createOffer = async (socket) => {
+    if (role !== "doctor") return;
     const connection = await ensurePeerConnection(socket);
     if (connection.signalingState !== "stable") return;
     const offer = await connection.createOffer();
@@ -364,8 +366,20 @@ const AppointmentVideoCall = ({
       }
     };
 
-    const onPeerJoined = async ({ appointmentId: incomingId }) => {
+    const onPresence = async ({ appointmentId: incomingId, doctorJoined, patientJoined, ready }) => {
       if (incomingId !== appointmentId) return;
+      setPresence({ doctorJoined, patientJoined, ready });
+      if (!ready) {
+        setConnectionStatus(role === "doctor" ? "Waiting for patient to join" : "Waiting for doctor to join");
+        return;
+      }
+      setConnectionStatus("Both participants joined. Connecting video...");
+      // FIXED: WebRTC offer now starts only after both doctor and patient are present.
+      if (role === "doctor") await createOffer(socket);
+    };
+
+    const onPeerJoined = async ({ appointmentId: incomingId, ready }) => {
+      if (incomingId !== appointmentId || !ready) return;
       await createOffer(socket);
     };
 
@@ -417,6 +431,7 @@ const AppointmentVideoCall = ({
     };
 
     socket.on("appointment:peer-joined", onPeerJoined);
+    socket.on("appointment:presence", onPresence);
     socket.on("appointment:offer", onOffer);
     socket.on("appointment:answer", onAnswer);
     socket.on("appointment:ice-candidate", onIceCandidate);
@@ -427,7 +442,14 @@ const AppointmentVideoCall = ({
         socket.emit("joinAppointmentRoom", { appointmentId }, (response) => {
           if (!response?.ok) {
             setError(response?.message || "Unable to join appointment room");
+            return;
           }
+          setPresence({
+            doctorJoined: Boolean(response.doctorJoined),
+            patientJoined: Boolean(response.patientJoined),
+            ready: Boolean(response.ready),
+          });
+          setConnectionStatus(response.ready ? "Both participants joined. Connecting video..." : role === "doctor" ? "Waiting for patient to join" : "Waiting for doctor to join");
         });
       })
       .catch(() => {
@@ -438,6 +460,7 @@ const AppointmentVideoCall = ({
       mounted = false;
       socket.emit("leaveAppointmentRoom", { appointmentId });
       socket.off("appointment:peer-joined", onPeerJoined);
+      socket.off("appointment:presence", onPresence);
       socket.off("appointment:offer", onOffer);
       socket.off("appointment:answer", onAnswer);
       socket.off("appointment:ice-candidate", onIceCandidate);
@@ -577,20 +600,26 @@ const AppointmentVideoCall = ({
       )}
       <div className="flex flex-col gap-3 xl:flex-row">
         <div className="min-w-0 flex-1">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
-              <video ref={remoteVideoRef} autoPlay playsInline className="h-60 w-full object-cover" />
-              <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">{connectionStatus}</div>
-            </div>
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
+          <div className="relative min-h-[420px] overflow-hidden rounded-xl border border-gray-200 bg-black">
+            {!presence.ready && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/75 px-6 text-center text-white">
+                <div>
+                  <p className="text-lg font-bold">{role === "doctor" ? "Waiting for patient to join" : "Waiting for doctor to join"}</p>
+                  <p className="mt-2 text-sm text-gray-300">The call will connect automatically once both participants are in the room.</p>
+                </div>
+              </div>
+            )}
+            <video ref={remoteVideoRef} autoPlay playsInline className="h-[420px] w-full object-cover" />
+            <div className="absolute left-3 top-3 rounded-full bg-gray-950/80 px-3 py-1 text-xs font-semibold text-gray-100">{connectionStatus}</div>
+            <div className="absolute bottom-4 right-4 w-40 overflow-hidden rounded-lg border border-white/30 bg-black shadow-2xl md:w-56">
               <video
                 ref={localVideoRef}
                 autoPlay
                 muted
                 playsInline
-                className="h-60 w-full object-cover"
+                className="h-28 w-full object-cover md:h-36"
               />
-              <div className="bg-gray-900 px-3 py-2 text-xs text-gray-100">Your video</div>
+              <div className="bg-gray-900 px-3 py-1.5 text-xs text-gray-100">You</div>
             </div>
           </div>
         </div>

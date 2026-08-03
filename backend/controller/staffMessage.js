@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import Department from "../model/department.js";
+import HospitalStaff from "../model/hospitalStaff.js";
 import StaffMessage from "../model/staffMessage.js";
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
@@ -56,5 +58,23 @@ export const markStaffMessagesRead = async (req, res) => {
     res.status(200).json({ updated: result.modifiedCount || 0 });
   } catch (error) {
     res.status(500).json({ message: error.message || "Unable to mark messages read" });
+  }
+};
+
+export const getStaffDirectory = async (req, res) => {
+  try {
+    const hospitalId = req.staff.hospitalId;
+    const [departments, staff] = await Promise.all([
+      Department.find({ hospitalId, status: "active" }).select("name code opd").sort({ name: 1 }).lean(),
+      HospitalStaff.find({ hospitalId, isActive: true, inviteStatus: "accepted" })
+        .select("name email role profilePhoto departmentIds doctorProfile")
+        .sort({ role: 1, name: 1 })
+        .lean(),
+    ]);
+
+    // FIXED: Nursing/chat pages required raw department/doctor IDs instead of offering the logged-in staff directory.
+    res.status(200).json({ departments, staff });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Unable to load staff directory" });
   }
 };

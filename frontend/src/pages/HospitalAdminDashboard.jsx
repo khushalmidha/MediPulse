@@ -220,6 +220,31 @@ const HospitalAdminDashboard = () => {
     }
   };
 
+  const resendInvite = async (staffId) => {
+    setMessage("");
+    try {
+      await axios.post(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${staffId}/invite/resend`, {}, { withCredentials: true });
+      setMessage("Invite resent");
+      await loadPortal();
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Could not resend invite");
+    }
+  };
+
+  const removeStaff = async (member) => {
+    setMessage("");
+    try {
+      await axios.post(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${member._id}/remove/request-otp`, {}, { withCredentials: true });
+      const otp = window.prompt(`OTP sent to your admin email to remove ${member.name}. Enter 6 digit OTP:`);
+      if (!otp) return;
+      await axios.delete(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${member._id}`, { data: { otp }, withCredentials: true });
+      setMessage("Staff member removed");
+      await loadPortal();
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Could not remove staff");
+    }
+  };
+
   const saveBranding = async (event) => {
     event.preventDefault();
     setMessage("");
@@ -433,6 +458,22 @@ const HospitalAdminDashboard = () => {
                 </button>
               </div>
               <div className="mt-6 space-y-6">
+                {!!staff.filter((member) => member.inviteStatus === "pending").length && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <h3 className="font-black text-amber-950">Pending invites</h3>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      {staff.filter((member) => member.inviteStatus === "pending").map((member) => (
+                        <div key={member._id} className="flex items-center justify-between gap-3 rounded-xl bg-white p-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-bold text-slate-950">{member.email}</p>
+                            <p className="text-xs text-slate-500">{member.role.replace(/_/g, " ")}</p>
+                          </div>
+                          <button onClick={() => resendInvite(member._id)} className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-bold text-amber-700">Resend</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {roles.map((roleName) => (
                   <div key={roleName}>
                     <h3 className="text-sm font-black uppercase tracking-wide text-slate-500">{roleName.replace(/_/g, " ")}</h3>
@@ -456,6 +497,11 @@ const HospitalAdminDashboard = () => {
                                 <Link to={`/doctorsProfile/${member.doctorId}`} className="mt-2 inline-block text-xs font-bold text-blue-600">
                                   View on platform
                                 </Link>
+                              )}
+                              {member.inviteStatus === "accepted" && member._id !== (saved?.staff?._id || saved?.staff?.id) && (
+                                <button onClick={() => removeStaff(member)} className="mt-2 block text-xs font-bold text-red-600">
+                                  Remove with OTP
+                                </button>
                               )}
                             </div>
                           </div>
@@ -585,7 +631,7 @@ const HospitalAdminDashboard = () => {
               </form>
             ) : (
               <form onSubmit={inviteStaff} className="mt-6 grid gap-4">
-                <input value={invite.name} onChange={(e) => setInvite({ ...invite, name: e.target.value })} required placeholder="Staff name" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                <input value={invite.name} onChange={(e) => setInvite({ ...invite, name: e.target.value })} placeholder="Staff name (optional)" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                 <input value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} required type="email" placeholder="staff@hospital.com" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                 <input value={invite.profilePhoto} onChange={(e) => setInvite({ ...invite, profilePhoto: e.target.value })} type="url" placeholder="Profile photo URL" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                 <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500">

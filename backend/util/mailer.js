@@ -541,6 +541,32 @@ This invite expires in 48 hours.`,
   });
 };
 
+const sendStaffRemovalOtpMail = async ({ to, adminName, staffName, otp }) => {
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+
+  await sendMail({
+    from,
+    to,
+    subject: "MediPulse staff removal OTP",
+    text: `Hi ${adminName || "Admin"},
+
+Your OTP to remove ${staffName || "this staff member"} from hospital staff is ${otp}.
+
+This OTP is valid for 10 minutes. If you did not request this, ignore this email.
+
+MediPulse`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">Staff removal OTP</h2>
+        <p>Hi ${adminName || "Admin"},</p>
+        <p>Your OTP to remove <strong>${staffName || "this staff member"}</strong> is:</p>
+        <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; margin: 18px 0;">${otp}</p>
+        <p>This OTP is valid for 10 minutes.</p>
+      </div>
+    `,
+  });
+};
+
 const sendReviewRequestMail = async ({ to, patientName, hospitalName, tokenDisplay, reviewUrl }) => {
   const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
 
@@ -580,5 +606,6 @@ export {
   sendPasswordResetOtpMail,
   sendReviewRequestMail,
   sendStaffInviteMail,
+  sendStaffRemovalOtpMail,
   verifyMailTransport,
 };
