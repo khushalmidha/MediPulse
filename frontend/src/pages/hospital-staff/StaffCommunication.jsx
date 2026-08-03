@@ -13,8 +13,9 @@ const readStaffSession = () => {
 };
 
 const tabs = [
-  { id: "patient_context", label: "Patient Context", icon: UserRound },
   { id: "department", label: "Department", icon: Building2 },
+  { id: "direct", label: "Direct Messages", icon: UserRound },
+  { id: "patient_context", label: "Patient Context", icon: UserRound },
   { id: "lab", label: "Lab Notifications", icon: FlaskConical },
 ];
 
@@ -34,11 +35,13 @@ const StaffCommunication = () => {
   const [tokenId, setTokenId] = useState("");
   const [departmentId, setDepartmentId] = useState(firstDepartmentId);
   const [recipientStaffId, setRecipientStaffId] = useState("");
+  const [directory, setDirectory] = useState({ departments: [], staff: [] });
+  const [staffSearch, setStaffSearch] = useState("");
   const [content, setContent] = useState("");
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const endRef = useRef(null);
+  const listRef = useRef(null);
 
   const conversationType = activeTab === "lab" ? "announcement" : activeTab;
   const messageType = activeTab === "lab" ? "lab_alert" : "text";
@@ -60,9 +63,17 @@ const StaffCommunication = () => {
       if (incoming.conversationType !== conversationType) return false;
       if (activeTab === "patient_context") return !tokenId || incoming.tokenId?.toString() === tokenId;
       if (activeTab === "department") return !departmentId || incoming.departmentId?.toString() === departmentId;
+      if (activeTab === "direct") {
+        return (
+          incoming.conversationType === "direct" &&
+          (!recipientStaffId ||
+            (String(incoming.sender) === String(recipientStaffId) && String(incoming.recipientStaffId) === String(staffId)) ||
+            (String(incoming.sender) === String(staffId) && String(incoming.recipientStaffId) === String(recipientStaffId)))
+        );
+      }
       return true;
     },
-    [activeTab, conversationType, departmentId, tokenId],
+    [activeTab, conversationType, departmentId, recipientStaffId, staffId, tokenId],
   );
 
   const loadMessages = useCallback(async () => {
@@ -83,9 +94,17 @@ const StaffCommunication = () => {
     }
   }, [currentFilters, hospitalId]);
 
+  const loadDirectory = useCallback(async () => {
+    if (!hospitalId) return;
+    const response = await axios.get(`${BACKEND_URL}/api/staff-messages/directory`, { withCredentials: true });
+    setDirectory(response.data || { departments: [], staff: [] });
+    if (!departmentId) setDepartmentId(firstDepartmentId || response.data?.departments?.[0]?._id || "");
+  }, [departmentId, firstDepartmentId, hospitalId]);
+
   useEffect(() => {
+    loadDirectory().catch(() => {});
     loadMessages();
-  }, [loadMessages]);
+  }, [loadDirectory, loadMessages]);
 
   useEffect(() => {
     if (!hospitalId) return undefined;
@@ -110,7 +129,10 @@ const StaffCommunication = () => {
   }, [hospitalId, matchesCurrentThread]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const list = listRef.current;
+    if (!list) return;
+    // FIXED: Chat auto-scroll is scoped to the message pane, preventing the whole page from jumping on load.
+    list.scrollTop = list.scrollHeight;
   }, [messages]);
 
   const sendMessage = async (event) => {
@@ -123,6 +145,10 @@ const StaffCommunication = () => {
     }
     if (activeTab === "department" && !departmentId) {
       setMessage("Department ID is required for department chat");
+      return;
+    }
+    if (activeTab === "direct" && !recipientStaffId) {
+      setMessage("Choose a staff member for direct message");
       return;
     }
 
@@ -174,7 +200,7 @@ const StaffCommunication = () => {
           {message && <p className="mt-4 rounded-md bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[280px_1fr]">
+        <section className="grid gap-6 lg:grid-cols-[320px_1fr]">
           <aside className="rounded-xl bg-white p-4 shadow-sm">
             <div className="space-y-2">
               {tabs.map((tab) => {
@@ -198,7 +224,43 @@ const StaffCommunication = () => {
                 <input value={tokenId} onChange={(e) => setTokenId(e.target.value)} placeholder="Patient token ID" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
               )}
               {activeTab === "department" && (
-                <input value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} placeholder="Department ID" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase text-gray-500">Department channels</p>
+                  {directory.departments.map((department) => (
+                    <button
+                      key={department._id}
+                      onClick={() => setDepartmentId(department._id)}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold ${departmentId === department._id ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"}`}
+                    >
+                      # {department.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {activeTab === "direct" && (
+                <div className="space-y-3">
+                  <input value={staffSearch} onChange={(e) => setStaffSearch(e.target.value)} placeholder="Search staff" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                  <div className="max-h-72 space-y-2 overflow-y-auto">
+                    {directory.staff
+                      .filter((member) => member._id !== staffId)
+                      .filter((member) => `${member.name} ${member.email} ${member.role}`.toLowerCase().includes(staffSearch.toLowerCase()))
+                      .map((member) => (
+                        <button
+                          key={member._id}
+                          onClick={() => setRecipientStaffId(member._id)}
+                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${recipientStaffId === member._id ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"}`}
+                        >
+                          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xs font-bold">
+                            {member.profilePhoto ? <img src={member.profilePhoto} alt={member.name} className="h-full w-full object-cover" /> : member.name?.slice(0, 2)}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold">{member.name}</span>
+                            <span className="block text-xs text-gray-500">{member.role.replace("_", " ")}</span>
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
               )}
               <p className="rounded-md bg-gray-50 p-3 text-xs text-gray-500">
                 Signed in as <span className="font-semibold text-gray-700">{staff?.name || staff?.firstName || "Staff"}</span>
@@ -213,13 +275,19 @@ const StaffCommunication = () => {
                   {activeTab === "lab" ? <BellRing size={20} /> : <MessageSquare size={20} />}
                 </div>
                 <div>
-                  <h2 className="font-bold text-gray-950">{tabs.find((tab) => tab.id === activeTab)?.label}</h2>
+                  <h2 className="font-bold text-gray-950">
+                    {activeTab === "department"
+                      ? `# ${directory.departments.find((department) => department._id === departmentId)?.name || "Department"}`
+                      : activeTab === "direct"
+                        ? directory.staff.find((member) => member._id === recipientStaffId)?.name || "Direct Messages"
+                        : tabs.find((tab) => tab.id === activeTab)?.label}
+                  </h2>
                   <p className="text-xs text-gray-500">{loading ? "Loading messages..." : `${messages.length} messages`}</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-5">
+            <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-5">
               {messages.map((item) => {
                 const mine = item.sender?.toString() === staffId;
                 return (
@@ -236,7 +304,6 @@ const StaffCommunication = () => {
                 );
               })}
               {!messages.length && !loading && <p className="rounded-lg bg-white p-5 text-center text-sm text-gray-500">No messages yet.</p>}
-              <div ref={endRef} />
             </div>
 
             <form onSubmit={sendMessage} className="border-t border-gray-100 p-4">

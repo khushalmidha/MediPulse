@@ -19,6 +19,7 @@ const NursingStation = () => {
   const hospitalId = staff?.hospitalId || hospital?._id;
   const [doctorId, setDoctorId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [directory, setDirectory] = useState({ departments: [], staff: [] });
   const [queue, setQueue] = useState({ waiting: [], currentlyServing: null });
   const [message, setMessage] = useState("");
   const [selectedToken, setSelectedToken] = useState(null);
@@ -30,6 +31,27 @@ const NursingStation = () => {
     const response = await axios.get(`${BACKEND_URL}/api/opd/${hospitalId}/${doctorId}/queue`, { withCredentials: true });
     setQueue(response.data);
   };
+
+  const loadDirectory = async () => {
+    if (!hospitalId) return;
+    const response = await axios.get(`${BACKEND_URL}/api/staff-messages/directory`, { withCredentials: true });
+    const nextDirectory = response.data || { departments: [], staff: [] };
+    setDirectory(nextDirectory);
+    if (!departmentId) setDepartmentId(staff?.departmentIds?.[0] || nextDirectory.departments?.[0]?._id || "");
+  };
+
+  useEffect(() => {
+    loadDirectory().catch((error) => setMessage(error.response?.data?.message || "Unable to load staff directory"));
+  }, [hospitalId]);
+
+  useEffect(() => {
+    const doctors = directory.staff.filter((member) => member.role === "DOCTOR" && (!departmentId || member.departmentIds?.some((id) => String(id) === String(departmentId))));
+    if (!doctorId && doctors[0]?._id) setDoctorId(doctors[0]._id);
+  }, [departmentId, directory.staff, doctorId]);
+
+  useEffect(() => {
+    loadQueue().catch(() => {});
+  }, [doctorId]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -100,13 +122,21 @@ const NursingStation = () => {
         <section className="rounded-xl bg-white p-6 shadow-sm">
           <p className="text-sm font-semibold uppercase text-blue-600">{hospital?.name || "Hospital"}</p>
           <h1 className="text-2xl font-extrabold text-gray-950">Nursing Station</h1>
-          <p className="mt-2 text-sm text-gray-600">Enter department and doctor IDs to operate today’s OPD queue.</p>
+          <p className="mt-2 text-sm text-gray-600">Select a department and doctor to operate today&apos;s OPD queue.</p>
           {message && <p className="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
         </section>
 
         <section className="grid gap-4 rounded-xl bg-white p-6 shadow-sm md:grid-cols-[1fr_1fr_auto]">
-          <input value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} placeholder="Department ID" className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
-          <input value={doctorId} onChange={(e) => setDoctorId(e.target.value)} placeholder="Doctor Staff ID" className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+          <select value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setDoctorId(""); }} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
+            <option value="">Select department</option>
+            {directory.departments.map((department) => <option key={department._id} value={department._id}>{department.name}</option>)}
+          </select>
+          <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
+            <option value="">Select doctor</option>
+            {directory.staff
+              .filter((member) => member.role === "DOCTOR" && (!departmentId || member.departmentIds?.some((id) => String(id) === String(departmentId))))
+              .map((doctor) => <option key={doctor._id} value={doctor._id}>{doctor.name} · {doctor.doctorProfile?.specialization || "Doctor"}</option>)}
+          </select>
           <button onClick={loadQueue} className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white">
             <RefreshCcw size={16} />
             Load

@@ -11,6 +11,7 @@ import Community from "./model/community.js";
 import Appointment from "./model/appointment.js";
 
 let ioInstance = null;
+const appointmentPresence = new Map();
 
 export function getIO() {
   return ioInstance;
@@ -294,18 +295,50 @@ export function initSocket(server) {
 
       const roomName = `appointment:${appointmentId}`;
       socket.join(roomName);
+      const presence = appointmentPresence.get(String(appointmentId)) || { doctorJoined: false, patientJoined: false, sockets: new Map() };
+      presence.sockets.set(socket.id, socket.user.role);
+      if (socket.user.role === "doctor") presence.doctorJoined = true;
+      if (socket.user.role === "user") presence.patientJoined = true;
+      appointmentPresence.set(String(appointmentId), presence);
+      const ready = presence.doctorJoined && presence.patientJoined;
+
+      // FIXED: Call negotiation could start with only one participant present, causing a blank remote video panel.
+      io.to(roomName).emit("appointment:presence", {
+        appointmentId,
+        doctorJoined: presence.doctorJoined,
+        patientJoined: presence.patientJoined,
+        ready,
+      });
       socket.to(roomName).emit("appointment:peer-joined", {
         appointmentId,
         peerId: socket.id,
         peerRole: socket.user.role,
+        ready,
       });
 
-      if (callback) callback({ ok: true });
+      if (callback) callback({ ok: true, doctorJoined: presence.doctorJoined, patientJoined: presence.patientJoined, ready });
     });
 
     socket.on("leaveAppointmentRoom", ({ appointmentId }) => {
       if (!appointmentId) return;
-      socket.leave(`appointment:${appointmentId}`);
+      const roomName = `appointment:${appointmentId}`;
+      socket.leave(roomName);
+      const presence = appointmentPresence.get(String(appointmentId));
+      if (!presence) return;
+      presence.sockets.delete(socket.id);
+      presence.doctorJoined = [...presence.sockets.values()].includes("doctor");
+      presence.patientJoined = [...presence.sockets.values()].includes("user");
+      if (!presence.sockets.size) {
+        appointmentPresence.delete(String(appointmentId));
+        return;
+      }
+      appointmentPresence.set(String(appointmentId), presence);
+      io.to(roomName).emit("appointment:presence", {
+        appointmentId,
+        doctorJoined: presence.doctorJoined,
+        patientJoined: presence.patientJoined,
+        ready: presence.doctorJoined && presence.patientJoined,
+      });
     });
 
     socket.on("appointment:offer", ({ appointmentId, sdp }) => {
@@ -334,6 +367,22 @@ export function initSocket(server) {
 
     // ── Disconnect ────────────────────────────────────────
     socket.on("disconnect", () => {
+      for (const [appointmentId, presence] of appointmentPresence.entries()) {
+        if (!presence.sockets.has(socket.id)) continue;
+        presence.sockets.delete(socket.id);
+        presence.doctorJoined = [...presence.sockets.values()].includes("doctor");
+        presence.patientJoined = [...presence.sockets.values()].includes("user");
+        if (!presence.sockets.size) {
+          appointmentPresence.delete(appointmentId);
+        } else {
+          io.to(`appointment:${appointmentId}`).emit("appointment:presence", {
+            appointmentId,
+            doctorJoined: presence.doctorJoined,
+            patientJoined: presence.patientJoined,
+            ready: presence.doctorJoined && presence.patientJoined,
+          });
+        }
+      }
       console.log(
         `🔌 Socket disconnected: ${socket.user.firstName} (${socket.id})`
       );

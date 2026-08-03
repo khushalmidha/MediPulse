@@ -31,6 +31,7 @@ import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
 import DoctorOpdConsole from "./pages/hospital-staff/DoctorOpdConsole";
 import NursingStation from "./pages/hospital-staff/NursingStation";
 import StaffCommunication from "./pages/hospital-staff/StaffCommunication";
+import StaffAcceptInvite from "./pages/StaffAcceptInvite";
 import ReviewVisit from "./pages/ReviewVisit";
 import OpdTriage from "./pages/OpdTriage";
 import PatientHealthPortal from "./pages/PatientHealthPortal";
@@ -56,6 +57,7 @@ function App() {
         <Route path="/hospital/doctor-opd" element={<DoctorOpdConsole />} />
         <Route path="/hospital/nursing-station" element={<NursingStation />} />
         <Route path="/hospital/staff-communication" element={<StaffCommunication />} />
+        <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
         <Route path="/review" element={<ReviewVisit />} />
         <Route path="/opd/triage" element={<OpdTriage />} />
         <Route path="/health-records" element={<PatientHealthPortal />} />

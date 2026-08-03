@@ -13,6 +13,7 @@ import {
   sendHospitalApprovedMail,
   sendHospitalRejectedMail,
   sendHospitalWelcomeMail,
+  sendStaffRemovalOtpMail,
   sendStaffInviteMail,
 } from "../util/mailer.js";
 
@@ -112,7 +113,8 @@ const generateHospitalSlug = async (name) => {
 const generateTemporaryPassword = () => `MediPulse@${crypto.randomBytes(4).toString("hex")}`;
 
 const isHospitalAdmin = (req, hospitalId) =>
-  req.staff?.hospitalId === hospitalId && req.staff?.role === "HOSPITAL_ADMIN";
+  // FIXED: ObjectId/string strict comparison blocked valid hospital admins from staff/profile actions.
+  String(req.staff?.hospitalId || "") === String(hospitalId || "") && req.staff?.role === "HOSPITAL_ADMIN";
 
 const requireHospitalAdminAccess = (req, res, hospitalId) => {
   if (!isHospitalAdmin(req, hospitalId)) {
@@ -140,6 +142,11 @@ const requirePlatformAdmin = (req, res, next) => {
 
 const buildFrontendUrl = () =>
   (process.env.FRONTEND_URL || process.env.CLIENT_URLS || "http://localhost:5173").split(",")[0].trim().replace(/\/$/, "");
+
+const staffRemovalOtpKey = (hospitalId, adminId, staffId) =>
+  `hospital:staff-removal:${hospitalId}:${adminId}:${staffId}`;
+
+const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
 const parsePagination = (req) => {
   const page = Math.max(1, Number(req.query.page) || 1);
@@ -489,8 +496,8 @@ const inviteStaff = async (req, res) => {
   if (!requireHospitalAdminAccess(req, res, id)) return;
 
   const { email, name, role, departmentIds = [], profilePhoto, doctorProfile = {} } = req.body;
-  if (!email || !name || !role) {
-    return res.status(400).json({ message: "Name, email and role are required" });
+  if (!email || !role) {
+    return res.status(400).json({ message: "Email and role are required" });
   }
 
   const hospital = await Hospital.findById(id);
@@ -500,7 +507,8 @@ const inviteStaff = async (req, res) => {
   const staff = await HospitalStaff.create({
     hospitalId: id,
     departmentIds,
-    name: cleanString(name),
+    // FIXED: Admin staff invite forced a full profile up front; email+role is enough for pending invite.
+    name: cleanString(name) || cleanString(email).split("@")[0],
     email: cleanString(email).toLowerCase(),
     profilePhoto: cleanString(profilePhoto),
     role,
@@ -605,6 +613,97 @@ const acceptStaffInvite = async (req, res) => {
   }
 
   return res.status(200).json({ message: "Invite is valid", staff });
+};
+
+const resendStaffInvite = async (req, res) => {
+  const { id, staffId } = req.params;
+  if (!requireHospitalAdminAccess(req, res, id)) return;
+
+  const hospital = await Hospital.findById(id);
+  const staff = await HospitalStaff.findOne({ _id: staffId, hospitalId: id, inviteStatus: "pending", isActive: true });
+  if (!hospital || !staff) return res.status(404).json({ message: "Pending staff invite not found" });
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  staff.inviteToken = hashValue(rawToken);
+  staff.inviteExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  await staff.save();
+
+  const inviteUrl = `${buildFrontendUrl()}/staff/accept-invite?token=${rawToken}&hospital=${id}`;
+  await sendStaffInviteMail({ to: staff.email, staffName: staff.name, hospitalName: hospital.name, inviteUrl });
+  return res.status(200).json({ message: "Invite resent" });
+};
+
+const requestStaffRemovalOtp = async (req, res) => {
+  const { id, staffId } = req.params;
+  if (!requireHospitalAdminAccess(req, res, id)) return;
+
+  if (String(req.staff.id) === String(staffId)) {
+    return res.status(400).json({ message: "You cannot remove your own admin account" });
+  }
+
+  const [admin, target, adminCount] = await Promise.all([
+    HospitalStaff.findOne({ _id: req.staff.id, hospitalId: id, isActive: true }).lean(),
+    HospitalStaff.findOne({ _id: staffId, hospitalId: id, isActive: true }).lean(),
+    HospitalStaff.countDocuments({ hospitalId: id, role: "HOSPITAL_ADMIN", isActive: true }),
+  ]);
+  if (!admin || !target) return res.status(404).json({ message: "Staff member not found" });
+  if (target.role === "HOSPITAL_ADMIN" && adminCount <= 1) {
+    return res.status(400).json({ message: "At least one hospital admin must remain active" });
+  }
+
+  const otp = generateOtp();
+  await getRedis().set(
+    staffRemovalOtpKey(id, req.staff.id, staffId),
+    JSON.stringify({ otpHash: hashValue(otp), attempts: 0 }),
+    "EX",
+    10 * 60,
+  );
+  await sendStaffRemovalOtpMail({ to: admin.email, adminName: admin.name, staffName: target.name, otp });
+  return res.status(200).json({ message: "Removal OTP sent to admin email", expiresInSeconds: 600 });
+};
+
+const confirmStaffRemoval = async (req, res) => {
+  const { id, staffId } = req.params;
+  if (!requireHospitalAdminAccess(req, res, id)) return;
+
+  const otp = cleanString(req.body.otp);
+  if (!/^\d{6}$/.test(otp)) return res.status(400).json({ message: "Valid 6 digit OTP is required" });
+
+  const redis = getRedis();
+  const key = staffRemovalOtpKey(id, req.staff.id, staffId);
+  const stored = await redis.get(key);
+  if (!stored) return res.status(410).json({ message: "OTP expired. Please request a new OTP" });
+
+  const state = JSON.parse(stored);
+  if (state.attempts >= 5) return res.status(429).json({ message: "Too many wrong OTP attempts" });
+  if (state.otpHash !== hashValue(otp)) {
+    state.attempts += 1;
+    await redis.set(key, JSON.stringify(state), "EX", 10 * 60);
+    return res.status(401).json({ message: "Incorrect OTP" });
+  }
+
+  const target = await HospitalStaff.findOne({ _id: staffId, hospitalId: id, isActive: true });
+  if (!target) return res.status(404).json({ message: "Staff member not found" });
+
+  target.isActive = false;
+  target.inviteStatus = target.inviteStatus === "pending" ? "expired" : target.inviteStatus;
+  target.inviteToken = undefined;
+  target.inviteExpiresAt = undefined;
+  await target.save();
+  await redis.del(key);
+
+  if (target.role === "DOCTOR") {
+    // FIXED: Removing a doctor no longer silently leaves active patients on an invisible queue.
+    await OpdToken.updateMany(
+      { hospitalId: id, doctorId: staffId, status: { $in: ["waiting", "vitals_done"] } },
+      { $set: { status: "cancelled", consultationNotes: "Doctor removed from hospital staff; token requires manual reassignment." } },
+    );
+    await Hospital.findByIdAndUpdate(id, { $inc: { "stats.totalDoctors": -1 } });
+  }
+
+  const hospital = await Hospital.findById(id);
+  if (hospital) await invalidateHospitalCache(hospital);
+  return res.status(200).json({ message: "Staff member removed" });
 };
 
 const getStaff = async (req, res) => {
@@ -832,6 +931,9 @@ export {
   getPlatformStats,
   getStaff,
   inviteStaff,
+  resendStaffInvite,
+  requestStaffRemovalOtp,
+  confirmStaffRemoval,
   registerHospital,
   requirePlatformAdmin,
   updateDepartment,

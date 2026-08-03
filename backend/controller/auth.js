@@ -462,7 +462,7 @@ const staffLogin = async (req, res) => {
 };
 
 const staffSetPassword = async (req, res) => {
-	const { hospitalId, token, password } = req.body;
+	const { hospitalId, token, password, name, profilePhoto, doctorProfile = {} } = req.body;
 
 	if (!hospitalId || !token || !password) {
 		return res.status(400).json({ message: "Hospital id, invite token and password are required" });
@@ -484,6 +484,17 @@ const staffSetPassword = async (req, res) => {
 		return res.status(410).json({ message: "Invite is invalid or expired" });
 	}
 
+	// FIXED: Staff invite acceptance only set a password, leaving placeholder profile data from the admin invite.
+	staff.name = cleanString(name) || staff.name;
+	staff.profilePhoto = cleanString(profilePhoto) || staff.profilePhoto;
+	if (staff.role === "DOCTOR") {
+		staff.doctorProfile = {
+			...(staff.doctorProfile || {}),
+			specialization: cleanString(doctorProfile.specialization) || staff.doctorProfile?.specialization,
+			qualification: cleanString(doctorProfile.qualification) || staff.doctorProfile?.qualification,
+			experience: Number(doctorProfile.experience || staff.doctorProfile?.experience || 0),
+		};
+	}
 	staff.password = password;
 	staff.inviteStatus = "accepted";
 	staff.inviteToken = undefined;
@@ -492,6 +503,7 @@ const staffSetPassword = async (req, res) => {
 	await staff.save();
 
 	setStaffAuthCookies(res, staff);
+	const hospital = await Hospital.findById(staff.hospitalId).select("name slug status address branding stats");
 	return res.status(200).json({
 		message: "Staff password set successfully",
 		success: true,
@@ -503,6 +515,7 @@ const staffSetPassword = async (req, res) => {
 			hospitalId: staff.hospitalId,
 			departmentIds: staff.departmentIds,
 		},
+		hospital,
 	});
 };
 
