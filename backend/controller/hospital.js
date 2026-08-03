@@ -174,6 +174,7 @@ const getHospitals = async (req, res) => {
     city: req.query.city || "",
     specialty: req.query.specialty || "",
     name: req.query.name || "",
+    medicineSystem: req.query.medicineSystem || "",
     rating_min: req.query.rating_min || "",
     plan: req.query.plan || "",
     page: req.query.page || "1",
@@ -193,6 +194,10 @@ const getHospitals = async (req, res) => {
     if (querySnapshot.specialty) {
       filter["branding.specializations"] = new RegExp(cleanString(querySnapshot.specialty), "i");
     }
+    if (querySnapshot.medicineSystem) {
+      // FIXED: Public hospital search ignored Ayurveda, Yoga, Homeopathy, and integrative care filters.
+      filter.medicineSystem = cleanString(querySnapshot.medicineSystem);
+    }
     if (querySnapshot.plan) {
       filter["subscription.plan"] = cleanString(querySnapshot.plan);
     }
@@ -202,7 +207,7 @@ const getHospitals = async (req, res) => {
 
     const [items, total] = await Promise.all([
       Hospital.find(filter)
-        .select("name slug address stats branding.logo branding.tagline subscription.plan")
+        .select("name slug address stats branding.logo branding.tagline subscription.plan medicineSystem type")
         .sort({ "stats.avgRating": -1, name: 1 })
         .skip(skip)
         .limit(limit)
@@ -317,7 +322,7 @@ const getHospitalQueueStatus = async (req, res) => {
 };
 
 const registerHospital = async (req, res) => {
-  const { name, email, phone, address = {}, type, registrationNumber, adminName, adminPassword } = req.body;
+  const { name, email, phone, address = {}, type, medicineSystem, registrationNumber, adminName, adminPassword } = req.body;
 
   if (!name || !email || !address.city || !address.state || !type || !registrationNumber) {
     return res.status(400).json({
@@ -345,6 +350,7 @@ const registerHospital = async (req, res) => {
     phone,
     address,
     type,
+    medicineSystem: ["allopathic", "ayurveda", "homeopathy", "yoga_wellness", "integrative"].includes(medicineSystem) ? medicineSystem : "allopathic",
     registrationNumber: cleanString(registrationNumber),
     subscription: {
       plan: "starter",

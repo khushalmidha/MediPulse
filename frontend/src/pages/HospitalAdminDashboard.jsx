@@ -3,6 +3,7 @@ import axios from "axios";
 import {
   Building2,
   ClipboardList,
+  Droplets,
   ExternalLink,
   Globe2,
   LayoutDashboard,
@@ -12,6 +13,7 @@ import {
   Plus,
   Send,
   Stethoscope,
+  TrendingUp,
   Users,
   X,
 } from "lucide-react";
@@ -48,6 +50,8 @@ const HospitalAdminDashboard = () => {
   const [staff, setStaff] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [doctors, setDoctors] = useState([]);
+  const [forecasts, setForecasts] = useState({ beds: null, blood: null });
+  const [forecastLoading, setForecastLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [openPanel, setOpenPanel] = useState("");
   const [slide, setSlide] = useState(0);
@@ -106,6 +110,34 @@ const HospitalAdminDashboard = () => {
       coverImage: freshHospital.branding?.coverImage || "",
     });
     sessionStorage.setItem("medipulse.hospitalAdmin", JSON.stringify({ ...saved, hospital: freshHospital }));
+    loadForecasts(freshHospital._id).catch(() => {});
+  };
+
+  const loadForecasts = async (targetHospitalId = hospitalId) => {
+    if (!targetHospitalId) return;
+    const [bedRes, bloodRes] = await Promise.all([
+      axios.get(`${BACKEND_URL}/api/forecast/beds/${targetHospitalId}`, { withCredentials: true }),
+      axios.get(`${BACKEND_URL}/api/forecast/blood/${targetHospitalId}`, { withCredentials: true }),
+    ]);
+    setForecasts({ beds: bedRes.data, blood: bloodRes.data });
+  };
+
+  const regenerateForecasts = async () => {
+    if (!hospitalId) return;
+    setForecastLoading(true);
+    setMessage("");
+    try {
+      const [bedRes, bloodRes] = await Promise.all([
+        axios.post(`${BACKEND_URL}/api/forecast/beds/${hospitalId}/generate`, {}, { withCredentials: true }),
+        axios.post(`${BACKEND_URL}/api/forecast/blood/${hospitalId}/generate`, {}, { withCredentials: true }),
+      ]);
+      setForecasts({ beds: bedRes.data, blood: bloodRes.data });
+      setMessage("AI planning forecast refreshed");
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Could not refresh forecasts");
+    } finally {
+      setForecastLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -232,6 +264,7 @@ const HospitalAdminDashboard = () => {
     ["overview", "Dashboard", LayoutDashboard],
     ["departments", "Departments", ClipboardList],
     ["staff", "Staff", Users],
+    ["forecast", "Forecast", TrendingUp],
     ["website", "Website", Globe2],
   ];
 
@@ -432,6 +465,63 @@ const HospitalAdminDashboard = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {activeTab === "forecast" && (
+            <section className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div>
+                  <h2 className="text-xl font-black text-slate-950">AI Capacity Forecast</h2>
+                  <p className="mt-1 text-sm text-slate-500">Monthly bed and blood demand estimates based on OPD history, emergency signals, and department type.</p>
+                </div>
+                <button onClick={regenerateForecasts} disabled={forecastLoading} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:bg-slate-400">
+                  {forecastLoading ? "Refreshing..." : "Refresh forecast"}
+                </button>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><TrendingUp size={20} className="text-blue-600" /> Bed Demand</h3>
+                  <div className="mt-4 space-y-3">
+                    {(forecasts.beds?.forecasts || []).map((item) => (
+                      <div key={`${item.departmentId?._id || item.departmentId}-${item.bedType}`} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-black text-slate-950">{item.departmentId?.name || "Department"} · {item.bedType}</p>
+                            <p className="mt-1 text-sm text-slate-500">{item.explanation}</p>
+                          </div>
+                          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{item.confidence}</span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                          <div className="rounded-lg bg-white p-3"><p className="text-slate-500">Predicted</p><p className="font-black">{item.predictedDemand} beds</p></div>
+                          <div className="rounded-lg bg-white p-3"><p className="text-slate-500">Reserve</p><p className="font-black">{item.recommendedReserve} beds</p></div>
+                        </div>
+                      </div>
+                    ))}
+                    {!forecasts.beds?.forecasts?.length && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">Add departments and OPD tokens to generate bed demand signals.</p>}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><Droplets size={20} className="text-red-500" /> Blood Bank Demand</h3>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {(forecasts.blood?.forecasts || []).map((item) => (
+                      <div key={item.bloodGroup} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xl font-black text-slate-950">{item.bloodGroup}</p>
+                          <span className={`rounded-full px-2 py-1 text-xs font-bold ${item.shortageRisk === "high" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                            {item.shortageRisk} risk
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-500">{item.predictedUnits} units predicted · reserve {item.recommendedReserve}</p>
+                        <p className="mt-2 text-xs text-slate-500">{item.explanation}</p>
+                      </div>
+                    ))}
+                    {!forecasts.blood?.forecasts?.length && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500 sm:col-span-2">Blood demand appears after forecast generation.</p>}
+                  </div>
+                </div>
               </div>
             </section>
           )}

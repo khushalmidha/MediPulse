@@ -80,6 +80,24 @@ const OpdTriage = () => {
           <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
             <p className="font-bold">Doctor summary ready</p>
             <p className="mt-1">{brief.agentSummary}</p>
+            {!!brief.coverageChecklist?.length && (
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {brief.coverageChecklist.map((item) => (
+                  <div key={item.area} className="rounded-md bg-white/70 p-2">
+                    <p className="font-semibold">{item.area}</p>
+                    <p className={item.status === "covered" ? "text-green-700" : "text-amber-700"}>{item.status.replace("_", " ")}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!!brief.suggestedDoctorQuestions?.length && (
+              <div className="mt-4 rounded-md bg-white/70 p-3">
+                <p className="font-bold">Doctor may confirm</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {brief.suggestedDoctorQuestions.slice(0, 4).map((question) => <li key={question}>{question}</li>)}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

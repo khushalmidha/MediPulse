@@ -64,6 +64,16 @@ const opdTokenSchema = new mongoose.Schema(
         relevantHistory: String,
         urgencyLevel: String,
         agentSummary: String,
+        // FIXED: Doctors could not see which medical-history areas were missed before consultation.
+        coverageChecklist: [
+          {
+            area: String,
+            status: { type: String, enum: ["covered", "partial", "not_covered"], default: "not_covered" },
+            note: String,
+          },
+        ],
+        uncoveredAreas: [String],
+        suggestedDoctorQuestions: [String],
         generatedAt: Date,
         conversationTurns: Number,
       },

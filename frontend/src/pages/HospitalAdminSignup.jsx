@@ -12,6 +12,14 @@ const hospitalTypes = [
   { value: "nursing-home", label: "Nursing Home" },
 ];
 
+const medicineSystems = [
+  { value: "allopathic", label: "Allopathic / Modern Medicine" },
+  { value: "ayurveda", label: "Ayurveda Hospital" },
+  { value: "homeopathy", label: "Homeopathy Hospital" },
+  { value: "yoga_wellness", label: "Yoga & Wellness Center" },
+  { value: "integrative", label: "Integrative Care" },
+];
+
 const Field = ({ icon, label, ...props }) => (
   <label className="block">
     <span className="text-sm font-medium text-gray-700">{label}</span>
@@ -36,6 +44,7 @@ const HospitalAdminSignup = () => {
     email: "",
     phone: "",
     type: "private",
+    medicineSystem: "allopathic",
     registrationNumber: "",
     adminName: "",
     adminPassword: "",
@@ -60,6 +69,7 @@ const HospitalAdminSignup = () => {
           email: form.email,
           phone: form.phone,
           type: form.type,
+          medicineSystem: form.medicineSystem,
           registrationNumber: form.registrationNumber,
           adminName: form.adminName,
           adminPassword: form.adminPassword,
@@ -121,6 +131,18 @@ const HospitalAdminSignup = () => {
                 >
                   {hospitalTypes.map((type) => (
                     <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Care System</span>
+                <select
+                  value={form.medicineSystem}
+                  onChange={(e) => update("medicineSystem", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  {medicineSystems.map((system) => (
+                    <option key={system.value} value={system.value}>{system.label}</option>
                   ))}
                 </select>
               </label>

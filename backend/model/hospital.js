@@ -12,6 +12,13 @@ const hospitalSchema = new mongoose.Schema(
       enum: ["private", "government", "clinic", "diagnostic-center", "nursing-home"],
       required: true,
     },
+    // FIXED: Hospital discovery could not represent Ayurveda, Yoga, or Homeopathy partners separately from normal hospital type.
+    medicineSystem: {
+      type: String,
+      enum: ["allopathic", "ayurveda", "homeopathy", "yoga_wellness", "integrative"],
+      default: "allopathic",
+      index: true,
+    },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     phone: String,
     website: String,
