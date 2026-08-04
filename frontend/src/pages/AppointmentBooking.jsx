@@ -356,10 +356,10 @@ const AppointmentBooking = () => {
             {canBook && (
               <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
                 <p className="text-sm font-medium text-blue-950">
-                  Verify your email before payment
+                  Verify your email to book appointment
                 </p>
                 <p className="mt-1 text-sm text-blue-800">
-                  After OTP verification, ₹{APPOINTMENT_FEE_INR} will be debited from your wallet and your appointment will be added to the live queue.
+                  An OTP will be sent to your registered email. After verification, your appointment will be confirmed and added to the live queue.
                 </p>
                 {otpSent && (
                   <div className="mt-3 max-w-xs">

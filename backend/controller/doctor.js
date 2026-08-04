@@ -2,7 +2,7 @@ import Community from "../model/community.js";
 import Doctor from "../model/doctor.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 1000;
 
 const cleanSearch = (value) => String(value || "").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 

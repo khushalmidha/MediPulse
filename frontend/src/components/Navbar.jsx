@@ -92,8 +92,8 @@ const Navbar = () => {
 
   const staffNavLinks = [
     { to: '/hospital/admin', label: 'Dashboard', icon: Building2 },
-    { to: '/hospital/nursing-station', label: 'OPD Tokens', icon: ClipboardList },
-    { to: '/hospital/doctor-opd', label: 'OPD Console', icon: Stethoscope },
+    ...(['HOSPITAL_ADMIN', 'NURSE', 'RECEPTIONIST'].includes(staffRole) ? [{ to: '/hospital/nursing-station', label: 'OPD Tokens', icon: ClipboardList }] : []),
+    ...(staffRole === 'DOCTOR' ? [{ to: '/hospital/doctor-opd', label: 'Consultation', icon: Stethoscope }] : []),
     { to: '/hospital/staff-communication', label: 'Staff Chat', icon: MessageSquare },
   ]
 

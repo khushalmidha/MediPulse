@@ -394,23 +394,32 @@ const HospitalWebsite = ({ slug }) => {
             </div>
 
             {bookingResult ? (
-              <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
-                <p className="text-2xl font-black text-green-800">{bookingResult.displayToken}</p>
-                <p className="mt-2 text-sm text-green-700">Queue position: {bookingResult.queuePosition}</p>
-                <p className="text-sm text-green-700">Estimated wait: {bookingResult.estimatedWaitMinutes} minutes</p>
-                {bookingResult.payment?.amount && <p className="mt-2 text-sm font-semibold text-green-800">Paid by wallet: {money(bookingResult.payment.amount)}</p>}
+              <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white">
+                    <span className="text-xl font-black">{bookingResult.displayToken}</span>
+                  </div>
+                  <div>
+                    <p className="font-black text-green-900">Token Confirmed!</p>
+                    <p className="text-sm text-green-700">Queue position #{bookingResult.queuePosition}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-green-700">Estimated wait: ~{bookingResult.estimatedWaitMinutes} minutes</p>
+                <button onClick={() => setBookingDoctor(null)} className="mt-4 w-full rounded-lg border border-green-300 px-4 py-2 text-sm font-bold text-green-800">
+                  Close
+                </button>
               </div>
             ) : (
               <div className="mt-5 space-y-4">
                 <textarea
                   value={chiefComplaint}
                   onChange={(event) => setChiefComplaint(event.target.value)}
-                  placeholder="Chief complaint / reason for visit"
+                  placeholder="Describe your chief complaint or reason for visit..."
                   className="min-h-28 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-blue-500"
                 />
-                <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-                  OPD fee will be debited from your MediPulse wallet and your token will be added to the live queue.
-                </p>
+                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
+                  Your OPD token will be added to the live queue immediately. Please arrive at the hospital on time.
+                </div>
                 <button
                   onClick={bookOpdToken}
                   disabled={booking}

@@ -77,6 +77,12 @@ const HospitalAdminDashboard = () => {
     consultationFee: "",
     bio: "",
   });
+  // OTP removal modal state
+  const [otpModal, setOtpModal] = useState(null); // { member } or null
+  const [otpValue, setOtpValue] = useState("");
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpError, setOtpError] = useState("");
 
   const hospitalId = hospital?._id;
   const websiteUrl = hospital?.slug ? `/hospitals/${hospital.slug}` : "";
@@ -231,17 +237,57 @@ const HospitalAdminDashboard = () => {
     }
   };
 
-  const removeStaff = async (member) => {
-    setMessage("");
+  const removeStaff = (member) => {
+    setOtpModal({ member });
+    setOtpValue("");
+    setOtpSent(false);
+    setOtpError("");
+    setOtpSending(false);
+  };
+
+  const sendRemovalOtp = async () => {
+    if (!otpModal) return;
+    setOtpSending(true);
+    setOtpError("");
     try {
-      await axios.post(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${member._id}/remove/request-otp`, {}, { withCredentials: true });
-      const otp = window.prompt(`OTP sent to your admin email to remove ${member.name}. Enter 6 digit OTP:`);
-      if (!otp) return;
-      await axios.delete(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${member._id}`, { data: { otp }, withCredentials: true });
-      setMessage("Staff member removed");
+      await axios.post(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${otpModal.member._id}/remove/request-otp`, {}, { withCredentials: true });
+      setOtpSent(true);
+    } catch (error) {
+      setOtpError(error.response?.data?.message || "Could not send OTP");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const confirmRemovalWithOtp = async () => {
+    if (!otpModal || !otpValue) return;
+    setOtpSending(true);
+    setOtpError("");
+    try {
+      await axios.delete(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${otpModal.member._id}`, { data: { otp: otpValue }, withCredentials: true });
+      setOtpModal(null);
+      setMessage("Staff member removed successfully");
       await loadPortal();
     } catch (error) {
-      setMessage(error.response?.data?.message || "Could not remove staff");
+      setOtpError(error.response?.data?.message || "Invalid OTP. Please try again.");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const grantAdminAccess = async (member) => {
+    setMessage("");
+    if (!window.confirm(`Grant HOSPITAL_ADMIN access to ${member.name}? They will have full admin privileges.`)) return;
+    try {
+      await axios.post(
+        `${BACKEND_URL}/api/hospitals/${hospitalId}/staff/invite`,
+        { email: member.email, name: member.name, role: "HOSPITAL_ADMIN" },
+        { withCredentials: true }
+      );
+      setMessage(`Admin access invite sent to ${member.name}`);
+      await loadPortal();
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Could not grant admin access");
     }
   };
 
@@ -499,9 +545,16 @@ const HospitalAdminDashboard = () => {
                                 </Link>
                               )}
                               {member.inviteStatus === "accepted" && member._id !== (saved?.staff?._id || saved?.staff?.id) && (
-                                <button onClick={() => removeStaff(member)} className="mt-2 block text-xs font-bold text-red-600">
-                                  Remove with OTP
-                                </button>
+                                <div className="mt-2 flex gap-3">
+                                  <button onClick={() => removeStaff(member)} className="text-xs font-bold text-red-600 hover:underline">
+                                    Remove (OTP)
+                                  </button>
+                                  {member.role !== "HOSPITAL_ADMIN" && (
+                                    <button onClick={() => grantAdminAccess(member)} className="text-xs font-bold text-blue-600 hover:underline">
+                                      Grant Admin
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -613,6 +666,54 @@ const HospitalAdminDashboard = () => {
         </section>
       </div>
 
+      {/* OTP Removal Modal */}
+      {otpModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-black text-slate-950">Remove Staff Member</h2>
+            <p className="mt-2 text-sm text-slate-600">You are about to remove <strong>{otpModal.member.name}</strong> ({otpModal.member.role.replace(/_/g, " ")}) from the hospital.</p>
+            {otpError && <p className="mt-3 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{otpError}</p>}
+            {!otpSent ? (
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={sendRemovalOtp}
+                  disabled={otpSending}
+                  className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-400"
+                >
+                  {otpSending ? "Sending OTP..." : "Send OTP to My Email"}
+                </button>
+                <button onClick={() => setOtpModal(null)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                <p className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-800">OTP sent to your admin email. Enter it below to confirm removal.</p>
+                <input
+                  value={otpValue}
+                  onChange={(e) => setOtpValue(e.target.value)}
+                  maxLength={6}
+                  placeholder="Enter 6-digit OTP"
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-2xl font-bold tracking-widest outline-none focus:border-red-500"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={confirmRemovalWithOtp}
+                    disabled={otpSending || otpValue.length !== 6}
+                    className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-400"
+                  >
+                    {otpSending ? "Removing..." : "Confirm Removal"}
+                  </button>
+                  <button onClick={() => setOtpModal(null)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {openPanel && (
         <div className="fixed inset-0 z-[60] bg-slate-950/40">
           <div className="ml-auto h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl">
@@ -635,7 +736,7 @@ const HospitalAdminDashboard = () => {
                 <input value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} required type="email" placeholder="staff@hospital.com" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                 <input value={invite.profilePhoto} onChange={(e) => setInvite({ ...invite, profilePhoto: e.target.value })} type="url" placeholder="Profile photo URL" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                 <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500">
-                  {roles.filter((role) => role !== "HOSPITAL_ADMIN").map((role) => <option key={role} value={role}>{role}</option>)}
+                  {roles.map((role) => <option key={role} value={role}>{role}</option>)}
                 </select>
                 {invite.role === "DOCTOR" && (
                   <>

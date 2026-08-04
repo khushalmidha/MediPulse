@@ -14,13 +14,14 @@ const Doctors = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
+  const [sortBy, setSortBy] = useState('default');
   const [specialties,setSpecialities] = useState([])
 
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${BACKEND_URL}/doctor`, {
+        const response = await axios.get(`${BACKEND_URL}/doctor?limit=1000`, {
           withCredentials: true
         });
         const doctorItems = getDoctorsFromPayload(response.data);
@@ -58,6 +59,20 @@ const Doctors = () => {
     if (selectedFilter === 'experience') return matchesSearch && matchesSpecialty && doctor.experience?.years >= 5;
     
     return matchesSearch && matchesSpecialty;
+  });
+
+  // Sort doctors based on selected sort criteria
+  const sortedDoctors = [...filteredDoctors].sort((a, b) => {
+    if (sortBy === 'rating') {
+      return (Number(b.rating) || 0) - (Number(a.rating) || 0);
+    }
+    if (sortBy === 'cases') {
+      return (Number(b.casesHandled) || 0) - (Number(a.casesHandled) || 0);
+    }
+    if (sortBy === 'experience') {
+      return (Number(b.experience?.years) || 0) - (Number(a.experience?.years) || 0);
+    }
+    return 0; // default order from API
   });
 
   // Generate a color based on doctor's name
@@ -107,6 +122,19 @@ const Doctors = () => {
                 >
                   <option value="all">All Doctors</option>
                   <option value="experience">Experienced (5+ yrs)</option>
+                </select>
+                <Filter className="absolute right-2 top-2.5 text-blue-700 pointer-events-none" size={16} />
+              </div>
+              <div className="relative w-full sm:w-auto">
+                <select 
+                  className="appearance-none bg-blue-50 text-blue-700 py-2 px-4 pr-8 rounded-md font-medium cursor-pointer"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <option value="default">Sort: Default</option>
+                  <option value="rating">Sort: Rating ↓</option>
+                  <option value="cases">Sort: Cases Handled ↓</option>
+                  <option value="experience">Sort: Experience ↓</option>
                 </select>
                 <Filter className="absolute right-2 top-2.5 text-blue-700 pointer-events-none" size={16} />
               </div>
@@ -180,8 +208,8 @@ const Doctors = () => {
           <>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-800">
-                {filteredDoctors.length > 0 
-                  ? `${filteredDoctors.length} ${filteredDoctors.length === 1 ? 'Doctor' : 'Doctors'} Available`
+                {sortedDoctors.length > 0 
+                  ? `${sortedDoctors.length} ${sortedDoctors.length === 1 ? 'Doctor' : 'Doctors'} Available`
                   : 'No doctors match your criteria'}
               </h2>
               
@@ -201,7 +229,7 @@ const Doctors = () => {
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredDoctors.map((doctor) => (
+              {sortedDoctors.map((doctor) => (
                 <div
                   key={doctor._id}
                   className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 border border-gray-100 border-t-blue-500 border-t-8"
@@ -247,6 +275,18 @@ const Doctors = () => {
                         <div className="flex items-start text-gray-600">
                           <MapPin className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
                           <span className="line-clamp-1">{doctor.clinic.location}</span>
+                        </div>
+                      )}
+                      {(doctor.rating || doctor.casesHandled) && (
+                        <div className="flex items-center gap-3 mt-1">
+                          {doctor.rating && (
+                            <span className="flex items-center gap-1 text-amber-600 font-semibold">
+                              ⭐ {Number(doctor.rating).toFixed(1)}
+                            </span>
+                          )}
+                          {doctor.casesHandled > 0 && (
+                            <span className="text-gray-500 text-xs">{doctor.casesHandled} cases</span>
+                          )}
                         </div>
                       )}
                     </div>
