@@ -502,6 +502,30 @@ const staffSetPassword = async (req, res) => {
 	staff.joinedAt = new Date();
 	await staff.save();
 
+	// Sync Doctor record with updated profile info when a DOCTOR accepts their invite
+	if (staff.role === "DOCTOR" && staff.doctorId) {
+		try {
+			const [firstNamePart, ...rest] = cleanString(name || staff.name).split(" ");
+			const updateFields = {
+				firstName: firstNamePart || cleanString(name || staff.name),
+				lastName: rest.join(" "),
+			};
+			if (profilePhoto) updateFields.profilePhoto = profilePhoto;
+			if (staff.doctorProfile?.specialization) {
+				updateFields["experience.expertise"] = staff.doctorProfile.specialization;
+			}
+			if (staff.doctorProfile?.qualification) {
+				updateFields["experience.qualification"] = staff.doctorProfile.qualification;
+			}
+			if (staff.doctorProfile?.experience) {
+				updateFields["experience.years"] = Number(staff.doctorProfile.experience);
+			}
+			await Doctor.findByIdAndUpdate(staff.doctorId, { $set: updateFields });
+		} catch (syncErr) {
+			console.error("Doctor profile sync on invite accept failed (non-fatal):", syncErr.message);
+		}
+	}
+
 	setStaffAuthCookies(res, staff);
 	const hospital = await Hospital.findById(staff.hospitalId).select("name slug status address branding stats");
 	return res.status(200).json({

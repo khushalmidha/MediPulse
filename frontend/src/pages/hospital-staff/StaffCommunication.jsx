@@ -42,6 +42,7 @@ const StaffCommunication = () => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const listRef = useRef(null);
+  const shouldScrollRef = useRef(false); // Only auto-scroll on NEW messages, not initial load
 
   const conversationType = activeTab === "lab" ? "announcement" : activeTab;
   const messageType = activeTab === "lab" ? "lab_alert" : "text";
@@ -116,6 +117,7 @@ const StaffCommunication = () => {
       if (!matchesCurrentThread(incoming)) return;
       setMessages((current) => {
         if (current.some((item) => item._id === incoming._id)) return current;
+        shouldScrollRef.current = true; // Mark: scroll on new socket message
         return [...current, incoming];
       });
     };
@@ -130,9 +132,10 @@ const StaffCommunication = () => {
 
   useEffect(() => {
     const list = listRef.current;
-    if (!list) return;
-    // FIXED: Chat auto-scroll is scoped to the message pane, preventing the whole page from jumping on load.
+    if (!list || !shouldScrollRef.current) return;
+    // Only auto-scroll when a NEW message arrives via socket (not on initial load)
     list.scrollTop = list.scrollHeight;
+    shouldScrollRef.current = false;
   }, [messages]);
 
   const sendMessage = async (event) => {
@@ -174,6 +177,9 @@ const StaffCommunication = () => {
           return;
         }
         setContent("");
+        // Scroll to bottom after sending
+        shouldScrollRef.current = true;
+        if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
       },
     );
   };

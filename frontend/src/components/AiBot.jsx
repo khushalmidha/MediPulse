@@ -1,9 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Home } from 'lucide-react';
+import { MessageCircle, X, Send, Home, Building2 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { BACKEND_URL } from '../utils';
+
+const getDoctorNavigationPath = (doctor) => {
+  if (doctor?.sourceType === 'hospital' && doctor?.hospitalContext?.hospitalSlug) {
+    return `/hospitals/${doctor.hospitalContext.hospitalSlug}`;
+  }
+  return `/doctorsProfile/${doctor._id}`;
+};
 
 const AiBot = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -12,408 +19,215 @@ const AiBot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [doctors, setDoctors] = useState([]);
   const [communities, setCommunities] = useState([]);
-  const [activeMode, setActiveMode] = useState(null); // null, 'doctor', 'community', 'general'
-  const {user, isAuth} = useAuth();
+  const [hospitals, setHospitals] = useState([]);
+  const [activeMode, setActiveMode] = useState(null);
+  const { user, isAuth } = useAuth();
   const messagesEndRef = useRef(null);
   const navigate = useNavigate();
 
-  // Fetch doctors and communities when the component mounts
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const doctorsResponse = await axios.get(`${BACKEND_URL}/doctor`,{withCredentials: true});
-        setDoctors(Array.isArray(doctorsResponse.data) ? doctorsResponse.data : doctorsResponse.data?.items || []);
-        
-        const communitiesResponse = await axios.get(`${BACKEND_URL}/community`,{withCredentials: true});
-        setCommunities(communitiesResponse.data);
+        const [doctorsRes, commRes, hospRes] = await Promise.all([
+          axios.get(`${BACKEND_URL}/doctor`, { withCredentials: true }),
+          axios.get(`${BACKEND_URL}/community`, { withCredentials: true }),
+          axios.get(`${BACKEND_URL}/api/hospitals`, { withCredentials: true }),
+        ]);
+        setDoctors(Array.isArray(doctorsRes.data) ? doctorsRes.data : doctorsRes.data?.items || []);
+        setCommunities(Array.isArray(commRes.data) ? commRes.data : commRes.data?.items || []);
+        setHospitals(Array.isArray(hospRes.data?.items) ? hospRes.data.items : []);
       } catch (error) {
         console.error('Error fetching data:', error);
       }
     };
-    
-    if(isAuth && user){
-        fetchData();
-    }
+    if (isAuth && user) fetchData();
   }, [user, isAuth]);
 
   useEffect(() => {
-    // Show welcome message and options when chat is first opened
-    if (isChatOpen && messages.length === 0) {
-      showMainMenu();
-    }
-    
+    if (isChatOpen && messages.length === 0) showMainMenu();
     scrollToBottom();
   }, [isChatOpen, messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
 
-  // Function to show main menu options
   const showMainMenu = () => {
     setActiveMode(null);
-    setMessages([
-      {
-        role: 'assistant',
-        content: "Hello! I'm your MediPulse AI assistant. How can I help you today?",
-        options: [
-          { label: "Suggest a Doctor", value: "doctor" },
-          { label: "Suggest a Community", value: "community" },
-          { label: "Ask General Query", value: "general" }
-        ]
-      }
-    ]);
+    setMessages([{
+      role: 'assistant',
+      content: "Hello! I'm your MediPulse AI assistant. How can I help you today?",
+      options: [
+        { label: '🏥 Browse Hospitals', value: 'hospital' },
+        { label: '🩺 Suggest a Doctor', value: 'doctor' },
+        { label: '👥 Suggest a Community', value: 'community' },
+        { label: '💬 General Query', value: 'general' },
+      ],
+    }]);
   };
 
-  // Handle button option selection
   const handleOptionSelect = (option) => {
     setActiveMode(option);
-    
-    if (option === 'doctor') {
-      setMessages(prev => [...prev, 
-        { role: 'assistant', content: "Please describe your health concern or the type of doctor you're looking for." }
-      ]);
-    } else if (option === 'community') {
-      setMessages(prev => [...prev, 
-        { role: 'assistant', content: "What type of health community are you interested in joining? Please describe your interests or needs." }
-      ]);
-    } else if (option === 'general') {
-      setMessages(prev => [...prev, 
-        { role: 'assistant', content: "What would you like to know about health or MediPulse services? Feel free to ask any question." }
-      ]);
-    }
+    const msgs = {
+      hospital: 'Which type of hospital are you looking for? Allopathic, Ayurveda, Homeopathy, or Yoga & Wellness? You can also mention your city.',
+      doctor: 'Please describe your health concern or the type of doctor you need.',
+      community: 'What type of health community interests you?',
+      general: 'What would you like to know about health or MediPulse?',
+    };
+    setMessages(prev => [...prev, { role: 'assistant', content: msgs[option] }]);
   };
 
-  // Function to suggest doctors based on the user's query
+  const suggestHospitals = async (query) => {
+    setIsLoading(true);
+    try {
+      const lowerQuery = query.toLowerCase();
+      const typeMap = { ayurveda: ['ayurveda','herbal','natural'], homeopathy: ['homeopathy','homeopathic','homeo'], yoga_wellness: ['yoga','wellness','meditation'], allopathic: ['allopathic','hospital','modern','clinic'] };
+      let matched = hospitals;
+      for (const [type, keywords] of Object.entries(typeMap)) {
+        if (keywords.some(k => lowerQuery.includes(k))) { matched = hospitals.filter(h => h.medicineSystem === type); break; }
+      }
+      const cityMatch = hospitals.filter(h => h.address?.city && lowerQuery.includes(h.address.city.toLowerCase()));
+      if (cityMatch.length > 0) matched = cityMatch;
+      const toShow = (matched.length > 0 ? matched : hospitals).slice(0, 6);
+      setMessages(prev => [...prev, { role: 'assistant', content: toShow.length ? 'Here are some matching hospitals:' : 'Showing available hospitals:', hospitalCards: toShow }]);
+    } catch { setMessages(prev => [...prev, { role: 'assistant', content: 'Could not load hospitals. Try browsing at /hospitals.' }]); }
+    setIsLoading(false);
+  };
+
   const suggestDoctors = async (query) => {
     setIsLoading(true);
     try {
-      const doctorExpertiseList = doctors.map(doc => 
-        `ID: ${doc._id}, Name: ${doc.fullName || `${doc.firstName || ""} ${doc.lastName || ""}`}, Expertise: ${doc.experience?.expertise || ""}, Years: ${doc.experience?.years || 0}`
-      ).join('\n');
-      
-      const prompt = `Based on the user query: "${query}"
-Match the most relevant doctors from this list:
-${doctorExpertiseList}
-
-Return only the IDs of the top 3-5 most relevant doctors separated by commas.
-For example: "507f1f77bcf86cd799439011, 507f1f77bcf86cd799439012"
-Only return the IDs, nothing else.`;
-
-      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt, type: 'doctor' }, { withCredentials: true });
-      const doctorIds = res.data.text.split(',').map(id => id.trim());
-      
-      const suggestedDoctors = doctors.filter(doctor => 
-        doctorIds.some(id => doctor._id === id || doctor._id.toString() === id)
-      );
-      
-      const doctorsToShow = suggestedDoctors.length > 0 ? suggestedDoctors : doctors.slice(0, 5);
-      
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: "Based on your description, here are some doctors who might be able to help you:",
-        doctorCards: doctorsToShow
-      }]);
-      
-    } catch (error) {
-      console.error('Error suggesting doctors:', error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: "I'm sorry, I couldn't find suitable doctors at the moment. Please try describing your needs differently."
-      }]);
-    }
+      const list = doctors.map(d => `ID: ${d._id}, Name: ${d.firstName||''} ${d.lastName||''}, Expertise: ${d.experience?.expertise||''}`).join('\n');
+      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt: `User: "${query}"\nMatch doctors from:\n${list}\nReturn only IDs comma-separated.`, type: 'doctor' }, { withCredentials: true });
+      const ids = res.data.text.split(',').map(id => id.trim());
+      const matched = doctors.filter(d => ids.some(id => String(d._id) === id));
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Here are matching doctors:', doctorCards: matched.length > 0 ? matched : doctors.slice(0, 5) }]);
+    } catch { setMessages(prev => [...prev, { role: 'assistant', content: "Couldn't find matching doctors. Try describing differently." }]); }
     setIsLoading(false);
   };
 
-  // Function to suggest communities based on the user's query
   const suggestCommunities = async (query) => {
     setIsLoading(true);
     try {
-      const communityList = communities.map(comm => 
-        `ID: ${comm._id}, Title: ${comm.title}, Category: ${comm.category}, Description: ${comm.bio.substring(0, 50)}...`
-      ).join('\n');
-      
-      const prompt = `Based on the user query: "${query}"
-Match the most relevant health communities from this list:
-${communityList}
-
-Return only the IDs of the top 3-5 most relevant communities separated by commas.
-For example: "507f1f77bcf86cd799439011, 507f1f77bcf86cd799439012"
-Only return the IDs, nothing else.`;
-
-      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt, type: 'community' }, { withCredentials: true });
-      const communityIds = res.data.text.split(',').map(id => id.trim());
-      
-      const suggestedCommunities = communities.filter(comm => 
-        communityIds.some(id => comm._id === id || comm._id.toString() === id)
-      );
-      
-      const communitiesToShow = suggestedCommunities.length > 0 ? suggestedCommunities : communities.slice(0, 5);
-      
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: "Based on your interests, here are some communities you might want to join:",
-        communityCards: communitiesToShow
-      }]);
-      
-    } catch (error) {
-      console.error('Error suggesting communities:', error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: "I'm sorry, I couldn't find suitable communities at the moment. Please try describing your interests differently."
-      }]);
-    }
+      const list = communities.map(c => `ID: ${c._id}, Title: ${c.title}, Category: ${c.category}`).join('\n');
+      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt: `User: "${query}"\nMatch communities from:\n${list}\nReturn only IDs comma-separated.`, type: 'community' }, { withCredentials: true });
+      const ids = res.data.text.split(',').map(id => id.trim());
+      const matched = communities.filter(c => ids.some(id => String(c._id) === id));
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Here are matching communities:', communityCards: matched.length > 0 ? matched : communities.slice(0, 5) }]);
+    } catch { setMessages(prev => [...prev, { role: 'assistant', content: "Couldn't find matching communities." }]); }
     setIsLoading(false);
   };
 
-  // Function to handle general queries
   const handleGeneralQuery = async (query) => {
     setIsLoading(true);
     try {
       const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt: query, type: 'general' }, { withCredentials: true });
-
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: res.data.text
-      }]);
-
-    } catch (error) {
-      console.error('Error with general query:', error?.message || error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: "I'm sorry, I couldn't process your question. How else can I help you with health-related information?"
-      }]);
-    }
+      setMessages(prev => [...prev, { role: 'assistant', content: res.data.text }]);
+    } catch { setMessages(prev => [...prev, { role: 'assistant', content: "Couldn't process your question. Please try again." }]); }
     setIsLoading(false);
   };
 
-  // Handle navigation for doctor and community cards
-  const handleDoctorCardClick = (doctorId) => {
-    setIsChatOpen(false);
-    const selectedDoctor = doctors.find((doctor) => String(doctor._id) === String(doctorId));
-    navigate(getDoctorNavigationPath(selectedDoctor || { _id: doctorId }));
-  };
-
-  const handleCommunityCardClick = (communityId) => {
-    setIsChatOpen(false);
-    navigate(`/communities#${communityId}`);
-  };
-
-  // Handle sending a message
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
-    
-    // Add user message to chat
-    const userMessage = { role: 'user', content: inputMessage };
-    setMessages(prev => [...prev, userMessage]);
-    
+    setMessages(prev => [...prev, { role: 'user', content: inputMessage }]);
     const query = inputMessage;
     setInputMessage('');
-    
-    // Process based on the active mode
-    if (activeMode === 'doctor') {
-      await suggestDoctors(query);
-    } else if (activeMode === 'community') {
-      await suggestCommunities(query);
-    } else if (activeMode === 'general') {
-      await handleGeneralQuery(query);
-    } else {
-      // If no mode is active, show the menu again
-      showMainMenu();
-    }
+    if (activeMode === 'hospital') await suggestHospitals(query);
+    else if (activeMode === 'doctor') await suggestDoctors(query);
+    else if (activeMode === 'community') await suggestCommunities(query);
+    else if (activeMode === 'general') await handleGeneralQuery(query);
+    else showMainMenu();
   };
 
   return (
     <div className="fixed bottom-0 right-0 z-50 m-4">
-      {/* Chat Button - Only show when chat is closed */}
       {!isChatOpen && (
-        <button
-          onClick={() => setIsChatOpen(true)}
-          className="bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full p-4 shadow-lg transition-all duration-300 hover:scale-110 border-3 border-blue-500 ml-auto"
-          aria-label="Open AI Chat"
-        >
+        <button onClick={() => setIsChatOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-xl transition-all duration-300 hover:scale-110" aria-label="Open AI Chat">
           <MessageCircle className="h-6 w-6" />
         </button>
       )}
-
-      {/* Chat Window */}
       {isChatOpen && (
-        <div className="bg-white rounded-xl shadow-xl border-3 border-blue-500 overflow-hidden w-96 transition-all duration-300">
-          {/* Chat Header with Close Button */}
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 flex justify-between items-center">
+        <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden w-96 flex flex-col" style={{ maxHeight: '620px' }}>
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex justify-between items-center flex-shrink-0">
             <div>
-              <h3 className="text-lg font-semibold">MediPulse Assistant</h3>
-              <p className="text-sm text-blue-100">How can I help you today?</p>
+              <h3 className="text-base font-bold">MediPulse Assistant</h3>
+              <p className="text-xs text-blue-100">AI-powered healthcare guide</p>
             </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={showMainMenu}
-                className="text-white hover:text-blue-100 transition-colors bg-blue-600 rounded-full p-2"
-                aria-label="Main menu"
-              >
-                <Home className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setIsChatOpen(false)}
-                className="text-white hover:text-blue-100 transition-colors bg-blue-600 rounded-full p-2"
-                aria-label="Close chat"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <div className="flex gap-2">
+              <button onClick={showMainMenu} className="rounded-full bg-white/20 hover:bg-white/30 p-1.5 transition-colors" title="Main menu"><Home className="h-4 w-4" /></button>
+              <button onClick={() => setIsChatOpen(false)} className="rounded-full bg-white/20 hover:bg-white/30 p-1.5 transition-colors" title="Close"><X className="h-4 w-4" /></button>
             </div>
           </div>
-
-          {/* Chat Messages */}
-          <div className="h-96 overflow-y-auto p-4 space-y-4 bg-gray-50 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
             {messages.map((message, index) => (
-              <div key={index} className="flex flex-col space-y-2">
-                {/* Message bubble */}
+              <div key={index} className="flex flex-col gap-2">
                 <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`rounded-2xl p-3 max-w-[80%] shadow-sm ${
-                    message.role === 'user' 
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-800 border border-blue-200'
-                  }`}>
-                    <p className="text-sm">
-                      {message.content}
-                    </p>
-                  </div>
+                  <div className={`rounded-2xl p-3 max-w-[85%] text-sm shadow-sm ${message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-slate-200'}`}>{message.content}</div>
                 </div>
-                
-                {/* Option buttons */}
                 {message.options && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {message.options.map((option, i) => (
-                      <button
-                        key={i}
-                        onClick={() => handleOptionSelect(option.value)}
-                        className="bg-white hover:bg-blue-50 text-blue-600 px-4 py-2 rounded-lg border border-blue-300 text-sm transition-colors font-medium shadow-sm hover:shadow"
-                      >
-                        {option.label}
-                      </button>
+                  <div className="flex flex-wrap gap-2">
+                    {message.options.map((opt, i) => (
+                      <button key={i} onClick={() => handleOptionSelect(opt.value)} className="bg-white hover:bg-blue-50 text-blue-700 px-3 py-2 rounded-xl border border-blue-200 text-sm font-medium shadow-sm hover:shadow transition-all">{opt.label}</button>
                     ))}
                   </div>
                 )}
-                
-                {/* Doctor cards horizontal scrolling */}
-                {message.doctorCards && (
-                  <div className="overflow-x-auto flex space-x-4 py-2 pb-3 mt-2 custom-scrollbar">
-                    {message.doctorCards.map((doctor, i) => (
-                      <div 
-                        key={i} 
-                        className="min-w-[220px] bg-white border border-blue-200 rounded-xl p-4 flex-shrink-0 hover:border-blue-500 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
-                        onClick={() => handleDoctorCardClick(doctor._id)}
-                      >
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className="w-9 h-9 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-lg font-semibold">
-                            {(doctor.firstName || doctor.fullName || "D")[0]}
-                          </div>
-                          <h4 className="font-medium text-gray-800">
-                            Dr. {doctor.fullName || `${doctor.firstName || ""} ${doctor.lastName || ""}`}
-                          </h4>
+                {message.hospitalCards && (
+                  <div className="overflow-x-auto flex gap-3 pb-2">
+                    {message.hospitalCards.map((h, i) => (
+                      <div key={i} className="min-w-[190px] bg-white border border-slate-200 rounded-xl p-3 flex-shrink-0 cursor-pointer hover:border-teal-400 hover:shadow-md transition-all" onClick={() => { navigate(`/hospitals/${h.slug}`); setIsChatOpen(false); }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center"><Building2 size={14} /></div>
+                          <p className="font-bold text-slate-900 text-xs truncate">{h.name}</p>
                         </div>
-                        <div className="mb-2 pb-2 border-b border-gray-100">
-                          <p className="text-sm text-blue-700 font-medium">
-                            {doctor.experience.expertise}
-                          </p>
-                          <p className="text-xs text-gray-600 mt-1">
-                            {doctor.experience.years} years experience
-                          </p>
-                        </div>
-                        {doctor.rating && (
-                          <p className="text-xs text-amber-500 font-medium flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-                            </svg>
-                            {doctor.rating}
-                          </p>
-                        )}
-                        <button 
-                          className="mt-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg w-full transition-colors shadow-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDoctorCardClick(doctor._id);
-                          }}
-                        >
-                          View Profile
-                        </button>
+                        <p className="text-xs text-slate-500">{h.address?.city}, {h.address?.state}</p>
+                        <span className="mt-1 inline-block text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full capitalize">{h.medicineSystem || 'hospital'}</span>
+                        <button className="mt-2 w-full bg-teal-600 hover:bg-teal-700 text-white text-xs py-1.5 rounded-lg font-medium transition-colors">View Hospital</button>
                       </div>
                     ))}
                   </div>
                 )}
-                
-                {/* Community cards horizontal scrolling */}
+                {message.doctorCards && (
+                  <div className="overflow-x-auto flex gap-3 pb-2">
+                    {message.doctorCards.map((doc, i) => (
+                      <div key={i} className="min-w-[190px] bg-white border border-slate-200 rounded-xl p-3 flex-shrink-0 cursor-pointer hover:border-blue-400 hover:shadow-md transition-all" onClick={() => { navigate(getDoctorNavigationPath(doc)); setIsChatOpen(false); }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-sm">{(doc.firstName || 'D')[0]}</div>
+                          <p className="font-bold text-slate-900 text-xs">Dr. {doc.firstName} {doc.lastName}</p>
+                        </div>
+                        <p className="text-xs text-blue-700">{doc.experience?.expertise}</p>
+                        <button className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1.5 rounded-lg font-medium transition-colors">View Profile</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {message.communityCards && (
-                  <div className="overflow-x-auto flex space-x-4 py-2 pb-3 mt-2 custom-scrollbar">
-                    {message.communityCards.map((community, i) => (
-                      <div 
-                        key={i} 
-                        className="min-w-[220px] bg-white border border-blue-200 rounded-xl p-4 flex-shrink-0 hover:border-blue-500 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
-                        onClick={() => handleCommunityCardClick(community._id)}
-                      >
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className="w-9 h-9 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-lg font-semibold">
-                            {community.title[0]}
-                          </div>
-                          <h4 className="font-medium text-gray-800 line-clamp-1">
-                            {community.title}
-                          </h4>
+                  <div className="overflow-x-auto flex gap-3 pb-2">
+                    {message.communityCards.map((c, i) => (
+                      <div key={i} className="min-w-[190px] bg-white border border-slate-200 rounded-xl p-3 flex-shrink-0 cursor-pointer hover:border-green-400 hover:shadow-md transition-all" onClick={() => { navigate(`/communities#${c._id}`); setIsChatOpen(false); }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-sm">{(c.title || 'C')[0]}</div>
+                          <p className="font-bold text-slate-900 text-xs truncate">{c.title}</p>
                         </div>
-                        <div className="mb-2 pb-2 border-b border-gray-100">
-                          <span className="inline-block px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full mb-2">
-                            {community.category}
-                          </span>
-                          <p className="text-xs text-gray-600 line-clamp-2">
-                            {community.bio}
-                          </p>
-                        </div>
-                        <button 
-                          className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg w-full transition-colors shadow-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCommunityCardClick(community._id);
-                          }}
-                        >
-                          Join Community
-                        </button>
+                        <span className="inline-block text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">{c.category}</span>
+                        <button className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white text-xs py-1.5 rounded-lg font-medium transition-colors">Join Community</button>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             ))}
-            
             {isLoading && (
-              <div className="flex items-center justify-center space-x-1 py-3">
-                <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce"></div>
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+              <div className="flex items-center gap-1 py-2">
+                <span className="h-2 w-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="h-2 w-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="h-2 w-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             )}
-            
             <div ref={messagesEndRef} />
           </div>
-
-          {/* Chat Input */}
-          <form onSubmit={handleSendMessage} className="border-t border-gray-200 p-4 bg-white">
-            <div className="flex items-center space-x-2">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 border border-gray-300 bg-gray-50 text-gray-800 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
-                disabled={isLoading}
-              />
-              <button
-                type="submit"
-                className="bg-blue-600 text-white p-2.5 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:bg-gray-400"
-                disabled={isLoading || !inputMessage.trim()}
-                aria-label="Send message"
-              >
-                <Send className="h-5 w-5" />
-              </button>
+          <form onSubmit={handleSendMessage} className="border-t border-slate-200 p-3 bg-white flex-shrink-0">
+            <div className="flex gap-2">
+              <input type="text" value={inputMessage} onChange={e => setInputMessage(e.target.value)} placeholder="Type your message..." className="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-slate-50" disabled={isLoading} />
+              <button type="submit" className="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors" disabled={isLoading || !inputMessage.trim()}><Send className="h-4 w-4" /></button>
             </div>
           </form>
         </div>
@@ -422,23 +236,4 @@ Only return the IDs, nothing else.`;
   );
 };
 
-// Add this CSS to your global styles or tailwind config
-// .custom-scrollbar::-webkit-scrollbar {
-//   width: 6px;
-//   height: 6px;
-// }
-// .custom-scrollbar::-webkit-scrollbar-track {
-//   background: #f1f5f9;
-// }
-// .custom-scrollbar::-webkit-scrollbar-thumb {
-//   background-color: #cbd5e1;
-//   border-radius: 20px;
-// }
-
 export default AiBot;
-  const getDoctorNavigationPath = (doctor) => {
-    if (doctor?.sourceType === "hospital" && doctor?.hospitalContext?.hospitalSlug) {
-      return `/hospitals/${doctor.hospitalContext.hospitalSlug}`;
-    }
-    return `/doctorsprofile/${doctor._id}`;
-  };
