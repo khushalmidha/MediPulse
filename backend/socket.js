@@ -65,6 +65,7 @@ export function initSocket(server) {
             type: "staff",
             hospitalId: staff.hospitalId.toString(),
             departmentIds: staff.departmentIds.map((departmentId) => departmentId.toString()),
+            doctorId: staff.doctorId ? staff.doctorId.toString() : null,
           };
           return next();
         }
@@ -276,9 +277,15 @@ export function initSocket(server) {
         return;
       }
 
-      const doctorAccess =
+      const appointmentDoctorId = appointment.doctor.toString();
+      const platformDoctorAccess =
         socket.user.role === "doctor" &&
-        appointment.doctor.toString() === socket.user._id.toString();
+        appointmentDoctorId === socket.user._id.toString();
+      const staffDoctorAccess =
+        socket.user.role === "DOCTOR" &&
+        socket.user.doctorId &&
+        appointmentDoctorId === socket.user.doctorId;
+      const doctorAccess = platformDoctorAccess || staffDoctorAccess;
       const userAccess =
         socket.user.role === "user" &&
         appointment.user.toString() === socket.user._id.toString();
@@ -297,7 +304,7 @@ export function initSocket(server) {
       socket.join(roomName);
       const presence = appointmentPresence.get(String(appointmentId)) || { doctorJoined: false, patientJoined: false, sockets: new Map() };
       presence.sockets.set(socket.id, socket.user.role);
-      if (socket.user.role === "doctor") presence.doctorJoined = true;
+      if (socket.user.role === "doctor" || socket.user.role === "DOCTOR") presence.doctorJoined = true;
       if (socket.user.role === "user") presence.patientJoined = true;
       appointmentPresence.set(String(appointmentId), presence);
       const ready = presence.doctorJoined && presence.patientJoined;
