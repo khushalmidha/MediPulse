@@ -9,5 +9,9 @@ export const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllow
 
 export const isAllowedOrigin = (origin) =>
   !origin ||
+  allowedOrigins.includes("*") ||
   allowedOrigins.includes(origin) ||
-  /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+  /\.onrender\.com$/.test(origin) ||
+  /\.vercel\.app$/.test(origin);
+
