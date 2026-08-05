@@ -31,6 +31,7 @@ const validateStaff = async (req, res, next) => {
       id: staff._id.toString(),
       hospitalId: staff.hospitalId.toString(),
       role: staff.role,
+      adminAccess: Boolean(staff.adminAccess),
       name: staff.name,
       departmentIds: staff.departmentIds.map((departmentId) => departmentId.toString()),
     };
@@ -44,7 +45,7 @@ const requireRole = (...roles) => (req, res, next) => {
     return res.status(401).json({ message: "Staff authentication is required" });
   }
 
-  if (!roles.includes(req.staff.role)) {
+  if (!roles.includes(req.staff.role) && !(roles.includes("HOSPITAL_ADMIN") && req.staff.adminAccess)) {
     return res.status(403).json({ message: "You do not have permission for this action" });
   }
 

@@ -85,6 +85,33 @@ const TESTIMONIALS = [
   { name: 'Anjali Singh', city: 'Bangalore', rating: 5, text: 'Found an Ayurveda clinic near me through MediPulse. The pre-consultation AI questions saved so much time.' },
 ]
 
+const HERO_SLIDES = [
+  {
+    image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1800&q=85',
+    eyebrow: 'Telehealth consultations',
+    title: 'Doctor video visits with secure wallet booking',
+    text: 'Patients can book online consultations, verify OTP, join live video rooms, and receive digital care notes.',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1800&q=85',
+    eyebrow: 'Hospital OPD network',
+    title: 'Live hospital queues and instant OPD tokens',
+    text: 'Hospitals publish departments, doctors, fees, queue status, and patient token position in one public website.',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=1800&q=85',
+    eyebrow: 'AI operations',
+    title: 'AI triage, bed demand, and blood-bank forecasting',
+    text: 'Pre-consultation questions save OPD time while hospital dashboards predict next-month capacity pressure.',
+  },
+  {
+    image: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1800&q=85',
+    eyebrow: 'Holistic care',
+    title: 'Ayurveda, Yoga, Homeopathy, and modern medicine',
+    text: 'MediPulse supports multiple care systems so patients can choose the right treatment path for their needs.',
+  },
+]
+
 const Home = () => {
   const { isAuth } = useAuth()
   const [membersCount, setMembersCount] = useState(0)
@@ -92,6 +119,7 @@ const Home = () => {
   const [doctorsCount, setDoctorsCount] = useState(0)
   const [targets, setTargets] = useState({ members: 10000, communities: 100, doctors: 1000, loaded: false })
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [heroSlide, setHeroSlide] = useState(0)
   const [autoPlay, setAutoPlay] = useState(true)
   const statsRef = useRef(null)
   const animatedRef = useRef(false)
@@ -151,23 +179,31 @@ const Home = () => {
     return () => clearInterval(timer)
   }, [autoPlay, totalSlides])
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroSlide(prev => (prev + 1) % HERO_SLIDES.length)
+    }, 4500)
+    return () => clearInterval(timer)
+  }, [])
+
   const visibleServices = SERVICES.slice(currentSlide * 4, currentSlide * 4 + 4)
 
   return (
     <div className="min-h-screen bg-white">
       {/* HERO SECTION */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 min-h-[92vh] flex items-center">
-        {/* Animated background blobs */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-blue-600/20 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl" />
-        </div>
+      <section className="relative flex min-h-[92vh] items-center overflow-hidden bg-slate-950">
+        {HERO_SLIDES.map((slide, index) => (
+          <img
+            key={slide.image}
+            src={slide.image}
+            alt={slide.title}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${index === heroSlide ? 'opacity-100' : 'opacity-0'}`}
+          />
+        ))}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/75 to-slate-950/20" />
 
-        {/* Grid pattern */}
-        <div className="absolute inset-0" style={{backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '30px 30px'}} />
-
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 text-center">
+        <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-24 sm:px-6 lg:grid-cols-[1fr_440px] lg:px-8">
+          <div className="text-left">
           <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 border border-blue-500/20 px-4 py-2 text-sm font-semibold text-blue-300 mb-8">
             <Activity size={16} className="text-blue-400" />
             India's Most Advanced Healthcare Platform
@@ -180,11 +216,11 @@ const Home = () => {
             </span>
           </h1>
           
-          <p className="mt-6 text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-6 max-w-2xl text-xl leading-relaxed text-slate-300">
             Book OPD appointments, consult doctors online, track live queues, and access Ayurveda, Yoga & Homeopathy — all from one intelligent platform.
           </p>
 
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             {isAuth ? (
               <>
                 <Link to="/hospitals" className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-500 transition-all duration-300 px-8 py-4 text-base font-bold text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:-translate-y-0.5">
@@ -207,7 +243,7 @@ const Home = () => {
           </div>
 
           {/* Stats row */}
-          <div ref={statsRef} className="mt-16 grid grid-cols-3 gap-6 max-w-2xl mx-auto">
+          <div ref={statsRef} className="mt-16 grid max-w-2xl grid-cols-3 gap-6">
             {[
               { value: (membersCount + doctorsCount).toLocaleString() + '+', label: 'Active Members' },
               { value: communityCount + '+', label: 'Communities' },
@@ -218,6 +254,22 @@ const Home = () => {
                 <p className="mt-1 text-sm text-slate-400">{stat.label}</p>
               </div>
             ))}
+          </div>
+          </div>
+          <div className="rounded-3xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur">
+            <p className="text-sm font-bold uppercase tracking-widest text-cyan-200">{HERO_SLIDES[heroSlide].eyebrow}</p>
+            <h2 className="mt-3 text-3xl font-black leading-tight">{HERO_SLIDES[heroSlide].title}</h2>
+            <p className="mt-4 text-sm leading-relaxed text-slate-200">{HERO_SLIDES[heroSlide].text}</p>
+            <div className="mt-6 flex gap-2">
+              {HERO_SLIDES.map((slide, index) => (
+                <button
+                  key={slide.title}
+                  onClick={() => setHeroSlide(index)}
+                  className={`h-2 rounded-full transition-all ${index === heroSlide ? 'w-8 bg-cyan-300' : 'w-2 bg-white/50'}`}
+                  aria-label={`Show ${slide.eyebrow}`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>

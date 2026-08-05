@@ -15,6 +15,7 @@ import {
   resendStaffInvite,
   requestStaffRemovalOtp,
   confirmStaffRemoval,
+  grantStaffAdminAccess,
   registerHospital,
   requirePlatformAdmin,
   updateDepartment,
@@ -45,6 +46,7 @@ hospitalRouter.patch("/:id/departments/:deptId", validateStaff, updateDepartment
 hospitalRouter.post("/:id/staff/invite", validateStaff, inviteStaff);
 hospitalRouter.post("/:id/staff/:staffId/invite/resend", validateStaff, resendStaffInvite);
 hospitalRouter.post("/:id/staff/:staffId/remove/request-otp", validateStaff, requestStaffRemovalOtp);
+hospitalRouter.patch("/:id/staff/:staffId/admin-access", validateStaff, grantStaffAdminAccess);
 hospitalRouter.delete("/:id/staff/:staffId", validateStaff, confirmStaffRemoval);
 hospitalRouter.get("/:id/staff/invite/accept", acceptStaffInvite);
 hospitalRouter.get("/:id/staff", validateStaff, getStaff);

@@ -57,6 +57,7 @@ const setStaffAuthCookies = (res, staff, rememberMe = false) => {
 		{
 			id: staff._id.toString(),
 			role: staff.role,
+			adminAccess: Boolean(staff.adminAccess),
 			hospitalId: staff.hospitalId.toString(),
 			type: "staff",
 		},
@@ -454,6 +455,7 @@ const staffLogin = async (req, res) => {
 			name: staff.name,
 			email: staff.email,
 			role: staff.role,
+			adminAccess: Boolean(staff.adminAccess),
 			hospitalId: staff.hospitalId,
 			departmentIds: staff.departmentIds,
 		},
@@ -536,6 +538,7 @@ const staffSetPassword = async (req, res) => {
 			name: staff.name,
 			email: staff.email,
 			role: staff.role,
+			adminAccess: Boolean(staff.adminAccess),
 			hospitalId: staff.hospitalId,
 			departmentIds: staff.departmentIds,
 		},
@@ -619,6 +622,7 @@ const StaffVerifier = async (req, res) => {
 			message: "Authorized",
 			data: staff,
 			role: staff.role,
+			adminAccess: Boolean(staff.adminAccess),
 			hospitalId: data.hospitalId,
 			hospital,
 		});

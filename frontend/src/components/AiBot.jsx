@@ -40,7 +40,8 @@ const AiBot = () => {
         console.error('Error fetching data:', error);
       }
     };
-    if (isAuth && user) fetchData();
+    // FIXED: Hospital browsing in the chatbot should work for visitors before login too.
+    fetchData();
   }, [user, isAuth]);
 
   useEffect(() => {

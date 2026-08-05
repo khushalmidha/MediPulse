@@ -1,6 +1,9 @@
 import Community from "../model/community.js";
 import Doctor from "../model/doctor.js";
 import HospitalStaff from "../model/hospitalStaff.js";
+import Appointment from "../model/appointment.js";
+import OpdToken from "../model/opdToken.js";
+import Review from "../model/review.js";
 
 const MAX_LIMIT = 1000;
 
@@ -119,6 +122,7 @@ const getDoctorById = async (req, res) => {
 const getAllDoctors = async (req, res) => {
 	const { page, limit, skip } = parsePagination(req);
 	const search = cleanSearch(req.query.search);
+	const sort = String(req.query.sort || "recommended");
 	const searchRegex = search ? new RegExp(search, "i") : null;
 
 	const platformPipeline = [
@@ -128,6 +132,17 @@ const getAllDoctors = async (req, res) => {
 					{ hospitals: { $exists: false } },
 					{ hospitals: { $size: 0 } },
 				],
+			},
+		},
+		{
+			$lookup: {
+				from: Appointment.collection.name,
+				let: { doctorId: "$_id" },
+				pipeline: [
+					{ $match: { $expr: { $and: [{ $eq: ["$doctor", "$$doctorId"] }, { $eq: ["$status", "completed"] }] } } },
+					{ $count: "count" },
+				],
+				as: "caseStats",
 			},
 		},
 		{
@@ -155,6 +170,7 @@ const getAllDoctors = async (req, res) => {
 				profilePhoto: { $ifNull: ["$profilePhoto", ""] },
 				bio: { $ifNull: ["$bio", ""] },
 				rating: { $ifNull: ["$rating", 0] },
+				casesHandled: { $ifNull: [{ $arrayElemAt: ["$caseStats.count", 0] }, 0] },
 				experience: {
 					years: { $ifNull: ["$experience.years", 0] },
 					expertise: { $ifNull: ["$experience.expertise", ""] },
@@ -206,6 +222,28 @@ const getAllDoctors = async (req, res) => {
 						},
 					},
 					{
+						$lookup: {
+							from: OpdToken.collection.name,
+							let: { staffId: "$_id" },
+							pipeline: [
+								{ $match: { $expr: { $and: [{ $eq: ["$doctorId", "$$staffId"] }, { $eq: ["$status", "completed"] }] } } },
+								{ $count: "count" },
+							],
+							as: "caseStats",
+						},
+					},
+					{
+						$lookup: {
+							from: Review.collection.name,
+							let: { staffId: "$_id" },
+							pipeline: [
+								{ $match: { $expr: { $and: [{ $eq: ["$doctorId", "$$staffId"] }, { $eq: ["$status", "published"] }] } } },
+								{ $group: { _id: "$doctorId", avgRating: { $avg: "$overallRating" }, reviewCount: { $sum: 1 } } },
+							],
+							as: "reviewStats",
+						},
+					},
+					{
 						$project: {
 							_id: 1,
 							sourceType: { $literal: "hospital" },
@@ -219,7 +257,9 @@ const getAllDoctors = async (req, res) => {
 							gender: { $literal: "other" },
 							profilePhoto: { $ifNull: ["$profilePhoto", ""] },
 							bio: { $ifNull: ["$doctorProfile.bio", ""] },
-							rating: { $ifNull: ["$doctorProfile.rating", 0] },
+							rating: { $ifNull: [{ $arrayElemAt: ["$reviewStats.avgRating", 0] }, { $ifNull: ["$doctorProfile.rating", 0] }] },
+							reviewCount: { $ifNull: [{ $arrayElemAt: ["$reviewStats.reviewCount", 0] }, { $ifNull: ["$doctorProfile.totalReviews", 0] }] },
+							casesHandled: { $ifNull: [{ $arrayElemAt: ["$caseStats.count", 0] }, 0] },
 							experience: {
 								years: { $ifNull: ["$doctorProfile.experience", 0] },
 								expertise: { $ifNull: ["$doctorProfile.specialization", ""] },
@@ -272,14 +312,30 @@ const getAllDoctors = async (req, res) => {
 
 	platformPipeline.push(
 		{
-			$sort: { fullName: 1, _id: 1 },
+			$addFields: {
+				recommendedScore: {
+					$add: [
+						{ $multiply: [{ $ifNull: ["$rating", 0] }, 20] },
+						{ $min: [{ $ifNull: ["$casesHandled", 0] }, 100] },
+					],
+				},
+			},
+		},
+		{
+			// FIXED: Doctor discovery was alphabetical only; it now supports reviews and completed-case sorting.
+			$sort:
+				sort === "rating"
+					? { rating: -1, casesHandled: -1, fullName: 1 }
+					: sort === "cases"
+						? { casesHandled: -1, rating: -1, fullName: 1 }
+						: { recommendedScore: -1, rating: -1, casesHandled: -1, fullName: 1 },
 		},
 		{
 			$facet: {
 				items: [
 					{ $skip: skip },
 					{ $limit: limit },
-					{ $project: { searchBlob: 0 } },
+					{ $project: { searchBlob: 0, recommendedScore: 0 } },
 				],
 				total: [{ $count: "count" }],
 			},

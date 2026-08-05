@@ -18,6 +18,8 @@ const hospitalStaffSchema = new mongoose.Schema(
       enum: ["HOSPITAL_ADMIN", "DEPARTMENT_HEAD", "DOCTOR", "NURSE", "LAB_TECH", "RECEPTIONIST", "PHARMACIST"],
       required: true,
     },
+    // FIXED: Doctors/nurses could not receive admin portal access without losing their clinical role.
+    adminAccess: { type: Boolean, default: false, index: true },
     doctorProfile: {
       qualification: String,
       specialization: String,
