@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Cookies from "js-cookie";
 import { Activity, CalendarDays, MapPin, Phone, Search, Star, Stethoscope, Users, X } from "lucide-react";
 import { BACKEND_URL } from "../../utils";
 import { useAuth } from "../../context/AuthContext";
@@ -152,7 +153,8 @@ const HospitalWebsite = ({ slug }) => {
       const response = await fetch(`${BACKEND_URL}/api/opd/${hospital._id}/${departmentId}/book`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        // FIXED: Deployed custom domains can drop cross-site cookies; bearer fallback keeps OPD booking authenticated.
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Cookies.get("token") || ""}` },
         body: JSON.stringify({
           doctorId: bookingDoctor._id,
           visitType: "new",
