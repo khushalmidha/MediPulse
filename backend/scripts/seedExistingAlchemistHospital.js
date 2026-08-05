@@ -7,11 +7,12 @@ import Department from "../model/department.js";
 import Doctor from "../model/doctor.js";
 import Hospital from "../model/hospital.js";
 import HospitalStaff from "../model/hospitalStaff.js";
+import StaffMessage from "../model/staffMessage.js";
 
 configDotenv({ path: ["backend/.env", ".env", "../.env", "../../.env"] });
 
 const hospitalId = process.env.SEED_HOSPITAL_ID || "6a6a2c4bd6a136ab21624c26";
-const staffPassword = process.env.DEMO_STAFF_PASSWORD || "Demo@12345";
+const staffPassword = process.env.DEMO_STAFF_PASSWORD || "Khushal@123";
 
 const departments = [
   ["Cardiology", "CARD", "HeartPulse", "#dc2626", 750, "Preventive heart care, hypertension, ECG review and post-procedure follow-up."],
@@ -22,21 +23,77 @@ const departments = [
   ["Diagnostics", "DIAG", "Microscope", "#0f766e", 350, "Lab tests, health packages, imaging coordination and diagnostic follow-ups."],
 ];
 
-const doctors = [
-  ["Dr. Aditi Sharma", "aditi.sharma@alchemist.demo", "Cardiology", "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=400&q=80", "DM Cardiology", "Interventional Cardiology", 14, 750],
-  ["Dr. Kabir Mehta", "kabir.mehta@alchemist.demo", "Orthopaedics", "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=400&q=80", "MS Orthopaedics", "Joint Replacement", 11, 650],
-  ["Dr. Naina Kapoor", "naina.kapoor@alchemist.demo", "Neurology", "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=400&q=80", "DM Neurology", "Stroke and Headache Medicine", 13, 900],
-  ["Dr. Rohan Batra", "rohan.batra@alchemist.demo", "Paediatrics", "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=400&q=80", "MD Paediatrics", "Child Health", 9, 550],
-  ["Dr. Samar Virk", "samar.virk@alchemist.demo", "Emergency Medicine", "https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=400&q=80", "MD Emergency Medicine", "Emergency and Trauma Care", 10, 800],
+const demoAccounts = [
+  {
+    name: "Dr. Aarav Midha",
+    email: "khushalmidha24@gmail.com",
+    role: "DOCTOR",
+    department: "Cardiology",
+    profilePhoto: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=400&q=80",
+    doctorProfile: { qualification: "DM Cardiology", specialization: "Interventional Cardiology", experience: 12, consultationFee: 750, rating: 4.9, totalReviews: 132 },
+  },
+  {
+    name: "Dr. Kavya Midha",
+    email: "lci2023048@iiitl.ac.in",
+    role: "DOCTOR",
+    department: "Neurology",
+    profilePhoto: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=400&q=80",
+    doctorProfile: { qualification: "DM Neurology", specialization: "Stroke and Headache Medicine", experience: 10, consultationFee: 900, rating: 4.8, totalReviews: 118 },
+  },
+  {
+    name: "Khushal Midha",
+    email: "khushalmidha19@gmail.com",
+    role: "HOSPITAL_ADMIN",
+    department: "Diagnostics",
+    profilePhoto: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+  },
+  {
+    name: "Ramesh Chaudhary",
+    email: "rameshchaudary241@gmail.com",
+    role: "NURSE",
+    department: "Emergency Medicine",
+    profilePhoto: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=400&q=80",
+  },
+  {
+    name: "Dr. Ishaan Midha",
+    email: "khushalmidha245@gmail.com",
+    role: "DOCTOR",
+    department: "Orthopaedics",
+    profilePhoto: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=400&q=80",
+    doctorProfile: { qualification: "MS Orthopaedics", specialization: "Joint Replacement and Sports Injury", experience: 9, consultationFee: 650, rating: 4.7, totalReviews: 96 },
+  },
+  {
+    name: "Nurse Khushal Midha",
+    email: "khushalmidha06@gmail.com",
+    role: "NURSE",
+    department: "Paediatrics",
+    profilePhoto: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=400&q=80",
+  },
+  {
+    name: "Dr. Neel Midha",
+    email: "khushalmidha18@gmail.com",
+    role: "DOCTOR",
+    department: "Paediatrics",
+    profilePhoto: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=400&q=80",
+    doctorProfile: { qualification: "MD Paediatrics", specialization: "Child Health and Vaccination", experience: 8, consultationFee: 550, rating: 4.8, totalReviews: 104 },
+  },
+  {
+    name: "Sohit Sehgal",
+    email: "sohitsehgal09@gmail.com",
+    role: "RECEPTIONIST",
+    department: "Diagnostics",
+    profilePhoto: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+  },
+  {
+    name: "Khushal Midha",
+    email: "midhakhushal5@gmail.com",
+    role: "LAB_TECH",
+    department: "Diagnostics",
+    profilePhoto: "https://images.unsplash.com/photo-1581093458791-9f3c3900df7b?auto=format&fit=crop&w=400&q=80",
+  },
 ];
 
-const staff = [
-  ["Nurse Priya Malik", "priya.malik@alchemist.demo", "NURSE", "Cardiology"],
-  ["Nurse Neha Saini", "neha.saini@alchemist.demo", "NURSE", "Paediatrics"],
-  ["Nurse Arjun Rana", "arjun.rana@alchemist.demo", "NURSE", "Emergency Medicine"],
-  ["Riya Reception", "riya.reception@alchemist.demo", "RECEPTIONIST", "Emergency Medicine"],
-  ["Aman Lab", "aman.lab@alchemist.demo", "LAB_TECH", "Diagnostics"],
-];
+const seededEmails = demoAccounts.map((account) => account.email.toLowerCase());
 
 const syncPlatformDoctor = async ({ hospital, department, member, input }) => {
   if (input.role !== "DOCTOR") return member;
@@ -126,8 +183,45 @@ const upsertStaff = async ({ hospital, department, input }) => {
   }
 
   Object.assign(member, payload);
+  member.password = staffPassword;
   await member.save();
   return syncPlatformDoctor({ hospital, department, member, input });
+};
+
+const seedDepartmentMessages = async ({ hospital, departmentByName }) => {
+  await StaffMessage.deleteMany({ hospitalId: hospital._id, "metadata.seed": "alchemist-demo" });
+
+  for (const department of departmentByName.values()) {
+    const participants = await HospitalStaff.find({
+      hospitalId: hospital._id,
+      isActive: true,
+      inviteStatus: "accepted",
+      $or: [{ departmentIds: department._id }, { role: "HOSPITAL_ADMIN" }],
+    }).lean();
+    if (!participants.length) continue;
+
+    const messages = [
+      `Morning handover for ${department.name}: keep today's OPD queue updated every 15 minutes.`,
+      `Please tag urgent vitals in ${department.name} before moving patient to doctor console.`,
+      `${department.name} team: confirm token status after every completed consultation.`,
+    ];
+
+    for (let index = 0; index < messages.length; index += 1) {
+      const sender = participants[index % participants.length];
+      await StaffMessage.create({
+        hospitalId: hospital._id,
+        conversationType: "department",
+        departmentId: department._id,
+        sender: sender._id,
+        senderName: sender.name,
+        senderRole: sender.role,
+        content: messages[index],
+        messageType: "text",
+        metadata: { seed: "alchemist-demo" },
+        readBy: [{ staffId: sender._id, readAt: new Date() }],
+      });
+    }
+  }
 };
 
 const main = async () => {
@@ -153,6 +247,11 @@ const main = async () => {
   };
   hospital.settings = { ...(hospital.settings || {}), tokenPrefix: "A", allowWalkIns: true };
   await hospital.save();
+
+  await Promise.all([
+    HospitalStaff.deleteMany({ hospitalId: hospital._id, email: { $nin: seededEmails } }),
+    Doctor.deleteMany({ email: /@alchemist\.demo$/i }),
+  ]);
 
   await Department.deleteMany({
     hospitalId: hospital._id,
@@ -187,34 +286,20 @@ const main = async () => {
     departmentByName.set(name, department);
   }
 
-  for (const [name, email, departmentName, profilePhoto, qualification, specialization, experience, fee] of doctors) {
+  for (const account of demoAccounts) {
     await upsertStaff({
       hospital,
-      department: departmentByName.get(departmentName),
+      department: departmentByName.get(account.department),
       input: {
-        name,
-        email,
-        role: "DOCTOR",
-        profilePhoto,
-        doctorProfile: {
-          qualification,
-          specialization,
-          experience,
-          consultationFee: fee,
-          bio: `${name} provides ${specialization.toLowerCase()} consultations with a patient-first OPD workflow.`,
+        ...account,
+        doctorProfile: account.role === "DOCTOR"
+          ? {
+          ...account.doctorProfile,
+          bio: `${account.name} provides ${account.doctorProfile.specialization.toLowerCase()} consultations with a patient-first OPD workflow.`,
           languages: ["Hindi", "English"],
-          rating: 4.8,
-          totalReviews: 80,
-        },
+        }
+          : undefined,
       },
-    });
-  }
-
-  for (const [name, email, role, departmentName] of staff) {
-    await upsertStaff({
-      hospital,
-      department: departmentByName.get(departmentName),
-      input: { name, email, role, profilePhoto: "" },
     });
   }
 
@@ -240,6 +325,8 @@ const main = async () => {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   }
+
+  await seedDepartmentMessages({ hospital, departmentByName });
 
   for (const [bloodGroup, availableUnits, minimumReserveUnits] of [
     ["O+", 34, 18],

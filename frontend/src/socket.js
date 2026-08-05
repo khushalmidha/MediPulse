@@ -11,18 +11,18 @@ let socket = null;
  */
 export function getSocket() {
   if (!socket) {
-    const token = Cookies.get("staffToken") || Cookies.get("token");
     socket = io(BACKEND_URL, {
       withCredentials: true,
       autoConnect: false,
       transports: ["websocket"],
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
-      auth: {
-        token: token || "",
-      },
     });
   }
+  // Always refresh the auth token from the latest cookie so reconnects and
+  // late connections use the current session token instead of a stale one.
+  const token = Cookies.get("staffToken") || Cookies.get("token") || "";
+  socket.auth = { token };
   return socket;
 }
 

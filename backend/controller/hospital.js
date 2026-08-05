@@ -79,6 +79,7 @@ const setStaffCookies = (res, staff) => {
     {
       id: staff._id.toString(),
       role: staff.role,
+      adminAccess: Boolean(staff.adminAccess),
       hospitalId: staff.hospitalId.toString(),
       type: "staff",
     },
@@ -114,7 +115,7 @@ const generateTemporaryPassword = () => `MediPulse@${crypto.randomBytes(4).toStr
 
 const isHospitalAdmin = (req, hospitalId) =>
   // FIXED: ObjectId/string strict comparison blocked valid hospital admins from staff/profile actions.
-  String(req.staff?.hospitalId || "") === String(hospitalId || "") && req.staff?.role === "HOSPITAL_ADMIN";
+  String(req.staff?.hospitalId || "") === String(hospitalId || "") && (req.staff?.role === "HOSPITAL_ADMIN" || req.staff?.adminAccess);
 
 const requireHospitalAdminAccess = (req, res, hospitalId) => {
   if (!isHospitalAdmin(req, hospitalId)) {
@@ -706,6 +707,21 @@ const confirmStaffRemoval = async (req, res) => {
   return res.status(200).json({ message: "Staff member removed" });
 };
 
+const grantStaffAdminAccess = async (req, res) => {
+  const { id, staffId } = req.params;
+  if (!requireHospitalAdminAccess(req, res, id)) return;
+
+  const staff = await HospitalStaff.findOne({ _id: staffId, hospitalId: id, isActive: true });
+  if (!staff) return res.status(404).json({ message: "Staff member not found" });
+  if (!["DOCTOR", "NURSE", "DEPARTMENT_HEAD", "RECEPTIONIST"].includes(staff.role)) {
+    return res.status(400).json({ message: "Only operational staff can be granted admin access" });
+  }
+
+  staff.adminAccess = true;
+  await staff.save();
+  return res.status(200).json({ message: "Admin portal access granted", staff });
+};
+
 const getStaff = async (req, res) => {
   const { id } = req.params;
   if (!requireHospitalAdminAccess(req, res, id)) return;
@@ -934,6 +950,7 @@ export {
   resendStaffInvite,
   requestStaffRemovalOtp,
   confirmStaffRemoval,
+  grantStaffAdminAccess,
   registerHospital,
   requirePlatformAdmin,
   updateDepartment,

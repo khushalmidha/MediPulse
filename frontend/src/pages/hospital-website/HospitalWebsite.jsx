@@ -31,8 +31,8 @@ const HospitalWebsite = ({ slug }) => {
     if (!hospitalKey) return;
     let active = true;
 
-    const load = async () => {
-      setLoading(true);
+    const load = async (showSpinner = false) => {
+      if (showSpinner) setLoading(true);
       setError("");
       try {
         const [profileResponse, queueResponse] = await Promise.all([
@@ -63,8 +63,9 @@ const HospitalWebsite = ({ slug }) => {
       }
     };
 
-    load();
-    const interval = window.setInterval(load, 30000);
+    load(true);
+    // FIXED: Public hospital page polling was resetting the whole page to loading, which felt like constant refresh/jumping.
+    const interval = window.setInterval(() => load(false), 30000);
     return () => {
       active = false;
       window.clearInterval(interval);
@@ -161,12 +162,16 @@ const HospitalWebsite = ({ slug }) => {
           },
         }),
       });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || "Could not book OPD token");
       setBookingResult(payload);
       setBookingMessage(`Token ${payload.displayToken} booked. Queue position ${payload.queuePosition}.`);
     } catch (err) {
-      setBookingMessage(err.message || "Could not book OPD token");
+      setBookingMessage(
+        err.message === "Failed to fetch"
+          ? "Could not reach backend. Check deployed VITE_BACKEND_URL/CORS and try again."
+          : err.message || "Could not book OPD token",
+      );
     } finally {
       setBooking(false);
     }

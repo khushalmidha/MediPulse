@@ -5,7 +5,7 @@ const domainPattern = /^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,}$/;
 
 const requireHospitalAdminAccess = (req, res, hospitalId) => {
   // FIXED: ObjectId/string mismatch could reject valid admins for website domain actions.
-  if (String(req.staff?.hospitalId || "") !== String(hospitalId || "") || req.staff?.role !== "HOSPITAL_ADMIN") {
+  if (String(req.staff?.hospitalId || "") !== String(hospitalId || "") || (req.staff?.role !== "HOSPITAL_ADMIN" && !req.staff?.adminAccess)) {
     res.status(403).json({ message: "Hospital admin access is required" });
     return false;
   }

@@ -14,14 +14,14 @@ const Doctors = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
-  const [sortBy, setSortBy] = useState('default');
+  const [sortBy, setSortBy] = useState('recommended');
   const [specialties,setSpecialities] = useState([])
 
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${BACKEND_URL}/doctor?limit=1000`, {
+        const response = await axios.get(`${BACKEND_URL}/doctor?limit=1000&sort=${sortBy === 'default' ? 'recommended' : sortBy}`, {
           withCredentials: true
         });
         const doctorItems = getDoctorsFromPayload(response.data);
@@ -38,7 +38,7 @@ const Doctors = () => {
     };
 
     fetchDoctors();
-  }, []);
+  }, [sortBy]);
 
   // Filter doctors based on search term and filters
   const filteredDoctors = doctors.filter(doctor => {
@@ -131,7 +131,7 @@ const Doctors = () => {
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
-                  <option value="default">Sort: Default</option>
+                  <option value="recommended">Sort: Recommended</option>
                   <option value="rating">Sort: Rating ↓</option>
                   <option value="cases">Sort: Cases Handled ↓</option>
                   <option value="experience">Sort: Experience ↓</option>
