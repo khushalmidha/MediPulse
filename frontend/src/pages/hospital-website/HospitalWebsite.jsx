@@ -10,6 +10,19 @@ const resolveHospitalKey = (slug) => (typeof slug === "string" ? slug : slug?.cu
 const money = (value) =>
   typeof value === "number" ? `INR ${value.toLocaleString("en-IN")}` : "Fee on request";
 
+const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const fetchWithBackendWake = async (url, options) => {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    // FIXED: Render free instances can briefly return network/preflight failures while waking, so retry once after a health ping.
+    await fetch(`${BACKEND_URL}/count`).catch(() => null);
+    await wait(1000);
+    return fetch(url, options);
+  }
+};
+
 const HospitalWebsite = ({ slug }) => {
   const navigate = useNavigate();
   const { isAuth, role, user } = useAuth();
@@ -150,7 +163,7 @@ const HospitalWebsite = ({ slug }) => {
     setBooking(true);
     setBookingMessage("");
     try {
-      const response = await fetch(`${BACKEND_URL}/api/opd/${hospital._id}/${departmentId}/book`, {
+      const response = await fetchWithBackendWake(`${BACKEND_URL}/api/opd/${hospital._id}/${departmentId}/book`, {
         method: "POST",
         credentials: "include",
         // FIXED: Deployed custom domains can drop cross-site cookies; bearer fallback keeps OPD booking authenticated.
@@ -171,7 +184,7 @@ const HospitalWebsite = ({ slug }) => {
     } catch (err) {
       setBookingMessage(
         err.message === "Failed to fetch"
-          ? "Could not reach backend. Check deployed VITE_BACKEND_URL/CORS and try again."
+          ? "Backend is waking up or temporarily unavailable. Please press Confirm OPD Token again in a few seconds."
           : err.message || "Could not book OPD token",
       );
     } finally {
