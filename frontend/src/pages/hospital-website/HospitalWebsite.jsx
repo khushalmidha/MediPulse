@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
 import { Activity, CalendarDays, MapPin, Phone, Search, Star, Stethoscope, Users, X } from "lucide-react";
@@ -12,15 +12,21 @@ const money = (value) =>
 
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-const fetchWithBackendWake = async (url, options) => {
-  try {
-    return await fetch(url, options);
-  } catch (error) {
-    // FIXED: Render free instances can briefly return network/preflight failures while waking, so retry once after a health ping.
+const fetchWithBackendWake = async (url, options, retries = 3) => {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+      if (![502, 503, 504].includes(response.status)) return response;
+      lastError = new Error(`Backend temporarily unavailable (${response.status})`);
+    } catch (error) {
+      lastError = error;
+    }
+    // FIXED: Render free instances can sleep or return brief 502/503/504 responses, so public hospital pages wake and retry before failing.
     await fetch(`${BACKEND_URL}/count`).catch(() => null);
-    await wait(1000);
-    return fetch(url, options);
+    await wait(1200 * (attempt + 1));
   }
+  throw lastError || new Error("Backend temporarily unavailable");
 };
 
 const HospitalWebsite = ({ slug }) => {
@@ -40,6 +46,7 @@ const HospitalWebsite = ({ slug }) => {
   const [booking, setBooking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const hasLoadedProfileRef = useRef(false);
 
   useEffect(() => {
     if (!hospitalKey) return;
@@ -50,8 +57,8 @@ const HospitalWebsite = ({ slug }) => {
       setError("");
       try {
         const [profileResponse, queueResponse] = await Promise.all([
-          fetch(`${BACKEND_URL}/api/hospitals/${hospitalKey}`),
-          fetch(`${BACKEND_URL}/api/hospitals/${hospitalKey}/queue-status`),
+          fetchWithBackendWake(`${BACKEND_URL}/api/hospitals/${hospitalKey}`),
+          fetchWithBackendWake(`${BACKEND_URL}/api/hospitals/${hospitalKey}/queue-status`),
         ]);
 
         if (!profileResponse.ok) {
@@ -61,7 +68,7 @@ const HospitalWebsite = ({ slug }) => {
         const profilePayload = await profileResponse.json();
         const queuePayload = queueResponse.ok ? await queueResponse.json() : null;
         const reviewsResponse = profilePayload?.hospital?._id
-          ? await fetch(`${BACKEND_URL}/api/reviews/hospital/${profilePayload.hospital._id}?limit=6`)
+          ? await fetchWithBackendWake(`${BACKEND_URL}/api/reviews/hospital/${profilePayload.hospital._id}?limit=6`)
           : null;
         const reviewsPayload = reviewsResponse?.ok ? await reviewsResponse.json() : { items: [] };
 
@@ -69,9 +76,16 @@ const HospitalWebsite = ({ slug }) => {
           setProfile(profilePayload);
           setQueue(queuePayload);
           setReviews(reviewsPayload.items || []);
+          hasLoadedProfileRef.current = true;
         }
       } catch (err) {
-        if (active) setError(err.message || "Could not load hospital website");
+        if (active) {
+          setError(
+            hasLoadedProfileRef.current
+              ? ""
+              : "Backend is waking up. Please wait a few seconds and refresh if this stays here.",
+          );
+        }
       } finally {
         if (active) setLoading(false);
       }
