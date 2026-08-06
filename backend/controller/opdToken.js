@@ -8,6 +8,8 @@ import { scheduleReviewRequest } from "../services/reviewRequestWorker.js";
 import { transferVirtualMoney } from "../services/virtualLedger.js";
 import { getIO } from "../socket.js";
 
+const OPD_BOOKING_FEE_INR = Number(process.env.APPOINTMENT_BOOKING_FEE_INR || 5);
+
 const dayRange = (date = new Date()) => {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
@@ -95,9 +97,20 @@ const issueToken = async (req, res) => {
   if (!department) return res.status(404).json({ message: "Department not found" });
   if (!doctor) return res.status(404).json({ message: "Doctor not found in this hospital" });
   if (existingPatientToken) {
-    return res.status(409).json({
+    const queuePosition = await OpdToken.countDocuments({
+      doctorId,
+      date: existingPatientToken.date,
+      status: { $in: ["waiting", "vitals_done", "in_consultation"] },
+      tokenNumber: { $lte: existingPatientToken.tokenNumber },
+    });
+    // FIXED: A browser retry after a successful token create used to show an error instead of returning the already-created queue token.
+    return res.status(200).json({
       message: "You already have an active OPD token for this doctor",
       token: existingPatientToken,
+      displayToken: existingPatientToken.displayToken,
+      estimatedWaitMinutes: existingPatientToken.estimatedWaitMinutes,
+      queuePosition,
+      payment: null,
     });
   }
 
@@ -113,7 +126,8 @@ const issueToken = async (req, res) => {
   });
   const estimatedWaitMinutes = queueAhead * (await avgConsultationMinutes(doctorId)) + 5;
   const displayToken = await buildDisplayToken(hospitalId, tokenNumber);
-  const fee = doctor.doctorProfile?.consultationFee || department.opd?.consultationFee || 0;
+  // FIXED: Public OPD booking was charging hospital consultation fees (INR 400+), unlike the main doctor booking queue's INR 5 wallet debit.
+  const fee = isPatientBooking ? OPD_BOOKING_FEE_INR : doctor.doctorProfile?.consultationFee || department.opd?.consultationFee || 0;
   let transaction = null;
 
   if (isPatientBooking && fee > 0) {
@@ -121,23 +135,30 @@ const issueToken = async (req, res) => {
       return res.status(409).json({ message: "This hospital doctor is still syncing. Please try again shortly." });
     }
 
-    transaction = await transferVirtualMoney({
-      senderId: req.auth.id,
-      senderRole: "user",
-      receiverId: doctor.doctorId,
-      receiverRole: "doctor",
-      amount: fee,
-      type: "PAYMENT",
-      description: `OPD token fee for ${doctor.name}`,
-      referenceId: `OPD-${hospitalId}-${departmentId}-${doctorId}-${req.auth.id}-${Date.now()}`,
-      metadata: {
-        source: "hospital-opd-token",
-        hospitalId,
-        departmentId,
-        doctorStaffId: doctorId,
-        platformDoctorId: doctor.doctorId,
-      },
-    });
+    try {
+      transaction = await transferVirtualMoney({
+        senderId: req.auth.id,
+        senderRole: "user",
+        receiverId: doctor.doctorId,
+        receiverRole: "doctor",
+        amount: fee,
+        type: "PAYMENT",
+        description: `OPD token booking fee for ${doctor.name}`,
+        referenceId: `OPD-${hospitalId}-${departmentId}-${doctorId}-${req.auth.id}-${Date.now()}`,
+        metadata: {
+          source: "hospital-opd-token",
+          hospitalId,
+          departmentId,
+          doctorStaffId: doctorId,
+          platformDoctorId: doctor.doctorId,
+        },
+      });
+    } catch (error) {
+      // FIXED: Wallet failures in OPD booking used to reject the async route and look like a dead backend in the browser.
+      return res.status(error.message === "Insufficient wallet balance" ? 402 : 409).json({
+        message: error.message || "Could not debit OPD booking fee",
+      });
+    }
   }
 
   const token = await OpdToken.create({
@@ -158,7 +179,7 @@ const issueToken = async (req, res) => {
     arrivedAt: new Date(),
     estimatedWaitMinutes,
     paymentStatus: isPatientBooking ? (fee > 0 ? "paid" : "waived") : "pending",
-    paymentAmount: fee,
+    paymentAmount: isPatientBooking ? fee : doctor.doctorProfile?.consultationFee || department.opd?.consultationFee || 0,
     paymentMode: isPatientBooking ? "wallet" : undefined,
   });
 
