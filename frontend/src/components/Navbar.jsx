@@ -180,12 +180,27 @@ const Navbar = () => {
       refreshDoctorBadge()
     }
 
+    const handleOpdPatientCalled = (payload = {}) => {
+      if (!(isAuth && role === 'user')) return
+      setToast({
+        title: `🏥 ${payload.hospitalName || 'Hospital'} — Your turn!`,
+        message: `${payload.doctorName || 'Doctor'} is ready. Token: ${payload.displayToken || ''}. Please proceed to the consultation room.`,
+        actionLabel: 'Go to Hospital',
+        action: () => {
+          setToast(null)
+          if (payload.hospitalSlug) navigate(`/hospitals/${payload.hospitalSlug}`)
+        },
+      })
+      loadBadge()
+    }
+
     socket.on('appointment:brief-ready', handleNewBooking)
     socket.on('appointment:queue-updated', refreshDoctorBadge)
     socket.on('appointment:user-status', handleUserStatus)
     socket.on('appointment:started', handleAppointmentStarted)
     socket.on('opd:token-issued', handleOpdTokenIssued)
     socket.on('opd:consultation-started', handleAppointmentStarted)
+    socket.on('opd:patient-called', handleOpdPatientCalled)
     socket.on('opd:consultation-completed', refreshDoctorBadge)
     socket.on('opd:no-show', refreshDoctorBadge)
 
@@ -199,6 +214,7 @@ const Navbar = () => {
       socket.off('appointment:started', handleAppointmentStarted)
       socket.off('opd:token-issued', handleOpdTokenIssued)
       socket.off('opd:consultation-started', handleAppointmentStarted)
+      socket.off('opd:patient-called', handleOpdPatientCalled)
       socket.off('opd:consultation-completed', refreshDoctorBadge)
       socket.off('opd:no-show', refreshDoctorBadge)
     }
