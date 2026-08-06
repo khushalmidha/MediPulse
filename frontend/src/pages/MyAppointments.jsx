@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { FileText, Download, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import jsPDF from 'jspdf'
-import QRCode from 'qrcode'
 import axios from 'axios'
 
 const MyAppointments = () => {
@@ -159,33 +158,6 @@ const MyAppointments = () => {
       doc.setFont('Arial', 'normal')
       doc.setFontSize(8)
       doc.text('Doctor Signature', 15, yPosition)
-
-      yPosition += 12
-
-      // QR Code
-      if (yPosition > pageHeight - 40) {
-        doc.addPage()
-        yPosition = 15
-      }
-
-      const qrData = {
-        appointmentId: appointment._id,
-        doctor: `${appointment.doctor?.firstName} ${appointment.doctor?.lastName}`,
-        patient: `${user?.firstName} ${user?.lastName}`,
-        date: new Date(appointment.createdAt).toLocaleDateString(),
-        verified: true,
-      }
-
-      const qrDataString = JSON.stringify(qrData)
-      const qrCanvas = await QRCode.toCanvas(qrDataString)
-      const qrImage = qrCanvas.toDataURL('image/png')
-
-      const qrWidth = 40
-      doc.addImage(qrImage, 'PNG', pageWidth / 2 - qrWidth / 2, yPosition, qrWidth, qrWidth)
-
-      yPosition += qrWidth + 5
-      doc.setFontSize(8)
-      doc.text('QR Code for Verification', pageWidth / 2, yPosition, { align: 'center' })
 
       // Footer
       doc.setTextColor(150, 150, 150)
