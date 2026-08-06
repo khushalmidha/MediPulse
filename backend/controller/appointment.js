@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import Appointment from "../model/appointment.js";
 import Doctor from "../model/doctor.js";
+import OpdToken from "../model/opdToken.js";
 import User from "../model/user.js";
 import { getIO } from "../socket.js";
 import { generateGeminiText } from "./gemini.js";
@@ -227,6 +228,20 @@ const finishAppointment = async (appointmentId, endedBy, endedReason) => {
   await appointment.save();
   clearAppointmentTimeout(appointmentId);
 
+  const linkedToken = await OpdToken.findOne({ appointmentId: appointment._id });
+  if (linkedToken) {
+    // FIXED: Ending a synced hospital OPD appointment from the normal doctor queue did not complete the OPD token.
+    linkedToken.status = "completed";
+    linkedToken.consultationEndedAt = appointment.endedAt;
+    await linkedToken.save();
+    await clearLinkedOpdCache(linkedToken);
+    const io = getIO();
+    if (io) {
+      io.to(`hospital:${linkedToken.hospitalId.toString()}`).emit("opd:consultation-completed", { token: linkedToken });
+      io.to(`doctor:${linkedToken.doctorId.toString()}`).emit("opd:consultation-completed", { token: linkedToken });
+    }
+  }
+
   await emitQueueUpdates(appointment.doctor.toString());
 
   const io = getIO();
@@ -382,6 +397,15 @@ const queuePositionForAppointment = async (appointment) =>
     status: "queued",
     createdAt: { $lte: appointment.createdAt },
   })) || 1;
+
+const clearLinkedOpdCache = async (token) => {
+  if (!token) return;
+  const date = (token.date || new Date()).toISOString().slice(0, 10);
+  await getRedis().del(
+    `opd:queue:${token.doctorId.toString()}:${date}`,
+    `hospital:queue-status:${token.hospitalId.toString()}`,
+  );
+};
 
 const sendAppointmentOtp = async (req, res) => {
   const { doctorId } = req.params;
@@ -927,6 +951,20 @@ const startAppointment = async (req, res) => {
   appointment.endedReason = null;
   await appointment.save();
   await getRedis().zrem(autoRefundSetKey, appointment._id.toString());
+
+  const linkedToken = await OpdToken.findOne({ appointmentId: appointment._id });
+  if (linkedToken) {
+    // FIXED: Starting a synced hospital OPD appointment from the doctor queue did not update the OPD console or patient token status.
+    linkedToken.status = "in_consultation";
+    linkedToken.consultationStartedAt = appointment.startedAt;
+    await linkedToken.save();
+    await clearLinkedOpdCache(linkedToken);
+    const io = getIO();
+    if (io) {
+      io.to(`hospital:${linkedToken.hospitalId.toString()}`).emit("opd:consultation-started", { token: linkedToken });
+      io.to(`doctor:${linkedToken.doctorId.toString()}`).emit("opd:consultation-started", { token: linkedToken });
+    }
+  }
 
   scheduleAppointmentTimeout(appointmentId.toString());
   await emitQueueUpdates(req.auth.id.toString());

@@ -14,11 +14,22 @@ import { useAuth } from '../context/AuthContext'
 import Cookies from 'js-cookie'
 import axios from 'axios'
 import { BACKEND_URL } from '../utils'
+import { getSocket } from '../socket'
+
+const Badge = ({ count }) =>
+  count > 0 ? (
+    <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+      {count > 99 ? '99+' : count}
+    </span>
+  ) : null
 
 const Navbar = () => {
   const [showProfile, setShowProfile] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [walletBalance, setWalletBalance] = useState(null)
+  const [appointmentBadge, setAppointmentBadge] = useState(0)
+  const [staffOpdBadge, setStaffOpdBadge] = useState(0)
+  const [toast, setToast] = useState(null)
   const navigate = useNavigate()
   const profileRef = useRef(null)
   const mobileMenuRef = useRef(null)
@@ -85,6 +96,86 @@ const Navbar = () => {
     }
   }, [showProfile, isAuth, isStaffAuth])
 
+  useEffect(() => {
+    if (!toast) return undefined
+    const timer = window.setTimeout(() => setToast(null), 7000)
+    return () => window.clearTimeout(timer)
+  }, [toast])
+
+  useEffect(() => {
+    if (!isLoggedIn) return undefined
+    let cancelled = false
+
+    const loadBadge = async () => {
+      try {
+        if (isStaffAuth && staffRole === 'DOCTOR') {
+          const hospitalId = staffUser?.hospitalId || staffHospital?._id
+          const doctorId = staffUser?._id || staffUser?.id
+          if (!hospitalId || !doctorId) return
+          const response = await axios.get(`${BACKEND_URL}/api/opd/${hospitalId}/${doctorId}/queue`, { withCredentials: true })
+          if (!cancelled) setStaffOpdBadge(response.data?.waiting?.length || 0)
+          return
+        }
+
+        if (isAuth && role === 'doctor') {
+          const response = await axios.get(`${BACKEND_URL}/appointment/doctor/queue`, { withCredentials: true })
+          if (!cancelled) setAppointmentBadge(response.data?.pendingCount || 0)
+        }
+      } catch {
+        if (!cancelled) {
+          setAppointmentBadge(0)
+          setStaffOpdBadge(0)
+        }
+      }
+    }
+
+    loadBadge()
+    const socket = getSocket()
+    if (!socket.connected) socket.connect()
+
+    const refreshDoctorBadge = () => {
+      loadBadge()
+    }
+    const handleNewBooking = () => {
+      setToast({ title: 'New appointment booked', message: 'A patient joined your queue.' })
+      loadBadge()
+    }
+    const handleOpdTokenIssued = ({ token } = {}) => {
+      setToast({ title: 'New OPD token', message: `${token?.displayToken || 'Token'} added to your hospital queue.` })
+      loadBadge()
+    }
+    const handleAppointmentStarted = ({ appointmentId } = {}) => {
+      setToast({ title: 'Appointment started', message: 'Doctor has started the appointment. Join the consultation room now.' })
+      if (appointmentId && role === 'user') {
+        setAppointmentBadge((count) => Math.max(count, 1))
+      }
+      loadBadge()
+    }
+
+    socket.on('appointment:brief-ready', handleNewBooking)
+    socket.on('appointment:queue-updated', refreshDoctorBadge)
+    socket.on('appointment:user-status', refreshDoctorBadge)
+    socket.on('appointment:started', handleAppointmentStarted)
+    socket.on('opd:token-issued', handleOpdTokenIssued)
+    socket.on('opd:consultation-started', handleAppointmentStarted)
+    socket.on('opd:consultation-completed', refreshDoctorBadge)
+    socket.on('opd:no-show', refreshDoctorBadge)
+
+    const interval = window.setInterval(loadBadge, 15000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      socket.off('appointment:brief-ready', handleNewBooking)
+      socket.off('appointment:queue-updated', refreshDoctorBadge)
+      socket.off('appointment:user-status', refreshDoctorBadge)
+      socket.off('appointment:started', handleAppointmentStarted)
+      socket.off('opd:token-issued', handleOpdTokenIssued)
+      socket.off('opd:consultation-started', handleAppointmentStarted)
+      socket.off('opd:consultation-completed', refreshDoctorBadge)
+      socket.off('opd:no-show', refreshDoctorBadge)
+    }
+  }, [isLoggedIn, isAuth, role, isStaffAuth, staffRole, staffUser?._id, staffUser?.id, staffUser?.hospitalId, staffHospital?._id])
+
   const activeStyle = 'whitespace-nowrap text-blue-600 font-medium border-b-2 border-blue-600 pb-1'
   const inactiveStyle = 'whitespace-nowrap text-gray-700 hover:text-blue-600 transition-colors'
   const mobileLinkStyle = ({ isActive }) =>
@@ -93,7 +184,7 @@ const Navbar = () => {
   const staffNavLinks = [
     { to: '/hospital/admin', label: 'Dashboard', icon: Building2 },
     ...(['HOSPITAL_ADMIN', 'NURSE', 'RECEPTIONIST'].includes(staffRole) ? [{ to: '/hospital/nursing-station', label: 'OPD Tokens', icon: ClipboardList }] : []),
-    ...(staffRole === 'DOCTOR' ? [{ to: '/hospital/doctor-opd', label: 'Consultation', icon: Stethoscope }] : []),
+    ...(staffRole === 'DOCTOR' ? [{ to: '/hospital/doctor-opd', label: 'Consultation', icon: Stethoscope, badge: staffOpdBadge }] : []),
     { to: '/hospital/staff-communication', label: 'Staff Chat', icon: MessageSquare },
   ]
 
@@ -105,7 +196,7 @@ const Navbar = () => {
     { to: '/communities', label: 'Communities' },
     { to: '/events', label: 'Events' },
     { to: '/chat', label: 'Chat' },
-    ...(role === 'doctor' ? [{ to: '/doctor/appointments', label: 'Appointments' }] : []),
+    ...(role === 'doctor' ? [{ to: '/doctor/appointments', label: 'Appointments', badge: appointmentBadge }] : []),
     ...(role === 'user' ? [{ to: '/health-records', label: 'Health Records' }] : []),
   ]
 
@@ -144,15 +235,17 @@ const Navbar = () => {
 
           <div className="hidden min-w-0 flex-1 items-center justify-center gap-4 text-sm lg:gap-5 xl:gap-6 md:flex">
             {isStaffAuth
-              ? staffNavLinks.map(({ to, label, icon: Icon }) => (
+              ? staffNavLinks.map(({ to, label, icon: Icon, badge }) => (
                   <NavLink key={to} to={to} className={({ isActive }) => `flex items-center gap-1.5 ${isActive ? activeStyle : inactiveStyle}`}>
                     <Icon size={16} />
                     {label}
+                    <Badge count={badge || 0} />
                   </NavLink>
                 ))
-              : userNavLinks.map(({ to, label }) => (
+              : userNavLinks.map(({ to, label, badge }) => (
                   <NavLink key={to} to={to} className={({ isActive }) => (isActive ? activeStyle : inactiveStyle)}>
                     {label}
+                    <Badge count={badge || 0} />
                   </NavLink>
                 ))}
           </div>
@@ -242,9 +335,9 @@ const Navbar = () => {
       {showMobileMenu && (
         <div className="border-t border-gray-200 bg-white md:hidden" ref={mobileMenuRef}>
           <div className="space-y-1 px-2 pb-3 pt-2">
-            {(isStaffAuth ? staffNavLinks : userNavLinks).map(({ to, label, icon: Icon }) => (
+            {(isStaffAuth ? staffNavLinks : userNavLinks).map(({ to, label, icon: Icon, badge }) => (
               <NavLink key={to} to={to} onClick={() => setShowMobileMenu(false)} className={mobileLinkStyle}>
-                <span className="flex items-center gap-2">{Icon && <Icon size={16} />}{label}</span>
+                <span className="flex items-center gap-2">{Icon && <Icon size={16} />}{label}<Badge count={badge || 0} /></span>
               </NavLink>
             ))}
 
@@ -275,6 +368,12 @@ const Navbar = () => {
               )}
             </div>
           </div>
+        </div>
+      )}
+      {toast && (
+        <div className="fixed left-4 top-20 z-[70] max-w-sm rounded-lg border border-blue-100 bg-white p-4 shadow-xl">
+          <p className="text-sm font-bold text-slate-950">{toast.title}</p>
+          <p className="mt-1 text-sm text-slate-600">{toast.message}</p>
         </div>
       )}
     </nav>

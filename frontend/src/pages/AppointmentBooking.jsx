@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import jsPDF from "jspdf";
-import QRCode from "qrcode";
 import { BACKEND_URL } from "../utils";
 import { useAuth } from "../context/AuthContext";
 import AppointmentVideoCall from "../components/AppointmentVideoCall";
@@ -252,38 +251,6 @@ const AppointmentBooking = () => {
     if (appointment.endedAt) {
       doc.text(`Ended At: ${new Date(appointment.endedAt).toLocaleString()}`, 42, 228);
     }
-
-    const qrPayload = JSON.stringify({
-      source: "MediPulse",
-      website: window.location.origin,
-      appointmentId: appointment._id,
-      doctor: doctorName,
-      patient: patientName,
-      generatedAt: new Date().toISOString(),
-    });
-
-    const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-      errorCorrectionLevel: "M",
-      margin: 1,
-      width: 170,
-      color: {
-        dark: "#143e84",
-        light: "#ffffff",
-      },
-    });
-
-    const qrX = width - 185;
-    const qrY = 112;
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(qrX - 10, qrY - 12, 150, 170, 10, 10, "F");
-    doc.setDrawColor(210, 220, 236);
-    doc.roundedRect(qrX - 10, qrY - 12, 150, 170, 10, 10, "S");
-    doc.addImage(qrDataUrl, "PNG", qrX, qrY, 130, 130);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(27, 52, 97);
-    doc.text("Scan to verify", qrX + 65, qrY + 146, { align: "center" });
 
     doc.setDrawColor(204, 214, 230);
     doc.line(42, 250, width - 42, 250);

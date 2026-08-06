@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import Appointment from "../model/appointment.js";
 import OpdToken from "../model/opdToken.js";
 import Department from "../model/department.js";
 import Hospital from "../model/hospital.js";
@@ -97,6 +98,43 @@ const issueToken = async (req, res) => {
   if (!department) return res.status(404).json({ message: "Department not found" });
   if (!doctor) return res.status(404).json({ message: "Doctor not found in this hospital" });
   if (existingPatientToken) {
+    let linkedAppointmentId = existingPatientToken.appointmentId;
+    if (isPatientBooking && doctor.doctorId && !linkedAppointmentId) {
+      const existingAppointment = await Appointment.findOne({
+        doctor: doctor.doctorId,
+        user: req.auth.id,
+        status: { $in: ["queued", "active"] },
+      });
+      const linkedAppointment =
+        existingAppointment ||
+        (await Appointment.create({
+          doctor: doctor.doctorId,
+          user: req.auth.id,
+          familyMemberId: existingPatientToken.familyMemberId,
+          roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
+          status: "queued",
+          patientBrief: existingPatientToken.chiefComplaint
+            ? {
+                chiefComplaint: existingPatientToken.chiefComplaint,
+                urgencyLevel: "ROUTINE",
+                agentSummary: existingPatientToken.chiefComplaint,
+                generatedAt: new Date(),
+                conversationTurns: 0,
+              }
+            : undefined,
+        }));
+      // FIXED: Tokens created before Appointment sync stayed invisible to the synced doctor's appointment queue.
+      existingPatientToken.appointmentId = linkedAppointment._id;
+      await existingPatientToken.save();
+      linkedAppointmentId = linkedAppointment._id;
+      const io = getIO();
+      if (io) {
+        io.to(`doctor:${doctor.doctorId.toString()}`).emit("appointment:brief-ready", {
+          appointmentId: linkedAppointment._id,
+          source: "hospital-opd",
+        });
+      }
+    }
     const queuePosition = await OpdToken.countDocuments({
       doctorId,
       date: existingPatientToken.date,
@@ -107,6 +145,7 @@ const issueToken = async (req, res) => {
     return res.status(200).json({
       message: "You already have an active OPD token for this doctor",
       token: existingPatientToken,
+      appointmentId: linkedAppointmentId,
       displayToken: existingPatientToken.displayToken,
       estimatedWaitMinutes: existingPatientToken.estimatedWaitMinutes,
       queuePosition,
@@ -129,10 +168,25 @@ const issueToken = async (req, res) => {
   // FIXED: Public OPD booking was charging hospital consultation fees (INR 400+), unlike the main doctor booking queue's INR 5 wallet debit.
   const fee = isPatientBooking ? OPD_BOOKING_FEE_INR : doctor.doctorProfile?.consultationFee || department.opd?.consultationFee || 0;
   let transaction = null;
+  let linkedAppointment = null;
 
   if (isPatientBooking && fee > 0) {
     if (!doctor.doctorId) {
       return res.status(409).json({ message: "This hospital doctor is still syncing. Please try again shortly." });
+    }
+
+    const existingAppointment = await Appointment.findOne({
+      doctor: doctor.doctorId,
+      user: req.auth.id,
+      status: { $in: ["queued", "active"] },
+    });
+    if (existingAppointment) {
+      // FIXED: Duplicate hospital OPD booking checked the normal appointment queue only after wallet debit.
+      return res.status(409).json({
+        message: "You already have an active appointment in this doctor's queue",
+        appointmentId: existingAppointment._id,
+        appointmentStatus: existingAppointment.status,
+      });
     }
 
     try {
@@ -161,6 +215,36 @@ const issueToken = async (req, res) => {
     }
   }
 
+  if (isPatientBooking && doctor.doctorId) {
+    // FIXED: Hospital OPD bookings created only OpdToken records, so synced doctors never saw them in the normal appointment queue.
+    linkedAppointment = await Appointment.create({
+      doctor: doctor.doctorId,
+      user: req.auth.id,
+      familyMemberId,
+      roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
+      status: "queued",
+      patientBrief: chiefComplaint
+        ? {
+            chiefComplaint,
+            urgencyLevel: "ROUTINE",
+            agentSummary: chiefComplaint,
+            generatedAt: new Date(),
+            conversationTurns: 0,
+          }
+        : undefined,
+      payment: transaction
+        ? {
+            provider: "wallet",
+            orderId: transaction.transactionId,
+            paymentId: transaction.transactionId,
+            amount: fee,
+            currency: "INR",
+            paidAt: new Date(),
+          }
+        : undefined,
+    });
+  }
+
   const token = await OpdToken.create({
     hospitalId,
     departmentId,
@@ -181,13 +265,34 @@ const issueToken = async (req, res) => {
     paymentStatus: isPatientBooking ? (fee > 0 ? "paid" : "waived") : "pending",
     paymentAmount: isPatientBooking ? fee : doctor.doctorProfile?.consultationFee || department.opd?.consultationFee || 0,
     paymentMode: isPatientBooking ? "wallet" : undefined,
+    appointmentId: linkedAppointment?._id,
   });
 
   await clearOpdCache({ hospitalId, doctorId });
   emitHospital(hospitalId, "opd:token-issued", { token });
+  emitDoctor(doctorId, "opd:token-issued", { token });
+  const io = getIO();
+  if (io && linkedAppointment) {
+    // FIXED: New hospital OPD appointments did not notify the synced platform doctor or patient appointment badge.
+    io.to(`doctor:${doctor.doctorId.toString()}`).emit("appointment:brief-ready", {
+      appointmentId: linkedAppointment._id,
+      source: "hospital-opd",
+    });
+    io.to(`user:${req.auth.id}`).emit("appointment:user-status", {
+      doctorId: doctor.doctorId.toString(),
+      pendingCount: 1,
+      appointmentId: linkedAppointment._id,
+      status: "queued",
+      queuePosition: queueAhead + 1,
+      hospitalId,
+      opdTokenId: token._id,
+      displayToken,
+    });
+  }
 
   return res.status(201).json({
     token,
+    appointmentId: linkedAppointment?._id,
     displayToken,
     estimatedWaitMinutes,
     queuePosition: queueAhead + 1,
