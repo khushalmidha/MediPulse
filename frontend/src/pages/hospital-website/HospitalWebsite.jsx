@@ -172,11 +172,20 @@ const HospitalWebsite = ({ slug }) => {
     const handleStatus = (payload = {}) => {
       if (payload.status === "active") showJoin(payload);
     };
+    const handleOpdCalled = (payload = {}) => {
+      setPatientToast({
+        message: `${payload.doctorName || "Doctor"} is ready for you. Token: ${payload.displayToken || ""}. Please proceed to the consultation room.`,
+        hospitalSlug: payload.hospitalSlug,
+        isOpd: true,
+      });
+    };
     socket.on("appointment:started", showJoin);
     socket.on("appointment:user-status", handleStatus);
+    socket.on("opd:patient-called", handleOpdCalled);
     return () => {
       socket.off("appointment:started", showJoin);
       socket.off("appointment:user-status", handleStatus);
+      socket.off("opd:patient-called", handleOpdCalled);
     };
   }, [isAuth, role]);
 
@@ -249,15 +258,28 @@ const HospitalWebsite = ({ slug }) => {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       {patientToast && (
         <div className="fixed left-4 top-4 z-50 max-w-sm rounded-lg border border-blue-100 bg-white p-4 shadow-xl">
-          <p className="text-sm font-bold text-slate-950">Appointment started</p>
+          <p className="text-sm font-bold text-slate-950">{patientToast.isOpd ? "🏥 Your turn!" : "Appointment started"}</p>
           <p className="mt-1 text-sm text-slate-600">{patientToast.message}</p>
-          <button
-            type="button"
-            onClick={() => navigate(`/appointment/book/${patientToast.doctorId}`)}
-            className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
-          >
-            Join meeting
-          </button>
+          <div className="mt-3 flex gap-2">
+            {patientToast.isOpd ? (
+              <button
+                type="button"
+                onClick={() => setPatientToast(null)}
+                className="rounded-md bg-green-600 px-4 py-2 text-sm font-bold text-white hover:bg-green-700"
+              >
+                Got it
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate(`/appointment/book/${patientToast.doctorId}`)}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+              >
+                Join meeting
+              </button>
+            )}
+            <button type="button" onClick={() => setPatientToast(null)} className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Dismiss</button>
+          </div>
         </div>
       )}
       <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -466,7 +488,7 @@ const HospitalWebsite = ({ slug }) => {
 
             {bookingResult ? (
               <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-5">
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-3">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white">
                     <span className="text-xl font-black">{bookingResult.displayToken}</span>
                   </div>
@@ -475,10 +497,24 @@ const HospitalWebsite = ({ slug }) => {
                     <p className="text-sm text-green-700">Queue position #{bookingResult.queuePosition}</p>
                   </div>
                 </div>
-                <p className="text-sm text-green-700">Estimated wait: ~{bookingResult.estimatedWaitMinutes} minutes</p>
-                <button onClick={() => setBookingDoctor(null)} className="mt-4 w-full rounded-lg border border-green-300 px-4 py-2 text-sm font-bold text-green-800">
-                  Close
-                </button>
+                <p className="mt-3 text-sm text-green-700">Estimated wait: ~{bookingResult.estimatedWaitMinutes} minutes</p>
+                <p className="text-xs text-green-600">You will be notified when the doctor is ready for you.</p>
+                <div className="mt-4 flex flex-col gap-2">
+                  {bookingResult.token?._id && (
+                    <button
+                      onClick={() => { setBookingDoctor(null); navigate(`/opd/triage?token=${bookingResult.token._id}`); }}
+                      className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+                    >
+                      Complete AI Triage (Recommended)
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setBookingDoctor(null); navigate('/my-appointments'); }}
+                    className="w-full rounded-lg border border-green-300 px-4 py-2 text-sm font-bold text-green-800 hover:bg-green-50"
+                  >
+                    View My Appointments
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="mt-5 space-y-4">

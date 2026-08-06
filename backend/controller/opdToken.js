@@ -435,6 +435,22 @@ const startConsultation = async (req, res) => {
       endsAt: payload.endsAt,
     });
   }
+
+  // Always notify the patient that they have been called, even without a linked appointment
+  if (io && token.patientId) {
+    const hospital = await Hospital.findById(token.hospitalId).select("name slug").lean();
+    const doctor = await HospitalStaff.findById(token.doctorId).select("name").lean();
+    io.to(`user:${token.patientId.toString()}`).emit("opd:patient-called", {
+      tokenId: token._id,
+      displayToken: token.displayToken,
+      hospitalId: token.hospitalId.toString(),
+      hospitalName: hospital?.name || "Hospital",
+      hospitalSlug: hospital?.slug || "",
+      doctorName: doctor?.name || "Doctor",
+      departmentId: token.departmentId?.toString(),
+      status: "in_consultation",
+    });
+  }
   return res.status(200).json({ message: "Consultation started", token });
 };
 
