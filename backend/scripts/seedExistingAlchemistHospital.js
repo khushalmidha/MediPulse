@@ -15,12 +15,12 @@ const hospitalId = process.env.SEED_HOSPITAL_ID || "6a6a2c4bd6a136ab21624c26";
 const staffPassword = process.env.DEMO_STAFF_PASSWORD || "Khushal@123";
 
 const departments = [
-  ["Cardiology", "CARD", "HeartPulse", "#dc2626", 750, "Preventive heart care, hypertension, ECG review and post-procedure follow-up."],
-  ["Orthopaedics", "ORTH", "Bone", "#2563eb", 650, "Joint pain, sports injuries, fracture follow-up, spine and mobility rehabilitation."],
-  ["Neurology", "NEUR", "Brain", "#7c3aed", 900, "Headache, stroke follow-up, seizures, nerve pain and neurological rehabilitation."],
-  ["Paediatrics", "PAED", "Baby", "#0891b2", 550, "Child health, fever clinics, allergies, nutrition and vaccination guidance."],
-  ["Emergency Medicine", "EMER", "Ambulance", "#ea580c", 800, "Emergency triage, urgent OPD screening and acute care stabilization."],
-  ["Diagnostics", "DIAG", "Microscope", "#0f766e", 350, "Lab tests, health packages, imaging coordination and diagnostic follow-ups."],
+  ["Cardiology", "CARD", "HeartPulse", "#dc2626", 100, "Preventive heart care, hypertension, ECG review and post-procedure follow-up."],
+  ["Orthopaedics", "ORTH", "Bone", "#2563eb", 100, "Joint pain, sports injuries, fracture follow-up, spine and mobility rehabilitation."],
+  ["Neurology", "NEUR", "Brain", "#7c3aed", 100, "Headache, stroke follow-up, seizures, nerve pain and neurological rehabilitation."],
+  ["Paediatrics", "PAED", "Baby", "#0891b2", 100, "Child health, fever clinics, allergies, nutrition and vaccination guidance."],
+  ["Emergency Medicine", "EMER", "Ambulance", "#ea580c", 100, "Emergency triage, urgent OPD screening and acute care stabilization."],
+  ["Diagnostics", "DIAG", "Microscope", "#0f766e", 100, "Lab tests, health packages, imaging coordination and diagnostic follow-ups."],
 ];
 
 const demoAccounts = [
@@ -30,7 +30,7 @@ const demoAccounts = [
     role: "DOCTOR",
     department: "Cardiology",
     profilePhoto: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=400&q=80",
-    doctorProfile: { qualification: "DM Cardiology", specialization: "Interventional Cardiology", experience: 12, consultationFee: 750, rating: 4.9, totalReviews: 132 },
+    doctorProfile: { qualification: "DM Cardiology", specialization: "Interventional Cardiology", experience: 12, consultationFee: 100, rating: 4.9, totalReviews: 132 },
   },
   {
     name: "Dr. Kavya Midha",
@@ -38,7 +38,7 @@ const demoAccounts = [
     role: "DOCTOR",
     department: "Neurology",
     profilePhoto: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=400&q=80",
-    doctorProfile: { qualification: "DM Neurology", specialization: "Stroke and Headache Medicine", experience: 10, consultationFee: 900, rating: 4.8, totalReviews: 118 },
+    doctorProfile: { qualification: "DM Neurology", specialization: "Stroke and Headache Medicine", experience: 10, consultationFee: 100, rating: 4.8, totalReviews: 118 },
   },
   {
     name: "Khushal Midha",
@@ -60,7 +60,7 @@ const demoAccounts = [
     role: "DOCTOR",
     department: "Orthopaedics",
     profilePhoto: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=400&q=80",
-    doctorProfile: { qualification: "MS Orthopaedics", specialization: "Joint Replacement and Sports Injury", experience: 9, consultationFee: 650, rating: 4.7, totalReviews: 96 },
+    doctorProfile: { qualification: "MS Orthopaedics", specialization: "Joint Replacement and Sports Injury", experience: 9, consultationFee: 100, rating: 4.7, totalReviews: 96 },
   },
   {
     name: "Nurse Khushal Midha",
@@ -75,7 +75,7 @@ const demoAccounts = [
     role: "DOCTOR",
     department: "Paediatrics",
     profilePhoto: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=400&q=80",
-    doctorProfile: { qualification: "MD Paediatrics", specialization: "Child Health and Vaccination", experience: 8, consultationFee: 550, rating: 4.8, totalReviews: 104 },
+    doctorProfile: { qualification: "MD Paediatrics", specialization: "Child Health and Vaccination", experience: 8, consultationFee: 100, rating: 4.8, totalReviews: 104 },
   },
   {
     name: "Sohit Sehgal",
