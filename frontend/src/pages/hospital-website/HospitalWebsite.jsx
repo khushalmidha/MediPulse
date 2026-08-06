@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import { Activity, CalendarDays, MapPin, Phone, Search, Star, Stethoscope, Users, X } from "lucide-react";
 import { BACKEND_URL } from "../../utils";
 import { useAuth } from "../../context/AuthContext";
+import { getSocket } from "../../socket";
 
 const resolveHospitalKey = (slug) => (typeof slug === "string" ? slug : slug?.customDomain);
 
@@ -46,6 +47,7 @@ const HospitalWebsite = ({ slug }) => {
   const [booking, setBooking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [patientToast, setPatientToast] = useState(null);
   const hasLoadedProfileRef = useRef(false);
 
   useEffect(() => {
@@ -156,6 +158,28 @@ const HospitalWebsite = ({ slug }) => {
     return () => window.clearInterval(timer);
   }, [sliderImages.length]);
 
+  useEffect(() => {
+    if (!isAuth || role !== "user") return undefined;
+    const socket = getSocket();
+    if (!socket.connected) socket.connect();
+    const showJoin = (payload = {}) => {
+      if (!payload.doctorId) return;
+      setPatientToast({
+        message: "Doctor has started your consultation.",
+        doctorId: payload.doctorId,
+      });
+    };
+    const handleStatus = (payload = {}) => {
+      if (payload.status === "active") showJoin(payload);
+    };
+    socket.on("appointment:started", showJoin);
+    socket.on("appointment:user-status", handleStatus);
+    return () => {
+      socket.off("appointment:started", showJoin);
+      socket.off("appointment:user-status", handleStatus);
+    };
+  }, [isAuth, role]);
+
   const openBooking = (doctor) => {
     if (!isAuth || role !== "user") {
       navigate("/login");
@@ -223,6 +247,19 @@ const HospitalWebsite = ({ slug }) => {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
+      {patientToast && (
+        <div className="fixed left-4 top-4 z-50 max-w-sm rounded-lg border border-blue-100 bg-white p-4 shadow-xl">
+          <p className="text-sm font-bold text-slate-950">Appointment started</p>
+          <p className="mt-1 text-sm text-slate-600">{patientToast.message}</p>
+          <button
+            type="button"
+            onClick={() => navigate(`/appointment/book/${patientToast.doctorId}`)}
+            className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+          >
+            Join meeting
+          </button>
+        </div>
+      )}
       <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">

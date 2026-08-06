@@ -396,8 +396,45 @@ const startConsultation = async (req, res) => {
   token.status = "in_consultation";
   token.consultationStartedAt = new Date();
   await token.save();
+  let linkedAppointment = null;
+  if (token.appointmentId) {
+    linkedAppointment = await Appointment.findById(token.appointmentId);
+    if (linkedAppointment && linkedAppointment.status === "queued") {
+      // FIXED: Starting a hospital OPD token did not activate the linked patient video appointment.
+      linkedAppointment.status = "active";
+      linkedAppointment.startedAt = token.consultationStartedAt;
+      linkedAppointment.endedAt = null;
+      linkedAppointment.endedBy = null;
+      linkedAppointment.endedReason = null;
+      await linkedAppointment.save();
+    }
+  }
   await clearOpdCache({ hospitalId: token.hospitalId, doctorId: token.doctorId });
   emitHospital(token.hospitalId, "opd:consultation-started", { token });
+  emitDoctor(token.doctorId, "opd:consultation-started", { token });
+  const io = getIO();
+  if (io && linkedAppointment) {
+    const payload = {
+      appointmentId: linkedAppointment._id,
+      doctorId: linkedAppointment.doctor.toString(),
+      userId: linkedAppointment.user.toString(),
+      status: linkedAppointment.status,
+      startedAt: linkedAppointment.startedAt,
+      endsAt: new Date(linkedAppointment.startedAt.getTime() + 5 * 60 * 1000),
+      source: "hospital-opd",
+      opdTokenId: token._id,
+    };
+    io.to(`user:${linkedAppointment.user.toString()}`).emit("appointment:started", payload);
+    io.to(`user:${linkedAppointment.user.toString()}`).emit("appointment:user-status", {
+      doctorId: linkedAppointment.doctor.toString(),
+      pendingCount: 0,
+      appointmentId: linkedAppointment._id,
+      status: "active",
+      queuePosition: 0,
+      startedAt: linkedAppointment.startedAt,
+      endsAt: payload.endsAt,
+    });
+  }
   return res.status(200).json({ message: "Consultation started", token });
 };
 
@@ -417,6 +454,25 @@ const completeConsultation = async (req, res) => {
     if (!Number.isNaN(followUp.getTime())) token.followUpDate = followUp;
   }
   await token.save();
+  if (token.appointmentId) {
+    const linkedAppointment = await Appointment.findById(token.appointmentId);
+    if (linkedAppointment && linkedAppointment.status === "active") {
+      // FIXED: Completing a hospital OPD token left the linked video appointment active for the patient.
+      linkedAppointment.status = "completed";
+      linkedAppointment.endedAt = token.consultationEndedAt;
+      linkedAppointment.endedBy = "doctor";
+      linkedAppointment.endedReason = "doctor-ended";
+      await linkedAppointment.save();
+      const io = getIO();
+      if (io) {
+        io.to(`user:${linkedAppointment.user.toString()}`).emit("appointment:ended", {
+          appointmentId: linkedAppointment._id,
+          status: "completed",
+          endedAt: linkedAppointment.endedAt,
+        });
+      }
+    }
+  }
   await clearOpdCache({ hospitalId: token.hospitalId, doctorId: token.doctorId });
   await scheduleReviewRequest({ tokenId: token._id, patientId: token.patientId, hospitalId: token.hospitalId });
   emitHospital(token.hospitalId, "opd:consultation-completed", {
