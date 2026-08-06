@@ -978,12 +978,14 @@ const startAppointment = async (req, res) => {
   if (io) {
     const payload = {
       appointmentId: appointment._id,
+      doctorId: appointment.doctor.toString(),
+      userId: appointment.user.toString(),
       status: appointment.status,
       startedAt: appointment.startedAt,
       endsAt: new Date(appointment.startedAt.getTime() + APPOINTMENT_DURATION_MS),
     };
     io.to(`appointment:${appointmentId}`).emit("appointment:started", payload);
-    io.to(`doctor:${appointment.doctor.toString()}`).emit("appointment:started", payload);
+    // FIXED: The doctor was receiving the patient-facing "join meeting" notification after starting the appointment.
     io.to(`user:${appointment.user.toString()}`).emit("appointment:started", payload);
   }
 

@@ -120,6 +120,13 @@ const Navbar = () => {
         if (isAuth && role === 'doctor') {
           const response = await axios.get(`${BACKEND_URL}/appointment/doctor/queue`, { withCredentials: true })
           if (!cancelled) setAppointmentBadge(response.data?.pendingCount || 0)
+          return
+        }
+
+        if (isAuth && role === 'user') {
+          const response = await axios.get(`${BACKEND_URL}/appointment/history`, { withCredentials: true })
+          const activeCount = (response.data?.appointments || []).filter((appointment) => ['queued', 'active'].includes(appointment.status)).length
+          if (!cancelled) setAppointmentBadge(activeCount)
         }
       } catch {
         if (!cancelled) {
@@ -137,24 +144,45 @@ const Navbar = () => {
       loadBadge()
     }
     const handleNewBooking = () => {
+      if (role !== 'doctor') return
       setToast({ title: 'New appointment booked', message: 'A patient joined your queue.' })
       loadBadge()
     }
     const handleOpdTokenIssued = ({ token } = {}) => {
+      if (!(isStaffAuth && staffRole === 'DOCTOR')) return
       setToast({ title: 'New OPD token', message: `${token?.displayToken || 'Token'} added to your hospital queue.` })
       loadBadge()
     }
-    const handleAppointmentStarted = ({ appointmentId } = {}) => {
-      setToast({ title: 'Appointment started', message: 'Doctor has started the appointment. Join the consultation room now.' })
-      if (appointmentId && role === 'user') {
-        setAppointmentBadge((count) => Math.max(count, 1))
+    const showPatientJoinToast = ({ doctorId, appointmentId } = {}) => {
+      if (!(isAuth && role === 'user' && doctorId)) return
+      setToast({
+        title: 'Doctor started your appointment',
+        message: 'Join the consultation room now.',
+        actionLabel: 'Join meeting',
+        action: () => {
+          setToast(null)
+          navigate(`/appointment/book/${doctorId}`)
+        },
+      })
+      if (appointmentId) {
+        setAppointmentBadge(1)
       }
       loadBadge()
+    }
+    const handleAppointmentStarted = (payload = {}) => {
+      showPatientJoinToast(payload)
+    }
+    const handleUserStatus = (payload = {}) => {
+      if (payload.status === 'active') {
+        showPatientJoinToast(payload)
+        return
+      }
+      refreshDoctorBadge()
     }
 
     socket.on('appointment:brief-ready', handleNewBooking)
     socket.on('appointment:queue-updated', refreshDoctorBadge)
-    socket.on('appointment:user-status', refreshDoctorBadge)
+    socket.on('appointment:user-status', handleUserStatus)
     socket.on('appointment:started', handleAppointmentStarted)
     socket.on('opd:token-issued', handleOpdTokenIssued)
     socket.on('opd:consultation-started', handleAppointmentStarted)
@@ -167,14 +195,14 @@ const Navbar = () => {
       window.clearInterval(interval)
       socket.off('appointment:brief-ready', handleNewBooking)
       socket.off('appointment:queue-updated', refreshDoctorBadge)
-      socket.off('appointment:user-status', refreshDoctorBadge)
+      socket.off('appointment:user-status', handleUserStatus)
       socket.off('appointment:started', handleAppointmentStarted)
       socket.off('opd:token-issued', handleOpdTokenIssued)
       socket.off('opd:consultation-started', handleAppointmentStarted)
       socket.off('opd:consultation-completed', refreshDoctorBadge)
       socket.off('opd:no-show', refreshDoctorBadge)
     }
-  }, [isLoggedIn, isAuth, role, isStaffAuth, staffRole, staffUser?._id, staffUser?.id, staffUser?.hospitalId, staffHospital?._id])
+  }, [isLoggedIn, isAuth, role, isStaffAuth, staffRole, staffUser?._id, staffUser?.id, staffUser?.hospitalId, staffHospital?._id, navigate])
 
   const activeStyle = 'whitespace-nowrap text-blue-600 font-medium border-b-2 border-blue-600 pb-1'
   const inactiveStyle = 'whitespace-nowrap text-gray-700 hover:text-blue-600 transition-colors'
@@ -190,7 +218,7 @@ const Navbar = () => {
 
   const userNavLinks = [
     { to: '/dashboard', label: 'Dashboard' },
-    ...(role !== 'doctor' ? [{ to: '/my-appointments', label: 'My Appointments' }] : []),
+    ...(role !== 'doctor' ? [{ to: '/my-appointments', label: 'My Appointments', badge: appointmentBadge }] : []),
     { to: '/doctors', label: 'Doctors' },
     { to: '/hospitals', label: 'Hospitals' },
     { to: '/communities', label: 'Communities' },
@@ -374,6 +402,15 @@ const Navbar = () => {
         <div className="fixed left-4 top-20 z-[70] max-w-sm rounded-lg border border-blue-100 bg-white p-4 shadow-xl">
           <p className="text-sm font-bold text-slate-950">{toast.title}</p>
           <p className="mt-1 text-sm text-slate-600">{toast.message}</p>
+          {toast.action && (
+            <button
+              type="button"
+              onClick={toast.action}
+              className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+            >
+              {toast.actionLabel || 'Open'}
+            </button>
+          )}
         </div>
       )}
     </nav>
