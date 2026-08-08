@@ -65,6 +65,7 @@ const OpdTriage = () => {
       }
     } catch (error) {
       setMessage(error.response?.data?.message || "Unable to continue triage");
+    } finally {
       setLoading(false);
     }
   };
