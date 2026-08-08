@@ -106,16 +106,7 @@ const DoctorAppointments = () => {
         {},
         { withCredentials: true },
       );
-      try {
-        await axios.post(
-          `${BACKEND_URL}/api/copilot/${appointmentId}/generate-soap`,
-          { doctorNotes },
-          { withCredentials: true },
-        );
-        setActionMessage(`${response.data.message}. SOAP note generated for review.`);
-      } catch {
-        setActionMessage(`${response.data.message}. SOAP note can be generated manually.`);
-      }
+      setActionMessage(`${response.data.message}. SOAP note automatically generated.`);
       await fetchQueue();
     } catch (error) {
       setActionMessage(error.response?.data?.message || "Could not end appointment");
@@ -215,7 +206,7 @@ const DoctorAppointments = () => {
             <p className="mt-3 text-sm text-gray-600">
               This call auto-ends in 5 minutes if you do not end it manually.
             </p>
-            <PatientBriefCard brief={queueData.activeAppointment.patientBrief} />
+            <PatientBriefCard brief={queueData.activeAppointment.user?.triageProfile} />
             <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
               <div>
                 <AppointmentVideoCall
@@ -285,7 +276,7 @@ const DoctorAppointments = () => {
                     <p className="text-sm text-gray-500">
                       Booked at {new Date(appointment.createdAt).toLocaleTimeString()}
                     </p>
-                    {appointment.patientBrief ? (
+                    {appointment.user?.triageProfile ? (
                       <p className="mt-1 text-sm font-medium text-green-700">
                         AI patient brief ready
                       </p>
@@ -378,6 +369,19 @@ const PatientBriefCard = ({ brief }) => {
         <span className="font-semibold text-gray-950">Summary: </span>
         {brief.agentSummary || "Not provided"}
       </div>
+      {brief.predictedDisease && (
+        <div className="mt-4 flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+          <span className="text-xl">🩺</span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-indigo-900">
+              ML Disease Prediction
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-indigo-800">
+              {brief.predictedDisease}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

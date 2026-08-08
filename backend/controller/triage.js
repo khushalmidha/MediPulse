@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import Appointment from "../model/appointment.js";
+import axios from "axios";
+import User from "../model/user.js";
 import { getIO } from "../socket.js";
 import { getRedis } from "../services/redis.js";
 import {
@@ -15,7 +16,7 @@ const TRIAGE_TTL_SECONDS = 30 * 60;
 const MAX_TOOL_ITERATIONS = 3;
 const MAX_PATIENT_MESSAGES = 10;
 
-const conversationKey = (appointmentId) => `triage:conv:${appointmentId}`;
+const conversationKey = (userId) => `triage:conv:${userId}`;
 
 const systemPrompt = (patientContext) => `You are a pre-consultation medical triage assistant for MediPulse. 
 You are talking to a patient before their telemedicine appointment.
@@ -34,8 +35,7 @@ Rules:
 - Language: if patient writes in Hindi/Hinglish, respond in Hinglish. If English, respond in English.
 - Brief must be professional and in English regardless of conversation language (it's for the doctor).
 
-You already have this context about the patient: ${JSON.stringify(patientContext.patient)}
-They are seeing Dr. ${patientContext.doctor.name} who specializes in: ${patientContext.doctor.expertise}`;
+You already have this context about the patient: ${JSON.stringify(patientContext.patient)}`;
 
 const buildModel = (patientContext) =>
   genAI.getGenerativeModel({
@@ -72,35 +72,29 @@ const extractText = (response) => {
     .trim();
 };
 
-const readConversation = async (appointmentId) => {
-  const raw = await getRedis().get(conversationKey(appointmentId));
+const readConversation = async (userId) => {
+  const raw = await getRedis().get(conversationKey(userId));
   return raw ? JSON.parse(raw) : null;
 };
 
-const saveConversation = async (appointmentId, state) => {
+const saveConversation = async (userId, state) => {
   await getRedis().set(
-    conversationKey(appointmentId),
+    conversationKey(userId),
     JSON.stringify(state),
     "EX",
     TRIAGE_TTL_SECONDS,
   );
 };
 
-const loadAuthorizedQueuedAppointment = async (appointmentId, userId) => {
-  const appointment = await Appointment.findById(appointmentId);
-  if (!appointment) {
-    return { status: 404, message: "Appointment not found" };
+const loadAuthorizedQueuedAppointment = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    return { status: 404, message: "User not found" };
   }
-  if (appointment.user.toString() !== userId.toString()) {
-    return { status: 403, message: "You cannot triage this appointment" };
-  }
-  if (appointment.status !== "queued") {
-    return { status: 400, message: "Triage only available for queued appointments" };
-  }
-  if (appointment.patientBrief?.agentSummary) {
+  if (user.triageProfile?.agentSummary) {
     return { status: 409, message: "Health summary already submitted" };
   }
-  return { appointment };
+  return { user };
 };
 
 const fallbackFirstQuestion = (context) =>
@@ -170,7 +164,7 @@ const callAgent = async (state) => {
       if (!handler) continue;
       const toolResult = await handler({
         ...args,
-        appointmentId: state.appointmentId,
+        userId: state.userId,
         conversationTurns: state.turnCount,
       });
       if (call.name === "generate_patient_brief") {
@@ -216,14 +210,14 @@ const startTriage = async (req, res) => {
       return res.status(403).json({ message: "Only patients can start triage" });
     }
 
-    const { appointmentId } = req.params;
-    const access = await loadAuthorizedQueuedAppointment(appointmentId, req.auth.id);
+    const userId = req.auth.id;
+    const access = await loadAuthorizedQueuedAppointment(userId);
     if (access.status) return res.status(access.status).json({ message: access.message });
 
-    const patientContext = await getPatientContext({ appointmentId });
+    const patientContext = await getPatientContext({ userId });
     const firstPrompt = "Start the triage. Ask only the first focused question.";
     const state = {
-      appointmentId,
+      userId,
       patientContext,
       turnCount: 0,
       messages: [],
@@ -245,7 +239,7 @@ const startTriage = async (req, res) => {
 
     state.contents.push({ role: "model", parts: [{ text: question }] });
     state.messages.push({ role: "agent", text: question });
-    await saveConversation(appointmentId, state);
+    await saveConversation(userId, state);
 
     return res.status(200).json({
       message: question,
@@ -265,21 +259,21 @@ const sendMessage = async (req, res) => {
     if (req.auth.role !== "user") {
       return res.status(403).json({ message: "Only patients can use triage" });
     }
-    const { appointmentId } = req.params;
+    const userId = req.auth.id;
     const { message = "" } = req.body;
     const trimmed = message.trim();
     if (!trimmed) {
       return res.status(400).json({ message: "Message is required" });
     }
 
-    const access = await loadAuthorizedQueuedAppointment(appointmentId, req.auth.id);
+    const access = await loadAuthorizedQueuedAppointment(userId);
     if (access.status) return res.status(access.status).json({ message: access.message });
 
-    let state = await readConversation(appointmentId);
+    let state = await readConversation(userId);
     if (!state) {
-      const patientContext = await getPatientContext({ appointmentId });
+      const patientContext = await getPatientContext({ userId });
       state = {
-        appointmentId,
+        userId,
         patientContext,
         turnCount: 0,
         messages: [],
@@ -315,7 +309,7 @@ const sendMessage = async (req, res) => {
       };
     }
 
-    await saveConversation(appointmentId, state);
+    await saveConversation(userId, state);
 
     return res.status(200).json({
       message: state.sessionExpired
@@ -337,16 +331,28 @@ const completeTriage = async (req, res) => {
     if (req.auth.role !== "user") {
       return res.status(403).json({ message: "Only patients can complete triage" });
     }
-    const { appointmentId } = req.params;
-    const access = await loadAuthorizedQueuedAppointment(appointmentId, req.auth.id);
+    const userId = req.auth.id;
+    const access = await loadAuthorizedQueuedAppointment(userId);
     if (access.status) return res.status(access.status).json({ message: access.message });
 
-    const state = await readConversation(appointmentId);
+    const state = await readConversation(userId);
     if (!state?.brief) {
       return res.status(400).json({ message: "Patient brief is not ready yet" });
     }
 
-    const patientBrief = {
+    let predictedDisease = "Unknown";
+    try {
+      // Call ML microservice
+      const transcript = state.messages
+        .map((m) => `${m.role}: ${m.text}`)
+        .join("\n");
+      const mlResponse = await axios.post("http://localhost:8003/predict", { text: transcript });
+      predictedDisease = mlResponse.data.disease;
+    } catch (mlError) {
+      console.error("ML prediction failed:", mlError.message);
+    }
+
+    const triageProfile = {
       chiefComplaint: state.brief.chiefComplaint,
       symptomDuration: state.brief.symptomDuration,
       severity: state.brief.severity,
@@ -355,25 +361,19 @@ const completeTriage = async (req, res) => {
       agentSummary: state.brief.agentSummary,
       generatedAt: new Date(state.brief.generatedAt || Date.now()),
       conversationTurns: state.brief.conversationTurns || state.turnCount,
+      predictedDisease,
     };
 
-    const appointment = await Appointment.findByIdAndUpdate(
-      appointmentId,
-      { patientBrief },
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { triageProfile },
       { new: true },
     );
-    await getRedis().del(conversationKey(appointmentId));
-
-    const io = getIO();
-    if (io) {
-      io.to(`doctor:${appointment.doctor.toString()}`).emit("appointment:brief-ready", {
-        appointmentId,
-      });
-    }
+    await getRedis().del(conversationKey(userId));
 
     return res.status(200).json({
       message: "Your doctor now has your health summary.",
-      patientBrief,
+      patientBrief: user.triageProfile,
     });
   } catch (error) {
     console.error("Triage complete failed:", error.message);

@@ -61,6 +61,10 @@ const AppointmentBooking = () => {
       navigate("/doctor/appointments");
       return;
     }
+    if (role === "user" && user && !user.triageProfile?.agentSummary) {
+      navigate("/opd/triage");
+      return;
+    }
 
     Promise.all([fetchStatus(), fetchHistory()])
       .catch(() => setMessage("Could not load appointment details for this doctor"))

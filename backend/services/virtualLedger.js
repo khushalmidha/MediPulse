@@ -31,7 +31,7 @@ const normalizeRole = (role) => {
 };
 
 const getInitialWalletBalance = (role) =>
-  role === "user" ? Number(process.env.INITIAL_USER_WALLET_BALANCE || 500) : 0;
+  role === "user" ? 500 : 0;
 
 const ensureWallet = async ({ userId, userRole }, session = null) => {
   const role = normalizeRole(userRole);

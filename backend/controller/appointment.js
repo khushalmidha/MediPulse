@@ -6,6 +6,7 @@ import OpdToken from "../model/opdToken.js";
 import User from "../model/user.js";
 import { getIO } from "../socket.js";
 import { generateGeminiText } from "./gemini.js";
+import { generateSoapNote } from "../services/copilotTools.js";
 import {
   sendAppointmentBookedMail,
   sendAppointmentOtpMail,
@@ -85,6 +86,7 @@ const mapQueueAppointment = (appointment) => ({
         firstName: appointment.user.firstName,
         lastName: appointment.user.lastName,
         email: appointment.user.email,
+        triageProfile: appointment.user.triageProfile,
       }
     : null,
 });
@@ -132,6 +134,7 @@ const mapActiveAppointment = (appointment) => {
           firstName: appointment.user.firstName,
           lastName: appointment.user.lastName,
           email: appointment.user.email,
+          triageProfile: appointment.user.triageProfile,
         }
       : null,
   };
@@ -147,10 +150,10 @@ const buildDoctorQueuePayload = async (doctorId) => {
   const [queuedAppointments, activeAppointment] = await Promise.all([
     Appointment.find({ doctor: doctorId, status: "queued" })
       .sort({ createdAt: 1 })
-      .populate("user", "firstName lastName email"),
+      .populate("user", "firstName lastName email triageProfile"),
     Appointment.findOne({ doctor: doctorId, status: "active" })
       .sort({ startedAt: 1 })
-      .populate("user", "firstName lastName email")
+      .populate("user", "firstName lastName email triageProfile")
       .populate("doctor", "firstName lastName email"),
   ]);
 
@@ -215,10 +218,41 @@ const scheduleAppointmentTimeout = (appointmentId) => {
 };
 
 const finishAppointment = async (appointmentId, endedBy, endedReason) => {
-  const appointment = await Appointment.findById(appointmentId);
+  const appointment = await Appointment.findById(appointmentId).populate("user");
   if (!appointment || appointment.status !== "active") {
     clearAppointmentTimeout(appointmentId);
     return null;
+  }
+
+  // Auto-generate SOAP note
+  try {
+    const redis = getRedis();
+    const transcriptKey = `copilot:transcript:${appointmentId}`;
+    const suggestionsKey = `copilot:suggestions:${appointmentId}`;
+    
+    const [transcript, storedSuggestionsRaw] = await Promise.all([
+      redis.get(transcriptKey),
+      redis.get(suggestionsKey),
+    ]);
+    
+    const storedSuggestions = storedSuggestionsRaw ? JSON.parse(storedSuggestionsRaw) : [];
+    
+    const soapNote = await generateSoapNote({
+      transcript: transcript || "",
+      doctorNotes: appointment.doctorNotes || "",
+      patientBrief: appointment.user?.triageProfile || null,
+      agentInsights: storedSuggestions.map((suggestion) => suggestion.message),
+    });
+
+    appointment.soapNote = {
+      ...soapNote,
+      generatedAt: new Date(),
+      generatedBy: "ai-copilot",
+    };
+    
+    await redis.del(transcriptKey, suggestionsKey);
+  } catch (error) {
+    console.error("Auto SOAP generation failed:", error.message);
   }
 
   appointment.status = "completed";
@@ -579,7 +613,7 @@ const refundAppointmentPayment = async (req, res) => {
 
     const populated = await Appointment.findById(appointment._id)
       .populate("doctor", "firstName lastName email")
-      .populate("user", "firstName lastName email");
+      .populate("user", "firstName lastName email triageProfile");
 
     try {
       await sendAppointmentRefundMail({
@@ -773,7 +807,7 @@ const getUserAppointmentHistory = async (req, res) => {
   const appointments = await Appointment.find(query)
     .sort({ createdAt: -1 })
     .populate("doctor", "firstName lastName email")
-    .populate("user", "firstName lastName email");
+    .populate("user", "firstName lastName email triageProfile");
 
   return res.status(200).json({
     appointments: appointments.map(mapHistoryAppointment),

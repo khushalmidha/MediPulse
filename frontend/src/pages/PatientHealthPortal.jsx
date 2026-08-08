@@ -3,12 +3,16 @@ import axios from "axios";
 import { Building2, CalendarDays, HeartPulse, Plus, Search, Star, Trash2, UserRound } from "lucide-react";
 import { BACKEND_URL } from "../utils";
 
+import { useAuth } from "../context/AuthContext";
+import { Link } from "react-router-dom";
+
 const formatDate = (value) =>
   value
     ? new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value))
     : "Date unavailable";
 
 const PatientHealthPortal = () => {
+  const { user } = useAuth();
   const [timeline, setTimeline] = useState([]);
   const [hospitals, setHospitals] = useState([]);
   const [browseHospitals, setBrowseHospitals] = useState([]);
@@ -81,6 +85,23 @@ const PatientHealthPortal = () => {
           <p className="mt-2 text-sm text-gray-600">A unified timeline of completed OPD visits and online appointments.</p>
           {message && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{message}</p>}
         </section>
+
+        {!user?.triageProfile?.agentSummary && (
+          <section className="rounded-xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-blue-950">Complete your health triage</h2>
+            <p className="mt-2 text-sm text-blue-800">
+              Set up your baseline medical profile before booking an appointment. Our AI assistant will ask a few quick questions to prepare a summary for your future doctors.
+            </p>
+            <div className="mt-4">
+              <Link
+                to="/opd/triage"
+                className="inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+              >
+                Start Triage Profile →
+              </Link>
+            </div>
+          </section>
+        )}
 
         <section className="grid gap-4 md:grid-cols-3">
           {[

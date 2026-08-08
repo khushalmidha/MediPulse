@@ -18,34 +18,25 @@ const calculateAge = (dob) => {
   return age;
 };
 
-const getPatientContext = async ({ appointmentId }) => {
-  const appointment = await Appointment.findById(appointmentId)
-    .populate("user", "firstName lastName email medicalHistory dob dateOfBirth")
-    .populate("doctor", "firstName lastName email experience");
+const getPatientContext = async ({ userId }) => {
+  const User = (await import("../model/User.js")).default;
+  const user = await User.findById(userId);
 
-  if (!appointment) {
-    throw new Error("Appointment not found");
+  if (!user) {
+    throw new Error("User not found");
   }
 
   const patientName =
-    [appointment.user?.firstName, appointment.user?.lastName].filter(Boolean).join(" ") ||
+    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
     "Patient";
-  const doctorName =
-    [appointment.doctor?.firstName, appointment.doctor?.lastName].filter(Boolean).join(" ") ||
-    "Doctor";
 
   return {
-    appointmentId: appointment._id.toString(),
+    userId: user._id.toString(),
     patient: {
-      id: appointment.user?._id?.toString(),
+      id: user._id.toString(),
       name: patientName,
-      age: calculateAge(appointment.user?.dob || appointment.user?.dateOfBirth),
-      primaryCondition: appointment.user?.medicalHistory?.primaryCondition || "Not provided",
-    },
-    doctor: {
-      id: appointment.doctor?._id?.toString(),
-      name: doctorName,
-      expertise: appointment.doctor?.experience?.expertise || "General Medicine",
+      age: calculateAge(user.dob || user.dateOfBirth),
+      primaryCondition: user.medicalHistory?.primaryCondition || "Not provided",
     },
   };
 };
@@ -182,13 +173,13 @@ Validated urgency level: ${urgencyLevel}`;
 const triageTools = [
   {
     name: "get_patient_context",
-    description: "Fetch appointment, patient medical context, and doctor's expertise.",
+    description: "Fetch patient medical context from their profile.",
     parameters: {
       type: "object",
       properties: {
-        appointmentId: { type: "string" },
+        userId: { type: "string" },
       },
-      required: ["appointmentId"],
+      required: ["userId"],
     },
   },
   {
