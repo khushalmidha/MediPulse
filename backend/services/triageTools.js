@@ -19,7 +19,7 @@ const calculateAge = (dob) => {
 };
 
 const getPatientContext = async ({ userId }) => {
-  const User = (await import("../model/User.js")).default;
+  const User = (await import("../model/user.js")).default;
   const user = await User.findById(userId);
 
   if (!user) {

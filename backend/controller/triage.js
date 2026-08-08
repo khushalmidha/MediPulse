@@ -249,7 +249,8 @@ const startTriage = async (req, res) => {
   } catch (error) {
     console.error("Triage start failed:", error.message);
     return res.status(500).json({
-      message: "AI is temporarily unavailable, your appointment is unaffected",
+      message: `AI is temporarily unavailable: ${error.message}`,
+      details: error.stack,
     });
   }
 };
