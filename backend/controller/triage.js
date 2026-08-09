@@ -91,9 +91,6 @@ const loadAuthorizedQueuedAppointment = async (userId) => {
   if (!user) {
     return { status: 404, message: "User not found" };
   }
-  if (user.triageProfile?.agentSummary) {
-    return { status: 409, message: "Health summary already submitted" };
-  }
   return { user };
 };
 
