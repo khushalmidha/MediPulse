@@ -33,3 +33,4 @@ Thumbs.db
 *.db
 mlruns/
 mlflow.db
+medipulse-ranking-engine/venv/
