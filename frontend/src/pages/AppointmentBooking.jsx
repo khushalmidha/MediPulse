@@ -66,10 +66,7 @@ const AppointmentBooking = () => {
       navigate("/doctor/appointments");
       return;
     }
-    if (role === "user" && user && !user.triageProfile?.agentSummary) {
-      navigate("/opd/triage");
-      return;
-    }
+
 
     Promise.all([fetchStatus(), fetchHistory()])
       .finally(() => setLoading(false));
