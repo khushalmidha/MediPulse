@@ -97,6 +97,17 @@ After each visit, patients can rate doctor quality, wait time, staff behavior, c
 
 ---
 
+## Standalone ML Microservices
+
+In addition to the main web platform, MediPulse incorporates advanced Machine Learning capabilities through separate, standalone microservices. These are built in Python and decouple heavy data processing from the core Node.js application:
+
+- **[MediPulse Ranking Engine](https://github.com/khushalmidha/medipulse-ranking-engine)**: A FastAPI service with trained XGBoost models for triage-urgency classification and intelligent doctor-ranking based on symptoms and patient history.
+- **[MediPulse Disease Prediction](https://github.com/khushalmidha/medipulse-disease-prediction)**: A specialized service leveraging scikit-learn models for multi-class disease diagnosis from patient inputs.
+
+*Note: These services are maintained in their own repositories to keep the main web app's git history clean and allow independent deployment and scaling.*
+
+---
+
 ## Reusable Building Blocks
 
 The current implementation is not throwaway work. Socket.IO can power staff chat, OPD queue updates, and lab notifications. WebRTC can support telemedicine slots. Redis can manage token queues and delayed jobs. Kafka-style events can track appointments, refunds, wallet updates, ratings, and analytics.

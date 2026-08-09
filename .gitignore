@@ -27,3 +27,9 @@ yarn.lock
 # OS
 .DS_Store
 Thumbs.db
+
+# Machine Learning Artifacts
+*.pkl
+*.db
+mlruns/
+mlflow.db
