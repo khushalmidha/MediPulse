@@ -14,6 +14,9 @@ import {
   CalendarPlus,
   X,
   Users,
+  Star,
+  Clock,
+  Video,
 } from 'lucide-react'
 import { BACKEND_URL, MAPS_API } from '../utils'
 import { useAuth } from '../context/AuthContext'
@@ -237,13 +240,34 @@ const DoctorsProfile = () => {
 
                 <div className='flex flex-wrap gap-2'>
                   {role === 'user' && (
-                    <button
-                      type='button'
-                      onClick={handleBookAppointment}
-                      className='inline-flex items-center rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700'>
-                      <CalendarPlus className='mr-2 h-4 w-4' />
-                      {doctor?.sourceType === "hospital" ? "Book at Hospital" : "Book Appointment"}
-                    </button>
+                    <>
+                      {doctor?.sourceType === "hospital" ? (
+                        <>
+                          <button
+                            type='button'
+                            onClick={() => navigate(`/hospital/${doctor.hospitalContext?.hospitalSlug}/book-opd`, { state: { preSelectedDoctorId: doctor._id } })}
+                            className='inline-flex items-center rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700'>
+                            <CalendarPlus className='mr-2 h-4 w-4' />
+                            Book OPD Token
+                          </button>
+                          <button
+                            type='button'
+                            onClick={() => navigate(`/appointment/book/${doctor._id}`)}
+                            className='inline-flex items-center rounded-md border border-red-600 px-4 py-2 text-red-600 hover:bg-red-50 dark:text-red-500 dark:border-red-500 dark:hover:bg-slate-900'>
+                            <Video className='mr-2 h-4 w-4' />
+                            Book Video Consult
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type='button'
+                          onClick={() => navigate(`/appointment/book/${doctor._id}`)}
+                          className='inline-flex items-center rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700'>
+                          <Video className='mr-2 h-4 w-4' />
+                          Book Video Consult
+                        </button>
+                      )}
+                    </>
                   )}
                   {role === 'doctor' && (
                     <button

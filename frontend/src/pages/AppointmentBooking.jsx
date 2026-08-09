@@ -294,43 +294,25 @@ const AppointmentBooking = () => {
               Book Appointment with {(doctor?.fullName || doctor?.firstName)?.startsWith("Dr.") ? "" : "Dr. "}{doctor?.fullName || `${doctor?.firstName || ""} ${doctor?.lastName || ""}`.trim() || "Doctor"}
             </h1>
             
-            {doctor?.sourceType === "hospital" ? (
-              <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p className="font-medium text-amber-900 mb-2">In-Person Appointments Only</p>
-                <p className="text-sm text-amber-800 mb-4">
-                  This doctor is affiliated with a hospital and only accepts in-person OPD token bookings. Video consultations are not available.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/hospital/${doctor.hospitalContext?.hospitalSlug}/book-opd`, { state: { preSelectedDoctorId: doctor._id } })}
-                  className="rounded-md bg-amber-600 px-4 py-2 text-white hover:bg-amber-700"
-                >
-                  Book OPD Token Now
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className="mt-2 text-gray-600">
-                  Current pending queue: <span className="font-semibold">{status?.pendingCount ?? 0}</span>
-                </p>
+            <p className="mt-2 text-gray-600">
+              Current pending queue: <span className="font-semibold">{status?.pendingCount ?? 0}</span>
+            </p>
 
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={handleBookDirectly}
-                    disabled={!canBook || booking}
-                    className="rounded-md bg-red-600 dark:bg-red-700 px-6 py-2.5 font-medium text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-                  >
-                    {booking ? "Processing..." : `Confirm Booking for ₹${APPOINTMENT_FEE_INR}`}
-                  </button>
-                  <Link to="/doctors" className="rounded-md border border-gray-300 dark:border-red-900/40 bg-white dark:bg-slate-900 px-6 py-2.5 font-medium text-gray-700 dark:text-slate-200 shadow-sm hover:bg-gray-50">
-                    Back to doctors
-                  </Link>
-                </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleBookDirectly}
+                disabled={!canBook || booking}
+                className="rounded-md bg-red-600 dark:bg-red-700 px-6 py-2.5 font-medium text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+              >
+                {booking ? "Processing..." : `Confirm Booking for ₹${APPOINTMENT_FEE_INR}`}
+              </button>
+              <Link to="/doctors" className="rounded-md border border-gray-300 dark:border-red-900/40 bg-white dark:bg-slate-900 px-6 py-2.5 font-medium text-gray-700 dark:text-slate-200 shadow-sm hover:bg-gray-50">
+                Back to doctors
+              </Link>
+            </div>
 
-                {message && <p className="mt-4 text-sm font-medium text-red-600">{message}</p>}
-              </>
-            )}
+            {message && <p className="mt-4 text-sm font-medium text-red-600">{message}</p>}
           </div>
 
         {callStartedPopup && (
@@ -423,6 +405,9 @@ const AppointmentBooking = () => {
                 <div className="mt-3 space-y-3">
                   <p className="text-sm text-amber-700">
                     Position in queue: {myAppointment.queuePosition}
+                  </p>
+                  <p className="text-sm font-medium text-amber-800">
+                    Expected wait: ~{Math.max(1, myAppointment.queuePosition) * 10} mins
                   </p>
                   {myAppointment.patientBrief ? (
                     <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800">

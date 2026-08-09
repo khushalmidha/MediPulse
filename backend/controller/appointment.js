@@ -5,6 +5,44 @@ import Doctor from "../model/doctor.js";
 import OpdToken from "../model/opdToken.js";
 import User from "../model/user.js";
 import SharedReport from "../model/sharedReport.js";
+import HospitalStaff from "../model/hospitalStaff.js";
+
+const splitName = (value) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return { firstName: "", lastName: "" };
+  const [firstName, ...rest] = normalized.split(/\s+/);
+  return { firstName, lastName: rest.join(" ") };
+};
+
+const populateDoctorForAppointments = async (appointments) => {
+  if (!appointments || appointments.length === 0) return appointments;
+  
+  const doctorIds = [...new Set(appointments.map(a => 
+    a.doctor?._id || a.doctor?.toString() || a.doctor
+  ).filter(Boolean))];
+
+  const [platformDoctors, hospitalDoctors] = await Promise.all([
+    Doctor.find({ _id: { $in: doctorIds } }, "firstName lastName email profilePhoto").lean(),
+    HospitalStaff.find({ _id: { $in: doctorIds }, role: "DOCTOR" }, "name email profilePhoto").lean(),
+  ]);
+
+  const doctorMap = {};
+  platformDoctors.forEach(d => { doctorMap[d._id.toString()] = d; });
+  hospitalDoctors.forEach(d => {
+    const { firstName, lastName } = splitName(d.name);
+    doctorMap[d._id.toString()] = { _id: d._id, firstName, lastName, email: d.email, profilePhoto: d.profilePhoto };
+  });
+
+  return appointments.map(a => {
+    const docId = a.doctor?._id || a.doctor?.toString() || a.doctor;
+    if (docId && doctorMap[docId.toString()]) {
+      a.doctor = doctorMap[docId.toString()];
+    } else if (a.doctor?._id) {
+      a.doctor = null;
+    }
+    return a;
+  });
+};
 import { getIO } from "../socket.js";
 import { generateGeminiText, generateSoapNote as generateSoapNoteGemini } from "./gemini.js";
 import { generateSoapNote } from "../services/copilotTools.js";
@@ -43,14 +81,17 @@ const ensureBookableAppointment = async (doctorId, userId) => {
     return { status: 400, message: "Invalid doctor id" };
   }
 
-  const [doctor, existing] = await Promise.all([
+  const [platformDoctor, hospitalDoctor, existing] = await Promise.all([
     Doctor.findById(doctorId),
+    HospitalStaff.findOne({ _id: doctorId, role: "DOCTOR" }),
     Appointment.findOne({
       doctor: doctorId,
       user: userId,
       status: { $in: ["queued", "active"] },
     }),
   ]);
+
+  const doctor = platformDoctor || hospitalDoctor;
 
   if (!doctor) {
     return { status: 404, message: "Doctor not found" };
@@ -155,8 +196,12 @@ const buildDoctorQueuePayload = async (doctorId) => {
     Appointment.findOne({ doctor: doctorId, status: "active" })
       .sort({ startedAt: 1 })
       .populate("user", "firstName lastName email triageProfile")
-      .populate("doctor", "firstName lastName email"),
+      .lean(),
   ]);
+
+  if (activeAppointment) {
+    await populateDoctorForAppointments([activeAppointment]);
+  }
 
   const payload = {
     doctorId,
@@ -627,8 +672,9 @@ const refundAppointmentPayment = async (req, res) => {
     await emitQueueUpdates(appointment.doctor.toString());
 
     const populated = await Appointment.findById(appointment._id)
-      .populate("doctor", "firstName lastName email")
-      .populate("user", "firstName lastName email triageProfile");
+      .populate("user", "firstName lastName email triageProfile")
+      .lean();
+    await populateDoctorForAppointments([populated]);
 
     try {
       await sendAppointmentRefundMail({
@@ -787,7 +833,12 @@ const getDoctorPendingStatus = async (req, res) => {
     return res.status(400).json({ message: "Invalid doctor id" });
   }
 
-  const doctor = await Doctor.findById(doctorId);
+  const [platformDoctor, hospitalDoctor] = await Promise.all([
+    Doctor.findById(doctorId),
+    HospitalStaff.findOne({ _id: doctorId, role: "DOCTOR" })
+  ]);
+  const doctor = platformDoctor || hospitalDoctor;
+
   if (!doctor) {
     return res.status(404).json({ message: "Doctor not found" });
   }
@@ -850,10 +901,12 @@ const getUserAppointmentHistory = async (req, res) => {
     query.doctor = doctorId;
   }
 
-  const appointments = await Appointment.find(query)
+  const appointmentsRaw = await Appointment.find(query)
     .sort({ createdAt: -1 })
-    .populate("doctor", "firstName lastName email")
-    .populate("user", "firstName lastName email triageProfile");
+    .populate("user", "firstName lastName email triageProfile")
+    .lean();
+  
+  const appointments = await populateDoctorForAppointments(appointmentsRaw);
 
   return res.status(200).json({
     appointments: appointments.map(mapHistoryAppointment),
@@ -908,9 +961,11 @@ const generateAppointmentReceipt = async (req, res) => {
     return res.status(400).json({ message: "Invalid appointment id" });
   }
 
-  const appointment = await Appointment.findById(appointmentId)
-    .populate("doctor", "firstName lastName email")
-    .populate("user", "firstName lastName email");
+  const appointmentRaw = await Appointment.findById(appointmentId)
+    .populate("user", "firstName lastName email")
+    .lean();
+  
+  const [appointment] = await populateDoctorForAppointments(appointmentRaw ? [appointmentRaw] : []);
 
   if (!appointment) {
     return res.status(404).json({ message: "Appointment not found" });
@@ -951,9 +1006,11 @@ const getAppointmentById = async (req, res) => {
     return res.status(400).json({ message: "Invalid appointment id" });
   }
 
-  const appointment = await Appointment.findById(appointmentId)
-    .populate("doctor", "firstName lastName email")
-    .populate("user", "firstName lastName email");
+  const appointmentRaw = await Appointment.findById(appointmentId)
+    .populate("user", "firstName lastName email")
+    .lean();
+  
+  const [appointment] = await populateDoctorForAppointments(appointmentRaw ? [appointmentRaw] : []);
 
   if (!appointment) {
     return res.status(404).json({ message: "Appointment not found" });
