@@ -118,26 +118,36 @@ const forceCompleteFromHistory = async (state) => {
   return { ...brief, urgencyLevel: urgency.urgencyLevel };
 };
 
+const getFallbackResponse = async (state) => {
+  const patientTurns = state.messages.filter((message) => message.role === "patient").length;
+  if (patientTurns >= 4) {
+    return {
+      text: "Thanks. I have enough information to prepare your doctor summary.",
+      brief: await forceCompleteFromHistory(state),
+    };
+  }
+  const questions = [
+    "How long have you had these symptoms?",
+    "On a scale of 1 to 10, how severe is it right now?",
+    "Do you have any relevant medical history or ongoing condition?",
+    "Is there anything that makes the symptom better or worse?",
+  ];
+  return { text: questions[Math.min(patientTurns, questions.length - 1)] };
+};
+
 const callAgent = async (state) => {
   if (!process.env.GEMINI_API_KEY) {
-    const patientTurns = state.messages.filter((message) => message.role === "patient").length;
-    if (patientTurns >= 4) {
-      return {
-        text: "Thanks. I have enough information to prepare your doctor summary.",
-        brief: await forceCompleteFromHistory(state),
-      };
-    }
-    const questions = [
-      "How long have you had these symptoms?",
-      "On a scale of 1 to 10, how severe is it right now?",
-      "Do you have any relevant medical history or ongoing condition?",
-      "Is there anything that makes the symptom better or worse?",
-    ];
-    return { text: questions[Math.min(patientTurns, questions.length - 1)] };
+    return getFallbackResponse(state);
   }
 
   const model = buildModel(state.patientContext);
-  let result = await model.generateContent({ contents: state.contents });
+  let result;
+  try {
+    result = await model.generateContent({ contents: state.contents });
+  } catch (error) {
+    console.warn("Gemini failed (e.g. rate limit), falling back to basic triage:", error.message);
+    return getFallbackResponse(state);
+  }
   let response = result.response;
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
