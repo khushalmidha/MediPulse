@@ -716,20 +716,51 @@ const bookAppointment = async (req, res) => {
   if (req.auth.role !== "user") {
     return res.status(403).json({ message: "Only users can book appointments" });
   }
-
-  if (!bookingToken) {
-    return res.status(400).json({ message: "Booking token is required" });
+  const bookable = await ensureBookableAppointment(doctorId, req.auth.id);
+  if (bookable.status) {
+    return res.status(bookable.status).json(bookable);
   }
 
-  const result = await createQueuedAppointmentFromDemoBooking({
-    doctorId,
-    userId: req.auth.id,
-    bookingToken,
+  const transaction = await transferVirtualMoney({
+    senderId: req.auth.id,
+    senderRole: "user",
+    receiverId: doctorId,
+    receiverRole: "doctor",
+    amount: WALLET_APPOINTMENT_FEE_INR,
+    type: "PAYMENT",
+    description: "Appointment booking fee",
+    referenceId: `APPOINTMENT-${new mongoose.Types.ObjectId().toString()}`,
+    metadata: {
+      doctorId,
+      userId: req.auth.id,
+      source: "appointment-booking",
+    },
   });
 
-  if (result.status && result.message) {
-    return res.status(result.status).json(result);
-  }
+  const appointment = await Appointment.create({
+    doctor: doctorId,
+    user: req.auth.id,
+    roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
+    status: "queued",
+    payment: {
+      amount: WALLET_APPOINTMENT_FEE_INR,
+      paymentId: transaction.transactionId,
+      paidAt: new Date(),
+    },
+  });
+
+  await emitQueueUpdates(doctorId);
+
+  const pendingCount = await Appointment.countDocuments({
+    doctor: doctorId,
+    status: "queued",
+    createdAt: { $lte: appointment.createdAt },
+  });
+
+  const result = {
+    appointment,
+    queuePosition: pendingCount,
+  };
 
   return res.status(201).json({
     message: `Appointment booked and queued successfully. INR ${WALLET_APPOINTMENT_FEE_INR} debited from your wallet.`,

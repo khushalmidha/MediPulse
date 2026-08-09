@@ -18,8 +18,6 @@ const AppointmentBooking = () => {
   const [status, setStatus] = useState(null);
   const [booking, setBooking] = useState(false);
   const [message, setMessage] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(true);
   const [appointmentHistory, setAppointmentHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -28,14 +26,21 @@ const AppointmentBooking = () => {
   const previousAppointmentStatusRef = useRef(null);
 
   const fetchStatus = async () => {
-    const [doctorResponse, statusResponse] = await Promise.all([
-      axios.get(`${BACKEND_URL}/doctor/${doctorId}`, { withCredentials: true }),
-      axios.get(`${BACKEND_URL}/appointment/doctor/${doctorId}/pending`, {
+    try {
+      const doctorResponse = await axios.get(`${BACKEND_URL}/doctor/${doctorId}`, { withCredentials: true }).catch(() => null);
+      if (doctorResponse?.data?.user) {
+        setDoctor(doctorResponse.data.user);
+      }
+      
+      const statusResponse = await axios.get(`${BACKEND_URL}/appointment/doctor/${doctorId}/pending`, {
         withCredentials: true,
-      }),
-    ]);
-    setDoctor(doctorResponse.data.user);
-    setStatus(statusResponse.data);
+      }).catch(() => null);
+      if (statusResponse?.data) {
+        setStatus(statusResponse.data);
+      }
+    } catch (error) {
+      console.error("Failed to load status:", error);
+    }
   };
 
   const fetchHistory = async () => {
@@ -67,7 +72,6 @@ const AppointmentBooking = () => {
     }
 
     Promise.all([fetchStatus(), fetchHistory()])
-      .catch(() => setMessage("Could not load appointment details for this doctor"))
       .finally(() => setLoading(false));
   }, [doctorId, isAuth, loader, navigate, role]);
 
@@ -133,53 +137,23 @@ const AppointmentBooking = () => {
     };
   }, [doctorId, isAuth, role]);
 
-  const handleSendOtp = async () => {
+  const handleBookDirectly = async () => {
     setBooking(true);
     setMessage("");
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/appointment/otp/send/${doctorId}`,
+        `${BACKEND_URL}/appointment/book/${doctorId}`,
         {},
         { withCredentials: true },
       );
-      setMessage(response.data.message);
-      setOtpSent(true);
-    } catch (error) {
-      setMessage(
-        error.response?.data?.message || "Unable to send OTP. Please try again",
-      );
-      await fetchStatus().catch(() => {});
-    } finally {
-      setBooking(false);
-    }
-  };
-
-  const handleVerifyOtpAndBook = async () => {
-    setBooking(true);
-    setMessage("");
-    try {
-      const otpResponse = await axios.post(
-        `${BACKEND_URL}/appointment/otp/verify/${doctorId}`,
-        { otp },
-        { withCredentials: true },
-      );
-      const verifiedToken = otpResponse.data.bookingToken;
-
-      const response = await axios.post(
-        `${BACKEND_URL}/triage/${doctorId}`,
-        { bookingToken: verifiedToken },
-        { withCredentials: true },
-      );
 
       setMessage(response.data.message);
-      setOtp("");
-      setOtpSent(false);
       await Promise.all([fetchStatus(), fetchHistory()]);
     } catch (error) {
       setMessage(
         error.response?.data?.message ||
           error.message ||
-          "Unable to verify OTP or complete booking. Please try again",
+          "Unable to complete booking. Please try again",
       );
     } finally {
       setBooking(false);
@@ -340,44 +314,21 @@ const AppointmentBooking = () => {
                   Current pending queue: <span className="font-semibold">{status?.pendingCount ?? 0}</span>
                 </p>
 
-                <div className="mt-6 rounded-lg border border-red-100 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-4">
-                  <h3 className="font-medium text-red-900 dark:text-red-200">
-                    Verify your email to book appointment
-                  </h3>
-                  <p className="mt-1 text-sm text-red-700 dark:text-red-300">
-                    An OTP will be sent to your registered email. After verification, your appointment will be confirmed and added to the live queue.
-                  </p>
-                </div>
-
-                <div className="mt-6 flex items-center gap-4">
-                  {otpSent && (
-                    <div className="flex-1 max-w-xs">
-                      <input
-                        type="text"
-                        maxLength={6}
-                        placeholder="Enter 6-digit OTP"
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                        className="w-full rounded-md border border-gray-300 dark:border-red-900/40 bg-white dark:bg-slate-900 px-3 py-2 text-gray-900 dark:text-slate-100 shadow-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
-                      />
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-3">
+                <div className="mt-6 flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={otpSent ? handleVerifyOtpAndBook : handleSendOtp}
+                    onClick={handleBookDirectly}
                     disabled={!canBook || booking}
-                    className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+                    className="rounded-md bg-red-600 dark:bg-red-700 px-6 py-2.5 font-medium text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
                   >
-                    {booking ? "Processing..." : otpSent ? `Verify OTP & Request Booking for ₹${APPOINTMENT_FEE_INR}` : "Send OTP"}
+                    {booking ? "Processing..." : `Confirm Booking for ₹${APPOINTMENT_FEE_INR}`}
                   </button>
-                  <Link to="/doctors" className="rounded-md border border-gray-300 px-4 py-2 text-gray-700">
+                  <Link to="/doctors" className="rounded-md border border-gray-300 dark:border-red-900/40 bg-white dark:bg-slate-900 px-6 py-2.5 font-medium text-gray-700 dark:text-slate-200 shadow-sm hover:bg-gray-50">
                     Back to doctors
                   </Link>
-                  </div>
                 </div>
 
-                {message && <p className="mt-3 text-sm text-blue-700">{message}</p>}
+                {message && <p className="mt-4 text-sm font-medium text-red-600">{message}</p>}
               </>
             )}
           </div>
