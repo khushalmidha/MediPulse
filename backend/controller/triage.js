@@ -344,7 +344,8 @@ const completeTriage = async (req, res) => {
       const transcript = state.messages
         .map((m) => `${m.role}: ${m.text}`)
         .join("\n");
-      const mlResponse = await axios.post("http://localhost:8003/predict", { text: transcript });
+      const mlServiceUrl = process.env.ML_SERVICE_URL || "http://localhost:8003/predict";
+      const mlResponse = await axios.post(mlServiceUrl, { text: transcript });
       predictedDisease = mlResponse.data.disease;
     } catch (mlError) {
       console.error("ML prediction failed:", mlError.message);

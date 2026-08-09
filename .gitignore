@@ -34,3 +34,4 @@ Thumbs.db
 mlruns/
 mlflow.db
 medipulse-ranking-engine/venv/
+disease_model.pkl
