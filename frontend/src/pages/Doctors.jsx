@@ -78,7 +78,7 @@ const Doctors = () => {
   // Generate a color based on doctor's name
   const getAvatarColor = (name) => {
     const colors = [
-      'bg-blue-500 dark:bg-red-600', 'bg-indigo-500', 'bg-cyan-600', 'bg-teal-500', 
+      'bg-red-500 dark:bg-red-600', 'bg-red-500', 'bg-cyan-600', 'bg-teal-500', 
       'bg-green-500', 'bg-emerald-500', 'bg-purple-500'
     ];
     
@@ -89,7 +89,7 @@ const Doctors = () => {
   return (
     <div className="bg-gray-50 dark:bg-slate-900 min-h-screen pb-12">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-12 px-4">
+      <div className="bg-gradient-to-r from-red-600 to-red-600 text-white py-12 px-4">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl md:text-4xl font-bold mb-3">Connect Doctor</h1>
           
@@ -116,7 +116,7 @@ const Doctors = () => {
             <div className="flex items-center space-x-2 py-2 w-full sm:w-auto">
               <div className="relative w-full sm:w-auto">
                 <select 
-                  className="appearance-none bg-blue-50 text-blue-700 py-2 px-4 pr-8 rounded-md font-medium cursor-pointer"
+                  className="appearance-none bg-red-50 text-blue-700 py-2 px-4 pr-8 rounded-md font-medium cursor-pointer"
                   value={selectedFilter}
                   onChange={(e) => setSelectedFilter(e.target.value)}
                 >
@@ -127,7 +127,7 @@ const Doctors = () => {
               </div>
               <div className="relative w-full sm:w-auto">
                 <select 
-                  className="appearance-none bg-blue-50 text-blue-700 py-2 px-4 pr-8 rounded-md font-medium cursor-pointer"
+                  className="appearance-none bg-red-50 text-blue-700 py-2 px-4 pr-8 rounded-md font-medium cursor-pointer"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
@@ -149,7 +149,7 @@ const Doctors = () => {
           <div className="flex space-x-2 min-w-max">
             <button
               className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors cursor-pointer
-                ${selectedSpecialty === '' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                ${selectedSpecialty === '' ? 'bg-red-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               onClick={() => setSelectedSpecialty('')}
             >
               All Doctors
@@ -158,7 +158,7 @@ const Doctors = () => {
               <button
                 key={specialty}
                 className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors cursor-pointer
-                  ${selectedSpecialty === specialty ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                  ${selectedSpecialty === specialty ? 'bg-red-100 text-blue-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                 onClick={() => setSelectedSpecialty(specialty)}
               >
                 {specialty}
@@ -199,7 +199,7 @@ const Doctors = () => {
             <p className="text-red-600 mb-4">{error}</p>
             <button 
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700"
+              className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700"
             >
               Try Again
             </button>
@@ -220,7 +220,7 @@ const Doctors = () => {
                     setSelectedFilter('all');
                     setSelectedSpecialty('');
                   }}
-                  className="text-sm text-blue-600 dark:text-red-500 hover:text-blue-800 flex items-center"
+                  className="text-sm text-red-600 dark:text-red-500 hover:text-blue-800 flex items-center"
                 >
                   <X size={16} className="mr-1" />
                   Clear filters
@@ -245,7 +245,7 @@ const Doctors = () => {
                           Dr. {doctor.fullName || `${doctor.firstName || ""} ${doctor.lastName || ""}`}
                         </h3>
                         
-                        <p className="text-blue-600 dark:text-red-500 font-medium truncate">
+                        <p className="text-red-600 dark:text-red-500 font-medium truncate">
                           {doctor.experience?.expertise || 'Medical Professional'}
                         </p>
                       </div>
@@ -253,27 +253,27 @@ const Doctors = () => {
                     
                     <div className="mt-5 space-y-2.5 text-sm">
                       <div className="flex items-center text-gray-600">
-                        <Briefcase className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
+                        <Briefcase className="w-4 h-4 mr-2 text-red-500 flex-shrink-0" />
                         <span>{doctor.experience?.years || 0} years of experience</span>
                       </div>
                       
                       {doctor.experience?.qualification && (
                         <div className="flex items-center text-gray-600">
-                          <GraduationCap className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
+                          <GraduationCap className="w-4 h-4 mr-2 text-red-500 flex-shrink-0" />
                           <span>{doctor.experience.qualification}</span>
                         </div>
                       )}
                       
                       {doctor.clinic?.name && (
                         <div className="flex items-center text-gray-600">
-                          <Building className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
+                          <Building className="w-4 h-4 mr-2 text-red-500 flex-shrink-0" />
                           <span className="truncate">{doctor.clinic.name}</span>
                         </div>
                       )}
                       
                       {doctor.clinic?.location && (
                         <div className="flex items-start text-gray-600">
-                          <MapPin className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                          <MapPin className="w-4 h-4 mr-2 text-red-500 flex-shrink-0 mt-0.5" />
                           <span className="line-clamp-1">{doctor.clinic.location}</span>
                         </div>
                       )}
@@ -298,7 +298,7 @@ const Doctors = () => {
                             ? `/hospitals/${doctor.hospitalContext.hospitalSlug}`
                             : `/doctorsProfile/${doctor._id}`
                         }
-                        className="block w-full py-2.5 bg-blue-600 dark:bg-red-700 hover:bg-blue-700 text-white text-center rounded-md transition duration-200 font-medium"
+                        className="block w-full py-2.5 bg-red-600 dark:bg-red-700 hover:bg-blue-700 text-white text-center rounded-md transition duration-200 font-medium"
                       >
                         {doctor.sourceType === "hospital" ? "Book at Hospital" : "View Profile"}
                       </Link>
@@ -319,7 +319,7 @@ const Doctors = () => {
                     setSelectedFilter('all');
                     setSelectedSpecialty('');
                   }}
-                  className="mt-4 px-4 py-2 bg-blue-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700"
+                  className="mt-4 px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700"
                 >
                   Reset All Filters
                 </button>

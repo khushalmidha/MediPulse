@@ -89,7 +89,7 @@ const ReviewVisit = () => {
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-10">
       <form onSubmit={submitReview} className="mx-auto max-w-2xl rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase text-blue-600 dark:text-red-500">MediPulse Visit Review</p>
+        <p className="text-sm font-semibold uppercase text-red-600 dark:text-red-500">MediPulse Visit Review</p>
         <h1 className="mt-2 text-3xl font-extrabold text-gray-950">Rate your hospital visit</h1>
         <p className="mt-2 text-sm text-gray-600">Your feedback helps other patients and improves hospital operations.</p>
 
@@ -106,7 +106,7 @@ const ReviewVisit = () => {
           onChange={(event) => setComment(event.target.value)}
           maxLength={1000}
           placeholder="Share details about your experience..."
-          className="mt-5 min-h-32 w-full rounded-lg border border-gray-300 p-3 text-sm outline-none focus:border-blue-500"
+          className="mt-5 min-h-32 w-full rounded-lg border border-gray-300 p-3 text-sm outline-none focus:border-red-500"
         />
 
         <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
@@ -114,7 +114,7 @@ const ReviewVisit = () => {
           Submit anonymously
         </label>
 
-        <button disabled={loading || !tokenId || !sig} className="mt-6 w-full rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-3 text-sm font-bold text-white disabled:bg-gray-400">
+        <button disabled={loading || !tokenId || !sig} className="mt-6 w-full rounded-lg bg-red-600 dark:bg-red-700 px-4 py-3 text-sm font-bold text-white disabled:bg-gray-400">
           {loading ? "Submitting..." : `Submit ${overallRating}-star review`}
         </button>
       </form>

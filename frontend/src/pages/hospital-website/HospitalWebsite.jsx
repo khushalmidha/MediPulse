@@ -270,7 +270,7 @@ const HospitalWebsite = ({ slug }) => {
               <button
                 type="button"
                 onClick={() => navigate(`/triage/${patientToast.doctorId}`)}
-                className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+                className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
               >
                 Join meeting
               </button>
@@ -279,7 +279,7 @@ const HospitalWebsite = ({ slug }) => {
           </div>
         </div>
       )}
-      <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white dark:bg-slate-950/95 backdrop-blur">
+      <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 dark:bg-slate-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             {hospital.branding?.logo ? (
@@ -308,17 +308,17 @@ const HospitalWebsite = ({ slug }) => {
             {hospital.branding?.tagline || "Smart OPD, trusted doctors, transparent care, and realtime queue visibility."}
           </p>
           <div className="mt-8 grid max-w-3xl gap-3 sm:grid-cols-3">
-            <div className="rounded-md bg-white dark:bg-slate-950/15 p-4 backdrop-blur">
+            <div className="rounded-md bg-white/15 dark:bg-slate-950/15 p-4 backdrop-blur">
               <Users className="mb-2" />
               <div className="text-2xl font-bold">{hospital.stats?.totalDoctors || doctors.length}</div>
               <div className="text-sm text-white/75">Doctors</div>
             </div>
-            <div className="rounded-md bg-white dark:bg-slate-950/15 p-4 backdrop-blur">
+            <div className="rounded-md bg-white/15 dark:bg-slate-950/15 p-4 backdrop-blur">
               <Activity className="mb-2" />
               <div className="text-2xl font-bold">{hospital.stats?.totalDepartments || departments.length}</div>
               <div className="text-sm text-white/75">Departments</div>
             </div>
-            <div className="rounded-md bg-white dark:bg-slate-950/15 p-4 backdrop-blur">
+            <div className="rounded-md bg-white/15 dark:bg-slate-950/15 p-4 backdrop-blur">
               <Star className="mb-2" />
               <div className="text-2xl font-bold">{Number(hospital.stats?.avgRating || 0).toFixed(1)}</div>
               <div className="text-sm text-white/75">Rating</div>
@@ -344,7 +344,7 @@ const HospitalWebsite = ({ slug }) => {
                 type="button"
                 aria-label={`Show slide ${index + 1}`}
                 onClick={() => setSlide(index)}
-                className={`h-2 rounded-full transition-all ${index === slide ? "w-6 bg-white dark:bg-slate-950" : "w-2 bg-white dark:bg-slate-950/60"}`}
+                className={`h-2 rounded-full transition-all ${index === slide ? "w-6 bg-white dark:bg-slate-950" : "w-2 bg-white/60 dark:bg-slate-950/60"}`}
               />
             ))}
           </div>
@@ -381,7 +381,7 @@ const HospitalWebsite = ({ slug }) => {
                     setSelectedDepartmentId(isSelected ? "" : String(department._id));
                     document.getElementById("doctors")?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
-                  className={`rounded-lg border bg-white dark:bg-slate-950 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isSelected ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200"}`}>
+                  className={`rounded-lg border bg-white dark:bg-slate-950 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isSelected ? "border-red-500 ring-2 ring-blue-100" : "border-slate-200"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-bold">{department.icon || "🏥"} {department.name}</h3>
@@ -425,7 +425,7 @@ const HospitalWebsite = ({ slug }) => {
             <div>
               <h2 className="text-2xl font-bold">Doctors</h2>
               {selectedDepartmentId && (
-                <button onClick={() => setSelectedDepartmentId("")} className="mt-1 text-sm font-semibold text-blue-600 dark:text-red-500">
+                <button onClick={() => setSelectedDepartmentId("")} className="mt-1 text-sm font-semibold text-red-600 dark:text-red-500">
                   Clear department filter
                 </button>
               )}
@@ -436,7 +436,7 @@ const HospitalWebsite = ({ slug }) => {
                 value={doctorSearch}
                 onChange={(event) => setDoctorSearch(event.target.value)}
                 placeholder="Search doctor or specialization"
-                className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-red-500"
               />
             </label>
           </div>
@@ -500,7 +500,7 @@ const HospitalWebsite = ({ slug }) => {
                   {bookingResult.token?._id && (
                     <button
                       onClick={() => { setBookingDoctor(null); navigate(`/opd/triage?token=${bookingResult.token._id}`); }}
-                      className="w-full rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+                      className="w-full rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
                     >
                       Complete AI Triage (Recommended)
                     </button>
@@ -519,9 +519,9 @@ const HospitalWebsite = ({ slug }) => {
                   value={chiefComplaint}
                   onChange={(event) => setChiefComplaint(event.target.value)}
                   placeholder="Describe your chief complaint or reason for visit..."
-                  className="min-h-28 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-blue-500"
+                  className="min-h-28 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-red-500"
                 />
-                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-blue-800">
                   Your OPD token will be added to the live queue immediately. Please arrive at the hospital on time.
                 </div>
                 <button

@@ -80,14 +80,14 @@ const PatientHealthPortal = () => {
     <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-          <p className="text-sm font-semibold uppercase text-blue-600 dark:text-red-500">Patient Portal</p>
+          <p className="text-sm font-semibold uppercase text-red-600 dark:text-red-500">Patient Portal</p>
           <h1 className="mt-1 text-3xl font-extrabold text-gray-950">Health Records</h1>
           <p className="mt-2 text-sm text-gray-600">A unified timeline of completed OPD visits and online appointments.</p>
           {message && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{message}</p>}
         </section>
 
         {!user?.triageProfile?.agentSummary && (
-          <section className="rounded-xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+          <section className="rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm">
             <h2 className="text-lg font-bold text-blue-950">Complete your health triage</h2>
             <p className="mt-2 text-sm text-blue-800">
               Set up your baseline medical profile before booking an appointment. Our AI assistant will ask a few quick questions to prepare a summary for your future doctors.
@@ -95,7 +95,7 @@ const PatientHealthPortal = () => {
             <div className="mt-4">
               <Link
                 to="/opd/triage"
-                className="inline-flex rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+                className="inline-flex rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
               >
                 Start Triage Profile →
               </Link>
@@ -110,7 +110,7 @@ const PatientHealthPortal = () => {
             ["Family members", stats.family, UserRound],
           ].map(([label, value, Icon]) => (
             <div key={label} className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
-              <Icon className="text-blue-600 dark:text-red-500" />
+              <Icon className="text-red-600 dark:text-red-500" />
               <p className="mt-3 text-sm text-gray-500">{label}</p>
               <p className="mt-1 text-2xl font-bold text-gray-950">{value}</p>
             </div>
@@ -120,7 +120,7 @@ const PatientHealthPortal = () => {
         <section className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
           <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <CalendarDays className="text-blue-600 dark:text-red-500" />
+              <CalendarDays className="text-red-600 dark:text-red-500" />
               Health Timeline
             </h2>
             <div className="mt-5 space-y-4">
@@ -131,14 +131,14 @@ const PatientHealthPortal = () => {
                   <div key={`${item.type}-${item.id}`} className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-semibold uppercase text-blue-600 dark:text-red-500">{item.type.replace("_", " ")}</p>
+                        <p className="text-xs font-semibold uppercase text-red-600 dark:text-red-500">{item.type.replace("_", " ")}</p>
                         <h3 className="mt-1 font-bold text-gray-950">{item.title}</h3>
                         <p className="mt-1 text-sm text-gray-600">{item.subtitle}</p>
                       </div>
                       <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">{formatDate(item.date)}</span>
                     </div>
                     {item.chiefComplaint && <p className="mt-3 text-sm text-gray-700">Complaint: {item.chiefComplaint}</p>}
-                    {item.patientBrief?.agentSummary && <p className="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-900">{item.patientBrief.agentSummary}</p>}
+                    {item.patientBrief?.agentSummary && <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-blue-900">{item.patientBrief.agentSummary}</p>}
                     {item.doctorNotes && <p className="mt-3 text-sm text-gray-700">Doctor notes: {item.doctorNotes}</p>}
                   </div>
                 ))
@@ -178,10 +178,10 @@ const PatientHealthPortal = () => {
                     value={member[field]}
                     onChange={(event) => setMember({ ...member, [field]: event.target.value })}
                     placeholder={label}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500"
                   />
                 ))}
-                <button className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
+                <button className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
                   <Plus size={16} />
                   Add Family Member
                 </button>
@@ -208,7 +208,7 @@ const PatientHealthPortal = () => {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-                <Search className="text-blue-600 dark:text-red-500" />
+                <Search className="text-red-600 dark:text-red-500" />
                 Browse Hospitals
               </h2>
               <p className="mt-1 text-sm text-gray-600">Explore active hospitals available on MediPulse.</p>
@@ -221,7 +221,7 @@ const PatientHealthPortal = () => {
                   {hospital.branding?.logo ? (
                     <img src={hospital.branding.logo} alt={hospital.name} className="h-12 w-12 rounded-lg object-cover" />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:text-red-500">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-50 text-red-600 dark:text-red-500">
                       <Building2 size={22} />
                     </div>
                   )}

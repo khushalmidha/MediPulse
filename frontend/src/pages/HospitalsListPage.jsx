@@ -55,9 +55,9 @@ const HospitalsListPage = () => {
     <main className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <section className="bg-gradient-to-r from-blue-700 to-cyan-600 px-4 py-14 text-white">
         <div className="mx-auto max-w-5xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-100">MediPulse Hospital Network</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-red-100">MediPulse Hospital Network</p>
           <h1 className="mt-3 text-4xl font-black md:text-5xl">Find a Hospital</h1>
-          <p className="mx-auto mt-3 max-w-2xl text-blue-50">
+          <p className="mx-auto mt-3 max-w-2xl text-red-50">
             Browse approved hospitals, check OPD departments, and open their live hospital website.
           </p>
           <div className="mx-auto mt-7 grid max-w-4xl gap-3 md:grid-cols-[1fr_180px_220px]">
@@ -103,18 +103,18 @@ const HospitalsListPage = () => {
                 key={hospital._id}
                 to={`/hospitals/${hospital.slug}`}
                 className="group overflow-hidden rounded-2xl border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                <div className="h-28 bg-gradient-to-r from-blue-600 to-cyan-500 p-5">
+                <div className="h-28 bg-gradient-to-r from-red-600 to-cyan-500 p-5">
                   <div className="flex items-center gap-3">
                     {hospital.branding?.logo ? (
                       <img src={hospital.branding.logo} alt={hospital.name} className="h-14 w-14 rounded-xl bg-white dark:bg-slate-950 object-cover" />
                     ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-slate-950/20 text-white">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20 dark:bg-slate-950/20 text-white">
                         <Building2 size={26} />
                       </div>
                     )}
                     <div className="min-w-0 text-white">
                       <h2 className="truncate text-lg font-bold">{hospital.name}</h2>
-                      <p className="mt-1 flex items-center gap-1 text-sm text-blue-50">
+                      <p className="mt-1 flex items-center gap-1 text-sm text-red-50">
                         <MapPin size={14} />
                         {hospital.address?.city || 'City'}, {hospital.address?.state || 'State'}
                       </p>
@@ -125,7 +125,7 @@ const HospitalsListPage = () => {
                   <p className="min-h-10 text-sm text-gray-600">
                     {hospital.branding?.tagline || 'Smart OPD care, transparent queues, and trusted hospital services.'}
                   </p>
-                  <span className="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                  <span className="mt-4 inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-blue-700">
                     {careLabel(hospital.medicineSystem)}
                   </span>
                   <div className="mt-5 flex items-center justify-between">
@@ -133,7 +133,7 @@ const HospitalsListPage = () => {
                       <Star size={15} fill="currentColor" />
                       {Number(hospital.stats?.avgRating || 0).toFixed(1)}
                     </span>
-                    <span className="text-sm font-semibold text-blue-600 dark:text-red-500 group-hover:underline">Open website</span>
+                    <span className="text-sm font-semibold text-red-600 dark:text-red-500 group-hover:underline">Open website</span>
                   </div>
                 </div>
               </Link>

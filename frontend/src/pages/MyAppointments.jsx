@@ -46,7 +46,7 @@ const MyAppointments = () => {
       case 'cancelled':
         return 'bg-red-100 text-red-800'
       case 'queued':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-red-100 text-blue-800'
       default:
         return 'bg-gray-100 text-gray-800 dark:text-slate-200'
     }
@@ -224,7 +224,7 @@ const MyAppointments = () => {
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
                   activeTab === tab
-                    ? 'border-blue-600 text-blue-600 dark:text-red-500'
+                    ? 'border-red-600 text-red-600 dark:text-red-500'
                     : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-slate-100'
                 }`}
               >
@@ -240,7 +240,7 @@ const MyAppointments = () => {
         {/* Loading State */}
         {loading && (
           <div className="bg-white dark:bg-slate-950 rounded-lg shadow-sm p-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
             <p className="mt-4 text-gray-600">Loading your appointments...</p>
           </div>
         )}
@@ -336,7 +336,7 @@ const MyAppointments = () => {
                   {appointment.receiptText && (
                     <button
                       onClick={() => downloadReceipt(appointment)}
-                      className="w-full flex items-center justify-center space-x-2 bg-blue-600 dark:bg-red-700 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium mt-4"
+                      className="w-full flex items-center justify-center space-x-2 bg-red-600 dark:bg-red-700 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium mt-4"
                     >
                       <Download className="w-4 h-4" />
                       <span>Download Receipt</span>
@@ -354,7 +354,7 @@ const MyAppointments = () => {
                   {appointment.status === 'active' && appointment.doctor?._id && (
                     <Link
                       to={`/triage/${appointment.doctor._id}`}
-                      className="mt-3 flex w-full items-center justify-center rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                      className="mt-3 flex w-full items-center justify-center rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                     >
                       Join Meeting
                     </Link>

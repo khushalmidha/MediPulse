@@ -142,32 +142,32 @@ const AiBot = () => {
   return (
     <div className="fixed bottom-0 right-0 z-50 m-4">
       {!isChatOpen && (
-        <button onClick={() => setIsChatOpen(true)} className="bg-blue-600 dark:bg-red-700 hover:bg-blue-700 text-white rounded-full p-4 shadow-xl transition-all duration-300 hover:scale-110" aria-label="Open AI Chat">
+        <button onClick={() => setIsChatOpen(true)} className="bg-red-600 dark:bg-red-700 hover:bg-blue-700 text-white rounded-full p-4 shadow-xl transition-all duration-300 hover:scale-110" aria-label="Open AI Chat">
           <MessageCircle className="h-6 w-6" />
         </button>
       )}
       {isChatOpen && (
         <div className="bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-slate-200 overflow-hidden w-96 flex flex-col" style={{ maxHeight: '620px' }}>
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex justify-between items-center flex-shrink-0">
+          <div className="bg-gradient-to-r from-red-600 to-blue-700 text-white p-4 flex justify-between items-center flex-shrink-0">
             <div>
               <h3 className="text-base font-bold">MediPulse Assistant</h3>
-              <p className="text-xs text-blue-100">AI-powered healthcare guide</p>
+              <p className="text-xs text-red-100">AI-powered healthcare guide</p>
             </div>
             <div className="flex gap-2">
-              <button onClick={showMainMenu} className="rounded-full bg-white dark:bg-slate-950/20 hover:bg-white dark:bg-slate-950/30 p-1.5 transition-colors" title="Main menu"><Home className="h-4 w-4" /></button>
-              <button onClick={() => setIsChatOpen(false)} className="rounded-full bg-white dark:bg-slate-950/20 hover:bg-white dark:bg-slate-950/30 p-1.5 transition-colors" title="Close"><X className="h-4 w-4" /></button>
+              <button onClick={showMainMenu} className="rounded-full bg-white/20 dark:bg-slate-950/20 hover:bg-white/30 dark:bg-slate-950/30 p-1.5 transition-colors" title="Main menu"><Home className="h-4 w-4" /></button>
+              <button onClick={() => setIsChatOpen(false)} className="rounded-full bg-white/20 dark:bg-slate-950/20 hover:bg-white/30 dark:bg-slate-950/30 p-1.5 transition-colors" title="Close"><X className="h-4 w-4" /></button>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
             {messages.map((message, index) => (
               <div key={index} className="flex flex-col gap-2">
                 <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`rounded-2xl p-3 max-w-[85%] text-sm shadow-sm ${message.role === 'user' ? 'bg-blue-600 dark:bg-red-700 text-white' : 'bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200 border border-slate-200'}`}>{message.content}</div>
+                  <div className={`rounded-2xl p-3 max-w-[85%] text-sm shadow-sm ${message.role === 'user' ? 'bg-red-600 dark:bg-red-700 text-white' : 'bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200 border border-slate-200'}`}>{message.content}</div>
                 </div>
                 {message.options && (
                   <div className="flex flex-wrap gap-2">
                     {message.options.map((opt, i) => (
-                      <button key={i} onClick={() => handleOptionSelect(opt.value)} className="bg-white dark:bg-slate-950 hover:bg-blue-50 text-blue-700 px-3 py-2 rounded-xl border border-blue-200 text-sm font-medium shadow-sm hover:shadow transition-all">{opt.label}</button>
+                      <button key={i} onClick={() => handleOptionSelect(opt.value)} className="bg-white dark:bg-slate-950 hover:bg-red-50 text-blue-700 px-3 py-2 rounded-xl border border-red-200 text-sm font-medium shadow-sm hover:shadow transition-all">{opt.label}</button>
                     ))}
                   </div>
                 )}
@@ -191,11 +191,11 @@ const AiBot = () => {
                     {message.doctorCards.map((doc, i) => (
                       <div key={i} className="min-w-[190px] bg-white dark:bg-slate-950 border border-slate-200 rounded-xl p-3 flex-shrink-0 cursor-pointer hover:border-blue-400 hover:shadow-md transition-all" onClick={() => { navigate(getDoctorNavigationPath(doc)); setIsChatOpen(false); }}>
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-sm">{(doc.firstName || 'D')[0]}</div>
+                          <div className="w-8 h-8 bg-red-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-sm">{(doc.firstName || 'D')[0]}</div>
                           <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">Dr. {doc.firstName} {doc.lastName}</p>
                         </div>
                         <p className="text-xs text-blue-700">{doc.experience?.expertise}</p>
-                        <button className="mt-2 w-full bg-blue-600 dark:bg-red-700 hover:bg-blue-700 text-white text-xs py-1.5 rounded-lg font-medium transition-colors">View Profile</button>
+                        <button className="mt-2 w-full bg-red-600 dark:bg-red-700 hover:bg-blue-700 text-white text-xs py-1.5 rounded-lg font-medium transition-colors">View Profile</button>
                       </div>
                     ))}
                   </div>
@@ -218,17 +218,17 @@ const AiBot = () => {
             ))}
             {isLoading && (
               <div className="flex items-center gap-1 py-2">
-                <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
           <form onSubmit={handleSendMessage} className="border-t border-slate-200 p-3 bg-white dark:bg-slate-950 flex-shrink-0">
             <div className="flex gap-2">
-              <input type="text" value={inputMessage} onChange={e => setInputMessage(e.target.value)} placeholder="Type your message..." className="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-slate-50" disabled={isLoading} />
-              <button type="submit" className="bg-blue-600 dark:bg-red-700 text-white p-2.5 rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors" disabled={isLoading || !inputMessage.trim()}><Send className="h-4 w-4" /></button>
+              <input type="text" value={inputMessage} onChange={e => setInputMessage(e.target.value)} placeholder="Type your message..." className="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-red-500 bg-slate-50" disabled={isLoading} />
+              <button type="submit" className="bg-red-600 dark:bg-red-700 text-white p-2.5 rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors" disabled={isLoading || !inputMessage.trim()}><Send className="h-4 w-4" /></button>
             </div>
           </form>
         </div>

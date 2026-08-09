@@ -64,7 +64,7 @@ const VirtualNotifications = () => {
                 {!item.isRead && (
                   <button
                     onClick={() => markRead(item._id)}
-                    className="rounded-md border border-blue-200 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                    className="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-red-50"
                   >
                     Mark read
                   </button>

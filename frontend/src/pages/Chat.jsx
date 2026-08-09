@@ -224,11 +224,11 @@ useEffect(() => {
 
   // Generate color based on community name
   const getCommunityColor = (name) => {
-    if (!name) return 'bg-blue-500 dark:bg-red-600'
+    if (!name) return 'bg-red-500 dark:bg-red-600'
 
     const colors = [
-      'bg-blue-500 dark:bg-red-600',
-      'bg-indigo-500',
+      'bg-red-500 dark:bg-red-600',
+      'bg-red-500',
       'bg-purple-500',
       'bg-pink-500',
       'bg-red-500',
@@ -263,13 +263,13 @@ useEffect(() => {
           ${showSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Community header */}
-        <div className="p-4 border-b border-gray-200 dark:border-red-900/40 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="p-4 border-b border-gray-200 dark:border-red-900/40 bg-gradient-to-r from-red-50 dark:from-red-950/20 to-red-50 dark:to-red-950/20">
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-bold text-gray-800 dark:text-slate-200 truncate">Communities</h1>
             <div className="flex items-center">
               <Link
                 to={"/communities"}
-                className="text-blue-600 dark:text-red-500 hover:bg-blue-100 p-2 rounded-full transition-colors"
+                className="text-red-600 dark:text-red-500 hover:bg-red-100 p-2 rounded-full transition-colors"
                 title="Create new community"
               >
                 <Plus size={18} />
@@ -329,7 +329,7 @@ useEffect(() => {
               </div>
               <p className="font-medium">No communities joined</p>
               <p className="text-sm mt-1">Join communities to start chatting</p>
-              <Link to="/communities" className="mt-4 inline-block px-4 py-2 bg-blue-600 dark:bg-red-700 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+              <Link to="/communities" className="mt-4 inline-block px-4 py-2 bg-red-600 dark:bg-red-700 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
                 Browse Communities
               </Link>
             </div>
@@ -347,7 +347,7 @@ useEffect(() => {
                 key={community._id}
                 className={`p-3 hover:bg-gray-50 dark:bg-slate-900 cursor-pointer transition-colors ${
                   index === selectedCommunity
-                    ? 'bg-blue-50 border-l-4 border-blue-600'
+                    ? 'bg-red-50 border-l-4 border-red-600'
                     : ''
                 }`}
                 onClick={() => handleChangeCommunity(index)}
@@ -409,7 +409,7 @@ useEffect(() => {
               </div>
             </div>
             <div className="hidden md:flex items-center ml-2 flex-shrink-0">
-              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium shadow-sm truncate max-w-[140px]">
+              <span className="px-3 py-1 bg-red-100 text-blue-800 rounded-full text-xs font-medium shadow-sm truncate max-w-[140px]">
                 {communities[selectedCommunity].category}
               </span>
             </div>
@@ -428,8 +428,8 @@ useEffect(() => {
           {selectedCommunity === null ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-4">
               <div className="bg-white dark:bg-slate-950 p-6 rounded-xl shadow-sm max-w-md border border-gray-100">
-                <div className="bg-blue-50 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                  <Users size={28} className="text-blue-600 dark:text-red-500" />
+                <div className="bg-red-50 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <Users size={28} className="text-red-600 dark:text-red-500" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200 mb-3">
                   Welcome to Communities
@@ -440,7 +440,7 @@ useEffect(() => {
                 </p>
                 <button
                   onClick={() => setShowSidebar(true)}
-                  className="px-4 py-2 bg-blue-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700 transition-colors lg:hidden shadow-sm font-medium"
+                  className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700 transition-colors lg:hidden shadow-sm font-medium"
                 >
                   Browse Communities
                 </button>
@@ -470,8 +470,8 @@ useEffect(() => {
           ) : messages.length === 0 ? (
             <div className="h-full flex items-center justify-center text-center p-4">
               <div className="bg-white dark:bg-slate-950 p-6 rounded-lg shadow-sm max-w-sm border border-gray-100">
-                <div className="bg-blue-100 rounded-full p-3 w-14 h-14 flex items-center justify-center mx-auto mb-4">
-                  <MessageCircle size={24} className="text-blue-600 dark:text-red-500" />
+                <div className="bg-red-100 rounded-full p-3 w-14 h-14 flex items-center justify-center mx-auto mb-4">
+                  <MessageCircle size={24} className="text-red-600 dark:text-red-500" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-200 mb-2">
                   No messages yet
@@ -515,7 +515,7 @@ useEffect(() => {
                           ) : (
                             <div
                               className={`w-8 h-8 rounded-full ${
-                                message.isUser ? "bg-blue-500 dark:bg-red-600" : "bg-gray-400"
+                                message.isUser ? "bg-red-500 dark:bg-red-600" : "bg-gray-400"
                               } flex items-center justify-center text-white text-xs font-medium shadow-sm`}
                             >
                               {getUserInitials(
@@ -548,7 +548,7 @@ useEffect(() => {
                           <div
                             className={`rounded-2xl px-3 py-2 ${
                               message.isUser
-                                ? "bg-blue-600 dark:bg-red-700 text-white rounded-tr-none shadow-sm"
+                                ? "bg-red-600 dark:bg-red-700 text-white rounded-tr-none shadow-sm"
                                 : "bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200 rounded-tl-none border border-gray-200 dark:border-red-900/40 shadow-sm"
                             } relative group-hover:shadow-md transition-shadow max-w-full overflow-hidden`}
                           >
@@ -597,7 +597,7 @@ useEffect(() => {
               <button
                 type="submit"
                 disabled={(!inputMessage && !voiceMessage) || loading}
-                className="ml-2 p-2.5 bg-blue-600 dark:bg-red-700 text-white rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors shadow-sm flex-shrink-0"
+                className="ml-2 p-2.5 bg-red-600 dark:bg-red-700 text-white rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors shadow-sm flex-shrink-0"
                 title="Send message"
               >
                 <Send className="w-4 h-4" />

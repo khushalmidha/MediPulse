@@ -10,9 +10,9 @@ const SERVICES = [
     icon: Stethoscope,
     title: 'Smart OPD Booking',
     description: 'Book appointments with top doctors and hospitals. Get your OPD token instantly and track your live queue position in real time.',
-    color: 'from-blue-600 to-blue-400',
-    bg: 'bg-blue-50',
-    iconColor: 'text-blue-600 dark:text-red-500',
+    color: 'from-red-600 to-blue-400',
+    bg: 'bg-red-50',
+    iconColor: 'text-red-600 dark:text-red-500',
   },
   {
     icon: Activity,
@@ -50,9 +50,9 @@ const SERVICES = [
     icon: Shield,
     title: 'Secure Video Consult',
     description: 'Crystal-clear peer-to-peer video consultations via WebRTC. No waiting rooms, no travel, consult from home safely.',
-    color: 'from-indigo-600 to-indigo-400',
-    bg: 'bg-indigo-50',
-    iconColor: 'text-indigo-600',
+    color: 'from-red-600 to-indigo-400',
+    bg: 'bg-red-50',
+    iconColor: 'text-red-600',
   },
   {
     icon: Users,
@@ -73,7 +73,7 @@ const SERVICES = [
 ]
 
 const HOSPITALS = [
-  { type: 'Allopathy', icon: Stethoscope, desc: 'Modern evidence-based medicine', color: 'text-blue-600 dark:text-red-500', bg: 'bg-blue-100' },
+  { type: 'Allopathy', icon: Stethoscope, desc: 'Modern evidence-based medicine', color: 'text-red-600 dark:text-red-500', bg: 'bg-red-100' },
   { type: 'Ayurveda', icon: Leaf, desc: 'Ancient Indian herbal healing', color: 'text-green-700', bg: 'bg-green-100' },
   { type: 'Homeopathy', icon: Flower2, desc: 'Natural holistic treatments', color: 'text-purple-700', bg: 'bg-purple-100' },
   { type: 'Yoga & Wellness', icon: Heart, desc: 'Mind-body wellness centers', color: 'text-orange-700', bg: 'bg-orange-100' },
@@ -204,14 +204,14 @@ const Home = () => {
 
         <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-24 sm:px-6 lg:grid-cols-[1fr_440px] lg:px-8">
           <div className="text-left">
-          <div className="inline-flex items-center gap-2 rounded-full bg-blue-500 dark:bg-red-600/10 border border-blue-500/20 px-4 py-2 text-sm font-semibold text-blue-300 mb-8">
-            <Activity size={16} className="text-blue-400" />
+          <div className="inline-flex items-center gap-2 rounded-full bg-red-500 dark:bg-red-600/10 border border-red-500/20 px-4 py-2 text-sm font-semibold text-red-300 mb-8">
+            <Activity size={16} className="text-red-400" />
             India's Most Advanced Healthcare Platform
           </div>
           
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-black text-white leading-tight tracking-tight">
             Healthcare,
-            <span className="block bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+            <span className="block bg-gradient-to-r from-red-400 to-cyan-400 bg-clip-text text-transparent">
               Reimagined
             </span>
           </h1>
@@ -223,19 +223,19 @@ const Home = () => {
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             {isAuth ? (
               <>
-                <Link to="/hospitals" className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 dark:bg-red-700 hover:bg-blue-500 dark:bg-red-600 transition-all duration-300 px-8 py-4 text-base font-bold text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:-translate-y-0.5">
+                <Link to="/hospitals" className="inline-flex items-center gap-2 rounded-2xl bg-red-600 dark:bg-red-700 hover:bg-red-500 dark:bg-red-600 transition-all duration-300 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-600/30 hover:shadow-red-600/50 hover:-translate-y-0.5">
                   <Building2 size={20} /> Browse Hospitals <ArrowRight size={18} />
                 </Link>
-                <Link to="/doctors" className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white dark:bg-slate-950/10 backdrop-blur hover:bg-white dark:bg-slate-950/20 transition-all duration-300 px-8 py-4 text-base font-bold text-white">
+                <Link to="/doctors" className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 dark:bg-slate-950/10 backdrop-blur hover:bg-white/20 dark:bg-slate-950/20 transition-all duration-300 px-8 py-4 text-base font-bold text-white">
                   <Stethoscope size={20} /> Find Doctors
                 </Link>
               </>
             ) : (
               <>
-                <Link to="/signup/user" className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 dark:bg-red-700 hover:bg-blue-500 dark:bg-red-600 transition-all duration-300 px-8 py-4 text-base font-bold text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:-translate-y-0.5">
+                <Link to="/signup/user" className="inline-flex items-center gap-2 rounded-2xl bg-red-600 dark:bg-red-700 hover:bg-red-500 dark:bg-red-600 transition-all duration-300 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-600/30 hover:shadow-red-600/50 hover:-translate-y-0.5">
                   <UserPlus size={20} /> Join as Patient <ArrowRight size={18} />
                 </Link>
-                <Link to="/signup/doctor" className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white dark:bg-slate-950/10 backdrop-blur hover:bg-white dark:bg-slate-950/20 transition-all duration-300 px-8 py-4 text-base font-bold text-white">
+                <Link to="/signup/doctor" className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 dark:bg-slate-950/10 backdrop-blur hover:bg-white/20 dark:bg-slate-950/20 transition-all duration-300 px-8 py-4 text-base font-bold text-white">
                   <Stethoscope size={20} /> Register as Doctor
                 </Link>
               </>
@@ -249,15 +249,15 @@ const Home = () => {
               { value: communityCount + '+', label: 'Communities' },
               { value: doctorsCount.toLocaleString() + '+', label: 'Verified Doctors' },
             ].map((stat) => (
-              <div key={stat.label} className="rounded-2xl bg-white dark:bg-slate-950/5 border border-white/10 p-5 backdrop-blur">
+              <div key={stat.label} className="rounded-2xl bg-white/5 dark:bg-slate-950/5 border border-white/10 p-5 backdrop-blur">
                 <p className="text-3xl font-black text-white">{stat.value}</p>
                 <p className="mt-1 text-sm text-slate-400">{stat.label}</p>
               </div>
             ))}
           </div>
           </div>
-          <div className="rounded-3xl border border-white/15 bg-white dark:bg-slate-950/10 p-5 text-white backdrop-blur">
-            <p className="text-sm font-bold uppercase tracking-widest text-cyan-200">{HERO_SLIDES[heroSlide].eyebrow}</p>
+          <div className="rounded-3xl border border-white/15 bg-white/10 dark:bg-slate-950/10 p-5 text-white backdrop-blur">
+            <p className="text-sm font-bold uppercase tracking-widest text-red-200">{HERO_SLIDES[heroSlide].eyebrow}</p>
             <h2 className="mt-3 text-3xl font-black leading-tight">{HERO_SLIDES[heroSlide].title}</h2>
             <p className="mt-4 text-sm leading-relaxed text-slate-200">{HERO_SLIDES[heroSlide].text}</p>
             <div className="mt-6 flex gap-2">
@@ -265,7 +265,7 @@ const Home = () => {
                 <button
                   key={slide.title}
                   onClick={() => setHeroSlide(index)}
-                  className={`h-2 rounded-full transition-all ${index === heroSlide ? 'w-8 bg-cyan-300' : 'w-2 bg-white dark:bg-slate-950/50'}`}
+                  className={`h-2 rounded-full transition-all ${index === heroSlide ? 'w-8 bg-cyan-300' : 'w-2 bg-white/50 dark:bg-slate-950/50'}`}
                   aria-label={`Show ${slide.eyebrow}`}
                 />
               ))}
@@ -278,7 +278,7 @@ const Home = () => {
       <section className="py-20 bg-slate-50 dark:bg-black">
         <div className="mx-auto max-w-7xl px-4">
           <div className="text-center mb-12">
-            <p className="text-sm font-bold uppercase tracking-widest text-blue-600 dark:text-red-500 mb-3">Everything You Need</p>
+            <p className="text-sm font-bold uppercase tracking-widest text-red-600 dark:text-red-500 mb-3">Everything You Need</p>
             <h2 className="text-4xl font-black text-slate-900 dark:text-white">What MediPulse Offers</h2>
             <p className="mt-4 text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto">A complete healthcare ecosystem — from booking to billing, consultation to community.</p>
           </div>
@@ -312,7 +312,7 @@ const Home = () => {
               <button
                 key={i}
                 onClick={() => { setCurrentSlide(i); setAutoPlay(false); setTimeout(() => setAutoPlay(true), 5000) }}
-                className={`rounded-full transition-all duration-300 ${i === currentSlide ? 'w-8 h-3 bg-blue-600 dark:bg-red-700' : 'w-3 h-3 bg-slate-300 hover:bg-slate-400'}`}
+                className={`rounded-full transition-all duration-300 ${i === currentSlide ? 'w-8 h-3 bg-red-600 dark:bg-red-700' : 'w-3 h-3 bg-slate-300 hover:bg-slate-400'}`}
               />
             ))}
           </div>
@@ -337,7 +337,7 @@ const Home = () => {
                   </div>
                   <h3 className="text-lg font-black text-slate-900 dark:text-white">{h.type}</h3>
                   <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{h.desc}</p>
-                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-red-500">
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-500">
                     Browse <ChevronRight size={14} />
                   </span>
                 </Link>
@@ -348,10 +348,10 @@ const Home = () => {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="py-20 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
+      <section className="py-20 bg-gradient-to-br from-slate-950 via-red-950 to-slate-900 text-white">
         <div className="mx-auto max-w-7xl px-4">
           <div className="text-center mb-14">
-            <p className="text-sm font-bold uppercase tracking-widest text-blue-400 mb-3">Simple & Fast</p>
+            <p className="text-sm font-bold uppercase tracking-widest text-red-400 mb-3">Simple & Fast</p>
             <h2 className="text-4xl font-black">How It Works</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -366,10 +366,10 @@ const Home = () => {
                 <div key={item.step} className="relative">
                   {i < 3 && <div className="hidden md:block absolute top-8 left-full w-full h-0.5 bg-blue-800 z-0" />}
                   <div className="relative z-10 flex flex-col items-center text-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 dark:bg-red-700 shadow-lg shadow-blue-600/40 mb-5">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-600 dark:bg-red-700 shadow-lg shadow-red-600/40 mb-5">
                       <Icon size={28} />
                     </div>
-                    <span className="text-xs font-black text-blue-400 mb-2">{item.step}</span>
+                    <span className="text-xs font-black text-red-400 mb-2">{item.step}</span>
                     <h3 className="text-lg font-black">{item.title}</h3>
                     <p className="mt-2 text-sm text-slate-400">{item.desc}</p>
                   </div>
@@ -395,7 +395,7 @@ const Home = () => {
                 </div>
                 <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed italic">&ldquo;{t.text}&rdquo;</p>
                 <div className="mt-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-red-900/30 font-black text-blue-700 dark:text-red-400 text-sm">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 font-black text-blue-700 dark:text-red-400 text-sm">
                     {t.name[0]}
                   </div>
                   <div>
@@ -410,12 +410,12 @@ const Home = () => {
       </section>
 
       {/* CTA SECTION */}
-      <section className="py-20 bg-blue-600 dark:bg-red-900">
+      <section className="py-20 bg-red-600 dark:bg-red-900">
         <div className="mx-auto max-w-4xl px-4 text-center">
           <h2 className="text-4xl font-black text-white">Start Your Health Journey Today</h2>
-          <p className="mt-4 text-xl text-blue-100 max-w-xl mx-auto">Join thousands of patients and doctors already using MediPulse for smarter, faster healthcare.</p>
+          <p className="mt-4 text-xl text-red-100 max-w-xl mx-auto">Join thousands of patients and doctors already using MediPulse for smarter, faster healthcare.</p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to={isAuth ? '/hospitals' : '/signup/user'} className="inline-flex items-center gap-2 rounded-2xl bg-white dark:bg-slate-950 hover:bg-blue-50 transition-all duration-300 px-8 py-4 text-base font-black text-blue-700 shadow-xl hover:-translate-y-0.5">
+            <Link to={isAuth ? '/hospitals' : '/signup/user'} className="inline-flex items-center gap-2 rounded-2xl bg-white dark:bg-slate-950 hover:bg-red-50 transition-all duration-300 px-8 py-4 text-base font-black text-blue-700 shadow-xl hover:-translate-y-0.5">
               {isAuth ? <><Building2 size={20} /> Browse Hospitals</> : <><UserPlus size={20} /> Get Started Free</>}
             </Link>
             <Link to="/doctors" className="inline-flex items-center gap-2 rounded-2xl border-2 border-white/30 hover:border-white/60 transition-all duration-300 px-8 py-4 text-base font-bold text-white">

@@ -29,21 +29,21 @@ const Footer = () => {
               <li>
                 <Link
                   to='/about'
-                  className='text-gray-600 hover:text-blue-600 dark:text-red-500'>
+                  className='text-gray-600 hover:text-red-600 dark:text-red-500'>
                   About Us
                 </Link>
               </li>
               <li>
                 <Link
                   to='/communities'
-                  className='text-gray-600 hover:text-blue-600 dark:text-red-500'>
+                  className='text-gray-600 hover:text-red-600 dark:text-red-500'>
                   Communities
                 </Link>
               </li>
               <li>
                 <Link
                   to='/doctors'
-                  className='text-gray-600 hover:text-blue-600 dark:text-red-500'>
+                  className='text-gray-600 hover:text-red-600 dark:text-red-500'>
                   Doctors
                 </Link>
               </li>
@@ -57,21 +57,21 @@ const Footer = () => {
               <li>
                 <Link
                   to={'/privacy'}
-                  className='text-gray-600 hover:text-blue-600 dark:text-red-500'>
+                  className='text-gray-600 hover:text-red-600 dark:text-red-500'>
                   Privacy Policy
                 </Link>
               </li>
               <li>
                 <Link
                   to={'/terms'}
-                  className='text-gray-600 hover:text-blue-600 dark:text-red-500'>
+                  className='text-gray-600 hover:text-red-600 dark:text-red-500'>
                   Terms of Service
                 </Link>
               </li>
               <li>
                 <Link
                   to={'/cookiepolicy'}
-                  className='text-gray-600 hover:text-blue-600 dark:text-red-500'>
+                  className='text-gray-600 hover:text-red-600 dark:text-red-500'>
                   Cookie Policy
                 </Link>
               </li>
@@ -85,18 +85,18 @@ const Footer = () => {
               <a
                 href='https://github.com/khushalmidha'
                 target='_blank'
-                className='text-gray-600 hover:text-blue-600 dark:text-red-500'>
+                className='text-gray-600 hover:text-red-600 dark:text-red-500'>
                 <Github className='h-6 w-6' />
               </a>
               <a
                 href='https://www.linkedin.com/in/khushal-midha-260bb3288/'
                 target='blank'
-                className='text-gray-600 hover:text-blue-600 dark:text-red-500'>
+                className='text-gray-600 hover:text-red-600 dark:text-red-500'>
                 <Linkedin className='h-6 w-6' />
               </a>
               <a
                 href='mailto:khushalmidha24@gmail.com'
-                className='text-gray-600 hover:text-blue-600 dark:text-red-500'>
+                className='text-gray-600 hover:text-red-600 dark:text-red-500'>
                 <Mail className='h-6 w-6' />
               </a>
             </div>

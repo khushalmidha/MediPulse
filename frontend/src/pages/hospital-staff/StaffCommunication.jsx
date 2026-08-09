@@ -194,7 +194,7 @@ const StaffCommunication = () => {
         <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase text-blue-600 dark:text-red-500">{hospital?.name || "Hospital"} Staff Hub</p>
+              <p className="text-sm font-semibold uppercase text-red-600 dark:text-red-500">{hospital?.name || "Hospital"} Staff Hub</p>
               <h1 className="text-2xl font-extrabold text-gray-950">Internal Communication</h1>
               <p className="mt-2 text-sm text-gray-600">Coordinate patient updates, department messages, and lab alerts in one realtime workspace.</p>
             </div>
@@ -203,7 +203,7 @@ const StaffCommunication = () => {
               Refresh
             </button>
           </div>
-          {message && <p className="mt-4 rounded-md bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
+          {message && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-blue-700">{message}</p>}
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -216,7 +216,7 @@ const StaffCommunication = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold ${selected ? "bg-blue-600 dark:bg-red-700 text-white" : "text-gray-700 hover:bg-gray-100"}`}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold ${selected ? "bg-red-600 dark:bg-red-700 text-white" : "text-gray-700 hover:bg-gray-100"}`}
                   >
                     <Icon size={18} />
                     {tab.label}
@@ -227,7 +227,7 @@ const StaffCommunication = () => {
 
             <div className="mt-6 space-y-3 border-t border-gray-100 pt-4">
               {activeTab === "patient_context" && (
-                <input value={tokenId} onChange={(e) => setTokenId(e.target.value)} placeholder="Patient token ID" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                <input value={tokenId} onChange={(e) => setTokenId(e.target.value)} placeholder="Patient token ID" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500" />
               )}
               {activeTab === "department" && (
                 <div className="space-y-2">
@@ -236,7 +236,7 @@ const StaffCommunication = () => {
                     <button
                       key={department._id}
                       onClick={() => setDepartmentId(department._id)}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold ${departmentId === department._id ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50 dark:bg-slate-900"}`}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold ${departmentId === department._id ? "bg-red-50 text-blue-700" : "text-gray-700 hover:bg-gray-50 dark:bg-slate-900"}`}
                     >
                       # {department.name}
                     </button>
@@ -245,7 +245,7 @@ const StaffCommunication = () => {
               )}
               {activeTab === "direct" && (
                 <div className="space-y-3">
-                  <input value={staffSearch} onChange={(e) => setStaffSearch(e.target.value)} placeholder="Search staff" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                  <input value={staffSearch} onChange={(e) => setStaffSearch(e.target.value)} placeholder="Search staff" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500" />
                   <div className="max-h-72 space-y-2 overflow-y-auto">
                     {directory.staff
                       .filter((member) => member._id !== staffId)
@@ -254,7 +254,7 @@ const StaffCommunication = () => {
                         <button
                           key={member._id}
                           onClick={() => setRecipientStaffId(member._id)}
-                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${recipientStaffId === member._id ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50 dark:bg-slate-900"}`}
+                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${recipientStaffId === member._id ? "bg-red-50 text-blue-700" : "hover:bg-gray-50 dark:bg-slate-900"}`}
                         >
                           <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xs font-bold">
                             {member.profilePhoto ? <img src={member.profilePhoto} alt={member.name} className="h-full w-full object-cover" /> : member.name?.slice(0, 2)}
@@ -277,7 +277,7 @@ const StaffCommunication = () => {
           <section className="flex min-h-[620px] flex-col rounded-xl bg-white dark:bg-slate-950 shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 p-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:text-red-500">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600 dark:text-red-500">
                   {activeTab === "lab" ? <BellRing size={20} /> : <MessageSquare size={20} />}
                 </div>
                 <div>
@@ -298,8 +298,8 @@ const StaffCommunication = () => {
                 const mine = item.sender?.toString() === staffId;
                 return (
                   <div key={item._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[78%] rounded-xl px-4 py-3 shadow-sm ${mine ? "bg-blue-600 dark:bg-red-700 text-white" : "bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100"}`}>
-                      <div className={`mb-1 flex items-center gap-2 text-xs ${mine ? "text-blue-100" : "text-gray-500"}`}>
+                    <div className={`max-w-[78%] rounded-xl px-4 py-3 shadow-sm ${mine ? "bg-red-600 dark:bg-red-700 text-white" : "bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100"}`}>
+                      <div className={`mb-1 flex items-center gap-2 text-xs ${mine ? "text-red-100" : "text-gray-500"}`}>
                         <span className="font-semibold">{item.senderName || "Staff"}</span>
                         <span>{item.senderRole}</span>
                         <span>{formatTime(item.createdAt)}</span>
@@ -319,9 +319,9 @@ const StaffCommunication = () => {
                   onChange={(e) => setContent(e.target.value)}
                   placeholder={activeTab === "lab" ? "Post lab alert..." : "Type message..."}
                   maxLength={2000}
-                  className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                  className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-red-500"
                 />
-                <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2.5 text-sm font-bold text-white">
+                <button className="inline-flex items-center gap-2 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2.5 text-sm font-bold text-white">
                   <SendHorizontal size={16} />
                   Send
                 </button>

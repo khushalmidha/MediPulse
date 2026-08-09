@@ -230,20 +230,20 @@ const DoctorAppointments = () => {
                   value={doctorNotes}
                   onChange={(event) => setDoctorNotes(event.target.value)}
                   placeholder="Symptoms, advice, follow-up, medicines, warnings..."
-                  className="mt-3 min-h-40 w-full rounded-md border border-gray-300 bg-white dark:bg-slate-950 p-3 text-sm outline-none focus:border-blue-500"
+                  className="mt-3 min-h-40 w-full rounded-md border border-gray-300 bg-white dark:bg-slate-950 p-3 text-sm outline-none focus:border-red-500"
                 />
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => saveDoctorNotes(queueData.activeAppointment._id)}
-                    className="rounded-md border border-blue-600 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+                    className="rounded-md border border-red-600 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-red-50"
                   >
                     Save Notes
                   </button>
                   <button
                     type="button"
                     onClick={() => generateReceipt(queueData.activeAppointment._id)}
-                    className="rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    className="rounded-md bg-red-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
                   >
                     Generate Receipt
                   </button>
@@ -298,7 +298,7 @@ const DoctorAppointments = () => {
                       type="button"
                       onClick={() => startAppointment(appointment._id)}
                       disabled={index !== 0 || Boolean(queueData.activeAppointment)}
-                      className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+                      className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
                     >
                       Start Appointment
                     </button>
@@ -340,7 +340,7 @@ const PatientBriefCard = ({ brief }) => {
   const urgency = urgencyStyles[brief.urgencyLevel] || urgencyStyles.ROUTINE;
 
   return (
-    <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+    <div className="mt-4 rounded-xl border border-blue-100 bg-red-50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-base font-bold text-blue-950">🤖 AI Patient Brief</h3>
         <span className={`rounded-full border px-3 py-1 text-xs font-bold ${urgency.className}`}>
@@ -365,12 +365,12 @@ const PatientBriefCard = ({ brief }) => {
           <dd className="mt-1 text-gray-700">{brief.relevantHistory || "Not provided"}</dd>
         </div>
       </dl>
-      <div className="mt-4 rounded-lg bg-white dark:bg-slate-950/80 p-3 text-sm text-gray-800 dark:text-slate-200">
+      <div className="mt-4 rounded-lg bg-white/80 dark:bg-slate-950/80 p-3 text-sm text-gray-800 dark:text-slate-200">
         <span className="font-semibold text-gray-950">Summary: </span>
         {brief.agentSummary || "Not provided"}
       </div>
       {brief.predictedDisease && (
-        <div className="mt-4 flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+        <div className="mt-4 flex items-start gap-3 rounded-lg border border-indigo-200 bg-red-50 p-3">
           <span className="text-xl">🩺</span>
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-indigo-900">

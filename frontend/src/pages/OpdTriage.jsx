@@ -83,12 +83,12 @@ const OpdTriage = () => {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-2xl w-full bg-white dark:bg-slate-950 rounded-3xl shadow-xl overflow-hidden animate-[fadeIn_0.5s_ease-out]">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-center text-white">
-            <div className="w-20 h-20 bg-white dark:bg-slate-950/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+          <div className="bg-gradient-to-r from-red-600 to-red-600 p-8 text-center text-white">
+            <div className="w-20 h-20 bg-white/20 dark:bg-slate-950/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
               <CheckCircle2 size={40} className="text-white" />
             </div>
             <h1 className="text-3xl font-black mb-2">Triage Complete!</h1>
-            <p className="text-blue-100 text-lg">Your health profile is ready for the doctor.</p>
+            <p className="text-red-100 text-lg">Your health profile is ready for the doctor.</p>
           </div>
           
           <div className="p-8">
@@ -98,12 +98,12 @@ const OpdTriage = () => {
             </div>
 
             {brief.predictedDisease && (
-              <div className="mb-8 p-4 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-start gap-4">
+              <div className="mb-8 p-4 rounded-2xl bg-red-50 border border-indigo-100 flex items-start gap-4">
                 <Activity className="text-indigo-500 shrink-0 mt-1" size={24} />
                 <div>
                   <h3 className="text-sm font-bold text-indigo-900 uppercase tracking-wider mb-1">Preliminary AI Assessment</h3>
                   <p className="text-indigo-800 font-medium">The AI detected patterns consistent with <span className="font-black bg-indigo-200 px-2 py-0.5 rounded text-indigo-900">{brief.predictedDisease}</span>.</p>
-                  <p className="text-indigo-600 text-sm mt-1">This has been securely attached to your file for the doctor's review.</p>
+                  <p className="text-red-600 text-sm mt-1">This has been securely attached to your file for the doctor's review.</p>
                 </div>
               </div>
             )}
@@ -116,7 +116,7 @@ const OpdTriage = () => {
                   navigate("/doctors");
                 }
               }}
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 dark:bg-red-700 hover:bg-blue-700 text-white font-bold text-lg py-4 px-8 rounded-2xl transition-all hover:shadow-lg hover:shadow-blue-500/30"
+              className="w-full flex items-center justify-center gap-2 bg-red-600 dark:bg-red-700 hover:bg-blue-700 text-white font-bold text-lg py-4 px-8 rounded-2xl transition-all hover:shadow-lg hover:shadow-red-500/30"
             >
               Proceed to Booking <ArrowRight />
             </button>
@@ -132,7 +132,7 @@ const OpdTriage = () => {
         
         {/* Header */}
         <div className="absolute top-8 left-8 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 dark:text-red-500">
+          <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center text-red-600 dark:text-red-500">
             <Bot size={24} />
           </div>
           <span className="font-black text-xl tracking-tight text-slate-800 dark:text-slate-200">MediPulse Triage</span>
@@ -153,7 +153,7 @@ const OpdTriage = () => {
 
           {isCompleting ? (
             <div className="text-center animate-[pulse_2s_ease-in-out_infinite]">
-              <Activity size={48} className="text-blue-500 mx-auto mb-6" />
+              <Activity size={48} className="text-red-500 mx-auto mb-6" />
               <h2 className="text-3xl font-light text-slate-600">Analyzing your symptoms...</h2>
               <p className="text-slate-400 mt-2">Our AI is preparing your clinical brief and running diagnostic models.</p>
             </div>
@@ -171,16 +171,16 @@ const OpdTriage = () => {
                   onChange={(e) => setInput(e.target.value)}
                   disabled={loading}
                   placeholder="Type your answer here..."
-                  className="w-full text-2xl md:text-3xl font-medium text-blue-600 dark:text-red-500 placeholder:text-slate-300 bg-transparent border-b-2 border-slate-200 focus:border-blue-600 pb-4 outline-none transition-colors disabled:opacity-50"
+                  className="w-full text-2xl md:text-3xl font-medium text-red-600 dark:text-red-500 placeholder:text-slate-300 bg-transparent border-b-2 border-slate-200 focus:border-red-600 pb-4 outline-none transition-colors disabled:opacity-50"
                   autoFocus
                 />
                 <button 
                   type="submit"
                   disabled={loading || !input.trim()}
-                  className="absolute right-0 bottom-4 text-blue-600 dark:text-red-500 hover:text-blue-800 disabled:text-slate-300 transition-colors"
+                  className="absolute right-0 bottom-4 text-red-600 dark:text-red-500 hover:text-blue-800 disabled:text-slate-300 transition-colors"
                 >
                   <span className="sr-only">Submit</span>
-                  <div className="bg-blue-50 group-focus-within:bg-blue-100 p-2 rounded-lg">
+                  <div className="bg-red-50 group-focus-within:bg-red-100 p-2 rounded-lg">
                     <ChevronRight size={32} />
                   </div>
                 </button>

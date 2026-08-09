@@ -102,7 +102,7 @@ const RecommendedCommunities = () => {
         <div className='flex justify-between px-2'>
           <h3 className='text-lg font-bold mb-4'>Your Communities</h3>
           <Link to={'/communities'}>
-            <button className='bg-blue-600 dark:bg-red-700 text-white px-2 py-1 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer'>
+            <button className='bg-red-600 dark:bg-red-700 text-white px-2 py-1 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer'>
               Explore All
             </button>
           </Link>
@@ -114,12 +114,12 @@ const RecommendedCommunities = () => {
             <button
               onClick={scrollLeft}
               className='absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-300 rounded-full p-3 shadow-md cursor-pointer'>
-              <ChevronLeftCircle className='bg-blue-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
+              <ChevronLeftCircle className='bg-red-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
             </button>
             <button
               onClick={scrollRight}
               className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-300 rounded-full p-3 shadow-md cursor-pointer'>
-              <ChevronRightCircle className='bg-blue-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
+              <ChevronRightCircle className='bg-red-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
             </button>
           </>
         )}
@@ -138,13 +138,13 @@ const RecommendedCommunities = () => {
               key={community._id}
               id={community._id}
               className='bg-white dark:bg-slate-950 rounded-lg shadow-md overflow-hidden flex flex-col h-64 hover:shadow-lg transition-shadow min-w-[350px] duration-300'>
-              <div className='h-2 bg-blue-500 dark:bg-red-600'></div>
+              <div className='h-2 bg-red-500 dark:bg-red-600'></div>
               <div className='p-6 flex-1 flex flex-col'>
                 <div className='flex items-center justify-between mb-3'>
                   <h3 className='text-xl font-bold text-gray-800 dark:text-slate-200 truncate'>
                     {community.title}
                   </h3>
-                  <span className='px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full'>
+                  <span className='px-2 py-1 bg-red-100 text-blue-800 text-xs font-medium rounded-full'>
                     {community.category}
                   </span>
                 </div>
@@ -166,7 +166,7 @@ const RecommendedCommunities = () => {
                   ) : (
                     <button
                       onClick={() => shareCommunityLink(community._id)}
-                      className='text-blue-500 hover:text-blue-700 cursor-pointer'
+                      className='text-red-500 hover:text-blue-700 cursor-pointer'
                       title='Share community link'>
                       <svg
                         xmlns='http://www.w3.org/2000/svg'

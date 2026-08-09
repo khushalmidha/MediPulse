@@ -121,7 +121,7 @@ const VirtualAdminDashboard = () => {
             <option value="doctor">Doctor</option>
           </select>
           <input type="number" min="1" step="0.01" value={topup.amount} onChange={(e) => setTopup((p) => ({ ...p, amount: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm" required />
-          <button className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white">Top-up</button>
+          <button className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white">Top-up</button>
         </form>
 
         <div className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm overflow-x-auto">

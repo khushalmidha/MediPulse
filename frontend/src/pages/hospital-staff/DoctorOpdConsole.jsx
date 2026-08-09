@@ -25,23 +25,23 @@ const TokenCard = ({ token, index, onStart, onNoShow }) => {
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-lg font-bold text-gray-950">#{index + 1} · {token.displayToken}</p>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${urgency === "HIGH" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>{urgency}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${urgency === "HIGH" ? "bg-red-100 text-red-700" : "bg-red-100 text-blue-700"}`}>{urgency}</span>
         </div>
         <p className="text-sm text-gray-600">{patientName(token)}</p>
-        <p className="mt-1 text-xs font-semibold uppercase text-blue-600 dark:text-red-500">{token.status.replace("_", " ")} · ETA {waitMinutes} min</p>
+        <p className="mt-1 text-xs font-semibold uppercase text-red-600 dark:text-red-500">{token.status.replace("_", " ")} · ETA {waitMinutes} min</p>
       </div>
       <div className="flex gap-2">
         <button onClick={() => onNoShow(token._id)} className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
           No-show
         </button>
-        <button onClick={() => onStart(token._id)} className="rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        <button onClick={() => onStart(token._id)} className="rounded-md bg-red-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
           Start
         </button>
       </div>
     </div>
     {token.chiefComplaint && <p className="mt-3 text-sm text-gray-700">Complaint: {token.chiefComplaint}</p>}
     {brief?.agentSummary && (
-      <div className="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-950">
+      <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-blue-950">
         <p className="font-bold">AI triage brief</p>
         <p className="mt-1 line-clamp-2">{brief.agentSummary}</p>
         {!!brief.uncoveredAreas?.length && (
@@ -171,7 +171,7 @@ const DoctorOpdConsole = () => {
         <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase text-blue-600 dark:text-red-500">{hospital?.name || "Hospital"} OPD</p>
+              <p className="text-sm font-semibold uppercase text-red-600 dark:text-red-500">{hospital?.name || "Hospital"} OPD</p>
               <h1 className="text-2xl font-extrabold text-gray-950">Doctor OPD Console</h1>
             </div>
             <button onClick={loadQueue} className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium">
@@ -179,7 +179,7 @@ const DoctorOpdConsole = () => {
               Refresh
             </button>
           </div>
-          {message && <p className="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
+          {message && <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-blue-700">{message}</p>}
         </section>
 
         <section className="grid gap-4 md:grid-cols-4">
@@ -190,7 +190,7 @@ const DoctorOpdConsole = () => {
             ["Status", queue.currentlyServing ? "In consultation" : "Ready", Activity],
           ].map(([label, value, Icon]) => (
             <div key={label} className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
-              <Icon className="text-blue-600 dark:text-red-500" />
+              <Icon className="text-red-600 dark:text-red-500" />
               <p className="mt-3 text-sm text-gray-500">{label}</p>
               <p className="mt-1 text-2xl font-bold text-gray-950">{value}</p>
             </div>
@@ -200,11 +200,11 @@ const DoctorOpdConsole = () => {
         <section className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
           <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <Stethoscope className="text-blue-600 dark:text-red-500" />
+              <Stethoscope className="text-red-600 dark:text-red-500" />
               Currently Seeing
             </h2>
             {queue.currentlyServing ? (
-              <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-5">
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-5">
                 <p className="text-2xl font-black text-blue-950">{queue.currentlyServing.displayToken}</p>
                 <p className="mt-1 text-gray-700">{patientName(queue.currentlyServing)}</p>
                 <p className="mt-3 text-sm text-gray-700">Complaint: {queue.currentlyServing.chiefComplaint || "Not recorded"}</p>
@@ -212,9 +212,9 @@ const DoctorOpdConsole = () => {
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   placeholder="Consultation notes, diagnosis, prescription..."
-                  className="mt-4 min-h-36 w-full rounded-md border border-blue-200 bg-white dark:bg-slate-950 p-3 text-sm outline-none focus:border-blue-500"
+                  className="mt-4 min-h-36 w-full rounded-md border border-red-200 bg-white dark:bg-slate-950 p-3 text-sm outline-none focus:border-red-500"
                 />
-                <button onClick={completeConsultation} className="mt-4 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
+                <button onClick={completeConsultation} className="mt-4 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
                   End Consultation
                 </button>
               </div>
@@ -225,7 +225,7 @@ const DoctorOpdConsole = () => {
 
           <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <Bot className="text-blue-600 dark:text-red-500" />
+              <Bot className="text-red-600 dark:text-red-500" />
               Doctor Co-Pilot
             </h2>
             {aiBrief ? (
@@ -242,16 +242,16 @@ const DoctorOpdConsole = () => {
             ) : (
               <p className="mt-4 rounded-lg bg-gray-50 dark:bg-slate-900 p-4 text-sm text-gray-500">AI triage brief will appear when the patient completes OPD triage.</p>
             )}
-            <textarea value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} className="mt-4 min-h-24 w-full rounded-md border border-gray-300 p-3 text-sm outline-none focus:border-blue-500" />
-            <button onClick={askCopilot} disabled={!queue.currentlyServing} className="mt-3 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">
+            <textarea value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} className="mt-4 min-h-24 w-full rounded-md border border-gray-300 p-3 text-sm outline-none focus:border-red-500" />
+            <button onClick={askCopilot} disabled={!queue.currentlyServing} className="mt-3 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">
               Ask Co-Pilot
             </button>
-            {aiSuggestion && <p className="mt-4 whitespace-pre-wrap rounded-lg bg-blue-50 p-4 text-sm text-blue-950">{aiSuggestion}</p>}
+            {aiSuggestion && <p className="mt-4 whitespace-pre-wrap rounded-lg bg-red-50 p-4 text-sm text-blue-950">{aiSuggestion}</p>}
           </div>
 
           <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm lg:col-span-2">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <UserRound className="text-blue-600 dark:text-red-500" />
+              <UserRound className="text-red-600 dark:text-red-500" />
               Queue
             </h2>
             <div className="mt-4 space-y-3">

@@ -460,7 +460,7 @@ const AppointmentVideoCall = ({
 
   const statusColor = {
     waiting: "bg-amber-500",
-    connecting: "bg-blue-500 dark:bg-red-600",
+    connecting: "bg-red-500 dark:bg-red-600",
     connected: "bg-green-500",
     reconnecting: "bg-orange-500",
     failed: "bg-red-500",
@@ -491,7 +491,7 @@ const AppointmentVideoCall = ({
 
           {/* Waiting overlay */}
           {!presence.ready && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-red-950">
               <div className="flex h-28 w-28 items-center justify-center rounded-full bg-slate-800 border-4 border-slate-700 mb-6 overflow-hidden">
                 {remotePhoto ? (
                   <img src={remotePhoto} alt={remoteLabel} className="h-full w-full object-cover" />
@@ -506,9 +506,9 @@ const AppointmentVideoCall = ({
               <p className="text-lg font-bold text-white">{remoteLabel}</p>
               <p className="mt-2 text-sm text-slate-400">{statusText}</p>
               <div className="mt-5 flex gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "300ms" }} />
+                <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
           )}
@@ -575,7 +575,7 @@ const AppointmentVideoCall = ({
             <button
               onClick={toggleMute}
               title={isMuted ? "Unmute" : "Mute"}
-              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${isMuted ? "bg-red-500 hover:bg-red-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${isMuted ? "bg-red-500 hover:bg-red-400" : "bg-white/10 dark:bg-slate-950/10 hover:bg-white/20 dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
             >
               {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
             </button>
@@ -584,7 +584,7 @@ const AppointmentVideoCall = ({
             <button
               onClick={toggleCamera}
               title={isCameraOff ? "Turn on camera" : "Turn off camera"}
-              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${isCameraOff ? "bg-red-500 hover:bg-red-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${isCameraOff ? "bg-red-500 hover:bg-red-400" : "bg-white/10 dark:bg-slate-950/10 hover:bg-white/20 dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
             >
               {isCameraOff ? <VideoOff size={20} /> : <Video size={20} />}
             </button>
@@ -603,7 +603,7 @@ const AppointmentVideoCall = ({
               <button
                 onClick={() => setActiveSidePanel((c) => c === "copilot" ? null : "copilot")}
                 title="Toggle AI Co-Pilot"
-                className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${activeSidePanel === "copilot" ? "bg-blue-500 dark:bg-red-600 hover:bg-blue-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white relative`}
+                className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${activeSidePanel === "copilot" ? "bg-red-500 dark:bg-red-600 hover:bg-blue-400" : "bg-white/10 dark:bg-slate-950/10 hover:bg-white/20 dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white relative`}
               >
                 <BrainCircuit size={20} />
                 {copilotSuggestions.length > 0 && (
@@ -618,7 +618,7 @@ const AppointmentVideoCall = ({
             <button
               onClick={() => setActiveSidePanel((c) => c === "chat" ? null : "chat")}
               title="Toggle Chat"
-              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${activeSidePanel === "chat" ? "bg-blue-500 dark:bg-red-600 hover:bg-blue-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${activeSidePanel === "chat" ? "bg-red-500 dark:bg-red-600 hover:bg-blue-400" : "bg-white/10 dark:bg-slate-950/10 hover:bg-white/20 dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
             >
               <MessageSquare size={20} />
             </button>
@@ -627,7 +627,7 @@ const AppointmentVideoCall = ({
             <button
               onClick={() => setActiveSidePanel((c) => c === "reports" ? null : "reports")}
               title="Toggle Reports"
-              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${activeSidePanel === "reports" ? "bg-blue-500 dark:bg-red-600 hover:bg-blue-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${activeSidePanel === "reports" ? "bg-red-500 dark:bg-red-600 hover:bg-blue-400" : "bg-white/10 dark:bg-slate-950/10 hover:bg-white/20 dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
             >
               <FileText size={20} />
             </button>
@@ -680,7 +680,7 @@ const AppointmentVideoCall = ({
                   ) : (
                     chatMessages.map((msg, i) => (
                       <div key={i} className={`flex flex-col ${msg.senderId === user?.id ? "items-end" : "items-start"}`}>
-                        <div className={`px-3 py-2 rounded-xl text-sm ${msg.senderId === user?.id ? "bg-blue-600 dark:bg-red-700 text-white" : "bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white"}`}>
+                        <div className={`px-3 py-2 rounded-xl text-sm ${msg.senderId === user?.id ? "bg-red-600 dark:bg-red-700 text-white" : "bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white"}`}>
                           {msg.text}
                         </div>
                       </div>
@@ -715,7 +715,7 @@ const AppointmentVideoCall = ({
                           setChatInput("");
                         }
                       }}
-                      className="p-2 bg-blue-600 dark:bg-red-700 text-white rounded-full hover:bg-blue-700"
+                      className="p-2 bg-red-600 dark:bg-red-700 text-white rounded-full hover:bg-blue-700"
                     >
                       <Send size={16} />
                     </button>
@@ -732,7 +732,7 @@ const AppointmentVideoCall = ({
                 </div>
                 <div className="p-2 border-b border-gray-200 dark:border-red-900/40 overflow-x-auto whitespace-nowrap">
                    {reports.map(r => (
-                     <button key={r._id} onClick={() => setSelectedReportUrl(r.fileUrl)} className={`px-3 py-1 text-xs border rounded mr-2 ${selectedReportUrl === r.fileUrl ? 'bg-blue-100 border-blue-500' : 'bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200'}`}>
+                     <button key={r._id} onClick={() => setSelectedReportUrl(r.fileUrl)} className={`px-3 py-1 text-xs border rounded mr-2 ${selectedReportUrl === r.fileUrl ? 'bg-red-100 border-red-500' : 'bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200'}`}>
                         {r.title}
                      </button>
                    ))}

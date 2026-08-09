@@ -120,24 +120,24 @@ const NursingStation = () => {
     <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-          <p className="text-sm font-semibold uppercase text-blue-600 dark:text-red-500">{hospital?.name || "Hospital"}</p>
+          <p className="text-sm font-semibold uppercase text-red-600 dark:text-red-500">{hospital?.name || "Hospital"}</p>
           <h1 className="text-2xl font-extrabold text-gray-950">Nursing Station</h1>
           <p className="mt-2 text-sm text-gray-600">Select a department and doctor to operate today&apos;s OPD queue.</p>
-          {message && <p className="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
+          {message && <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-blue-700">{message}</p>}
         </section>
 
         <section className="grid gap-4 rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm md:grid-cols-[1fr_1fr_auto]">
-          <select value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setDoctorId(""); }} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
+          <select value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setDoctorId(""); }} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500">
             <option value="">Select department</option>
             {directory.departments.map((department) => <option key={department._id} value={department._id}>{department.name}</option>)}
           </select>
-          <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
+          <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500">
             <option value="">Select doctor</option>
             {directory.staff
               .filter((member) => member.role === "DOCTOR" && (!departmentId || member.departmentIds?.some((id) => String(id) === String(departmentId))))
               .map((doctor) => <option key={doctor._id} value={doctor._id}>{doctor.name} · {doctor.doctorProfile?.specialization || "Doctor"}</option>)}
           </select>
-          <button onClick={loadQueue} className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
+          <button onClick={loadQueue} className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
             <RefreshCcw size={16} />
             Load
           </button>
@@ -146,7 +146,7 @@ const NursingStation = () => {
         <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
           <form onSubmit={issueToken} className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <ClipboardPlus className="text-blue-600 dark:text-red-500" />
+              <ClipboardPlus className="text-red-600 dark:text-red-500" />
               Issue Walk-in Token
             </h2>
             <div className="mt-4 space-y-3">
@@ -156,10 +156,10 @@ const NursingStation = () => {
                   value={newToken[field]}
                   onChange={(e) => setNewToken({ ...newToken, [field]: e.target.value })}
                   placeholder={field === "chiefComplaint" ? "Chief complaint" : field[0].toUpperCase() + field.slice(1)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500"
                 />
               ))}
-              <button disabled={!doctorId || !departmentId} className="w-full rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">
+              <button disabled={!doctorId || !departmentId} className="w-full rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">
                 Issue Token
               </button>
             </div>
@@ -168,7 +168,7 @@ const NursingStation = () => {
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-                <UserRound className="text-blue-600 dark:text-red-500" />
+                <UserRound className="text-red-600 dark:text-red-500" />
                 Waiting for Vitals
               </h2>
               <div className="mt-4 space-y-3">
@@ -179,7 +179,7 @@ const NursingStation = () => {
                         <p className="font-bold">{token.displayToken}</p>
                         <p className="text-sm text-gray-600">{token.patientInfo?.name || "Patient"}</p>
                       </div>
-                      <button onClick={() => { setSelectedToken(token); setVitals({ ...vitals, chiefComplaint: token.chiefComplaint || "" }); }} className="rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white">
+                      <button onClick={() => { setSelectedToken(token); setVitals({ ...vitals, chiefComplaint: token.chiefComplaint || "" }); }} className="rounded-md bg-red-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white">
                         Record Vitals
                       </button>
                     </div>
@@ -218,13 +218,13 @@ const NursingStation = () => {
                   ["weight", "Weight kg"],
                   ["height", "Height cm"],
                 ].map(([field, label]) => (
-                  <input key={field} value={vitals[field]} onChange={(e) => setVitals({ ...vitals, [field]: e.target.value })} placeholder={label} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                  <input key={field} value={vitals[field]} onChange={(e) => setVitals({ ...vitals, [field]: e.target.value })} placeholder={label} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500" />
                 ))}
               </div>
-              <textarea value={vitals.chiefComplaint} onChange={(e) => setVitals({ ...vitals, chiefComplaint: e.target.value })} placeholder="Chief complaint" className="mt-3 min-h-24 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+              <textarea value={vitals.chiefComplaint} onChange={(e) => setVitals({ ...vitals, chiefComplaint: e.target.value })} placeholder="Chief complaint" className="mt-3 min-h-24 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500" />
               <div className="mt-5 flex justify-end gap-3">
                 <button type="button" onClick={() => setSelectedToken(null)} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium">Cancel</button>
-                <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
+                <button className="inline-flex items-center gap-2 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
                   <Save size={16} />
                   Save Vitals
                 </button>

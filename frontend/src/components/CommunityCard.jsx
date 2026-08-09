@@ -132,7 +132,7 @@ const CreateCommunityModal = ({ onClose, onCreate, newCommunity, user }) => {
               </button>
               <button
                 type='submit'
-                className='px-4 py-2 bg-blue-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700'>
+                className='px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700'>
                 Create Community
               </button>
             </div>
@@ -320,14 +320,14 @@ const CommunityCard = () => {
             className='bg-white dark:bg-slate-950 rounded-lg shadow-xl w-full max-w-md overflow-hidden pointer-events-auto'
             onClick={(e) => e.stopPropagation()}>
             <div className='relative'>
-              <div className='h-32 bg-gradient-to-r from-blue-500 to-indigo-600'></div>
+              <div className='h-32 bg-gradient-to-r from-red-500 to-red-600'></div>
               <button
                 onClick={onClose}
                 className='absolute top-3 right-3 bg-white dark:bg-slate-950 rounded-full p-1 shadow-md hover:bg-gray-100'>
                 <X size={20} />
               </button>
               <div className='absolute top-16 left-6 w-20 h-20 rounded-full bg-white dark:bg-slate-950 p-1 shadow-md'>
-                <div className='w-full h-full rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-2xl font-bold'>
+                <div className='w-full h-full rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white text-2xl font-bold'>
                   {community.title.charAt(0)}
                 </div>
               </div>
@@ -340,7 +340,7 @@ const CommunityCard = () => {
                 </h2>
                 <button
                   onClick={() => shareCommunityLink(community._id)}
-                  className='text-blue-500 hover:text-blue-700'
+                  className='text-red-500 hover:text-blue-700'
                   title='Share community link'>
                   <svg
                     xmlns='http://www.w3.org/2000/svg'
@@ -361,7 +361,7 @@ const CommunityCard = () => {
               <div className='mt-4 space-y-4'>
                 <div className='flex items-start gap-2'>
                   <Info
-                    className='text-blue-500 flex-shrink-0 mt-1'
+                    className='text-red-500 flex-shrink-0 mt-1'
                     size={18}
                   />
                   <p className='text-gray-600'>{community.bio}</p>
@@ -369,17 +369,17 @@ const CommunityCard = () => {
 
                 <div className='flex items-center gap-2'>
                   <Tag
-                    className='text-blue-500'
+                    className='text-red-500'
                     size={18}
                   />
-                  <span className='px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full'>
+                  <span className='px-2 py-1 bg-red-100 text-blue-800 text-xs font-medium rounded-full'>
                     {community.category}
                   </span>
                 </div>
 
                 <div className='flex items-center gap-2'>
                   <Users
-                    className='text-blue-500'
+                    className='text-red-500'
                     size={18}
                   />
                   <span className='text-gray-600'>
@@ -389,7 +389,7 @@ const CommunityCard = () => {
 
                 <div className='flex items-center gap-2'>
                   <Calendar
-                    className='text-blue-500'
+                    className='text-red-500'
                     size={18}
                   />
                   <span className='text-gray-600'>
@@ -402,7 +402,7 @@ const CommunityCard = () => {
               {!isJoined ? (
                 <button
                   onClick={() => onJoin(community._id)}
-                  className='mt-6 w-full py-2 bg-blue-600 dark:bg-red-700 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors'>
+                  className='mt-6 w-full py-2 bg-red-600 dark:bg-red-700 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors'>
                   Join Community
                 </button>
               ) : (
@@ -438,7 +438,7 @@ const CommunityCard = () => {
         {role === 'doctor' && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className='flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-red-700 text-white rounded-lg hover:bg-blue-700 transition-colors'>
+            className='flex items-center gap-2 px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-lg hover:bg-blue-700 transition-colors'>
             <Plus size={18} />
             Create Community
           </button>
@@ -464,7 +464,7 @@ const CommunityCard = () => {
         <>
           {availableCommunities.length === 0 ? (
             <div className='bg-white dark:bg-slate-950 rounded-lg shadow-md p-8 text-center'>
-              <Users className='text-blue-600 dark:text-red-500 bg-blue-100 size-16 p-4 rounded-full mx-auto mb-4' />
+              <Users className='text-red-600 dark:text-red-500 bg-red-100 size-16 p-4 rounded-full mx-auto mb-4' />
               <h3 className='text-xl font-semibold mb-2'>
                 No New Communities Available
               </h3>
@@ -475,7 +475,7 @@ const CommunityCard = () => {
               {role === 'doctor' ? (
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className='px-6 py-2 bg-blue-600 dark:bg-red-700 text-white rounded-lg hover:bg-blue-700 transition-colors'>
+                  className='px-6 py-2 bg-red-600 dark:bg-red-700 text-white rounded-lg hover:bg-blue-700 transition-colors'>
                   Create Your Own
                 </button>
               ) : (
@@ -494,14 +494,14 @@ const CommunityCard = () => {
                     id={community._id}
                     ref={(el) => (communityRefs.current[community._id] = el)}
                     className='bg-white dark:bg-slate-950 rounded-lg shadow-md overflow-hidden flex flex-col h-64 hover:shadow-lg transition-all duration-300'>
-                    <div className='h-2 bg-blue-500 dark:bg-red-600'></div>
+                    <div className='h-2 bg-red-500 dark:bg-red-600'></div>
                     <div className='p-6 flex-1 flex flex-col'>
                       <div className='flex items-center justify-between mb-3'>
                         <h3 className='text-xl font-bold text-gray-800 dark:text-slate-200 truncate'>
                           {community.title}
                         </h3>
                         <div className='flex items-center gap-2'>
-                          <span className='px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full'>
+                          <span className='px-2 py-1 bg-red-100 text-blue-800 text-xs font-medium rounded-full'>
                             {community.category}
                           </span>
                           {isJoined && (
@@ -526,7 +526,7 @@ const CommunityCard = () => {
                         </div>
                         <button
                           onClick={() => shareCommunityLink(community._id)}
-                          className='text-blue-500 hover:text-blue-700'
+                          className='text-red-500 hover:text-blue-700'
                           title='Share community link'>
                           <svg
                             xmlns='http://www.w3.org/2000/svg'
@@ -549,7 +549,7 @@ const CommunityCard = () => {
                           setSelectedCommunity(community)
                           setShowModal(true)
                         }}
-                        className='w-full py-2 mt-auto bg-blue-50 text-blue-600 dark:text-red-500 font-medium rounded hover:bg-blue-100 transition-colors'>
+                        className='w-full py-2 mt-auto bg-red-50 text-red-600 dark:text-red-500 font-medium rounded hover:bg-red-100 transition-colors'>
                         View More
                       </button>
                     </div>

@@ -27,8 +27,8 @@ const typeStyles = {
   GUIDELINE: {
     label: "Guideline",
     icon: ClipboardList,
-    className: "border-blue-200 bg-blue-50 text-blue-950",
-    badge: "bg-blue-100 text-blue-800",
+    className: "border-red-200 bg-red-50 text-blue-950",
+    badge: "bg-red-100 text-blue-800",
   },
   INFO: {
     label: "Info",
@@ -66,7 +66,7 @@ const CoPilotSidebar = ({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-100 xl:w-12 xl:flex-col"
+        className="flex w-full items-center justify-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-blue-800 hover:bg-red-100 xl:w-12 xl:flex-col"
         title="Open AI Co-Pilot"
       >
         <BrainCircuit className="h-5 w-5" />
@@ -146,7 +146,7 @@ const CoPilotSidebar = ({
           type="button"
           onClick={onGenerateSoap}
           disabled={isGenerating}
-          className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-red-600 dark:bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
         >
           {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
           Generate SOAP Notes

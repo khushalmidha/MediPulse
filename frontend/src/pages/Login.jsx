@@ -110,10 +110,10 @@ const ProfileSelection = ({ setUserType }) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <button
         onClick={() => setUserType("user")}
-        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-red-500 hover:bg-red-50 transition-all duration-200 shadow-sm hover:shadow"
       >
-        <div className="bg-blue-100 p-4 rounded-full">
-          <UserCircle2 className="h-10 w-10 text-blue-600 dark:text-red-500" />
+        <div className="bg-red-100 p-4 rounded-full">
+          <UserCircle2 className="h-10 w-10 text-red-600 dark:text-red-500" />
         </div>
         <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Sign in as User</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
@@ -122,10 +122,10 @@ const ProfileSelection = ({ setUserType }) => (
       </button>
       <button
         onClick={() => setUserType("doctor")}
-        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-red-500 hover:bg-red-50 transition-all duration-200 shadow-sm hover:shadow"
       >
-        <div className="bg-blue-100 p-4 rounded-full">
-          <Stethoscope className="h-10 w-10 text-blue-600 dark:text-red-500" />
+        <div className="bg-red-100 p-4 rounded-full">
+          <Stethoscope className="h-10 w-10 text-red-600 dark:text-red-500" />
         </div>
         <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Sign in as Doctor</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
@@ -134,10 +134,10 @@ const ProfileSelection = ({ setUserType }) => (
       </button>
       <button
         onClick={() => setUserType("hospital-admin")}
-        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-red-500 hover:bg-red-50 transition-all duration-200 shadow-sm hover:shadow"
       >
-        <div className="bg-blue-100 p-4 rounded-full">
-          <Building2 className="h-10 w-10 text-blue-600 dark:text-red-500" />
+        <div className="bg-red-100 p-4 rounded-full">
+          <Building2 className="h-10 w-10 text-red-600 dark:text-red-500" />
         </div>
         <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Sign in as Hospital Admin</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
@@ -175,7 +175,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
             onChange={(e) => setEmail(e.target.value)}
             value={email}
             disabled={loading}
-            className="appearance-none block w-full px-3 py-3 pl-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+            className="appearance-none block w-full px-3 py-3 pl-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-red-500 sm:text-sm transition-colors"
             placeholder="you@example.com"
           />
         </div>
@@ -198,7 +198,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
             onChange={(e) => setPassword(e.target.value)}
             value={password}
             disabled={loading}
-            className="appearance-none block w-full px-3 py-3 pl-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+            className="appearance-none block w-full px-3 py-3 pl-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-red-500 sm:text-sm transition-colors"
             placeholder="••••••••"
           />
         </div>
@@ -220,7 +220,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
               onChange={(e) => setHospitalId(e.target.value)}
               value={hospitalId}
               disabled={loading}
-              className="appearance-none block w-full px-3 py-3 pl-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+              className="appearance-none block w-full px-3 py-3 pl-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-red-500 sm:text-sm transition-colors"
               placeholder="Paste hospital ID from portal"
             />
           </div>
@@ -236,7 +236,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
           type="checkbox"
           checked={rememberMe}
           onChange={(e) => setRememberMe(e.target.checked)}
-          className="h-4 w-4 text-blue-600 dark:text-red-500 focus:ring-blue-500 border-gray-300 rounded"
+          className="h-4 w-4 text-red-600 dark:text-red-500 focus:ring-blue-500 border-gray-300 rounded"
         />
         <label
           htmlFor="remember-me"
@@ -250,7 +250,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
           type="button"
           onClick={onForgotPassword}
           disabled={userType === "hospital-admin"}
-          className={`font-medium transition-colors ${userType === "hospital-admin" ? "cursor-not-allowed text-gray-400" : "text-blue-600 dark:text-red-500 hover:text-blue-500"}`}
+          className={`font-medium transition-colors ${userType === "hospital-admin" ? "cursor-not-allowed text-gray-400" : "text-red-600 dark:text-red-500 hover:text-red-500"}`}
         >
           Forgot password?
         </button>
@@ -261,7 +261,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
       <button
         type="submit"
         disabled={loading}
-        className={`relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 dark:bg-red-700 ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
+        className={`relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 dark:bg-red-700 ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
       >
         {loading ? 'Signing in...' : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Admin'}`}
       </button>
@@ -313,7 +313,7 @@ const ForgotPasswordForm = ({
         value={email}
         disabled={loading || otpSent}
         onChange={(event) => setEmail(event.target.value)}
-        className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+        className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm shadow-sm focus:border-red-500 focus:outline-none"
         placeholder="you@example.com"
       />
     </div>
@@ -331,7 +331,7 @@ const ForgotPasswordForm = ({
             value={otp}
             disabled={loading}
             onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-            className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm shadow-sm focus:border-red-500 focus:outline-none"
             placeholder="Enter 6 digit OTP"
           />
         </div>
@@ -347,7 +347,7 @@ const ForgotPasswordForm = ({
             value={newPassword}
             disabled={loading}
             onChange={(event) => setNewPassword(event.target.value)}
-            className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm shadow-sm focus:border-red-500 focus:outline-none"
             placeholder="At least 8 characters"
           />
         </div>
@@ -357,14 +357,14 @@ const ForgotPasswordForm = ({
     <button
       type="submit"
       disabled={loading}
-      className={`w-full rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-3 text-sm font-medium text-white ${loading ? "cursor-not-allowed opacity-70" : "hover:bg-blue-700"}`}
+      className={`w-full rounded-lg bg-red-600 dark:bg-red-700 px-4 py-3 text-sm font-medium text-white ${loading ? "cursor-not-allowed opacity-70" : "hover:bg-blue-700"}`}
     >
       {loading ? "Processing..." : otpSent ? "Reset password" : `Send OTP as ${userType === "user" ? "User" : "Doctor"}`}
     </button>
     <button
       type="button"
       onClick={onBack}
-      className="flex w-full items-center justify-center py-2 text-sm font-medium text-gray-600 hover:text-blue-600 dark:text-red-500"
+      className="flex w-full items-center justify-center py-2 text-sm font-medium text-gray-600 hover:text-red-600 dark:text-red-500"
     >
       <ArrowLeft className="mr-2 h-4 w-4" />
       Back to sign in
@@ -535,7 +535,7 @@ const Login = () => {
             Don't have an account?{" "}
             <Link
               to="/signup"
-              className="font-medium text-blue-600 dark:text-red-500 hover:text-blue-500 transition-colors"
+              className="font-medium text-red-600 dark:text-red-500 hover:text-red-500 transition-colors"
             >
               Sign up here
             </Link>
@@ -594,7 +594,7 @@ const Login = () => {
                 setAuthMode("login");
                 setMessage("");
               }}
-              className="mt-6 flex items-center justify-center w-full text-sm text-gray-600 hover:text-blue-600 dark:text-red-500 py-2 transition-colors font-medium"
+              className="mt-6 flex items-center justify-center w-full text-sm text-gray-600 hover:text-red-600 dark:text-red-500 py-2 transition-colors font-medium"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Change profile type
@@ -603,7 +603,7 @@ const Login = () => {
         )}
         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-red-900/40">
           <p className="text-xs text-center text-gray-500">
-            By continuing, you agree to MediPulse's <a href="#" className="text-blue-600 dark:text-red-500 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 dark:text-red-500 hover:underline">Privacy Policy</a>.
+            By continuing, you agree to MediPulse's <a href="#" className="text-red-600 dark:text-red-500 hover:underline">Terms of Service</a> and <a href="#" className="text-red-600 dark:text-red-500 hover:underline">Privacy Policy</a>.
           </p>
         </div>
       </div>

@@ -325,7 +325,7 @@ const AppointmentBooking = () => {
 
           <div className="mt-5 space-y-4">
             {canBook && (
-              <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+              <div className="rounded-lg border border-blue-100 bg-red-50 p-4">
                 <p className="text-sm font-medium text-blue-950">
                   Verify your email to book appointment
                 </p>
@@ -343,7 +343,7 @@ const AppointmentBooking = () => {
                       onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
                       inputMode="numeric"
                       placeholder="Enter 6 digit OTP"
-                      className="mt-1 w-full rounded-md border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:border-red-500"
                     />
                   </div>
                 )}
@@ -354,7 +354,7 @@ const AppointmentBooking = () => {
               type="button"
               onClick={otpSent ? handleVerifyOtpAndBook : handleSendOtp}
               disabled={!canBook || booking}
-              className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+              className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
             >
               {booking ? "Processing..." : otpSent ? `Verify OTP & Request Booking for ₹${APPOINTMENT_FEE_INR}` : "Send OTP"}
             </button>
@@ -385,7 +385,7 @@ const AppointmentBooking = () => {
                 <button
                   type="button"
                 onClick={() => setCallStartedPopup(false)}
-                  className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                  className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm text-white hover:bg-blue-700"
                 >
                   View Call
                 </button>
@@ -466,7 +466,7 @@ const AppointmentBooking = () => {
                     <button
                       type="button"
                       onClick={() => setTriageOpen(true)}
-                      className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                      className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                     >
                       Prepare for Appointment →
                     </button>
@@ -474,7 +474,7 @@ const AppointmentBooking = () => {
                 </div>
               </div>
             ) : (
-              <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
                 <p className="font-medium text-blue-900">Appointment active</p>
                 <p className="text-sm text-blue-800">
                   Started at {myAppointment.startedAt ? new Date(myAppointment.startedAt).toLocaleString() : "Just now"}
@@ -520,7 +520,7 @@ const AppointmentBooking = () => {
                         <button
                           type="button"
                           onClick={() => downloadReceipt(appointment)}
-                          className="rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                          className="rounded-md bg-red-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
                         >
                           Download Receipt
                         </button>

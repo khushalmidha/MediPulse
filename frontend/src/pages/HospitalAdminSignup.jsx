@@ -29,7 +29,7 @@ const Field = ({ icon, label, ...props }) => (
       </span>
       <input
         {...props}
-        className="w-full rounded-lg border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2.5 pl-10 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        className="w-full rounded-lg border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2.5 pl-10 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-blue-100"
       />
     </span>
   </label>
@@ -93,10 +93,10 @@ const HospitalAdminSignup = () => {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-100 px-4 py-10">
+    <main className="min-h-screen bg-gradient-to-br from-red-50 dark:from-red-950/20 via-white to-slate-100 px-4 py-10">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 dark:bg-red-700 text-white">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-600 dark:bg-red-700 text-white">
             <Building2 size={28} />
           </div>
           <h1 className="mt-4 text-3xl font-extrabold text-gray-950">Create Hospital Admin Portal</h1>
@@ -115,7 +115,7 @@ const HospitalAdminSignup = () => {
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="space-y-4">
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-slate-100">
-                <Building2 size={20} className="text-blue-600 dark:text-red-500" />
+                <Building2 size={20} className="text-red-600 dark:text-red-500" />
                 Hospital Details
               </h2>
               <Field icon={<Building2 size={18} />} label="Hospital Name" required value={form.name} onChange={(e) => update("name", e.target.value)} />
@@ -127,7 +127,7 @@ const HospitalAdminSignup = () => {
                 <select
                   value={form.type}
                   onChange={(e) => update("type", e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-blue-100"
                 >
                   {hospitalTypes.map((type) => (
                     <option key={type.value} value={type.value}>{type.label}</option>
@@ -139,7 +139,7 @@ const HospitalAdminSignup = () => {
                 <select
                   value={form.medicineSystem}
                   onChange={(e) => update("medicineSystem", e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-blue-100"
                 >
                   {medicineSystems.map((system) => (
                     <option key={system.value} value={system.value}>{system.label}</option>
@@ -150,7 +150,7 @@ const HospitalAdminSignup = () => {
 
             <section className="space-y-4">
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-slate-100">
-                <User size={20} className="text-blue-600 dark:text-red-500" />
+                <User size={20} className="text-red-600 dark:text-red-500" />
                 Admin and Address
               </h2>
               <Field icon={<User size={18} />} label="Admin Name" required value={form.adminName} onChange={(e) => update("adminName", e.target.value)} />
@@ -165,13 +165,13 @@ const HospitalAdminSignup = () => {
           </div>
 
           <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-5">
-            <Link to="/signup" className="text-sm font-medium text-gray-600 hover:text-blue-600 dark:text-red-500">
+            <Link to="/signup" className="text-sm font-medium text-gray-600 hover:text-red-600 dark:text-red-500">
               Back to profile selection
             </Link>
             <button
               type="submit"
               disabled={loading}
-              className="rounded-lg bg-blue-600 dark:bg-red-700 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+              className="rounded-lg bg-red-600 dark:bg-red-700 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
             >
               {loading ? "Creating portal..." : "Create Hospital Portal"}
             </button>

@@ -49,7 +49,7 @@ const RecommendationDoctors = () => {
 
   const getAvatarColor = (name) => {
     const colors = [
-      'bg-blue-500 dark:bg-red-600', 'bg-indigo-500', 'bg-cyan-600', 'bg-teal-500', 
+      'bg-red-500 dark:bg-red-600', 'bg-red-500', 'bg-cyan-600', 'bg-teal-500', 
       'bg-green-500', 'bg-emerald-500', 'bg-purple-500'
     ];
     
@@ -103,12 +103,12 @@ const RecommendationDoctors = () => {
           <button
             onClick={scrollLeft}
             className='absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-300 rounded-full p-3 shadow-md cursor-pointer z-10'>
-            <ChevronLeftCircle className='bg-blue-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
+            <ChevronLeftCircle className='bg-red-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
           </button>
           <button
             onClick={scrollRight}
             className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-300 rounded-full p-3 shadow-md cursor-pointer z-10'>
-            <ChevronRightCircle className='bg-blue-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
+            <ChevronRightCircle className='bg-red-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
           </button>
         </>
       )}
@@ -145,7 +145,7 @@ const RecommendationDoctors = () => {
                       Dr. {doctor.firstName} {doctor.lastName || ''}
                     </h3>
 
-                    <p className='text-blue-600 dark:text-red-500 font-medium truncate'>
+                    <p className='text-red-600 dark:text-red-500 font-medium truncate'>
                       {doctor.experience?.expertise || 'Medical Professional'}
                     </p>
                   </div>
@@ -153,7 +153,7 @@ const RecommendationDoctors = () => {
 
                 <div className='mt-5 space-y-2.5 text-sm'>
                   <div className='flex items-center text-gray-600'>
-                    <Briefcase className='w-4 h-4 mr-2 text-blue-500 flex-shrink-0' />
+                    <Briefcase className='w-4 h-4 mr-2 text-red-500 flex-shrink-0' />
                     <span>
                       {doctor.experience?.years || 0} years of experience
                     </span>
@@ -161,21 +161,21 @@ const RecommendationDoctors = () => {
 
                   {doctor.experience?.qualification && (
                     <div className='flex items-center text-gray-600'>
-                      <GraduationCap className='w-4 h-4 mr-2 text-blue-500 flex-shrink-0' />
+                      <GraduationCap className='w-4 h-4 mr-2 text-red-500 flex-shrink-0' />
                       <span>{doctor.experience.qualification}</span>
                     </div>
                   )}
 
                   {doctor.clinic?.name && (
                     <div className='flex items-center text-gray-600'>
-                      <Building className='w-4 h-4 mr-2 text-blue-500 flex-shrink-0' />
+                      <Building className='w-4 h-4 mr-2 text-red-500 flex-shrink-0' />
                       <span className='truncate'>{doctor.clinic.name}</span>
                     </div>
                   )}
 
                   {doctor.clinic?.location && (
                     <div className='flex items-start text-gray-600'>
-                      <MapPin className='w-4 h-4 mr-2 text-blue-500 flex-shrink-0 mt-0.5' />
+                      <MapPin className='w-4 h-4 mr-2 text-red-500 flex-shrink-0 mt-0.5' />
                       <span className='line-clamp-1'>
                         {doctor.clinic.location}
                       </span>
@@ -190,7 +190,7 @@ const RecommendationDoctors = () => {
                         ? `/hospitals/${doctor.hospitalContext.hospitalSlug}`
                         : `/doctorsprofile/${doctor._id}`
                     }
-                    className='block w-full py-2.5 bg-blue-600 dark:bg-red-700 hover:bg-blue-700 text-white text-center rounded-md transition duration-200 font-medium'>
+                    className='block w-full py-2.5 bg-red-600 dark:bg-red-700 hover:bg-blue-700 text-white text-center rounded-md transition duration-200 font-medium'>
                     {doctor.sourceType === "hospital" ? "Book at Hospital" : "View Profile"}
                   </Link>
                 </div>
@@ -202,8 +202,8 @@ const RecommendationDoctors = () => {
         {/* Show empty state if no doctors found and not loading */}
         {!loading && doctors.length === 0 && (
           <div className='flex flex-col items-center justify-center w-full py-12 text-center'>
-            <div className='bg-blue-50 rounded-full p-4 mb-4'>
-              <Briefcase className='h-8 w-8 text-blue-500' />
+            <div className='bg-red-50 rounded-full p-4 mb-4'>
+              <Briefcase className='h-8 w-8 text-red-500' />
             </div>
             <h3 className='text-xl font-semibold text-gray-800 dark:text-slate-200 mb-2'>No doctors found</h3>
             <p className='text-gray-600 max-w-md'>

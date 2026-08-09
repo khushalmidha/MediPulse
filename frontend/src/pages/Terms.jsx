@@ -4,7 +4,7 @@ import { FileText, Shield, UserCheck, AlertCircle, Scale } from 'lucide-react';
 const TermsSection = ({ title, icon: Icon, children }) => (
   <section className="bg-white dark:bg-slate-950 p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
     <div className="flex items-center mb-4">
-      <Icon className="w-6 h-6 text-blue-600 dark:text-red-500 mr-3" />
+      <Icon className="w-6 h-6 text-red-600 dark:text-red-500 mr-3" />
       <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">{title}</h2>
     </div>
     <div className="text-gray-700 leading-relaxed space-y-4">{children}</div>
@@ -17,7 +17,7 @@ const Terms = () => {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-gray-900 dark:text-slate-100 mb-4">
-            Terms of <span className="text-blue-600 dark:text-red-500">Service</span>
+            Terms of <span className="text-red-600 dark:text-red-500">Service</span>
           </h1>
           <p className="text-gray-600">Last updated: March 17, 2024</p>
         </div>

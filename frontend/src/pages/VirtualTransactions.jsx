@@ -46,7 +46,7 @@ const VirtualTransactions = () => {
       <div className="mx-auto max-w-6xl rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Transaction History</h1>
-          <button onClick={onExport} className="rounded-md border border-blue-200 px-3 py-2 text-sm text-blue-700">Export CSV</button>
+          <button onClick={onExport} className="rounded-md border border-red-200 px-3 py-2 text-sm text-blue-700">Export CSV</button>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
@@ -64,7 +64,7 @@ const VirtualTransactions = () => {
             <option value="REFUNDED">REFUNDED</option>
             <option value="PENDING">PENDING</option>
           </select>
-          <button onClick={fetchData} className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white">Apply</button>
+          <button onClick={fetchData} className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white">Apply</button>
         </div>
 
         <div className="mt-4 overflow-x-auto">

@@ -236,10 +236,10 @@ const Navbar = () => {
     }
   }, [isLoggedIn, isAuth, role, isStaffAuth, staffRole, staffUser?._id, staffUser?.id, staffUser?.hospitalId, staffHospital?._id, navigate])
 
-  const activeStyle = 'whitespace-nowrap text-blue-600 dark:text-red-500 font-medium border-b-2 border-blue-600 pb-1'
-  const inactiveStyle = 'whitespace-nowrap text-gray-700 hover:text-blue-600 dark:text-red-500 transition-colors'
+  const activeStyle = 'whitespace-nowrap text-red-600 dark:text-red-500 font-medium border-b-2 border-red-600 pb-1'
+  const inactiveStyle = 'whitespace-nowrap text-gray-700 hover:text-red-600 dark:text-red-500 transition-colors'
   const mobileLinkStyle = ({ isActive }) =>
-    `block rounded-md px-3 py-2 ${isActive ? 'bg-blue-50 font-medium text-blue-600 dark:text-red-500' : 'text-gray-700 hover:bg-gray-50 dark:bg-slate-900 hover:text-blue-600 dark:text-red-500'}`
+    `block rounded-md px-3 py-2 ${isActive ? 'bg-red-50 font-medium text-red-600 dark:text-red-500' : 'text-gray-700 hover:bg-gray-50 dark:bg-slate-900 hover:text-red-600 dark:text-red-500'}`
 
   const staffNavLinks = [
     { to: '/hospital/admin', label: 'Dashboard', icon: Building2 },
@@ -280,13 +280,13 @@ const Navbar = () => {
         <div className="flex h-16 items-center justify-between gap-5">
           <div className="flex min-w-fit flex-shrink-0 items-center">
             <Link to={isStaffAuth ? '/hospital/admin' : '/'} className="flex items-center gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 dark:bg-red-950 text-blue-600 dark:text-red-500">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-500">
                 <Heart size={28} strokeWidth={1.8} />
               </span>
               <span className="text-xl font-bold leading-none text-slate-950 dark:text-white">MediPulse</span>
             </Link>
             {isStaffAuth && staffHospital && (
-              <span className="ml-3 hidden items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 sm:flex">
+              <span className="ml-3 hidden items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-blue-700 sm:flex">
                 <Building2 size={12} />
                 {staffHospital.name}
               </span>
@@ -319,7 +319,7 @@ const Navbar = () => {
             </button>
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-red-900/50 hover:text-blue-600 dark:text-red-500 dark:hover:text-red-500 focus:outline-none"
+              className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/50 hover:text-red-600 dark:text-red-500 dark:hover:text-red-500 focus:outline-none"
               aria-label="Toggle mobile menu">
               {showMobileMenu ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -335,7 +335,7 @@ const Navbar = () => {
             {isLoggedIn ? (
               <div className="relative" ref={profileRef}>
                 <button onClick={() => setShowProfile(!showProfile)} className="flex items-center gap-2 focus:outline-none">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 dark:bg-red-700 text-sm font-bold text-white">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 dark:bg-red-700 text-sm font-bold text-white">
                     {initials}
                   </span>
                   <span className="hidden text-gray-700 lg:inline-block">{displayName}</span>
@@ -345,14 +345,14 @@ const Navbar = () => {
                   <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-lg border border-gray-200 dark:border-red-900 bg-white dark:bg-black shadow-lg">
                     <div className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 dark:bg-red-600 text-base font-bold text-white">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-600 dark:bg-red-600 text-base font-bold text-white">
                           {initials}
                         </div>
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-gray-900 dark:text-gray-100">{displayName}</p>
                           <p className="truncate text-sm text-gray-500 dark:text-gray-400">{isStaffAuth ? staffUser?.email : user?.email}</p>
                           {isStaffAuth && (
-                            <span className="mt-1 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                            <span className="mt-1 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                               {staffRole?.replace(/_/g, ' ')}
                             </span>
                           )}
@@ -360,9 +360,9 @@ const Navbar = () => {
                       </div>
 
                       {isStaffAuth && staffHospital ? (
-                        <div className="mt-4 rounded-md border border-blue-100 bg-blue-50 p-3">
+                        <div className="mt-4 rounded-md border border-blue-100 bg-red-50 p-3">
                           <p className="text-xs font-semibold text-blue-700">{staffHospital.name}</p>
-                          <p className="mt-0.5 text-xs text-blue-500">
+                          <p className="mt-0.5 text-xs text-red-500">
                             {staffHospital.address?.city || 'City'}, {staffHospital.address?.state || 'State'}
                           </p>
                           {staffHospital.slug && (
@@ -389,13 +389,13 @@ const Navbar = () => {
               </div>
             ) : (
               <div className="flex items-center gap-3 text-sm">
-                <Link to="/login" className="whitespace-nowrap px-1 font-medium text-gray-700 hover:text-blue-600 dark:text-red-500">
+                <Link to="/login" className="whitespace-nowrap px-1 font-medium text-gray-700 hover:text-red-600 dark:text-red-500">
                   Login
                 </Link>
-                <Link to="/signup" className="whitespace-nowrap rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2.5 font-semibold text-white hover:bg-blue-700">
+                <Link to="/signup" className="whitespace-nowrap rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2.5 font-semibold text-white hover:bg-blue-700">
                   Sign Up
                 </Link>
-                <Link to="/signup/hospital-admin" className="hidden whitespace-nowrap rounded-lg border border-blue-600 px-4 py-2.5 font-semibold text-blue-600 dark:text-red-500 hover:bg-blue-50 xl:inline-flex">
+                <Link to="/signup/hospital-admin" className="hidden whitespace-nowrap rounded-lg border border-red-600 px-4 py-2.5 font-semibold text-red-600 dark:text-red-500 hover:bg-red-50 xl:inline-flex">
                   Register Hospital
                 </Link>
               </div>
@@ -417,7 +417,7 @@ const Navbar = () => {
               {isLoggedIn ? (
                 <>
                   <div className="flex items-center gap-2 px-3 py-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 dark:bg-red-700 text-xs font-bold text-white">{initials}</span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 dark:bg-red-700 text-xs font-bold text-white">{initials}</span>
                     <span className="font-medium text-gray-700">{displayName}</span>
                   </div>
                   <button onClick={handleLogout} className="flex w-full items-center px-3 py-2 text-left text-red-500 hover:bg-gray-50 dark:bg-slate-900">
@@ -430,10 +430,10 @@ const Navbar = () => {
                   <Link to="/login" onClick={() => setShowMobileMenu(false)} className="w-full rounded-md border border-gray-300 py-2 text-center text-gray-700">
                     Login
                   </Link>
-                  <Link to="/signup" onClick={() => setShowMobileMenu(false)} className="w-full rounded-md bg-blue-600 dark:bg-red-700 py-2 text-center text-white hover:bg-blue-700">
+                  <Link to="/signup" onClick={() => setShowMobileMenu(false)} className="w-full rounded-md bg-red-600 dark:bg-red-700 py-2 text-center text-white hover:bg-blue-700">
                     Sign Up
                   </Link>
-                  <Link to="/signup/hospital-admin" onClick={() => setShowMobileMenu(false)} className="w-full rounded-md border border-blue-600 py-2 text-center text-blue-600 dark:text-red-500">
+                  <Link to="/signup/hospital-admin" onClick={() => setShowMobileMenu(false)} className="w-full rounded-md border border-red-600 py-2 text-center text-red-600 dark:text-red-500">
                     Register Hospital
                   </Link>
                 </div>
@@ -450,7 +450,7 @@ const Navbar = () => {
             <button
               type="button"
               onClick={toast.action}
-              className="mt-3 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+              className="mt-3 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
             >
               {toast.actionLabel || 'Open'}
             </button>

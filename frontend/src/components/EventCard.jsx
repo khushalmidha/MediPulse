@@ -37,7 +37,7 @@ const EventCard = () => {
     >
       <div className="flex items-center gap-4">
       <div className="">
-        <Shield className="text-blue-600 dark:text-red-500 bg-blue-100 size-10 p-2 border rounded-lg"/>
+        <Shield className="text-red-600 dark:text-red-500 bg-red-100 size-10 p-2 border rounded-lg"/>
       </div>
       <div>
       <h3 className="text-lg font-semibold">Upcoming Events</h3>
