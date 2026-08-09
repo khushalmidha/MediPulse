@@ -314,58 +314,73 @@ const AppointmentBooking = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
-      <div className="mx-auto max-w-4xl space-y-6">
-        <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
-            Book Appointment with Dr. {doctor?.firstName} {doctor?.lastName || ""}
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Current pending queue: <span className="font-semibold">{status?.pendingCount ?? 0}</span>
-          </p>
-
-          <div className="mt-5 space-y-4">
-            {canBook && (
-              <div className="rounded-lg border border-blue-100 bg-red-50 p-4">
-                <p className="text-sm font-medium text-blue-950">
-                  Verify your email to book appointment
+      <div className="mx-auto max-w-4xl space-y-8">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+              Book Appointment with {(doctor?.fullName || doctor?.firstName)?.startsWith("Dr.") ? "" : "Dr. "}{doctor?.fullName || `${doctor?.firstName || ""} ${doctor?.lastName || ""}`.trim() || "Doctor"}
+            </h1>
+            
+            {doctor?.sourceType === "hospital" ? (
+              <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="font-medium text-amber-900 mb-2">In-Person Appointments Only</p>
+                <p className="text-sm text-amber-800 mb-4">
+                  This doctor is affiliated with a hospital and only accepts in-person OPD token bookings. Video consultations are not available.
                 </p>
-                <p className="mt-1 text-sm text-blue-800">
-                  An OTP will be sent to your registered email. After verification, your appointment will be confirmed and added to the live queue.
-                </p>
-                {otpSent && (
-                  <div className="mt-3 max-w-xs">
-                    <label htmlFor="appointment-otp" className="text-sm font-medium text-gray-700">
-                      Email OTP
-                    </label>
-                    <input
-                      id="appointment-otp"
-                      value={otp}
-                      onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                      inputMode="numeric"
-                      placeholder="Enter 6 digit OTP"
-                      className="mt-1 w-full rounded-md border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:border-red-500"
-                    />
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/hospital/${doctor.hospitalContext?.hospitalSlug}/book-opd`, { state: { preSelectedDoctorId: doctor._id } })}
+                  className="rounded-md bg-amber-600 px-4 py-2 text-white hover:bg-amber-700"
+                >
+                  Book OPD Token Now
+                </button>
               </div>
-            )}
-            <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={otpSent ? handleVerifyOtpAndBook : handleSendOtp}
-              disabled={!canBook || booking}
-              className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
-            >
-              {booking ? "Processing..." : otpSent ? `Verify OTP & Request Booking for ₹${APPOINTMENT_FEE_INR}` : "Send OTP"}
-            </button>
-            <Link to="/doctors" className="rounded-md border border-gray-300 px-4 py-2 text-gray-700">
-              Back to doctors
-            </Link>
-            </div>
-          </div>
+            ) : (
+              <>
+                <p className="mt-2 text-gray-600">
+                  Current pending queue: <span className="font-semibold">{status?.pendingCount ?? 0}</span>
+                </p>
 
-          {message && <p className="mt-3 text-sm text-blue-700">{message}</p>}
-        </div>
+                <div className="mt-6 rounded-lg border border-red-100 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-4">
+                  <h3 className="font-medium text-red-900 dark:text-red-200">
+                    Verify your email to book appointment
+                  </h3>
+                  <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+                    An OTP will be sent to your registered email. After verification, your appointment will be confirmed and added to the live queue.
+                  </p>
+                </div>
+
+                <div className="mt-6 flex items-center gap-4">
+                  {otpSent && (
+                    <div className="flex-1 max-w-xs">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="Enter 6-digit OTP"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                        className="w-full rounded-md border border-gray-300 dark:border-red-900/40 bg-white dark:bg-slate-900 px-3 py-2 text-gray-900 dark:text-slate-100 shadow-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                      />
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={otpSent ? handleVerifyOtpAndBook : handleSendOtp}
+                    disabled={!canBook || booking}
+                    className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+                  >
+                    {booking ? "Processing..." : otpSent ? `Verify OTP & Request Booking for ₹${APPOINTMENT_FEE_INR}` : "Send OTP"}
+                  </button>
+                  <Link to="/doctors" className="rounded-md border border-gray-300 px-4 py-2 text-gray-700">
+                    Back to doctors
+                  </Link>
+                  </div>
+                </div>
+
+                {message && <p className="mt-3 text-sm text-blue-700">{message}</p>}
+              </>
+            )}
+          </div>
 
         {callStartedPopup && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

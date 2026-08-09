@@ -183,7 +183,7 @@ const DoctorsProfile = () => {
                 <div className='sm:flex sm:items-start sm:justify-between mb-4'>
                   <div>
                     <h1 className='text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100'>
-                      Dr. {doctor.fullName || `${doctor.firstName || ''} ${doctor.lastName || ''}`}
+                      {(doctor.fullName || doctor.firstName)?.startsWith("Dr.") ? "" : "Dr. "}{doctor.fullName || `${doctor.firstName || ''} ${doctor.lastName || ''}`}
                     </h1>
                     <p className='text-md sm:text-lg text-red-600 dark:text-red-500 font-medium mt-1'>
                       {doctor.experience?.expertise || 'Medical Professional'}
