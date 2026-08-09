@@ -79,6 +79,10 @@ const appointmentSchema = new mongoose.Schema(
       generatedAt: Date,
       conversationTurns: Number,
     },
+    soapNote: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     payment: {
       provider: {
         type: String,

@@ -185,16 +185,16 @@ const StaffCommunication = () => {
   };
 
   if (!hospitalId) {
-    return <div className="min-h-screen bg-gray-50 p-8">Staff session not found. Sign in as hospital staff first.</div>;
+    return <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-8">Staff session not found. Sign in as hospital staff first.</div>;
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8">
+    <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-xl bg-white p-6 shadow-sm">
+        <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase text-blue-600">{hospital?.name || "Hospital"} Staff Hub</p>
+              <p className="text-sm font-semibold uppercase text-blue-600 dark:text-red-500">{hospital?.name || "Hospital"} Staff Hub</p>
               <h1 className="text-2xl font-extrabold text-gray-950">Internal Communication</h1>
               <p className="mt-2 text-sm text-gray-600">Coordinate patient updates, department messages, and lab alerts in one realtime workspace.</p>
             </div>
@@ -207,7 +207,7 @@ const StaffCommunication = () => {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          <aside className="rounded-xl bg-white p-4 shadow-sm">
+          <aside className="rounded-xl bg-white dark:bg-slate-950 p-4 shadow-sm">
             <div className="space-y-2">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -216,7 +216,7 @@ const StaffCommunication = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold ${selected ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"}`}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold ${selected ? "bg-blue-600 dark:bg-red-700 text-white" : "text-gray-700 hover:bg-gray-100"}`}
                   >
                     <Icon size={18} />
                     {tab.label}
@@ -236,7 +236,7 @@ const StaffCommunication = () => {
                     <button
                       key={department._id}
                       onClick={() => setDepartmentId(department._id)}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold ${departmentId === department._id ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"}`}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold ${departmentId === department._id ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50 dark:bg-slate-900"}`}
                     >
                       # {department.name}
                     </button>
@@ -254,7 +254,7 @@ const StaffCommunication = () => {
                         <button
                           key={member._id}
                           onClick={() => setRecipientStaffId(member._id)}
-                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${recipientStaffId === member._id ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"}`}
+                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${recipientStaffId === member._id ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50 dark:bg-slate-900"}`}
                         >
                           <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xs font-bold">
                             {member.profilePhoto ? <img src={member.profilePhoto} alt={member.name} className="h-full w-full object-cover" /> : member.name?.slice(0, 2)}
@@ -268,16 +268,16 @@ const StaffCommunication = () => {
                   </div>
                 </div>
               )}
-              <p className="rounded-md bg-gray-50 p-3 text-xs text-gray-500">
+              <p className="rounded-md bg-gray-50 dark:bg-slate-900 p-3 text-xs text-gray-500">
                 Signed in as <span className="font-semibold text-gray-700">{staff?.name || staff?.firstName || "Staff"}</span>
               </p>
             </div>
           </aside>
 
-          <section className="flex min-h-[620px] flex-col rounded-xl bg-white shadow-sm">
+          <section className="flex min-h-[620px] flex-col rounded-xl bg-white dark:bg-slate-950 shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 p-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:text-red-500">
                   {activeTab === "lab" ? <BellRing size={20} /> : <MessageSquare size={20} />}
                 </div>
                 <div>
@@ -293,12 +293,12 @@ const StaffCommunication = () => {
               </div>
             </div>
 
-            <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-5">
+            <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto bg-gray-50 dark:bg-slate-900 p-5">
               {messages.map((item) => {
                 const mine = item.sender?.toString() === staffId;
                 return (
                   <div key={item._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[78%] rounded-xl px-4 py-3 shadow-sm ${mine ? "bg-blue-600 text-white" : "bg-white text-gray-900"}`}>
+                    <div className={`max-w-[78%] rounded-xl px-4 py-3 shadow-sm ${mine ? "bg-blue-600 dark:bg-red-700 text-white" : "bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100"}`}>
                       <div className={`mb-1 flex items-center gap-2 text-xs ${mine ? "text-blue-100" : "text-gray-500"}`}>
                         <span className="font-semibold">{item.senderName || "Staff"}</span>
                         <span>{item.senderRole}</span>
@@ -309,7 +309,7 @@ const StaffCommunication = () => {
                   </div>
                 );
               })}
-              {!messages.length && !loading && <p className="rounded-lg bg-white p-5 text-center text-sm text-gray-500">No messages yet.</p>}
+              {!messages.length && !loading && <p className="rounded-lg bg-white dark:bg-slate-950 p-5 text-center text-sm text-gray-500">No messages yet.</p>}
             </div>
 
             <form onSubmit={sendMessage} className="border-t border-gray-100 p-4">
@@ -321,7 +321,7 @@ const StaffCommunication = () => {
                   maxLength={2000}
                   className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
                 />
-                <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-bold text-white">
+                <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2.5 text-sm font-bold text-white">
                   <SendHorizontal size={16} />
                   Send
                 </button>

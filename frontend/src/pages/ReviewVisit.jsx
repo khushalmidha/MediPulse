@@ -13,9 +13,9 @@ const ratingFields = [
 ];
 
 const RatingInput = ({ label, value, onChange }) => (
-  <div className="rounded-lg border border-gray-200 p-4">
+  <div className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <span className="text-sm font-semibold text-gray-800">{label}</span>
+      <span className="text-sm font-semibold text-gray-800 dark:text-slate-200">{label}</span>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((score) => (
           <button
@@ -76,8 +76,8 @@ const ReviewVisit = () => {
 
   if (submitted) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <section className="max-w-md rounded-xl bg-white p-8 text-center shadow-sm">
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-slate-900 px-4">
+        <section className="max-w-md rounded-xl bg-white dark:bg-slate-950 p-8 text-center shadow-sm">
           <CheckCircle2 className="mx-auto text-green-600" size={44} />
           <h1 className="mt-4 text-2xl font-extrabold text-gray-950">Thank you for your review</h1>
           <p className="mt-2 text-sm text-gray-600">Your feedback is now part of the hospital quality score.</p>
@@ -87,9 +87,9 @@ const ReviewVisit = () => {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10">
-      <form onSubmit={submitReview} className="mx-auto max-w-2xl rounded-xl bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase text-blue-600">MediPulse Visit Review</p>
+    <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-10">
+      <form onSubmit={submitReview} className="mx-auto max-w-2xl rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
+        <p className="text-sm font-semibold uppercase text-blue-600 dark:text-red-500">MediPulse Visit Review</p>
         <h1 className="mt-2 text-3xl font-extrabold text-gray-950">Rate your hospital visit</h1>
         <p className="mt-2 text-sm text-gray-600">Your feedback helps other patients and improves hospital operations.</p>
 
@@ -114,7 +114,7 @@ const ReviewVisit = () => {
           Submit anonymously
         </label>
 
-        <button disabled={loading || !tokenId || !sig} className="mt-6 w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-bold text-white disabled:bg-gray-400">
+        <button disabled={loading || !tokenId || !sig} className="mt-6 w-full rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-3 text-sm font-bold text-white disabled:bg-gray-400">
           {loading ? "Submitting..." : `Submit ${overallRating}-star review`}
         </button>
       </form>

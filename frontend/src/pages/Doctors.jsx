@@ -26,7 +26,7 @@ const Doctors = () => {
         });
         const doctorItems = getDoctorsFromPayload(response.data);
         const data = new Set(doctorItems.map(doctor => doctor.experience?.expertise).filter(Boolean))
-        console.log("speciality",[...data])
+
         setSpecialities([...data])
         setDoctors(doctorItems);
         setLoading(false);
@@ -78,7 +78,7 @@ const Doctors = () => {
   // Generate a color based on doctor's name
   const getAvatarColor = (name) => {
     const colors = [
-      'bg-blue-500', 'bg-indigo-500', 'bg-cyan-600', 'bg-teal-500', 
+      'bg-blue-500 dark:bg-red-600', 'bg-indigo-500', 'bg-cyan-600', 'bg-teal-500', 
       'bg-green-500', 'bg-emerald-500', 'bg-purple-500'
     ];
     
@@ -87,14 +87,14 @@ const Doctors = () => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-12">
+    <div className="bg-gray-50 dark:bg-slate-900 min-h-screen pb-12">
       {/* Header Section */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-12 px-4">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl md:text-4xl font-bold mb-3">Connect Doctor</h1>
           
           {/* Search Section */}
-          <div className="bg-white rounded-lg p-1 flex flex-col sm:flex-row items-center shadow-md max-w-3xl">
+          <div className="bg-white dark:bg-slate-950 rounded-lg p-1 flex flex-col sm:flex-row items-center shadow-md max-w-3xl">
             <div className="flex-grow flex items-center w-full sm:w-auto">
               <Search className="text-gray-500 ml-3" size={20} />
               <input
@@ -173,7 +173,7 @@ const Doctors = () => {
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
+              <div key={i} className="bg-white dark:bg-slate-950 rounded-lg shadow-md p-6 animate-pulse">
                 <div className="flex items-center space-x-4 mb-4">
                   <div className="w-16 h-16 bg-gray-200 rounded-full"></div>
                   <div className="space-y-2 flex-1">
@@ -195,11 +195,11 @@ const Doctors = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 text-red-500 mb-4">
               <X size={32} />
             </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Something went wrong</h3>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-slate-200 mb-2">Something went wrong</h3>
             <p className="text-red-600 mb-4">{error}</p>
             <button 
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700"
             >
               Try Again
             </button>
@@ -207,7 +207,7 @@ const Doctors = () => {
         ) : (
           <>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-200">
                 {sortedDoctors.length > 0 
                   ? `${sortedDoctors.length} ${sortedDoctors.length === 1 ? 'Doctor' : 'Doctors'} Available`
                   : 'No doctors match your criteria'}
@@ -220,7 +220,7 @@ const Doctors = () => {
                     setSelectedFilter('all');
                     setSelectedSpecialty('');
                   }}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
+                  className="text-sm text-blue-600 dark:text-red-500 hover:text-blue-800 flex items-center"
                 >
                   <X size={16} className="mr-1" />
                   Clear filters
@@ -232,7 +232,7 @@ const Doctors = () => {
               {sortedDoctors.map((doctor) => (
                 <div
                   key={doctor._id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 border border-gray-100 border-t-blue-500 border-t-8"
+                  className="bg-white dark:bg-slate-950 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 border border-gray-100 border-t-blue-500 border-t-8"
                 >
                   <div className="p-6">
                     <div className="flex items-start">
@@ -241,11 +241,11 @@ const Doctors = () => {
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-xl font-bold text-gray-800 truncate">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-slate-200 truncate">
                           Dr. {doctor.fullName || `${doctor.firstName || ""} ${doctor.lastName || ""}`}
                         </h3>
                         
-                        <p className="text-blue-600 font-medium truncate">
+                        <p className="text-blue-600 dark:text-red-500 font-medium truncate">
                           {doctor.experience?.expertise || 'Medical Professional'}
                         </p>
                       </div>
@@ -298,7 +298,7 @@ const Doctors = () => {
                             ? `/hospitals/${doctor.hospitalContext.hospitalSlug}`
                             : `/doctorsProfile/${doctor._id}`
                         }
-                        className="block w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-center rounded-md transition duration-200 font-medium"
+                        className="block w-full py-2.5 bg-blue-600 dark:bg-red-700 hover:bg-blue-700 text-white text-center rounded-md transition duration-200 font-medium"
                       >
                         {doctor.sourceType === "hospital" ? "Book at Hospital" : "View Profile"}
                       </Link>
@@ -309,9 +309,9 @@ const Doctors = () => {
             </div>
             
             {filteredDoctors.length === 0 && (
-              <div className="text-center py-16 bg-white rounded-lg shadow-sm">
+              <div className="text-center py-16 bg-white dark:bg-slate-950 rounded-lg shadow-sm">
                 <User className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-lg font-medium text-gray-900">No doctors found</h3>
+                <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-slate-100">No doctors found</h3>
                 <p className="mt-1 text-gray-500">Try adjusting your search criteria or filters</p>
                 <button 
                   onClick={() => {
@@ -319,7 +319,7 @@ const Doctors = () => {
                     setSelectedFilter('all');
                     setSelectedSpecialty('');
                   }}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="mt-4 px-4 py-2 bg-blue-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700"
                 >
                   Reset All Filters
                 </button>

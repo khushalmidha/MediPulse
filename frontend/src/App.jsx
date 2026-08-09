@@ -60,6 +60,7 @@ function App() {
         <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
         <Route path="/review" element={<ReviewVisit />} />
         <Route path="/opd/triage" element={<OpdTriage />} />
+        <Route path="/triage/:doctorId" element={<OpdTriage />} />
         <Route path="/health-records" element={<PatientHealthPortal />} />
         <Route path="/hospitals" element={<HospitalsListPage />} />
         <Route path="/hospitals/:slug" element={<HospitalByPath />} />
@@ -68,6 +69,7 @@ function App() {
         <Route path="/chat" element={<Chat />} />
         <Route path="/doctorsProfile/:id" element={<DoctorsProfile />} />
         <Route path="/appointment/book/:doctorId" element={<AppointmentBooking />} />
+        <Route path="/triage/:doctorId" element={<OpdTriage />} />
         <Route path="/my-appointments" element={<MyAppointments />} />
         <Route path="/doctor/appointments" element={<DoctorAppointments />} />
         <Route path="/communities" element={<CommunityForm />} />

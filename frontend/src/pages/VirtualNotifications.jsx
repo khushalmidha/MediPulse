@@ -33,10 +33,10 @@ const VirtualNotifications = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-4xl rounded-xl bg-white p-5 shadow-sm">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-6">
+      <div className="mx-auto max-w-4xl rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold text-gray-900">Payment Notifications</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Payment Notifications</h1>
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
               type="checkbox"
@@ -55,7 +55,7 @@ const VirtualNotifications = () => {
             payload.items.map((item) => (
               <div key={item._id} className="flex flex-wrap items-start justify-between gap-3 py-4">
                 <div>
-                  <p className="font-medium text-gray-900">{item.title}</p>
+                  <p className="font-medium text-gray-900 dark:text-slate-100">{item.title}</p>
                   <p className="mt-1 text-sm text-gray-600">{item.message}</p>
                   <p className="mt-1 text-xs text-gray-400">
                     {item.type} · {new Date(item.createdAt).toLocaleString()}

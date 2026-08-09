@@ -33,7 +33,7 @@ const typeStyles = {
   INFO: {
     label: "Info",
     icon: Info,
-    className: "border-gray-200 bg-gray-50 text-gray-900",
+    className: "border-gray-200 dark:border-red-900/40 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100",
     badge: "bg-gray-200 text-gray-700",
   },
 };
@@ -77,8 +77,8 @@ const CoPilotSidebar = ({
   }
 
   return (
-    <aside className="flex h-full min-h-80 flex-col rounded-lg border border-gray-200 bg-white shadow-sm xl:w-80">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+    <aside className="flex h-full min-h-80 flex-col rounded-lg border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 shadow-sm xl:w-80">
+      <div className="flex items-center justify-between border-b border-gray-200 dark:border-red-900/40 px-4 py-3">
         <div>
           <div className="flex items-center gap-2">
             <BrainCircuit className="h-5 w-5 text-blue-700" />
@@ -96,7 +96,7 @@ const CoPilotSidebar = ({
         <button
           type="button"
           onClick={onToggle}
-          className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+          className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-slate-100"
           title="Collapse AI Co-Pilot"
         >
           <ChevronRight className="h-4 w-4" />
@@ -104,7 +104,7 @@ const CoPilotSidebar = ({
       </div>
 
       {voiceUnavailable && (
-        <div className="m-3 rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+        <div className="m-3 rounded-md border border-gray-200 dark:border-red-900/40 bg-gray-50 dark:bg-slate-900 p-3 text-xs text-gray-600">
           Voice capture unavailable in this browser. Co-Pilot requires Chrome or Edge.
         </div>
       )}
@@ -141,12 +141,12 @@ const CoPilotSidebar = ({
         <div ref={endRef} />
       </div>
 
-      <div className="border-t border-gray-200 p-3">
+      <div className="border-t border-gray-200 dark:border-red-900/40 p-3">
         <button
           type="button"
           onClick={onGenerateSoap}
           disabled={isGenerating}
-          className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
         >
           {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
           Generate SOAP Notes

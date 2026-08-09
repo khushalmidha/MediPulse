@@ -48,7 +48,7 @@ const MyAppointments = () => {
       case 'queued':
         return 'bg-blue-100 text-blue-800'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-gray-100 text-gray-800 dark:text-slate-200'
     }
   }
 
@@ -197,9 +197,9 @@ const MyAppointments = () => {
 
   if (!isAuth) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Please Log In</h2>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-200 mb-2">Please Log In</h2>
           <p className="text-gray-600">You need to be logged in to view your appointments.</p>
         </div>
       </div>
@@ -207,16 +207,16 @@ const MyAppointments = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Appointments</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100 mb-2">My Appointments</h1>
           <p className="text-gray-600">View all your bookings across all doctors</p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 border border-gray-200">
+        <div className="bg-white dark:bg-slate-950 rounded-lg shadow-sm mb-6 border border-gray-200 dark:border-red-900/40">
           <div className="flex flex-wrap">
             {['all', 'queued', 'active', 'completed', 'cancelled'].map((tab) => (
               <button
@@ -224,8 +224,8 @@ const MyAppointments = () => {
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
                   activeTab === tab
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'border-blue-600 text-blue-600 dark:text-red-500'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-slate-100'
                 }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -239,7 +239,7 @@ const MyAppointments = () => {
 
         {/* Loading State */}
         {loading && (
-          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+          <div className="bg-white dark:bg-slate-950 rounded-lg shadow-sm p-8 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading your appointments...</p>
           </div>
@@ -261,9 +261,9 @@ const MyAppointments = () => {
 
         {/* Empty State */}
         {!loading && filteredAppointments.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+          <div className="bg-white dark:bg-slate-950 rounded-lg shadow-sm p-12 text-center">
             <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-1">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-slate-100 mb-1">
               {activeTab === 'all'
                 ? 'No appointments yet'
                 : `No ${activeTab} appointments`}
@@ -282,7 +282,7 @@ const MyAppointments = () => {
             {filteredAppointments.map((appointment) => (
               <div
                 key={appointment._id}
-                className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden border border-gray-200"
+                className="bg-white dark:bg-slate-950 rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden border border-gray-200 dark:border-red-900/40"
               >
                 {/* Card Header */}
                 <div className={`px-6 py-4 ${getStatusColor(appointment.status)}`}>
@@ -300,7 +300,7 @@ const MyAppointments = () => {
                 <div className="px-6 py-4">
                   {/* Doctor Info */}
                   <div className="mb-4">
-                    <h3 className="text-lg font-bold text-gray-900">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
                       Dr. {appointment.doctor?.firstName} {appointment.doctor?.lastName}
                     </h3>
                     <p className="text-sm text-gray-600">
@@ -336,7 +336,7 @@ const MyAppointments = () => {
                   {appointment.receiptText && (
                     <button
                       onClick={() => downloadReceipt(appointment)}
-                      className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium mt-4"
+                      className="w-full flex items-center justify-center space-x-2 bg-blue-600 dark:bg-red-700 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium mt-4"
                     >
                       <Download className="w-4 h-4" />
                       <span>Download Receipt</span>
@@ -353,8 +353,8 @@ const MyAppointments = () => {
                   )}
                   {appointment.status === 'active' && appointment.doctor?._id && (
                     <Link
-                      to={`/appointment/book/${appointment.doctor._id}`}
-                      className="mt-3 flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                      to={`/triage/${appointment.doctor._id}`}
+                      className="mt-3 flex w-full items-center justify-center rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                     >
                       Join Meeting
                     </Link>

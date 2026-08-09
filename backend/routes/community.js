@@ -1,5 +1,6 @@
 import { Router } from "express";
 import userValidation from "../middleware/validateUser.js";
+import { nosqlGuard } from "../middleware/nosqlGuard.js";
 import {
 	createCommunity,
 	getAllCommunities,
@@ -10,6 +11,7 @@ import {
 } from "../controller/community.js";
 
 const communityRouter = Router();
+communityRouter.use(nosqlGuard);
 
 communityRouter.get("/", userValidation, getAllCommunities);
 communityRouter.post("/create", userValidation, createCommunity);

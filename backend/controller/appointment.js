@@ -4,8 +4,9 @@ import Appointment from "../model/appointment.js";
 import Doctor from "../model/doctor.js";
 import OpdToken from "../model/opdToken.js";
 import User from "../model/user.js";
+import SharedReport from "../model/sharedReport.js";
 import { getIO } from "../socket.js";
-import { generateGeminiText } from "./gemini.js";
+import { generateGeminiText, generateSoapNote as generateSoapNoteGemini } from "./gemini.js";
 import { generateSoapNote } from "../services/copilotTools.js";
 import {
   sendAppointmentBookedMail,
@@ -217,7 +218,7 @@ const scheduleAppointmentTimeout = (appointmentId) => {
   appointmentTimeouts.set(appointmentId, timer);
 };
 
-const finishAppointment = async (appointmentId, endedBy, endedReason) => {
+const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes = null) => {
   const appointment = await Appointment.findById(appointmentId).populate("user");
   if (!appointment || appointment.status !== "active") {
     clearAppointmentTimeout(appointmentId);
@@ -226,31 +227,45 @@ const finishAppointment = async (appointmentId, endedBy, endedReason) => {
 
   // Auto-generate SOAP note
   try {
-    const redis = getRedis();
-    const transcriptKey = `copilot:transcript:${appointmentId}`;
-    const suggestionsKey = `copilot:suggestions:${appointmentId}`;
-    
-    const [transcript, storedSuggestionsRaw] = await Promise.all([
-      redis.get(transcriptKey),
-      redis.get(suggestionsKey),
-    ]);
-    
-    const storedSuggestions = storedSuggestionsRaw ? JSON.parse(storedSuggestionsRaw) : [];
-    
-    const soapNote = await generateSoapNote({
-      transcript: transcript || "",
-      doctorNotes: appointment.doctorNotes || "",
-      patientBrief: appointment.user?.triageProfile || null,
-      agentInsights: storedSuggestions.map((suggestion) => suggestion.message),
-    });
+    let soapNote;
+    if (roughNotes) {
+      const generatedNote = await generateSoapNoteGemini(roughNotes);
+      // Ensure we parse it to object if generatedNote is a markdown/string representation, or just store the raw markdown. 
+      // The instruction says "return only the structured SOAP note in Markdown format without any extra explanation or text".
+      // So we can store it as { markdown: generatedNote } or just as the root string if schema allows.
+      soapNote = {
+        markdown: generatedNote,
+        generatedAt: new Date(),
+        generatedBy: "ai-copilot",
+      };
+    } else {
+      const redis = getRedis();
+      const transcriptKey = `copilot:transcript:${appointmentId}`;
+      const suggestionsKey = `copilot:suggestions:${appointmentId}`;
+      
+      const [transcript, storedSuggestionsRaw] = await Promise.all([
+        redis.get(transcriptKey),
+        redis.get(suggestionsKey),
+      ]);
+      
+      const storedSuggestions = storedSuggestionsRaw ? JSON.parse(storedSuggestionsRaw) : [];
+      
+      const generated = await generateSoapNote({
+        transcript: transcript || "",
+        doctorNotes: appointment.doctorNotes || "",
+        patientBrief: appointment.user?.triageProfile || null,
+        agentInsights: storedSuggestions.map((suggestion) => suggestion.message),
+      });
 
-    appointment.soapNote = {
-      ...soapNote,
-      generatedAt: new Date(),
-      generatedBy: "ai-copilot",
-    };
-    
-    await redis.del(transcriptKey, suggestionsKey);
+      soapNote = {
+        ...generated,
+        generatedAt: new Date(),
+        generatedBy: "ai-copilot",
+      };
+      
+      await redis.del(transcriptKey, suggestionsKey);
+    }
+    appointment.soapNote = soapNote;
   } catch (error) {
     console.error("Auto SOAP generation failed:", error.message);
   }
@@ -1053,10 +1068,13 @@ const endAppointment = async (req, res) => {
     return res.status(409).json({ message: "Appointment is not active" });
   }
 
+  const { roughNotes } = req.body;
+
   const completed = await finishAppointment(
     appointmentId.toString(),
     "doctor",
     "doctor-ended",
+    roughNotes
   );
   if (!completed) {
     return res.status(409).json({ message: "Appointment is no longer active" });
@@ -1070,6 +1088,64 @@ const endAppointment = async (req, res) => {
     endedBy: completed.endedBy,
     endedReason: completed.endedReason,
   });
+};
+
+const uploadSharedReport = async (req, res) => {
+  if (req.auth.role !== "user") {
+    return res.status(403).json({ message: "Only patients can upload reports" });
+  }
+
+  const { doctorId, fileUrl, title } = req.body;
+  if (!doctorId || !fileUrl || !title) {
+    return res.status(400).json({ message: "doctorId, fileUrl, and title are required" });
+  }
+
+  const hasCompletedAppointment = await Appointment.exists({
+    user: req.auth.id,
+    doctor: doctorId,
+    status: "completed"
+  });
+
+  if (!hasCompletedAppointment) {
+    return res.status(403).json({ message: "You can only share reports with doctors you have had a completed appointment with" });
+  }
+
+  try {
+    const report = await SharedReport.create({
+      patientId: req.auth.id,
+      doctorId,
+      fileUrl,
+      title,
+    });
+
+    return res.status(201).json({ message: "Report shared successfully", report });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to upload report", error: error.message });
+  }
+};
+
+const getSharedReports = async (req, res) => {
+  const query = {};
+  if (req.auth.role === "user") {
+    query.patientId = req.auth.id;
+    if (req.query.doctorId) query.doctorId = req.query.doctorId;
+  } else if (req.auth.role === "doctor") {
+    query.doctorId = req.auth.id;
+    if (req.query.patientId) query.patientId = req.query.patientId;
+  } else {
+    return res.status(403).json({ message: "Unauthorized role" });
+  }
+
+  try {
+    const reports = await SharedReport.find(query)
+      .sort({ uploadedAt: -1 })
+      .populate("patientId", "firstName lastName")
+      .populate("doctorId", "firstName lastName");
+
+    return res.status(200).json(reports);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to fetch reports", error: error.message });
+  }
 };
 
 export {
@@ -1087,4 +1163,6 @@ export {
   startAutoRefundWorker,
   updateDoctorNotes,
   verifyAppointmentOtp,
+  uploadSharedReport,
+  getSharedReports,
 };

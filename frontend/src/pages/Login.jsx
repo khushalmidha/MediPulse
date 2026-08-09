@@ -102,7 +102,7 @@ const GoogleSigninButton = ({ disabled, onCredential, userType }) => {
 const ProfileSelection = ({ setUserType }) => (
   <div className="space-y-8">
     <div className="text-center">
-      <h3 className="text-xl font-semibold text-gray-800">Choose your profile type</h3>
+      <h3 className="text-xl font-semibold text-gray-800 dark:text-slate-200">Choose your profile type</h3>
       <p className="mt-2 text-gray-600">
         Select how you want to sign in to MediPulse
       </p>
@@ -110,36 +110,36 @@ const ProfileSelection = ({ setUserType }) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <button
         onClick={() => setUserType("user")}
-        className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
       >
         <div className="bg-blue-100 p-4 rounded-full">
-          <UserCircle2 className="h-10 w-10 text-blue-600" />
+          <UserCircle2 className="h-10 w-10 text-blue-600 dark:text-red-500" />
         </div>
-        <h4 className="mt-4 text-lg font-medium text-gray-800">Sign in as User</h4>
+        <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Sign in as User</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
           Access your healthcare network and communities
         </p>
       </button>
       <button
         onClick={() => setUserType("doctor")}
-        className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
       >
         <div className="bg-blue-100 p-4 rounded-full">
-          <Stethoscope className="h-10 w-10 text-blue-600" />
+          <Stethoscope className="h-10 w-10 text-blue-600 dark:text-red-500" />
         </div>
-        <h4 className="mt-4 text-lg font-medium text-gray-800">Sign in as Doctor</h4>
+        <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Sign in as Doctor</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
           Manage your practice and patient care
         </p>
       </button>
       <button
         onClick={() => setUserType("hospital-admin")}
-        className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
       >
         <div className="bg-blue-100 p-4 rounded-full">
-          <Building2 className="h-10 w-10 text-blue-600" />
+          <Building2 className="h-10 w-10 text-blue-600 dark:text-red-500" />
         </div>
-        <h4 className="mt-4 text-lg font-medium text-gray-800">Sign in as Hospital Admin</h4>
+        <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Sign in as Hospital Admin</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
           Manage hospital workspace, departments, and staff
         </p>
@@ -236,7 +236,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
           type="checkbox"
           checked={rememberMe}
           onChange={(e) => setRememberMe(e.target.checked)}
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          className="h-4 w-4 text-blue-600 dark:text-red-500 focus:ring-blue-500 border-gray-300 rounded"
         />
         <label
           htmlFor="remember-me"
@@ -250,7 +250,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
           type="button"
           onClick={onForgotPassword}
           disabled={userType === "hospital-admin"}
-          className={`font-medium transition-colors ${userType === "hospital-admin" ? "cursor-not-allowed text-gray-400" : "text-blue-600 hover:text-blue-500"}`}
+          className={`font-medium transition-colors ${userType === "hospital-admin" ? "cursor-not-allowed text-gray-400" : "text-blue-600 dark:text-red-500 hover:text-blue-500"}`}
         >
           Forgot password?
         </button>
@@ -261,7 +261,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
       <button
         type="submit"
         disabled={loading}
-        className={`relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
+        className={`relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 dark:bg-red-700 ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
       >
         {loading ? 'Signing in...' : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Admin'}`}
       </button>
@@ -357,14 +357,14 @@ const ForgotPasswordForm = ({
     <button
       type="submit"
       disabled={loading}
-      className={`w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white ${loading ? "cursor-not-allowed opacity-70" : "hover:bg-blue-700"}`}
+      className={`w-full rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-3 text-sm font-medium text-white ${loading ? "cursor-not-allowed opacity-70" : "hover:bg-blue-700"}`}
     >
       {loading ? "Processing..." : otpSent ? "Reset password" : `Send OTP as ${userType === "user" ? "User" : "Doctor"}`}
     </button>
     <button
       type="button"
       onClick={onBack}
-      className="flex w-full items-center justify-center py-2 text-sm font-medium text-gray-600 hover:text-blue-600"
+      className="flex w-full items-center justify-center py-2 text-sm font-medium text-gray-600 hover:text-blue-600 dark:text-red-500"
     >
       <ArrowLeft className="mr-2 h-4 w-4" />
       Back to sign in
@@ -526,16 +526,16 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className={`${userType === "select" ? "max-w-3xl" : "max-w-md"} w-full bg-white p-8 sm:p-10 rounded-2xl shadow-md border border-gray-100`}>
+      <div className={`${userType === "select" ? "max-w-3xl" : "max-w-md"} w-full bg-white dark:bg-slate-950 p-8 sm:p-10 rounded-2xl shadow-md border border-gray-100`}>
         <div className="mb-10 text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+          <h2 className="text-3xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight">
             {userType === "select" ? "Welcome Back" : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Admin'}`}
           </h2>
           <p className="mt-3 text-gray-600">
             Don't have an account?{" "}
             <Link
               to="/signup"
-              className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              className="font-medium text-blue-600 dark:text-red-500 hover:text-blue-500 transition-colors"
             >
               Sign up here
             </Link>
@@ -594,16 +594,16 @@ const Login = () => {
                 setAuthMode("login");
                 setMessage("");
               }}
-              className="mt-6 flex items-center justify-center w-full text-sm text-gray-600 hover:text-blue-600 py-2 transition-colors font-medium"
+              className="mt-6 flex items-center justify-center w-full text-sm text-gray-600 hover:text-blue-600 dark:text-red-500 py-2 transition-colors font-medium"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Change profile type
             </button>
           </>
         )}
-        <div className="mt-8 pt-6 border-t border-gray-200">
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-red-900/40">
           <p className="text-xs text-center text-gray-500">
-            By continuing, you agree to MediPulse's <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
+            By continuing, you agree to MediPulse's <a href="#" className="text-blue-600 dark:text-red-500 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 dark:text-red-500 hover:underline">Privacy Policy</a>.
           </p>
         </div>
       </div>

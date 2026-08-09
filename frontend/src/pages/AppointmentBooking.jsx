@@ -166,7 +166,7 @@ const AppointmentBooking = () => {
       const verifiedToken = otpResponse.data.bookingToken;
 
       const response = await axios.post(
-        `${BACKEND_URL}/appointment/book/${doctorId}`,
+        `${BACKEND_URL}/triage/${doctorId}`,
         { bookingToken: verifiedToken },
         { withCredentials: true },
       );
@@ -306,17 +306,17 @@ const AppointmentBooking = () => {
   );
 
   if (loading) {
-    return <div className="min-h-screen bg-gray-50 px-4 py-8">Loading appointment data...</div>;
+    return <div className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">Loading appointment data...</div>;
   }
 
   const myAppointment = status?.myAppointment;
   const canBook = !myAppointment;
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
       <div className="mx-auto max-w-4xl space-y-6">
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
             Book Appointment with Dr. {doctor?.firstName} {doctor?.lastName || ""}
           </h1>
           <p className="mt-2 text-gray-600">
@@ -343,7 +343,7 @@ const AppointmentBooking = () => {
                       onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
                       inputMode="numeric"
                       placeholder="Enter 6 digit OTP"
-                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
                     />
                   </div>
                 )}
@@ -354,7 +354,7 @@ const AppointmentBooking = () => {
               type="button"
               onClick={otpSent ? handleVerifyOtpAndBook : handleSendOtp}
               disabled={!canBook || booking}
-              className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+              className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
             >
               {booking ? "Processing..." : otpSent ? `Verify OTP & Request Booking for ₹${APPOINTMENT_FEE_INR}` : "Send OTP"}
             </button>
@@ -369,8 +369,8 @@ const AppointmentBooking = () => {
 
         {callStartedPopup && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-              <h2 className="text-xl font-bold text-gray-900">Doctor Started the Appointment</h2>
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-950 p-6 shadow-xl">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">Doctor Started the Appointment</h2>
               <p className="mt-2 text-sm text-gray-600">
                 The doctor has started your booking. Join the active appointment now.
               </p>
@@ -378,14 +378,14 @@ const AppointmentBooking = () => {
                 <button
                   type="button"
                 onClick={() => setCallStartedPopup(false)}
-                  className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:bg-slate-900"
                 >
                   Close
                 </button>
                 <button
                   type="button"
                 onClick={() => setCallStartedPopup(false)}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                  className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm text-white hover:bg-blue-700"
                 >
                   View Call
                 </button>
@@ -401,7 +401,7 @@ const AppointmentBooking = () => {
                 <button
                   type="button"
                   onClick={() => setTriageOpen(false)}
-                  className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                  className="rounded-full bg-white dark:bg-slate-950 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 dark:bg-slate-900"
                 >
                   Close
                 </button>
@@ -418,10 +418,10 @@ const AppointmentBooking = () => {
         )}
 
         {myAppointment?.status === "active" && (
-          <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Active Appointment</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Active Appointment</h2>
                 <p className="mt-1 text-sm text-gray-600">
                   Your doctor has started the consultation. The session auto-ends after 5 minutes.
                 </p>
@@ -434,10 +434,10 @@ const AppointmentBooking = () => {
         )}
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Not Started Bookings</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Not Started Bookings</h2>
                 <p className="mt-1 text-sm text-gray-500">
                   Bookings that are still waiting for the doctor to start them.
                 </p>
@@ -466,7 +466,7 @@ const AppointmentBooking = () => {
                     <button
                       type="button"
                       onClick={() => setTriageOpen(true)}
-                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                      className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                     >
                       Prepare for Appointment →
                     </button>
@@ -484,10 +484,10 @@ const AppointmentBooking = () => {
             )}
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Previous Bookings</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Previous Bookings</h2>
                 <p className="mt-1 text-sm text-gray-500">
                   Completed appointments and doctor-generated receipts.
                 </p>
@@ -501,10 +501,10 @@ const AppointmentBooking = () => {
             ) : (
               <div className="mt-4 space-y-4">
                 {previousAppointments.map((appointment) => (
-                  <div key={appointment._id} className="rounded-lg border border-gray-200 p-4">
+                  <div key={appointment._id} className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-gray-900 dark:text-slate-100">
                           Dr. {doctor?.firstName} {doctor?.lastName || ""}
                         </p>
                         <p className="text-sm text-gray-500">
@@ -520,7 +520,7 @@ const AppointmentBooking = () => {
                         <button
                           type="button"
                           onClick={() => downloadReceipt(appointment)}
-                          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                          className="rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
                         >
                           Download Receipt
                         </button>
@@ -528,7 +528,7 @@ const AppointmentBooking = () => {
                     </div>
 
                     {appointment.receiptText ? (
-                      <div className="mt-4 rounded-md bg-gray-50 p-4 text-sm text-gray-700 whitespace-pre-wrap">
+                      <div className="mt-4 rounded-md bg-gray-50 dark:bg-slate-900 p-4 text-sm text-gray-700 whitespace-pre-wrap">
                         {appointment.receiptText}
                       </div>
                     ) : (

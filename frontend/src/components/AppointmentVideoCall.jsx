@@ -5,10 +5,9 @@ import { useAuth } from "../context/AuthContext";
 import { getSocket } from "../socket";
 import { BACKEND_URL } from "../utils";
 import CoPilotSidebar from "./CoPilotSidebar";
-import SoapNoteModal from "./SoapNoteModal";
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, MessageSquare, Settings,
-  User, Stethoscope, Wifi, WifiOff, MonitorUp,
+  User, Stethoscope, Wifi, WifiOff, MonitorUp, BrainCircuit, FileText, X, Send
 } from "lucide-react";
 
 const getStaticIceServers = () => {
@@ -107,12 +106,17 @@ const AppointmentVideoCall = ({
   const [connectionStatus, setConnectionStatus] = useState("waiting");
   const [presence, setPresence] = useState({ doctorJoined: false, patientJoined: false, ready: false });
   const [copilotActive, setCopilotActive] = useState(false);
-  const [copilotCollapsed, setCopilotCollapsed] = useState(false);
   const [copilotSuggestions, setCopilotSuggestions] = useState([]);
   const [isGeneratingSoap, setIsGeneratingSoap] = useState(false);
   const [showSoapModal, setShowSoapModal] = useState(false);
   const [soapNote, setSoapNote] = useState(null);
   const [voiceCaptureUnavailable, setVoiceCaptureUnavailable] = useState(false);
+  const [activeSidePanel, setActiveSidePanel] = useState(null); // 'copilot', 'chat', 'reports', or null
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [reports, setReports] = useState([]);
+  const [selectedReportUrl, setSelectedReportUrl] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // UI controls state
   const [isMuted, setIsMuted] = useState(false);
@@ -183,7 +187,7 @@ const AppointmentVideoCall = ({
       });
       return [...current, ...next].slice(-30);
     });
-    if (incoming.some((item) => item.severity === "high")) setCopilotCollapsed(false);
+    if (incoming.some((item) => item.severity === "high")) setActiveSidePanel("copilot");
   };
 
   const sendTranscriptChunk = async () => {
@@ -205,24 +209,6 @@ const AppointmentVideoCall = ({
     }
   };
 
-  const handleGenerateSoap = async () => {
-    await sendTranscriptChunk();
-    setIsGeneratingSoap(true);
-    try {
-      const response = await axios.post(
-        `${BACKEND_URL}/api/copilot/${appointmentId}/generate-soap`,
-        { doctorNotes },
-        { withCredentials: true },
-      );
-      setSoapNote(response.data.soapNote);
-      setShowSoapModal(true);
-    } catch (err) {
-      console.error("SOAP generation failed:", err);
-      setError("Could not generate SOAP note right now");
-    } finally {
-      setIsGeneratingSoap(false);
-    }
-  };
 
   const flushPendingIceCandidates = async (connection) => {
     if (!connection.remoteDescription) return;
@@ -342,6 +328,11 @@ const AppointmentVideoCall = ({
     socket.on("appointment:answer", onAnswer);
     socket.on("appointment:ice-candidate", onIceCandidate);
     socket.on("appointment:ended", onCallEnded);
+    
+    // basic chat stub
+    socket.on("appointment:chat-message", (msg) => {
+      setChatMessages((prev) => [...prev, msg]);
+    });
 
     setupMedia()
       .then(() => {
@@ -362,6 +353,7 @@ const AppointmentVideoCall = ({
       socket.off("appointment:answer", onAnswer);
       socket.off("appointment:ice-candidate", onIceCandidate);
       socket.off("appointment:ended", onCallEnded);
+      socket.off("appointment:chat-message");
       if (peerConnectionRef.current) { peerConnectionRef.current.close(); peerConnectionRef.current = null; }
       if (localStreamRef.current) { localStreamRef.current.getTracks().forEach((t) => t.stop()); localStreamRef.current = null; }
       remoteStreamRef.current = null;
@@ -453,6 +445,14 @@ const AppointmentVideoCall = ({
     };
   }, [appointmentId, role]);
 
+  useEffect(() => {
+    if (activeSidePanel === "reports") {
+      axios.get(`${BACKEND_URL}/api/appointment/reports`, { withCredentials: true })
+        .then(res => setReports(res.data))
+        .catch(console.error);
+    }
+  }, [activeSidePanel]);
+
   // Who is the remote participant
   const remoteLabel = role === "doctor" ? (patientName || "Patient") : (doctorName ? `Dr. ${doctorName}` : "Doctor");
   const selfLabel = role === "doctor" ? "You (Doctor)" : "You (Patient)";
@@ -460,11 +460,11 @@ const AppointmentVideoCall = ({
 
   const statusColor = {
     waiting: "bg-amber-500",
-    connecting: "bg-blue-500",
+    connecting: "bg-blue-500 dark:bg-red-600",
     connected: "bg-green-500",
     reconnecting: "bg-orange-500",
     failed: "bg-red-500",
-  }[connectionStatus] || "bg-gray-500";
+  }[connectionStatus] || "bg-gray-50 dark:bg-slate-9000";
 
   const statusText = {
     waiting: role === "doctor" ? "Waiting for patient..." : "Waiting for doctor...",
@@ -506,9 +506,9 @@ const AppointmentVideoCall = ({
               <p className="text-lg font-bold text-white">{remoteLabel}</p>
               <p className="mt-2 text-sm text-slate-400">{statusText}</p>
               <div className="mt-5 flex gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-2 w-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-2 w-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
           )}
@@ -570,12 +570,12 @@ const AppointmentVideoCall = ({
           </div>
 
           {/* Controls bar */}
-          <div className="absolute bottom-0 inset-x-0 flex items-center justify-center gap-3 bg-gradient-to-t from-black/80 to-transparent px-6 py-4">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-3 bg-slate-900/90 dark:bg-black/90 px-6 py-3 rounded-full shadow-2xl backdrop-blur border border-white/10 dark:border-red-900/50">
             {/* Mute */}
             <button
               onClick={toggleMute}
               title={isMuted ? "Unmute" : "Mute"}
-              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${isMuted ? "bg-red-500 hover:bg-red-400" : "bg-white/20 hover:bg-white/30"} backdrop-blur text-white`}
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${isMuted ? "bg-red-500 hover:bg-red-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
             >
               {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
             </button>
@@ -584,7 +584,7 @@ const AppointmentVideoCall = ({
             <button
               onClick={toggleCamera}
               title={isCameraOff ? "Turn on camera" : "Turn off camera"}
-              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${isCameraOff ? "bg-red-500 hover:bg-red-400" : "bg-white/20 hover:bg-white/30"} backdrop-blur text-white`}
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${isCameraOff ? "bg-red-500 hover:bg-red-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
             >
               {isCameraOff ? <VideoOff size={20} /> : <Video size={20} />}
             </button>
@@ -601,11 +601,11 @@ const AppointmentVideoCall = ({
             {/* Co-Pilot toggle (doctor only) */}
             {role === "doctor" && (
               <button
-                onClick={() => setCopilotCollapsed((c) => !c)}
+                onClick={() => setActiveSidePanel((c) => c === "copilot" ? null : "copilot")}
                 title="Toggle AI Co-Pilot"
-                className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${copilotActive ? "bg-blue-500 hover:bg-blue-400" : "bg-white/20 hover:bg-white/30"} backdrop-blur text-white relative`}
+                className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${activeSidePanel === "copilot" ? "bg-blue-500 dark:bg-red-600 hover:bg-blue-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white relative`}
               >
-                <MessageSquare size={20} />
+                <BrainCircuit size={20} />
                 {copilotSuggestions.length > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
                     {copilotSuggestions.length > 9 ? "9+" : copilotSuggestions.length}
@@ -613,6 +613,24 @@ const AppointmentVideoCall = ({
                 )}
               </button>
             )}
+
+            {/* Chat */}
+            <button
+              onClick={() => setActiveSidePanel((c) => c === "chat" ? null : "chat")}
+              title="Toggle Chat"
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${activeSidePanel === "chat" ? "bg-blue-500 dark:bg-red-600 hover:bg-blue-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
+            >
+              <MessageSquare size={20} />
+            </button>
+
+            {/* Reports */}
+            <button
+              onClick={() => setActiveSidePanel((c) => c === "reports" ? null : "reports")}
+              title="Toggle Reports"
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 ${activeSidePanel === "reports" ? "bg-blue-500 dark:bg-red-600 hover:bg-blue-400" : "bg-white dark:bg-slate-950/10 hover:bg-white dark:bg-slate-950/20 dark:bg-gray-800 dark:hover:bg-gray-700"} text-white`}
+            >
+              <FileText size={20} />
+            </button>
           </div>
         </div>
 
@@ -631,30 +649,125 @@ const AppointmentVideoCall = ({
         )}
       </div>
 
-      {/* Co-Pilot sidebar (doctor only) */}
-      {role === "doctor" && (
-        <CoPilotSidebar
-          collapsed={copilotCollapsed}
-          isActive={copilotActive}
-          isGenerating={isGeneratingSoap}
-          onGenerateSoap={handleGenerateSoap}
-          onToggle={() => setCopilotCollapsed((c) => !c)}
-          suggestions={copilotSuggestions}
-          voiceUnavailable={voiceCaptureUnavailable}
-        />
+      {/* Side Panels */}
+      {activeSidePanel && (
+        <div className="flex flex-col w-full xl:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 shadow-xl overflow-hidden h-full" style={{ maxHeight: "calc(100vh - 100px)" }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-950">
+            <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 capitalize">
+              {activeSidePanel === "copilot" ? "AI Co-Pilot" : activeSidePanel}
+            </h2>
+            <button onClick={() => setActiveSidePanel(null)} className="p-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-md">
+              <X size={16} />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto">
+            {activeSidePanel === "copilot" && role === "doctor" && (
+              <CoPilotSidebar
+                collapsed={false}
+                isActive={copilotActive}
+                onToggle={() => setActiveSidePanel(null)}
+                suggestions={copilotSuggestions}
+                voiceUnavailable={voiceCaptureUnavailable}
+              />
+            )}
+            
+            {activeSidePanel === "chat" && (
+              <div className="flex flex-col h-full">
+                <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+                  {chatMessages.length === 0 ? (
+                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-10">No messages yet. Start chatting!</p>
+                  ) : (
+                    chatMessages.map((msg, i) => (
+                      <div key={i} className={`flex flex-col ${msg.senderId === user?.id ? "items-end" : "items-start"}`}>
+                        <div className={`px-3 py-2 rounded-xl text-sm ${msg.senderId === user?.id ? "bg-blue-600 dark:bg-red-700 text-white" : "bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white"}`}>
+                          {msg.text}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="p-3 border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="text" 
+                      value={chatInput} 
+                      onChange={(e) => setChatInput(e.target.value)} 
+                      placeholder="Type a message..." 
+                      className="flex-1 bg-gray-100 dark:bg-slate-800 border-none rounded-full px-4 py-2 text-sm text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && chatInput.trim()) {
+                          const socket = getSocket();
+                          const msg = { appointmentId, text: chatInput.trim(), senderId: user?.id || role };
+                          socket.emit("appointment:chat-message", msg);
+                          setChatMessages(prev => [...prev, msg]);
+                          setChatInput("");
+                        }
+                      }}
+                    />
+                    <button 
+                      onClick={() => {
+                        if (chatInput.trim()) {
+                          const socket = getSocket();
+                          const msg = { appointmentId, text: chatInput.trim(), senderId: user?.id || role };
+                          socket.emit("appointment:chat-message", msg);
+                          setChatMessages(prev => [...prev, msg]);
+                          setChatInput("");
+                        }
+                      }}
+                      className="p-2 bg-blue-600 dark:bg-red-700 text-white rounded-full hover:bg-blue-700"
+                    >
+                      <Send size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {activeSidePanel === "reports" && (
+              <div className="flex flex-col h-full bg-gray-50 dark:bg-slate-900">
+                <div className="p-2 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">Shared Medical Reports</span>
+                  <button onClick={() => setIsFullscreen(true)} className="px-2 py-1 bg-slate-600 text-white rounded hover:bg-slate-700">Full Screen</button>
+                </div>
+                <div className="p-2 border-b border-gray-200 dark:border-red-900/40 overflow-x-auto whitespace-nowrap">
+                   {reports.map(r => (
+                     <button key={r._id} onClick={() => setSelectedReportUrl(r.fileUrl)} className={`px-3 py-1 text-xs border rounded mr-2 ${selectedReportUrl === r.fileUrl ? 'bg-blue-100 border-blue-500' : 'bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200'}`}>
+                        {r.title}
+                     </button>
+                   ))}
+                   {reports.length === 0 && <span className="text-xs text-gray-500">No reports found</span>}
+                </div>
+                <div className="flex-1 w-full relative">
+                  {selectedReportUrl ? (
+                    <iframe 
+                      src={selectedReportUrl} 
+                      title="Medical Report" 
+                      className="w-full h-full border-0" 
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-sm text-gray-400">Select a report to view</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
-      {showSoapModal && (
-        <SoapNoteModal
-          appointmentId={appointmentId}
-          onClose={() => setShowSoapModal(false)}
-          onSaved={(savedSoap) => {
-            setSoapNote(savedSoap);
-            onSoapSaved?.(savedSoap);
-          }}
-          soapNote={soapNote}
-        />
+      {isFullscreen && selectedReportUrl && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col">
+          <div className="flex justify-end p-4">
+            <button onClick={() => setIsFullscreen(false)} className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-red-700">
+              <X size={20} /> Close Full Screen
+            </button>
+          </div>
+          <div className="flex-1 w-full p-4 pt-0">
+            <iframe src={selectedReportUrl} className="w-full h-full border-0 bg-white dark:bg-slate-950 rounded-lg" />
+          </div>
+        </div>
       )}
+
     </div>
   );
 };

@@ -20,7 +20,7 @@ const TokenCard = ({ token, index, onStart, onNoShow }) => {
   const urgency = brief?.urgencyLevel || "ROUTINE";
   const waitMinutes = token.estimatedWaitMinutes || (index + 1) * 12;
   return (
-  <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+  <div className="rounded-lg border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 p-4 shadow-sm">
     <div className="flex items-start justify-between gap-3">
       <div>
         <div className="flex flex-wrap items-center gap-2">
@@ -28,13 +28,13 @@ const TokenCard = ({ token, index, onStart, onNoShow }) => {
           <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${urgency === "HIGH" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>{urgency}</span>
         </div>
         <p className="text-sm text-gray-600">{patientName(token)}</p>
-        <p className="mt-1 text-xs font-semibold uppercase text-blue-600">{token.status.replace("_", " ")} · ETA {waitMinutes} min</p>
+        <p className="mt-1 text-xs font-semibold uppercase text-blue-600 dark:text-red-500">{token.status.replace("_", " ")} · ETA {waitMinutes} min</p>
       </div>
       <div className="flex gap-2">
         <button onClick={() => onNoShow(token._id)} className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
           No-show
         </button>
-        <button onClick={() => onStart(token._id)} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        <button onClick={() => onStart(token._id)} className="rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
           Start
         </button>
       </div>
@@ -162,16 +162,16 @@ const DoctorOpdConsole = () => {
   };
 
   if (!hospitalId || !doctorId) {
-    return <div className="min-h-screen bg-gray-50 p-8">Doctor staff session not found. Sign in as hospital staff first.</div>;
+    return <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-8">Doctor staff session not found. Sign in as hospital staff first.</div>;
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8">
+    <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-xl bg-white p-6 shadow-sm">
+        <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase text-blue-600">{hospital?.name || "Hospital"} OPD</p>
+              <p className="text-sm font-semibold uppercase text-blue-600 dark:text-red-500">{hospital?.name || "Hospital"} OPD</p>
               <h1 className="text-2xl font-extrabold text-gray-950">Doctor OPD Console</h1>
             </div>
             <button onClick={loadQueue} className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium">
@@ -189,8 +189,8 @@ const DoctorOpdConsole = () => {
             ["No Shows", queue.noShows || 0, XCircle],
             ["Status", queue.currentlyServing ? "In consultation" : "Ready", Activity],
           ].map(([label, value, Icon]) => (
-            <div key={label} className="rounded-xl bg-white p-5 shadow-sm">
-              <Icon className="text-blue-600" />
+            <div key={label} className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
+              <Icon className="text-blue-600 dark:text-red-500" />
               <p className="mt-3 text-sm text-gray-500">{label}</p>
               <p className="mt-1 text-2xl font-bold text-gray-950">{value}</p>
             </div>
@@ -198,9 +198,9 @@ const DoctorOpdConsole = () => {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-          <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <Stethoscope className="text-blue-600" />
+              <Stethoscope className="text-blue-600 dark:text-red-500" />
               Currently Seeing
             </h2>
             {queue.currentlyServing ? (
@@ -212,20 +212,20 @@ const DoctorOpdConsole = () => {
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   placeholder="Consultation notes, diagnosis, prescription..."
-                  className="mt-4 min-h-36 w-full rounded-md border border-blue-200 bg-white p-3 text-sm outline-none focus:border-blue-500"
+                  className="mt-4 min-h-36 w-full rounded-md border border-blue-200 bg-white dark:bg-slate-950 p-3 text-sm outline-none focus:border-blue-500"
                 />
-                <button onClick={completeConsultation} className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+                <button onClick={completeConsultation} className="mt-4 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
                   End Consultation
                 </button>
               </div>
             ) : (
-              <p className="mt-4 rounded-lg bg-gray-50 p-5 text-gray-600">No active consultation. Start the next ready patient from the queue.</p>
+              <p className="mt-4 rounded-lg bg-gray-50 dark:bg-slate-900 p-5 text-gray-600">No active consultation. Start the next ready patient from the queue.</p>
             )}
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <Bot className="text-blue-600" />
+              <Bot className="text-blue-600 dark:text-red-500" />
               Doctor Co-Pilot
             </h2>
             {aiBrief ? (
@@ -240,18 +240,18 @@ const DoctorOpdConsole = () => {
                 )}
               </div>
             ) : (
-              <p className="mt-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-500">AI triage brief will appear when the patient completes OPD triage.</p>
+              <p className="mt-4 rounded-lg bg-gray-50 dark:bg-slate-900 p-4 text-sm text-gray-500">AI triage brief will appear when the patient completes OPD triage.</p>
             )}
             <textarea value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} className="mt-4 min-h-24 w-full rounded-md border border-gray-300 p-3 text-sm outline-none focus:border-blue-500" />
-            <button onClick={askCopilot} disabled={!queue.currentlyServing} className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">
+            <button onClick={askCopilot} disabled={!queue.currentlyServing} className="mt-3 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">
               Ask Co-Pilot
             </button>
             {aiSuggestion && <p className="mt-4 whitespace-pre-wrap rounded-lg bg-blue-50 p-4 text-sm text-blue-950">{aiSuggestion}</p>}
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-sm lg:col-span-2">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm lg:col-span-2">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <UserRound className="text-blue-600" />
+              <UserRound className="text-blue-600 dark:text-red-500" />
               Queue
             </h2>
             <div className="mt-4 space-y-3">
@@ -262,7 +262,7 @@ const DoctorOpdConsole = () => {
                   <TokenCard key={token._id} token={token} index={index} onStart={startConsultation} onNoShow={markNoShow} />
                 ))
               ) : (
-                <p className="rounded-lg bg-gray-50 p-5 text-sm text-gray-500">No waiting patients.</p>
+                <p className="rounded-lg bg-gray-50 dark:bg-slate-900 p-5 text-sm text-gray-500">No waiting patients.</p>
               )}
             </div>
           </div>

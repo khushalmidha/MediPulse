@@ -52,7 +52,7 @@ const HospitalsListPage = () => {
   }, [query])
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <section className="bg-gradient-to-r from-blue-700 to-cyan-600 px-4 py-14 text-white">
         <div className="mx-auto max-w-5xl text-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-100">MediPulse Hospital Network</p>
@@ -67,19 +67,19 @@ const HospitalsListPage = () => {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search hospital name"
-                className="w-full rounded-lg border-0 py-3 pl-10 pr-4 text-sm text-gray-900 outline-none ring-1 ring-white/20 focus:ring-2 focus:ring-white"
+                className="w-full rounded-lg border-0 py-3 pl-10 pr-4 text-sm text-gray-900 dark:text-slate-100 outline-none ring-1 ring-white/20 focus:ring-2 focus:ring-white"
               />
             </label>
             <input
               value={city}
               onChange={(event) => setCity(event.target.value)}
               placeholder="City"
-              className="w-full rounded-lg border-0 px-4 py-3 text-sm text-gray-900 outline-none ring-1 ring-white/20 focus:ring-2 focus:ring-white"
+              className="w-full rounded-lg border-0 px-4 py-3 text-sm text-gray-900 dark:text-slate-100 outline-none ring-1 ring-white/20 focus:ring-2 focus:ring-white"
             />
             <select
               value={medicineSystem}
               onChange={(event) => setMedicineSystem(event.target.value)}
-              className="w-full rounded-lg border-0 px-4 py-3 text-sm text-gray-900 outline-none ring-1 ring-white/20 focus:ring-2 focus:ring-white"
+              className="w-full rounded-lg border-0 px-4 py-3 text-sm text-gray-900 dark:text-slate-100 outline-none ring-1 ring-white/20 focus:ring-2 focus:ring-white"
             >
               {careSystems.map((system) => (
                 <option key={system.value || 'all'} value={system.value}>{system.label}</option>
@@ -102,13 +102,13 @@ const HospitalsListPage = () => {
               <Link
                 key={hospital._id}
                 to={`/hospitals/${hospital.slug}`}
-                className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                className="group overflow-hidden rounded-2xl border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                 <div className="h-28 bg-gradient-to-r from-blue-600 to-cyan-500 p-5">
                   <div className="flex items-center gap-3">
                     {hospital.branding?.logo ? (
-                      <img src={hospital.branding.logo} alt={hospital.name} className="h-14 w-14 rounded-xl bg-white object-cover" />
+                      <img src={hospital.branding.logo} alt={hospital.name} className="h-14 w-14 rounded-xl bg-white dark:bg-slate-950 object-cover" />
                     ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20 text-white">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white dark:bg-slate-950/20 text-white">
                         <Building2 size={26} />
                       </div>
                     )}
@@ -133,16 +133,16 @@ const HospitalsListPage = () => {
                       <Star size={15} fill="currentColor" />
                       {Number(hospital.stats?.avgRating || 0).toFixed(1)}
                     </span>
-                    <span className="text-sm font-semibold text-blue-600 group-hover:underline">Open website</span>
+                    <span className="text-sm font-semibold text-blue-600 dark:text-red-500 group-hover:underline">Open website</span>
                   </div>
                 </div>
               </Link>
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center">
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white dark:bg-slate-950 p-12 text-center">
             <Building2 className="mx-auto text-gray-400" size={38} />
-            <h2 className="mt-4 text-xl font-bold text-gray-900">No hospitals found</h2>
+            <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-slate-100">No hospitals found</h2>
             <p className="mt-2 text-gray-500">Try a different name or city.</p>
           </div>
         )}

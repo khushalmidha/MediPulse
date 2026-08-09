@@ -94,7 +94,7 @@ const GoogleSignupButton = ({ disabled, onCredential, userType }) => {
 const ProfileSelection = ({ setUserType }) => (
   <div className="space-y-8">
     <div className="text-center">
-      <h3 className="text-xl font-semibold text-gray-800">Choose your profile type</h3>
+      <h3 className="text-xl font-semibold text-gray-800 dark:text-slate-200">Choose your profile type</h3>
       <p className="mt-2 text-gray-600">
         Select how you want to join MediPulse
       </p>
@@ -102,36 +102,36 @@ const ProfileSelection = ({ setUserType }) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <button
         onClick={() => setUserType("user")}
-        className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
       >
         <div className="bg-blue-100 p-4 rounded-full">
-          <UserCircle2 className="h-10 w-10 text-blue-600" />
+          <UserCircle2 className="h-10 w-10 text-blue-600 dark:text-red-500" />
         </div>
-        <h4 className="mt-4 text-lg font-medium text-gray-800">Join as User</h4>
+        <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Join as User</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
           Connect with healthcare providers and support communities
         </p>
       </button>
       <button
         onClick={() => setUserType("doctor")}
-        className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
       >
         <div className="bg-blue-100 p-4 rounded-full">
-          <Stethoscope className="h-10 w-10 text-blue-600" />
+          <Stethoscope className="h-10 w-10 text-blue-600 dark:text-red-500" />
         </div>
-        <h4 className="mt-4 text-lg font-medium text-gray-800">Join as Doctor</h4>
+        <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Join as Doctor</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
           Provide care and support to differently abled individuals
         </p>
       </button>
       <button
         onClick={() => setUserType("hospital-admin")}
-        className="flex flex-col items-center p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
+        className="flex flex-col items-center p-6 border-2 border-gray-200 dark:border-red-900/40 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow"
       >
         <div className="bg-blue-100 p-4 rounded-full">
-          <Building2 className="h-10 w-10 text-blue-600" />
+          <Building2 className="h-10 w-10 text-blue-600 dark:text-red-500" />
         </div>
-        <h4 className="mt-4 text-lg font-medium text-gray-800">Join as Hospital Admin</h4>
+        <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Join as Hospital Admin</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
           Register a hospital and manage departments, staff, and OPD setup
         </p>
@@ -151,7 +151,7 @@ const InputField = ({ icon, label, ...props }) => (
       </div>
       <input
         {...props}
-        className="appearance-none block w-full px-3 py-2.5 pl-10 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+        className="appearance-none block w-full px-3 py-2.5 pl-10 bg-white dark:bg-slate-950 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
       />
     </div>
   </div>
@@ -159,7 +159,7 @@ const InputField = ({ icon, label, ...props }) => (
 
 const SectionHeading = ({ title }) => (
   <div className="mt-8 mb-4">
-    <h3 className="text-lg font-semibold text-gray-800 border-l-4 border-blue-500 pl-3">
+    <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-200 border-l-4 border-blue-500 pl-3">
       {title}
     </h3>
     <div className="mt-2 border-t border-gray-100"></div>
@@ -256,7 +256,7 @@ const PatientSignUp = ({ handleSubmit, handleGoogleSignup, message, patient, set
             disabled={isloading}
             value={patient.gender || ""}
             onChange={(e) => setPatient({ ...patient, gender: e.target.value })}
-            className="appearance-none block w-full px-3 py-2.5 pl-10 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="appearance-none block w-full px-3 py-2.5 pl-10 bg-white dark:bg-slate-950 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           >
             <option value="" disabled>Select your gender</option>
             <option value="male">Male</option>
@@ -350,7 +350,7 @@ const PatientSignUp = ({ handleSubmit, handleGoogleSignup, message, patient, set
       <button
         type="submit"
         disabled={isloading}
-        className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 ${isloading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
+        className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 dark:bg-red-700 ${isloading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
       >
         {isloading ? 'Creating account...' : 'Create User Account'}
       </button>
@@ -446,7 +446,7 @@ const DoctorSignUp = ({handleSubmit, handleGoogleSignup, message, doctor, setDoc
             disabled={isloading}
             value={doctor.gender || ""}
             onChange={(e) => setDoctor({ ...doctor, gender: e.target.value })}
-            className="appearance-none block w-full px-3 py-2.5 pl-10 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="appearance-none block w-full px-3 py-2.5 pl-10 bg-white dark:bg-slate-950 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           >
             <option value="" disabled>Select your gender</option>
             <option value="male">Male</option>
@@ -555,7 +555,7 @@ const DoctorSignUp = ({handleSubmit, handleGoogleSignup, message, doctor, setDoc
       <button
         type="submit"
         disabled={isloading}
-        className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 ${isloading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
+        className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 dark:bg-red-700 ${isloading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
       >
         {isloading ? 'Creating account...' : 'Create Doctor Account'}
       </button>
@@ -607,7 +607,7 @@ const SignUp = () => {
         { withCredentials: true, headers: { "Content-Type": "application/json" } }
       );
       if (res.status === 201) {
-        console.log("check : ", res.data);
+
         setIsAuth(true);
         setUser(res.data.result);
         setRole(userType);
@@ -616,7 +616,7 @@ const SignUp = () => {
         setMessage(res.data.message);
       }
     } catch (err) {
-      console.log(err);
+
       setMessage(err.response?.data?.message || "An error occurred during signup");
     }
     setIsLoading(false);
@@ -658,7 +658,7 @@ const SignUp = () => {
         setMessage(res.data.message || "Google signup failed");
       }
     } catch (err) {
-      console.log(err);
+
       setMessage(err.response?.data?.message || "Google signup failed. Please try again.");
     }
     setIsLoading(false);
@@ -667,9 +667,9 @@ const SignUp = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        <div className="bg-white p-8 sm:p-10 rounded-2xl shadow-md border border-gray-100">
+        <div className="bg-white dark:bg-slate-950 p-8 sm:p-10 rounded-2xl shadow-md border border-gray-100">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+            <h1 className="text-3xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight">
               {userType === "select" 
                 ? "Create your account" 
                 : userType === "user" 
@@ -682,7 +682,7 @@ const SignUp = () => {
               Already have an account?{" "}
               <Link
                 to="/login"
-                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                className="font-medium text-blue-600 dark:text-red-500 hover:text-blue-500 transition-colors"
               >
                 Sign in here
               </Link>
@@ -714,26 +714,26 @@ const SignUp = () => {
           {userType !== "select" && (
             <button
               onClick={() => setUserType("select")}
-              className="mt-6 flex items-center justify-center w-full text-sm text-gray-600 hover:text-blue-600 py-2 transition-colors font-medium"
+              className="mt-6 flex items-center justify-center w-full text-sm text-gray-600 hover:text-blue-600 dark:text-red-500 py-2 transition-colors font-medium"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Change profile type
             </button>
           )}
 
-          <div className="mt-8 pt-6 border-t border-gray-200">
+          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-red-900/40">
             <p className="text-xs text-center text-gray-500">
               By signing up, you agree to MediPulse's{" "}
               <a
                 href="#"
-                className="text-blue-600 hover:underline"
+                className="text-blue-600 dark:text-red-500 hover:underline"
               >
                 Terms of Service
               </a>{" "}
               and{" "}
               <a
                 href="#"
-                className="text-blue-600 hover:underline"
+                className="text-blue-600 dark:text-red-500 hover:underline"
               >
                 Privacy Policy
               </a>

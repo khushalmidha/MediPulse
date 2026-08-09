@@ -170,14 +170,14 @@ const DoctorAppointments = () => {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-gray-50 px-4 py-8">Loading appointment queue...</div>;
+    return <div className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">Loading appointment queue...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900">Doctor Appointment Queue</h1>
+        <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Doctor Appointment Queue</h1>
           <p className="mt-2 text-gray-600">
             Pending appointments: <span className="font-semibold">{queueData.pendingCount}</span>
           </p>
@@ -185,10 +185,10 @@ const DoctorAppointments = () => {
         </div>
 
         {queueData.activeAppointment && (
-          <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Active Appointment</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Active Appointment</h2>
                 <p className="mt-1 text-gray-700">
                   Patient: {queueData.activeAppointment.user?.firstName}{" "}
                   {queueData.activeAppointment.user?.lastName || ""}
@@ -221,8 +221,8 @@ const DoctorAppointments = () => {
                   </p>
                 )}
               </div>
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <h3 className="text-sm font-semibold text-gray-900">Doctor Notes</h3>
+              <div className="rounded-lg border border-gray-200 dark:border-red-900/40 bg-gray-50 dark:bg-slate-900 p-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-slate-100">Doctor Notes</h3>
                 <p className="mt-1 text-xs text-gray-500">
                   Add short clinical notes for the receipt before ending the appointment.
                 </p>
@@ -230,7 +230,7 @@ const DoctorAppointments = () => {
                   value={doctorNotes}
                   onChange={(event) => setDoctorNotes(event.target.value)}
                   placeholder="Symptoms, advice, follow-up, medicines, warnings..."
-                  className="mt-3 min-h-40 w-full rounded-md border border-gray-300 bg-white p-3 text-sm outline-none focus:border-blue-500"
+                  className="mt-3 min-h-40 w-full rounded-md border border-gray-300 bg-white dark:bg-slate-950 p-3 text-sm outline-none focus:border-blue-500"
                 />
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
@@ -243,7 +243,7 @@ const DoctorAppointments = () => {
                   <button
                     type="button"
                     onClick={() => generateReceipt(queueData.activeAppointment._id)}
-                    className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    className="rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
                   >
                     Generate Receipt
                   </button>
@@ -258,8 +258,8 @@ const DoctorAppointments = () => {
           </div>
         )}
 
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">Queued Appointments</h2>
+        <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Queued Appointments</h2>
           {queueData.queue.length === 0 ? (
             <p className="mt-3 text-gray-600">No patients are waiting right now.</p>
           ) : (
@@ -267,10 +267,10 @@ const DoctorAppointments = () => {
               {queueData.queue.map((appointment, index) => (
                 <div
                   key={appointment._id}
-                  className="flex flex-wrap items-center justify-between rounded-lg border border-gray-200 p-4"
+                  className="flex flex-wrap items-center justify-between rounded-lg border border-gray-200 dark:border-red-900/40 p-4"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-gray-900 dark:text-slate-100">
                       {index + 1}. {appointment.user?.firstName} {appointment.user?.lastName || ""}
                     </p>
                     <p className="text-sm text-gray-500">
@@ -298,7 +298,7 @@ const DoctorAppointments = () => {
                       type="button"
                       onClick={() => startAppointment(appointment._id)}
                       disabled={index !== 0 || Boolean(queueData.activeAppointment)}
-                      className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+                      className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
                     >
                       Start Appointment
                     </button>
@@ -331,7 +331,7 @@ const urgencyStyles = {
 const PatientBriefCard = ({ brief }) => {
   if (!brief) {
     return (
-      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+      <div className="mt-4 rounded-lg border border-gray-200 dark:border-red-900/40 bg-gray-50 dark:bg-slate-900 p-4 text-sm text-gray-600">
         AI Patient Brief has not been submitted for this appointment yet.
       </div>
     );
@@ -349,23 +349,23 @@ const PatientBriefCard = ({ brief }) => {
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div>
-          <dt className="font-semibold text-gray-900">Chief Complaint</dt>
+          <dt className="font-semibold text-gray-900 dark:text-slate-100">Chief Complaint</dt>
           <dd className="mt-1 text-gray-700">{brief.chiefComplaint || "Not provided"}</dd>
         </div>
         <div>
-          <dt className="font-semibold text-gray-900">Duration</dt>
+          <dt className="font-semibold text-gray-900 dark:text-slate-100">Duration</dt>
           <dd className="mt-1 text-gray-700">{brief.symptomDuration || "Not provided"}</dd>
         </div>
         <div>
-          <dt className="font-semibold text-gray-900">Severity</dt>
+          <dt className="font-semibold text-gray-900 dark:text-slate-100">Severity</dt>
           <dd className="mt-1 text-gray-700">{brief.severity || "Not provided"}</dd>
         </div>
         <div>
-          <dt className="font-semibold text-gray-900">Relevant History</dt>
+          <dt className="font-semibold text-gray-900 dark:text-slate-100">Relevant History</dt>
           <dd className="mt-1 text-gray-700">{brief.relevantHistory || "Not provided"}</dd>
         </div>
       </dl>
-      <div className="mt-4 rounded-lg bg-white/80 p-3 text-sm text-gray-800">
+      <div className="mt-4 rounded-lg bg-white dark:bg-slate-950/80 p-3 text-sm text-gray-800 dark:text-slate-200">
         <span className="font-semibold text-gray-950">Summary: </span>
         {brief.agentSummary || "Not provided"}
       </div>

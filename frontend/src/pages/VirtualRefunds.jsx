@@ -35,9 +35,9 @@ const VirtualRefunds = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-2xl rounded-xl bg-white p-5 shadow-sm">
-        <h1 className="text-xl font-semibold text-gray-900">Request Refund</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-6">
+      <div className="mx-auto max-w-2xl rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Request Refund</h1>
         <p className="mt-1 text-sm text-gray-600">Issue a virtual refund against a successful PAYMENT transaction.</p>
 
         <form onSubmit={onSubmit} className="mt-4 space-y-3">

@@ -113,20 +113,20 @@ const NursingStation = () => {
   };
 
   if (!hospitalId) {
-    return <div className="min-h-screen bg-gray-50 p-8">Staff session not found. Sign in as hospital staff first.</div>;
+    return <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-8">Staff session not found. Sign in as hospital staff first.</div>;
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8">
+    <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-xl bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold uppercase text-blue-600">{hospital?.name || "Hospital"}</p>
+        <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
+          <p className="text-sm font-semibold uppercase text-blue-600 dark:text-red-500">{hospital?.name || "Hospital"}</p>
           <h1 className="text-2xl font-extrabold text-gray-950">Nursing Station</h1>
           <p className="mt-2 text-sm text-gray-600">Select a department and doctor to operate today&apos;s OPD queue.</p>
           {message && <p className="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
         </section>
 
-        <section className="grid gap-4 rounded-xl bg-white p-6 shadow-sm md:grid-cols-[1fr_1fr_auto]">
+        <section className="grid gap-4 rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm md:grid-cols-[1fr_1fr_auto]">
           <select value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setDoctorId(""); }} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
             <option value="">Select department</option>
             {directory.departments.map((department) => <option key={department._id} value={department._id}>{department.name}</option>)}
@@ -137,16 +137,16 @@ const NursingStation = () => {
               .filter((member) => member.role === "DOCTOR" && (!departmentId || member.departmentIds?.some((id) => String(id) === String(departmentId))))
               .map((doctor) => <option key={doctor._id} value={doctor._id}>{doctor.name} · {doctor.doctorProfile?.specialization || "Doctor"}</option>)}
           </select>
-          <button onClick={loadQueue} className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+          <button onClick={loadQueue} className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
             <RefreshCcw size={16} />
             Load
           </button>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <form onSubmit={issueToken} className="rounded-xl bg-white p-6 shadow-sm">
+          <form onSubmit={issueToken} className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <ClipboardPlus className="text-blue-600" />
+              <ClipboardPlus className="text-blue-600 dark:text-red-500" />
               Issue Walk-in Token
             </h2>
             <div className="mt-4 space-y-3">
@@ -159,27 +159,27 @@ const NursingStation = () => {
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
                 />
               ))}
-              <button disabled={!doctorId || !departmentId} className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">
+              <button disabled={!doctorId || !departmentId} className="w-full rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">
                 Issue Token
               </button>
             </div>
           </form>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-xl bg-white p-6 shadow-sm">
+            <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-                <UserRound className="text-blue-600" />
+                <UserRound className="text-blue-600 dark:text-red-500" />
                 Waiting for Vitals
               </h2>
               <div className="mt-4 space-y-3">
                 {queue.waiting?.filter((token) => token.status === "waiting").map((token) => (
-                  <div key={token._id} className="rounded-lg border border-gray-200 p-4">
+                  <div key={token._id} className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="font-bold">{token.displayToken}</p>
                         <p className="text-sm text-gray-600">{token.patientInfo?.name || "Patient"}</p>
                       </div>
-                      <button onClick={() => { setSelectedToken(token); setVitals({ ...vitals, chiefComplaint: token.chiefComplaint || "" }); }} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white">
+                      <button onClick={() => { setSelectedToken(token); setVitals({ ...vitals, chiefComplaint: token.chiefComplaint || "" }); }} className="rounded-md bg-blue-600 dark:bg-red-700 px-3 py-2 text-sm font-medium text-white">
                         Record Vitals
                       </button>
                     </div>
@@ -190,7 +190,7 @@ const NursingStation = () => {
               </div>
             </div>
 
-            <div className="rounded-xl bg-white p-6 shadow-sm">
+            <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
               <h2 className="text-lg font-bold text-gray-950">Vitals Done</h2>
               <div className="mt-4 space-y-3">
                 {queue.waiting?.filter((token) => token.status === "vitals_done").map((token) => (
@@ -207,7 +207,7 @@ const NursingStation = () => {
 
         {selectedToken && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <form onSubmit={saveVitals} className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <form onSubmit={saveVitals} className="w-full max-w-lg rounded-xl bg-white dark:bg-slate-950 p-6 shadow-xl">
               <h2 className="text-xl font-bold text-gray-950">Record Vitals: {selectedToken.displayToken}</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {[
@@ -224,7 +224,7 @@ const NursingStation = () => {
               <textarea value={vitals.chiefComplaint} onChange={(e) => setVitals({ ...vitals, chiefComplaint: e.target.value })} placeholder="Chief complaint" className="mt-3 min-h-24 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
               <div className="mt-5 flex justify-end gap-3">
                 <button type="button" onClick={() => setSelectedToken(null)} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium">Cancel</button>
-                <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+                <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
                   <Save size={16} />
                   Save Vitals
                 </button>

@@ -62,11 +62,11 @@ const StaffAcceptInvite = () => {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10">
-      <section className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Building2 /></div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:text-red-500"><Building2 /></div>
           <div>
-            <p className="text-sm font-bold uppercase text-blue-600">Hospital Staff Invite</p>
+            <p className="text-sm font-bold uppercase text-blue-600 dark:text-red-500">Hospital Staff Invite</p>
             <h1 className="text-2xl font-black text-slate-950">{invite ? `Join as ${invite.role.replace("_", " ")}` : "Complete staff setup"}</h1>
           </div>
         </div>
@@ -95,7 +95,7 @@ const StaffAcceptInvite = () => {
                 <input value={form.experience} onChange={(e) => setForm({ ...form, experience: e.target.value })} type="number" placeholder="Experience" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
               </div>
             )}
-            <button disabled={loading} className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-bold text-white disabled:bg-slate-400">
+            <button disabled={loading} className="rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-3 text-sm font-bold text-white disabled:bg-slate-400">
               {loading ? "Joining..." : "Complete setup"}
             </button>
           </form>

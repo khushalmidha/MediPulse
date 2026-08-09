@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { ArrowRight, CheckCircle2, Activity, Bot, ChevronRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { BACKEND_URL } from "../utils";
 
 const OpdTriage = () => {
@@ -12,6 +12,7 @@ const OpdTriage = () => {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [isCompleting, setIsCompleting] = useState(false);
+  const { doctorId } = useParams();
   const navigate = useNavigate();
 
   const currentAgentMessage = messages.slice().reverse().find(m => m.role === "agent")?.text || "";
@@ -81,9 +82,9 @@ const OpdTriage = () => {
   if (brief) {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full bg-white rounded-3xl shadow-xl overflow-hidden animate-[fadeIn_0.5s_ease-out]">
+        <div className="max-w-2xl w-full bg-white dark:bg-slate-950 rounded-3xl shadow-xl overflow-hidden animate-[fadeIn_0.5s_ease-out]">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-center text-white">
-            <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+            <div className="w-20 h-20 bg-white dark:bg-slate-950/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
               <CheckCircle2 size={40} className="text-white" />
             </div>
             <h1 className="text-3xl font-black mb-2">Triage Complete!</h1>
@@ -93,7 +94,7 @@ const OpdTriage = () => {
           <div className="p-8">
             <div className="mb-8">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">AI Summary</h3>
-              <p className="text-slate-800 text-lg leading-relaxed">{brief.agentSummary}</p>
+              <p className="text-slate-800 dark:text-slate-200 text-lg leading-relaxed">{brief.agentSummary}</p>
             </div>
 
             {brief.predictedDisease && (
@@ -108,8 +109,14 @@ const OpdTriage = () => {
             )}
 
             <button 
-              onClick={() => navigate("/doctors")}
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-4 px-8 rounded-2xl transition-all hover:shadow-lg hover:shadow-blue-500/30"
+              onClick={() => {
+                if (doctorId) {
+                  navigate(`/appointment/book/${doctorId}`);
+                } else {
+                  navigate("/doctors");
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 dark:bg-red-700 hover:bg-blue-700 text-white font-bold text-lg py-4 px-8 rounded-2xl transition-all hover:shadow-lg hover:shadow-blue-500/30"
             >
               Proceed to Booking <ArrowRight />
             </button>
@@ -120,15 +127,15 @@ const OpdTriage = () => {
   }
 
   return (
-    <main className="min-h-screen bg-white text-slate-900 flex flex-col font-sans">
+    <main className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
       <div className="flex-1 flex flex-col justify-center max-w-4xl mx-auto w-full px-6 py-12">
         
         {/* Header */}
         <div className="absolute top-8 left-8 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 dark:text-red-500">
             <Bot size={24} />
           </div>
-          <span className="font-black text-xl tracking-tight text-slate-800">MediPulse Triage</span>
+          <span className="font-black text-xl tracking-tight text-slate-800 dark:text-slate-200">MediPulse Triage</span>
         </div>
 
         {/* Progress indicator */}
@@ -152,7 +159,7 @@ const OpdTriage = () => {
             </div>
           ) : (
             <div key={step} className="animate-[slideInUp_0.5s_ease-out]">
-              <h1 className="text-4xl md:text-5xl font-light text-slate-800 leading-tight mb-12">
+              <h1 className="text-4xl md:text-5xl font-light text-slate-800 dark:text-slate-200 leading-tight mb-12">
                 {currentAgentMessage || "Loading..."}
               </h1>
 
@@ -164,13 +171,13 @@ const OpdTriage = () => {
                   onChange={(e) => setInput(e.target.value)}
                   disabled={loading}
                   placeholder="Type your answer here..."
-                  className="w-full text-2xl md:text-3xl font-medium text-blue-600 placeholder:text-slate-300 bg-transparent border-b-2 border-slate-200 focus:border-blue-600 pb-4 outline-none transition-colors disabled:opacity-50"
+                  className="w-full text-2xl md:text-3xl font-medium text-blue-600 dark:text-red-500 placeholder:text-slate-300 bg-transparent border-b-2 border-slate-200 focus:border-blue-600 pb-4 outline-none transition-colors disabled:opacity-50"
                   autoFocus
                 />
                 <button 
                   type="submit"
                   disabled={loading || !input.trim()}
-                  className="absolute right-0 bottom-4 text-blue-600 hover:text-blue-800 disabled:text-slate-300 transition-colors"
+                  className="absolute right-0 bottom-4 text-blue-600 dark:text-red-500 hover:text-blue-800 disabled:text-slate-300 transition-colors"
                 >
                   <span className="sr-only">Submit</span>
                   <div className="bg-blue-50 group-focus-within:bg-blue-100 p-2 rounded-lg">

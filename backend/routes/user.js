@@ -17,8 +17,10 @@ import {
 	getUserById,
     updateUserData,
 } from "../controller/user.js";
+import { nosqlGuard } from "../middleware/nosqlGuard.js";
 
 const userRouter = Router();
+userRouter.use(nosqlGuard);
 
 userRouter.post("/login", userLogin);
 userRouter.post("/signup", userSignup);

@@ -53,55 +53,55 @@ const VirtualAdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Virtual Payments Admin</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Virtual Payments Admin</h1>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-4 shadow-sm">
             <p className="text-xs text-gray-500">Money in circulation</p>
             <p className="text-2xl font-semibold">INR {(stats?.totalVirtualMoneyInCirculation || 0).toFixed(2)}</p>
           </div>
-          <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-4 shadow-sm">
             <p className="text-xs text-gray-500">Total payments</p>
             <p className="text-2xl font-semibold">INR {(stats?.totalPayments || 0).toFixed(2)}</p>
           </div>
-          <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-4 shadow-sm">
             <p className="text-xs text-gray-500">Revenue simulation</p>
             <p className="text-2xl font-semibold">INR {(stats?.revenueSimulation || 0).toFixed(2)}</p>
           </div>
-          <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-4 shadow-sm">
             <p className="text-xs text-gray-500">Total refunds</p>
             <p className="text-2xl font-semibold">INR {(stats?.totalRefunds || 0).toFixed(2)}</p>
           </div>
-          <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-4 shadow-sm">
             <p className="text-xs text-gray-500">Active wallets</p>
             <p className="text-2xl font-semibold">{stats?.activeUsers || 0}</p>
           </div>
-          <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-4 shadow-sm">
             <p className="text-xs text-gray-500">Payment count</p>
             <p className="text-2xl font-semibold">{stats?.totalPaymentCount || 0}</p>
           </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Most Active Doctors</h2>
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Most Active Doctors</h2>
             <div className="mt-3 space-y-3">
               {(stats?.mostActiveDoctors || []).map((doctor) => (
                 <div key={doctor.doctorId} className="flex items-center justify-between rounded-lg border border-gray-100 p-3 text-sm">
                   <div>
-                    <p className="font-medium text-gray-900">{doctor.doctorName || doctor.doctorId}</p>
+                    <p className="font-medium text-gray-900 dark:text-slate-100">{doctor.doctorName || doctor.doctorId}</p>
                     <p className="text-gray-500">{doctor.paymentCount} payments</p>
                   </div>
-                  <p className="font-semibold text-gray-900">INR {Number(doctor.totalVolume || 0).toFixed(2)}</p>
+                  <p className="font-semibold text-gray-900 dark:text-slate-100">INR {Number(doctor.totalVolume || 0).toFixed(2)}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-xl bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Daily Transaction Volume</h2>
+          <div className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Daily Transaction Volume</h2>
             <div className="mt-3 space-y-2">
               {(stats?.dailyTransactionVolume || []).map((day) => (
                 <div key={day._id} className="grid grid-cols-[1fr_auto_auto] gap-3 text-sm">
@@ -114,18 +114,18 @@ const VirtualAdminDashboard = () => {
           </div>
         </div>
 
-        <form onSubmit={onTopup} className="rounded-xl bg-white p-5 shadow-sm grid gap-3 md:grid-cols-5">
+        <form onSubmit={onTopup} className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm grid gap-3 md:grid-cols-5">
           <input value={topup.targetId} onChange={(e) => setTopup((p) => ({ ...p, targetId: e.target.value }))} placeholder="Target user id" className="rounded-md border border-gray-300 px-3 py-2 text-sm md:col-span-2" required />
           <select value={topup.targetRole} onChange={(e) => setTopup((p) => ({ ...p, targetRole: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
             <option value="user">User</option>
             <option value="doctor">Doctor</option>
           </select>
           <input type="number" min="1" step="0.01" value={topup.amount} onChange={(e) => setTopup((p) => ({ ...p, amount: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm" required />
-          <button className="rounded-md bg-blue-600 px-4 py-2 text-white">Top-up</button>
+          <button className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white">Top-up</button>
         </form>
 
-        <div className="rounded-xl bg-white p-5 shadow-sm overflow-x-auto">
-          <h2 className="text-lg font-semibold text-gray-900">Wallet Controls</h2>
+        <div className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm overflow-x-auto">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Wallet Controls</h2>
           <table className="mt-3 min-w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500">

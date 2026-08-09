@@ -55,10 +55,10 @@ const DoctorsProfile = () => {
   }, [id])
 
   const getAvatarColor = (name) => {
-    if (!name) return 'bg-blue-500'
+    if (!name) return 'bg-blue-500 dark:bg-red-600'
 
     const colors = [
-      'bg-blue-500',
+      'bg-blue-500 dark:bg-red-600',
       'bg-indigo-500',
       'bg-cyan-600',
       'bg-teal-500',
@@ -72,11 +72,7 @@ const DoctorsProfile = () => {
   }
 
   const handleBookAppointment = () => {
-    if (doctor?.sourceType === "hospital" && doctor?.hospitalContext?.hospitalSlug) {
-      navigate(`/hospitals/${doctor.hospitalContext.hospitalSlug}`)
-      return
-    }
-    navigate(`/appointment/book/${doctor._id}`)
+    navigate(`/triage/${doctor._id}`)
   }
 
   const getGoogleMapsUrl = () => {
@@ -94,7 +90,7 @@ const DoctorsProfile = () => {
   // Display loading state with responsive skeleton
   if (loading) {
     return (
-      <div className='min-h-screen bg-gray-50 py-6 sm:py-12 px-4 sm:px-6 lg:px-8'>
+      <div className='min-h-screen bg-gray-50 dark:bg-slate-900 py-6 sm:py-12 px-4 sm:px-6 lg:px-8'>
         <div className='max-w-5xl mx-auto'>
           <div className='animate-pulse'>
             <div className='h-40 sm:h-64 bg-gray-200 rounded-lg mb-6'></div>
@@ -119,19 +115,19 @@ const DoctorsProfile = () => {
   // Display error state with responsive design
   if (error || !doctor) {
     return (
-      <div className='min-h-screen bg-gray-50 py-6 sm:py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center'>
+      <div className='min-h-screen bg-gray-50 dark:bg-slate-900 py-6 sm:py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center'>
         <div className='w-full max-w-md text-center'>
-          <div className='bg-white shadow rounded-lg p-6 sm:p-8'>
+          <div className='bg-white dark:bg-slate-950 shadow rounded-lg p-6 sm:p-8'>
             <div className='inline-flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-red-100 text-red-600 mb-4 sm:mb-6'>
               <X className='h-6 w-6 sm:h-8 sm:w-8' />
             </div>
-            <h2 className='text-xl sm:text-2xl font-bold text-gray-900 mb-2'>
+            <h2 className='text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 mb-2'>
               Error Loading Doctor Profile
             </h2>
             <p className='text-gray-600 mb-6'>{error || 'Doctor not found'}</p>
             <button
               onClick={() => navigate('/doctors')}
-              className='w-full sm:w-auto px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'>
+              className='w-full sm:w-auto px-4 py-2.5 bg-blue-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700 transition-colors'>
               <ChevronLeft className='inline mr-1 h-4 w-4' />
               Return to Doctors Directory
             </button>
@@ -142,7 +138,7 @@ const DoctorsProfile = () => {
   }
 
   return (
-    <div className='min-h-screen bg-gray-50 pb-8 sm:pb-12'>
+    <div className='min-h-screen bg-gray-50 dark:bg-slate-900 pb-8 sm:pb-12'>
       {/* Responsive Header with gradient background */}
       <div className='bg-gradient-to-r from-blue-600 to-indigo-600 pt-8 sm:pt-12 pb-24 sm:pb-32 px-4'>
         <div className='max-w-5xl mx-auto'>
@@ -158,7 +154,7 @@ const DoctorsProfile = () => {
       {/* Main content area that overlaps the header */}
       <div className='max-w-5xl mx-auto px-4 -mt-20 sm:-mt-24 space-y-6'>
         {/* Doctor Profile Card */}
-        <div className='bg-white rounded-lg shadow-md overflow-hidden'>
+        <div className='bg-white dark:bg-slate-950 rounded-lg shadow-md overflow-hidden'>
           <div className='p-5 sm:p-8'>
             {/* Doctor info section - responsive layout */}
             <div className='flex flex-col sm:flex-row items-center sm:items-start'>
@@ -172,7 +168,7 @@ const DoctorsProfile = () => {
                   {doctor.lastName ? doctor.lastName.charAt(0) : ''}
                 </div>
                 <div className='mt-2 text-center'>
-                  <div className='text-sm text-blue-600 font-medium'>
+                  <div className='text-sm text-blue-600 dark:text-red-500 font-medium'>
                     {doctor.gender === 'male'
                       ? 'Male'
                       : doctor.gender === 'female'
@@ -186,17 +182,17 @@ const DoctorsProfile = () => {
               <div className='flex-grow text-center sm:text-left'>
                 <div className='sm:flex sm:items-start sm:justify-between mb-4'>
                   <div>
-                    <h1 className='text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900'>
+                    <h1 className='text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100'>
                       Dr. {doctor.fullName || `${doctor.firstName || ''} ${doctor.lastName || ''}`}
                     </h1>
-                    <p className='text-md sm:text-lg text-blue-600 font-medium mt-1'>
+                    <p className='text-md sm:text-lg text-blue-600 dark:text-red-500 font-medium mt-1'>
                       {doctor.experience?.expertise || 'Medical Professional'}
                     </p>
                   </div>
 
                   {doctor.experience?.qualification && (
                     <div className='mt-3 sm:mt-0.5 inline-flex items-center text-gray-700 bg-blue-50 px-3 py-1 rounded-full'>
-                      <GraduationCap className='h-4 w-4 mr-1 text-blue-600 flex-shrink-0' />
+                      <GraduationCap className='h-4 w-4 mr-1 text-blue-600 dark:text-red-500 flex-shrink-0' />
                       <span className='text-sm'>
                         {doctor.experience.qualification}
                       </span>
@@ -244,7 +240,7 @@ const DoctorsProfile = () => {
                     <button
                       type='button'
                       onClick={handleBookAppointment}
-                      className='inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700'>
+                      className='inline-flex items-center rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700'>
                       <CalendarPlus className='mr-2 h-4 w-4' />
                       {doctor?.sourceType === "hospital" ? "Book at Hospital" : "Book Appointment"}
                     </button>
@@ -262,8 +258,8 @@ const DoctorsProfile = () => {
 
                 {doctorHospitals.length > 0 && (
                   <div className='mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-left'>
-                    <h3 className='flex items-center gap-2 text-base font-bold text-gray-900'>
-                      <Building className='h-5 w-5 text-blue-600' />
+                    <h3 className='flex items-center gap-2 text-base font-bold text-gray-900 dark:text-slate-100'>
+                      <Building className='h-5 w-5 text-blue-600 dark:text-red-500' />
                       Hospital Affiliations
                     </h3>
                     <div className='mt-3 grid gap-3 sm:grid-cols-2'>
@@ -271,10 +267,10 @@ const DoctorsProfile = () => {
                         <Link
                           key={`${hospital.hospitalId || hospital.slug}-${index}`}
                           to={`/hospitals/${hospital.slug}`}
-                          className='rounded-lg border border-blue-200 bg-white p-3 transition hover:border-blue-400'>
-                          <p className='font-semibold text-gray-900'>{hospital.hospitalName}</p>
+                          className='rounded-lg border border-blue-200 bg-white dark:bg-slate-950 p-3 transition hover:border-blue-400'>
+                          <p className='font-semibold text-gray-900 dark:text-slate-100'>{hospital.hospitalName}</p>
                           {hospital.departmentName && <p className='mt-1 text-sm text-gray-500'>{hospital.departmentName}</p>}
-                          <p className='mt-2 text-xs font-semibold text-blue-600'>View hospital</p>
+                          <p className='mt-2 text-xs font-semibold text-blue-600 dark:text-red-500'>View hospital</p>
                         </Link>
                       ))}
                     </div>
@@ -292,7 +288,7 @@ const DoctorsProfile = () => {
                 onClick={() => setShowTab('about')}
                 className={`px-4 sm:px-6 py-3 font-medium text-sm focus:outline-none whitespace-nowrap flex-1 ${
                   showTab === 'about'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    ? 'text-blue-600 dark:text-red-500 border-b-2 border-blue-600'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}>
                 About & Experience
@@ -301,7 +297,7 @@ const DoctorsProfile = () => {
                 onClick={() => setShowTab('communities')}
                 className={`px-4 sm:px-6 py-3 font-medium text-sm focus:outline-none whitespace-nowrap flex-1 ${
                   showTab === 'communities'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    ? 'text-blue-600 dark:text-red-500 border-b-2 border-blue-600'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}>
                 Communities
@@ -310,7 +306,7 @@ const DoctorsProfile = () => {
                 onClick={() => setShowTab('location')}
                 className={`px-4 sm:px-6 py-3 font-medium text-sm focus:outline-none whitespace-nowrap flex-1 ${
                   showTab === 'location'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    ? 'text-blue-600 dark:text-red-500 border-b-2 border-blue-600'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}>
                 Location & Contact
@@ -326,7 +322,7 @@ const DoctorsProfile = () => {
                 {/* Bio section */}
                 {doctor.bio && (
                   <div>
-                    <h3 className='text-lg font-bold text-gray-800 mb-2 sm:mb-3'>
+                    <h3 className='text-lg font-bold text-gray-800 dark:text-slate-200 mb-2 sm:mb-3'>
                       Biography
                     </h3>
                     <p className='text-gray-600 text-sm sm:text-base'>
@@ -337,16 +333,16 @@ const DoctorsProfile = () => {
 
                 {/* Experience section */}
                 <div>
-                  <h3 className='text-lg font-bold text-gray-800 mb-2 sm:mb-3'>
+                  <h3 className='text-lg font-bold text-gray-800 dark:text-slate-200 mb-2 sm:mb-3'>
                     Professional Experience
                   </h3>
-                  <div className='bg-gray-50 rounded-lg p-4 sm:p-5'>
+                  <div className='bg-gray-50 dark:bg-slate-900 rounded-lg p-4 sm:p-5'>
                     <div className='flex flex-col sm:flex-row sm:items-start'>
                       <div className='bg-blue-100 p-2 rounded-full self-center sm:self-auto mb-3 sm:mb-0'>
-                        <Briefcase className='h-5 w-5 text-blue-600' />
+                        <Briefcase className='h-5 w-5 text-blue-600 dark:text-red-500' />
                       </div>
                       <div className='sm:ml-4 text-center sm:text-left'>
-                        <h4 className='font-medium text-gray-900'>
+                        <h4 className='font-medium text-gray-900 dark:text-slate-100'>
                           {doctor.experience?.expertise ||
                             'Medical Professional'}
                         </h4>
@@ -374,10 +370,10 @@ const DoctorsProfile = () => {
                 {/* Clinic info section */}
                 {(doctor.clinic?.name || doctor.clinic?.location) && (
                   <div>
-                    <h3 className='text-lg font-bold text-gray-800 mb-2 sm:mb-3'>
+                    <h3 className='text-lg font-bold text-gray-800 dark:text-slate-200 mb-2 sm:mb-3'>
                       Clinic Information
                     </h3>
-                    <div className='bg-gray-50 rounded-lg p-4 sm:p-5'>
+                    <div className='bg-gray-50 dark:bg-slate-900 rounded-lg p-4 sm:p-5'>
                       {doctor.clinic?.name && (
                         <div className='flex items-center mb-3'>
                           <Building className='h-4 w-4 sm:h-5 sm:w-5 text-blue-500 mr-2 flex-shrink-0' />
@@ -414,7 +410,7 @@ const DoctorsProfile = () => {
                 {/* Google Maps integration - responsive height */}
                 {doctor.clinic?.location && (
                   <div>
-                    <h3 className='text-lg font-bold text-gray-800 mb-2 sm:mb-3'>
+                    <h3 className='text-lg font-bold text-gray-800 dark:text-slate-200 mb-2 sm:mb-3'>
                       Clinic Location
                     </h3>
                     <div className='bg-gray-200 rounded-lg overflow-hidden h-56 sm:h-64 md:h-80'>
@@ -436,7 +432,7 @@ const DoctorsProfile = () => {
                         )}`}
                         target='_blank'
                         rel='noopener noreferrer'
-                        className='text-blue-600 hover:text-blue-800 text-sm inline-flex items-center'>
+                        className='text-blue-600 dark:text-red-500 hover:text-blue-800 text-sm inline-flex items-center'>
                         <MapPin className='h-4 w-4 mr-1' />
                         Open in Google Maps
                       </a>
@@ -446,16 +442,16 @@ const DoctorsProfile = () => {
 
                 {/* Contact information */}
                 <div>
-                  <h3 className='text-lg font-bold text-gray-800 mb-2 sm:mb-3'>
+                  <h3 className='text-lg font-bold text-gray-800 dark:text-slate-200 mb-2 sm:mb-3'>
                     Contact Information
                   </h3>
-                  <div className='bg-gray-50 rounded-lg p-4 sm:p-5 space-y-3'>
+                  <div className='bg-gray-50 dark:bg-slate-900 rounded-lg p-4 sm:p-5 space-y-3'>
                     {doctor.email && (
                       <div className='flex items-center'>
                         <Mail className='h-4 w-4 sm:h-5 sm:w-5 text-blue-500 mr-2 flex-shrink-0' />
                         <a
                           href={`mailto:${doctor.email}`}
-                          className='text-blue-600 hover:text-blue-800 text-sm sm:text-base truncate'>
+                          className='text-blue-600 dark:text-red-500 hover:text-blue-800 text-sm sm:text-base truncate'>
                           {doctor.email}
                         </a>
                       </div>
@@ -466,7 +462,7 @@ const DoctorsProfile = () => {
                         <Phone className='h-4 w-4 sm:h-5 sm:w-5 text-blue-500 mr-2 flex-shrink-0' />
                         <a
                           href={`tel:${doctor.phone}`}
-                          className='text-blue-600 hover:text-blue-800 text-sm sm:text-base'>
+                          className='text-blue-600 dark:text-red-500 hover:text-blue-800 text-sm sm:text-base'>
                           {doctor.phone}
                         </a>
                       </div>
@@ -479,16 +475,16 @@ const DoctorsProfile = () => {
             {/* Communities tab content */}
             {showTab === 'communities' && (
               <div className='space-y-6'>
-                <h3 className='text-lg font-bold text-gray-800 mb-2 sm:mb-3'>
+                <h3 className='text-lg font-bold text-gray-800 dark:text-slate-200 mb-2 sm:mb-3'>
                   Doctor's Communities
                 </h3>
 
                 {!doctor.communities || doctor.communities.length === 0 ? (
-                  <div className='bg-gray-50 rounded-lg p-8 text-center'>
-                    <div className='inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600 mb-4'>
+                  <div className='bg-gray-50 dark:bg-slate-900 rounded-lg p-8 text-center'>
+                    <div className='inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:text-red-500 mb-4'>
                       <User className='h-6 w-6' />
                     </div>
-                    <h4 className='text-lg font-medium text-gray-900 mb-1'>
+                    <h4 className='text-lg font-medium text-gray-900 dark:text-slate-100 mb-1'>
                       No Communities
                     </h4>
                     <p className='text-gray-600'>
@@ -501,9 +497,9 @@ const DoctorsProfile = () => {
                       <Link
                         to={`/communities#${community._id}`}
                         key={community._id}
-                        className='group bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow'>
+                        className='group bg-white dark:bg-slate-950 border border-gray-200 dark:border-red-900/40 rounded-lg p-4 hover:shadow-md transition-shadow'>
                         <div className='flex items-start justify-between mb-2'>
-                          <h4 className='font-bold text-gray-900 line-clamp-1 group-hover:text-blue-600 transition-colors'>
+                          <h4 className='font-bold text-gray-900 dark:text-slate-100 line-clamp-1 group-hover:text-blue-600 dark:text-red-500 transition-colors'>
                             {community.title}
                           </h4>
                           <span className='px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full whitespace-nowrap'>

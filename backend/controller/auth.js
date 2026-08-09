@@ -27,6 +27,16 @@ const buildName = (account) =>
 const getAuthModel = (role) => (role === "doctor" ? Doctor : User);
 const getRequestRole = (req) => (req.baseUrl?.includes("doctor") ? "doctor" : "user");
 
+const rateLimit = async (req, action, limit, windowSeconds) => {
+	const ip = req.ip || req.connection.remoteAddress;
+	const redis = getRedis();
+	if (!redis) return;
+	const key = `rl:${action}:${ip}`;
+	const current = await redis.incr(key);
+	if (current === 1) await redis.expire(key, windowSeconds);
+	if (current > limit) throw new Error("Too many requests, please try again later.");
+};
+
 const getCookieOptions = (rememberMe = false) => {
 	const isProduction = process.env.NODE_ENV === "production";
 	const options = {
@@ -124,6 +134,7 @@ const userSignup = async (req, res, next) => {
 };
 
 const userLogin = async (req, res) => {
+	try { await rateLimit(req, "login", 5, 60 * 15); } catch (e) { return res.status(429).json({ message: e.message }); }
 	const { email, password, rememberMe } = req.body;
 	if (!email || !password) {
 		return res.status(400).json({ message: "Email and password are required" });
@@ -200,6 +211,7 @@ const doctorSignup = async (req, res, next) => {
 };
 
 const doctorLogin = async (req, res) => {
+	try { await rateLimit(req, "login", 5, 60 * 15); } catch (e) { return res.status(429).json({ message: e.message }); }
 	const { email, password, rememberMe } = req.body;
 	if (!email || !password) {
 		return res.status(400).json({ message: "Email and password are required" });
@@ -321,6 +333,7 @@ const googleAuth = async (req, res) => {
 };
 
 const sendPasswordResetOtp = async (req, res) => {
+	try { await rateLimit(req, "otp", 3, 60 * 60); } catch (e) { return res.status(429).json({ message: e.message }); }
 	const role = getRequestRole(req);
 	const Model = getAuthModel(role);
 	const email = cleanString(req.body.email).toLowerCase();
@@ -424,6 +437,7 @@ const resetPasswordWithOtp = async (req, res) => {
 };
 
 const staffLogin = async (req, res) => {
+	try { await rateLimit(req, "login", 5, 60 * 15); } catch (e) { return res.status(429).json({ message: e.message }); }
 	const { email, password, hospitalId, rememberMe } = req.body;
 
 	if (!email || !password || !hospitalId) {

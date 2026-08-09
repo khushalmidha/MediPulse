@@ -194,10 +194,7 @@ const HospitalWebsite = ({ slug }) => {
       navigate("/login");
       return;
     }
-    setBookingDoctor(doctor);
-    setChiefComplaint("");
-    setBookingMessage("");
-    setBookingResult(null);
+    navigate(`/triage/${doctor._id}`);
   };
 
   const bookOpdToken = async () => {
@@ -246,8 +243,8 @@ const HospitalWebsite = ({ slug }) => {
   if (error || !hospital) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-        <div className="max-w-md rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <h1 className="text-xl font-bold text-slate-900">Hospital website unavailable</h1>
+        <div className="max-w-md rounded-lg border border-slate-200 bg-white dark:bg-slate-950 p-6 text-center shadow-sm">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Hospital website unavailable</h1>
           <p className="mt-2 text-sm text-slate-600">{error || "This hospital profile could not be found."}</p>
         </div>
       </div>
@@ -255,9 +252,9 @@ const HospitalWebsite = ({ slug }) => {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="min-h-screen bg-slate-50 text-slate-900 dark:text-slate-100">
       {patientToast && (
-        <div className="fixed left-4 top-4 z-50 max-w-sm rounded-lg border border-blue-100 bg-white p-4 shadow-xl">
+        <div className="fixed left-4 top-4 z-50 max-w-sm rounded-lg border border-blue-100 bg-white dark:bg-slate-950 p-4 shadow-xl">
           <p className="text-sm font-bold text-slate-950">{patientToast.isOpd ? "🏥 Your turn!" : "Appointment started"}</p>
           <p className="mt-1 text-sm text-slate-600">{patientToast.message}</p>
           <div className="mt-3 flex gap-2">
@@ -272,8 +269,8 @@ const HospitalWebsite = ({ slug }) => {
             ) : (
               <button
                 type="button"
-                onClick={() => navigate(`/appointment/book/${patientToast.doctorId}`)}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+                onClick={() => navigate(`/triage/${patientToast.doctorId}`)}
+                className="rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
               >
                 Join meeting
               </button>
@@ -282,7 +279,7 @@ const HospitalWebsite = ({ slug }) => {
           </div>
         </div>
       )}
-      <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white dark:bg-slate-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             {hospital.branding?.logo ? (
@@ -311,17 +308,17 @@ const HospitalWebsite = ({ slug }) => {
             {hospital.branding?.tagline || "Smart OPD, trusted doctors, transparent care, and realtime queue visibility."}
           </p>
           <div className="mt-8 grid max-w-3xl gap-3 sm:grid-cols-3">
-            <div className="rounded-md bg-white/15 p-4 backdrop-blur">
+            <div className="rounded-md bg-white dark:bg-slate-950/15 p-4 backdrop-blur">
               <Users className="mb-2" />
               <div className="text-2xl font-bold">{hospital.stats?.totalDoctors || doctors.length}</div>
               <div className="text-sm text-white/75">Doctors</div>
             </div>
-            <div className="rounded-md bg-white/15 p-4 backdrop-blur">
+            <div className="rounded-md bg-white dark:bg-slate-950/15 p-4 backdrop-blur">
               <Activity className="mb-2" />
               <div className="text-2xl font-bold">{hospital.stats?.totalDepartments || departments.length}</div>
               <div className="text-sm text-white/75">Departments</div>
             </div>
-            <div className="rounded-md bg-white/15 p-4 backdrop-blur">
+            <div className="rounded-md bg-white dark:bg-slate-950/15 p-4 backdrop-blur">
               <Star className="mb-2" />
               <div className="text-2xl font-bold">{Number(hospital.stats?.avgRating || 0).toFixed(1)}</div>
               <div className="text-sm text-white/75">Rating</div>
@@ -347,7 +344,7 @@ const HospitalWebsite = ({ slug }) => {
                 type="button"
                 aria-label={`Show slide ${index + 1}`}
                 onClick={() => setSlide(index)}
-                className={`h-2 rounded-full transition-all ${index === slide ? "w-6 bg-white" : "w-2 bg-white/60"}`}
+                className={`h-2 rounded-full transition-all ${index === slide ? "w-6 bg-white dark:bg-slate-950" : "w-2 bg-white dark:bg-slate-950/60"}`}
               />
             ))}
           </div>
@@ -384,7 +381,7 @@ const HospitalWebsite = ({ slug }) => {
                     setSelectedDepartmentId(isSelected ? "" : String(department._id));
                     document.getElementById("doctors")?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
-                  className={`rounded-lg border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isSelected ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200"}`}>
+                  className={`rounded-lg border bg-white dark:bg-slate-950 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isSelected ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-bold">{department.icon || "🏥"} {department.name}</h3>
@@ -402,7 +399,7 @@ const HospitalWebsite = ({ slug }) => {
             </div>
           </div>
 
-          <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <aside className="rounded-lg border border-slate-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
             <h2 className="text-xl font-bold">Live OPD Status</h2>
             <div className="mt-4 space-y-3">
               {(queue?.departments || []).slice(0, 6).map((item) => (
@@ -422,13 +419,13 @@ const HospitalWebsite = ({ slug }) => {
         </div>
       </section>
 
-      <section id="doctors" className="bg-white py-12">
+      <section id="doctors" className="bg-white dark:bg-slate-950 py-12">
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-2xl font-bold">Doctors</h2>
               {selectedDepartmentId && (
-                <button onClick={() => setSelectedDepartmentId("")} className="mt-1 text-sm font-semibold text-blue-600">
+                <button onClick={() => setSelectedDepartmentId("")} className="mt-1 text-sm font-semibold text-blue-600 dark:text-red-500">
                   Clear department filter
                 </button>
               )}
@@ -475,7 +472,7 @@ const HospitalWebsite = ({ slug }) => {
 
       {bookingDoctor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-950 p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-slate-950">Book OPD Token</h2>
@@ -503,7 +500,7 @@ const HospitalWebsite = ({ slug }) => {
                   {bookingResult.token?._id && (
                     <button
                       onClick={() => { setBookingDoctor(null); navigate(`/opd/triage?token=${bookingResult.token._id}`); }}
-                      className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+                      className="w-full rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
                     >
                       Complete AI Triage (Recommended)
                     </button>
@@ -546,7 +543,7 @@ const HospitalWebsite = ({ slug }) => {
           <h2 className="text-2xl font-bold">Patient Reviews</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {reviews.map((review) => (
-              <div key={review._id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div key={review._id} className="rounded-lg border border-slate-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex text-yellow-500">
                     {[1, 2, 3, 4, 5].map((score) => (

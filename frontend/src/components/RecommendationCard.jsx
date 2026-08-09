@@ -42,13 +42,13 @@ const RecommendedCommunities = () => {
         <div className='fixed inset-0 bg-black/40 backdrop-blur-sm z-40'></div>
 
         <div className='fixed inset-0 flex items-center justify-center p-4 z-50 pointer-events-none'>
-          <div className='bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden pointer-events-auto'>
+          <div className='bg-white dark:bg-slate-950 rounded-lg shadow-xl w-full max-w-md overflow-hidden pointer-events-auto'>
             <div className='p-6'>
               <div className='flex flex-col items-center text-center mb-6'>
                 <div className='w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4'>
                   <AlertTriangle className='text-red-500 h-8 w-8' />
                 </div>
-                <h3 className='text-xl font-bold text-gray-800 mb-1'>
+                <h3 className='text-xl font-bold text-gray-800 dark:text-slate-200 mb-1'>
                   Leave Community
                 </h3>
                 <p className='text-gray-600'>
@@ -70,7 +70,7 @@ const RecommendedCommunities = () => {
               <div className='flex justify-end space-x-3'>
                 <button
                   onClick={() => setShowModal(false)}
-                  className='px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors'
+                  className='px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 dark:bg-slate-900 transition-colors'
                   disabled={loading}>
                   Cancel
                 </button>
@@ -98,11 +98,11 @@ const RecommendedCommunities = () => {
 
   return (
     <>
-      <div className='bg-white p-6 rounded-lg shadow-md w-full relative'>
+      <div className='bg-white dark:bg-slate-950 p-6 rounded-lg shadow-md w-full relative'>
         <div className='flex justify-between px-2'>
           <h3 className='text-lg font-bold mb-4'>Your Communities</h3>
           <Link to={'/communities'}>
-            <button className='bg-blue-600 text-white px-2 py-1 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer'>
+            <button className='bg-blue-600 dark:bg-red-700 text-white px-2 py-1 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer'>
               Explore All
             </button>
           </Link>
@@ -114,12 +114,12 @@ const RecommendedCommunities = () => {
             <button
               onClick={scrollLeft}
               className='absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-300 rounded-full p-3 shadow-md cursor-pointer'>
-              <ChevronLeftCircle className='bg-blue-500 text-white rounded-2xl h-7 w-7' />
+              <ChevronLeftCircle className='bg-blue-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
             </button>
             <button
               onClick={scrollRight}
               className='absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-300 rounded-full p-3 shadow-md cursor-pointer'>
-              <ChevronRightCircle className='bg-blue-500 text-white rounded-2xl h-7 w-7' />
+              <ChevronRightCircle className='bg-blue-500 dark:bg-red-600 text-white rounded-2xl h-7 w-7' />
             </button>
           </>
         )}
@@ -129,7 +129,7 @@ const RecommendedCommunities = () => {
           ref={scrollRef}
           className='flex overflow-x-auto space-x-6 scrollbar-hide p-3'>
           {communities?.length === 0 && (
-            <div className='bg-white rounded-lg shadow-md overflow-hidden text-center flex flex-col h-64 w-[100%] justify-center'>
+            <div className='bg-white dark:bg-slate-950 rounded-lg shadow-md overflow-hidden text-center flex flex-col h-64 w-[100%] justify-center'>
               No Community Joined
             </div>
           )}
@@ -137,11 +137,11 @@ const RecommendedCommunities = () => {
             <div
               key={community._id}
               id={community._id}
-              className='bg-white rounded-lg shadow-md overflow-hidden flex flex-col h-64 hover:shadow-lg transition-shadow min-w-[350px] duration-300'>
-              <div className='h-2 bg-blue-500'></div>
+              className='bg-white dark:bg-slate-950 rounded-lg shadow-md overflow-hidden flex flex-col h-64 hover:shadow-lg transition-shadow min-w-[350px] duration-300'>
+              <div className='h-2 bg-blue-500 dark:bg-red-600'></div>
               <div className='p-6 flex-1 flex flex-col'>
                 <div className='flex items-center justify-between mb-3'>
-                  <h3 className='text-xl font-bold text-gray-800 truncate'>
+                  <h3 className='text-xl font-bold text-gray-800 dark:text-slate-200 truncate'>
                     {community.title}
                   </h3>
                   <span className='px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full'>

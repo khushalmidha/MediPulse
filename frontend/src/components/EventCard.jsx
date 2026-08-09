@@ -32,12 +32,12 @@ const EventCard = () => {
 
   return (
     <div 
-      className="bg-white p-4 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
+      className="bg-white dark:bg-slate-950 p-4 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
       onClick={() => navigate("/events")} // Redirect to the events page
     >
       <div className="flex items-center gap-4">
       <div className="">
-        <Shield className="text-blue-600 bg-blue-100 size-10 p-2 border rounded-lg"/>
+        <Shield className="text-blue-600 dark:text-red-500 bg-blue-100 size-10 p-2 border rounded-lg"/>
       </div>
       <div>
       <h3 className="text-lg font-semibold">Upcoming Events</h3>

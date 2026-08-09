@@ -25,7 +25,7 @@ const Dashboard = () => {
 	const [communityEvents, setCommunityEvents] = useState([]);
 	const [eventsLoading, setEventsLoading] = useState(false);
 	const [eventsError, setEventsError] = useState("");
-	console.log("Dashboard", isAuth);
+
 
 	useEffect(()=>{
 		if(loader){
@@ -100,7 +100,7 @@ const Dashboard = () => {
 				<RecommendationCard />
 			</div>
 
-			<div className="bg-blue-500 h-48 pt-12 mt-12 shadow-md border rounded-sm">
+			<div className="bg-blue-500 dark:bg-red-600 h-48 pt-12 mt-12 shadow-md border rounded-sm">
 				<h1 className="flex justify-center font-bold tracking-tighter text-4xl mb-1 text-white">
 					Find Specialized Healthcare Providers
 				</h1>
@@ -114,23 +114,23 @@ const Dashboard = () => {
 				<RecommendationDoctors />
 			</div>
 
-			<div className="mb-10 rounded-lg border border-blue-200 bg-white p-5 shadow-sm">
-				<h3 className="text-lg font-semibold text-gray-900">Your Health Records</h3>
+			<div className="mb-10 rounded-lg border border-blue-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
+				<h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Your Health Records</h3>
 				<p className="mt-2 text-sm text-gray-600">
 					View OPD visits, completed appointments, AI summaries, and family profiles in one place.
 				</p>
 				<Link
 					to="/health-records"
-					className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+					className="mt-4 inline-block rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700"
 				>
 					Open Health Records
 				</Link>
 			</div>
 
-			<div className="mb-10 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+			<div className="mb-10 rounded-lg border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 p-5 shadow-sm">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div>
-						<h3 className="text-lg font-semibold text-gray-900">Events From Your Communities</h3>
+						<h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Events From Your Communities</h3>
 						<p className="mt-1 text-sm text-gray-600">
 							Upcoming events connected to communities you have joined.
 						</p>
@@ -151,11 +151,11 @@ const Dashboard = () => {
 				) : (
 					<div className="mt-4 grid gap-4 md:grid-cols-2">
 						{visibleCommunityEvents.map((event) => (
-							<div key={event._id} className="rounded-lg border border-gray-200 p-4">
+							<div key={event._id} className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
 								<div className="flex flex-wrap items-start justify-between gap-3">
 									<div>
-										<p className="text-xs font-medium text-blue-600">{event.communityName}</p>
-										<h4 className="mt-1 font-semibold text-gray-900">{event.title}</h4>
+										<p className="text-xs font-medium text-blue-600 dark:text-red-500">{event.communityName}</p>
+										<h4 className="mt-1 font-semibold text-gray-900 dark:text-slate-100">{event.title}</h4>
 										<p className="mt-1 text-sm text-gray-500">{formatEventDate(event.time)}</p>
 									</div>
 									<span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
@@ -170,14 +170,14 @@ const Dashboard = () => {
 			</div>
 
 			{role === "doctor" && (
-				<div className="rounded-lg border border-blue-200 bg-white p-5 shadow-sm">
-					<h3 className="text-lg font-semibold text-gray-900">Appointment Queue</h3>
+				<div className="rounded-lg border border-blue-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
+					<h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Appointment Queue</h3>
 					<p className="mt-2 text-sm text-gray-600">
 						Start and manage booked appointments one by one from your doctor panel.
 					</p>
 					<Link
 						to="/doctor/appointments"
-						className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+						className="mt-4 inline-block rounded-md bg-blue-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700"
 					>
 						Open Doctor Queue
 					</Link>

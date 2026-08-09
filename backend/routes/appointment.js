@@ -12,6 +12,8 @@ import {
   startAppointment,
   updateDoctorNotes,
   verifyAppointmentOtp,
+  uploadSharedReport,
+  getSharedReports,
 } from "../controller/appointment.js";
 import userValidation from "../middleware/validateUser.js";
 
@@ -22,6 +24,10 @@ appointmentRouter.post("/otp/verify/:doctorId", userValidation, verifyAppointmen
 appointmentRouter.post("/book/:doctorId", userValidation, bookAppointment);
 appointmentRouter.get("/doctor/queue", userValidation, getDoctorQueue);
 appointmentRouter.get("/history", userValidation, getUserAppointmentHistory);
+
+appointmentRouter.post("/reports/upload", userValidation, uploadSharedReport);
+appointmentRouter.get("/reports", userValidation, getSharedReports);
+
 appointmentRouter.get(
   "/doctor/:doctorId/pending",
   userValidation,

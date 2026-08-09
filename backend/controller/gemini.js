@@ -52,4 +52,9 @@ const geminiChat = async (req, res) => {
   }
 };
 
-export { geminiChat, generateGeminiText };
+const generateSoapNote = async (roughNotes) => {
+  const prompt = `You are a medical assistant. Please format the following rough notes into a strict SOAP (Subjective, Objective, Assessment, Plan) format. Return only the structured SOAP note in Markdown format without any extra explanation or text.\n\nRough Notes: ${roughNotes}`;
+  return await generateGeminiText(prompt, "soap");
+};
+
+export { geminiChat, generateGeminiText, generateSoapNote };

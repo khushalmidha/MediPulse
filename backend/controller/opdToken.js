@@ -8,6 +8,7 @@ import { getRedis } from "../services/redis.js";
 import { scheduleReviewRequest } from "../services/reviewRequestWorker.js";
 import { transferVirtualMoney } from "../services/virtualLedger.js";
 import { getIO } from "../socket.js";
+import OpdSequence from "../model/opdSequence.js";
 
 const OPD_BOOKING_FEE_INR = Number(process.env.APPOINTMENT_BOOKING_FEE_INR || 5);
 
@@ -154,10 +155,13 @@ const issueToken = async (req, res) => {
   }
 
   const { start, end } = dayRange();
-  const lastToken = await OpdToken.findOne({ doctorId, date: { $gte: start, $lt: end } })
-    .sort({ tokenNumber: -1 })
-    .lean();
-  const tokenNumber = (lastToken?.tokenNumber || 0) + 1;
+  const dateStr = start.toISOString().slice(0, 10);
+  const sequence = await OpdSequence.findOneAndUpdate(
+    { hospitalId, doctorId, date: dateStr },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  const tokenNumber = sequence.seq;
   const queueAhead = await OpdToken.countDocuments({
     doctorId,
     date: { $gte: start, $lt: end },

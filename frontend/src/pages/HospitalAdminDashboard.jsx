@@ -322,9 +322,9 @@ const HospitalAdminDashboard = () => {
 
   if (!hospitalId) {
     return (
-      <main className="min-h-screen bg-gray-50 px-4 py-10">
-        <div className="mx-auto max-w-xl rounded-xl bg-white p-6 text-center shadow-sm">
-          <h1 className="text-xl font-bold text-gray-900">Hospital portal not found</h1>
+      <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-10">
+        <div className="mx-auto max-w-xl rounded-xl bg-white dark:bg-slate-950 p-6 text-center shadow-sm">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100">Hospital portal not found</h1>
           <p className="mt-2 text-gray-600">Create a hospital admin account first.</p>
         </div>
       </main>
@@ -343,9 +343,9 @@ const HospitalAdminDashboard = () => {
     <main className="min-h-screen bg-slate-50 px-4 py-6">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 lg:flex-row">
         <aside className="lg:sticky lg:top-24 lg:h-fit lg:w-64">
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-3 shadow-sm">
             <div className="p-3">
-              <p className="text-xs font-semibold uppercase text-blue-600">Hospital Admin</p>
+              <p className="text-xs font-semibold uppercase text-blue-600 dark:text-red-500">Hospital Admin</p>
               <h1 className="mt-1 text-xl font-black text-slate-950">{hospital.name}</h1>
               <p className="mt-1 text-sm text-slate-500">{hospital.address?.city || "City"}, {hospital.address?.state || "State"}</p>
             </div>
@@ -354,7 +354,7 @@ const HospitalAdminDashboard = () => {
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold ${activeTab === key ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100"}`}>
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold ${activeTab === key ? "bg-blue-600 dark:bg-red-700 text-white" : "text-slate-700 hover:bg-slate-100"}`}>
                   <Icon size={17} />
                   {label}
                 </button>
@@ -377,7 +377,7 @@ const HospitalAdminDashboard = () => {
         </aside>
 
         <section className="min-w-0 flex-1 space-y-6">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white dark:bg-slate-950 shadow-sm">
             <div className="relative h-64">
               {slides.map((src, index) => (
                 <img
@@ -395,8 +395,8 @@ const HospitalAdminDashboard = () => {
                 <h2 className="mt-3 text-3xl font-black md:text-4xl">{hospital.name}</h2>
                 <p className="mt-2 max-w-2xl text-white/80">{hospital.branding?.tagline || "Smart hospital workspace for OPD, staff, doctors, and public patient access."}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <button onClick={loadPortal} className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-950">Refresh portal</button>
-                  {websiteUrl && <Link to={websiteUrl} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">Open hospital website</Link>}
+                  <button onClick={loadPortal} className="rounded-lg bg-white dark:bg-slate-950 px-4 py-2 text-sm font-bold text-slate-950">Refresh portal</button>
+                  {websiteUrl && <Link to={websiteUrl} className="rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Open hospital website</Link>}
                 </div>
               </div>
             </div>
@@ -413,8 +413,8 @@ const HospitalAdminDashboard = () => {
                   ["No Shows", analytics?.today?.noShows || 0, Users],
                   ["Revenue", currency(analytics?.today?.revenue), Building2],
                 ].map(([label, value, Icon]) => (
-                  <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <Icon className="text-blue-600" size={22} />
+                  <div key={label} className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
+                    <Icon className="text-blue-600 dark:text-red-500" size={22} />
                     <p className="mt-3 text-sm text-slate-500">{label}</p>
                     <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
                   </div>
@@ -422,12 +422,12 @@ const HospitalAdminDashboard = () => {
               </section>
 
               <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
                   <h2 className="text-lg font-black text-slate-950">Today's Top Doctors</h2>
                   <div className="mt-4 divide-y divide-slate-100">
                     {(analytics?.topDoctors || []).map((doctor) => (
                       <div key={doctor.name} className="grid grid-cols-[1fr_auto_auto] gap-3 py-3 text-sm">
-                        <span className="font-semibold text-slate-900">{doctor.name}</span>
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">{doctor.name}</span>
                         <span className="text-slate-500">{doctor.patientsToday} patients</span>
                         <span className="font-semibold text-amber-600">{Number(doctor.rating || 0).toFixed(1)}</span>
                       </div>
@@ -435,24 +435,24 @@ const HospitalAdminDashboard = () => {
                     {!analytics?.topDoctors?.length && <p className="py-6 text-sm text-slate-500">Doctor performance appears after OPD tokens are completed.</p>}
                   </div>
                 </div>
-                <Link to={websiteUrl || "#"} className="rounded-2xl border border-blue-100 bg-blue-600 p-6 text-white shadow-sm">
+                <Link to={websiteUrl || "#"} className="rounded-2xl border border-blue-100 bg-blue-600 dark:bg-red-700 p-6 text-white shadow-sm">
                   <Globe2 size={30} />
                   <h2 className="mt-4 text-2xl font-black">Public Hospital Website</h2>
                   <p className="mt-2 text-sm text-blue-50">Patients can browse departments, doctors, reviews, and OPD status from here.</p>
-                  <span className="mt-6 inline-flex rounded-lg bg-white px-4 py-2 text-sm font-bold text-blue-700">Open website</span>
+                  <span className="mt-6 inline-flex rounded-lg bg-white dark:bg-slate-950 px-4 py-2 text-sm font-bold text-blue-700">Open website</span>
                 </Link>
               </section>
             </>
           )}
 
           {activeTab === "departments" && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-black text-slate-950">Departments</h2>
                   <p className="mt-1 text-sm text-slate-500">Manage public OPD departments and patient fees.</p>
                 </div>
-                <button onClick={() => setOpenPanel("department")} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+                <button onClick={() => setOpenPanel("department")} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
                   <Plus size={16} />
                   Add Department
                 </button>
@@ -492,13 +492,13 @@ const HospitalAdminDashboard = () => {
           )}
 
           {activeTab === "staff" && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-black text-slate-950">Staff</h2>
                   <p className="mt-1 text-sm text-slate-500">Invite doctors, nurses, reception, lab, and department teams.</p>
                 </div>
-                <button onClick={() => setOpenPanel("staff")} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+                <button onClick={() => setOpenPanel("staff")} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
                   <Plus size={16} />
                   Invite Staff
                 </button>
@@ -509,7 +509,7 @@ const HospitalAdminDashboard = () => {
                     <h3 className="font-black text-amber-950">Pending invites</h3>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                       {staff.filter((member) => member.inviteStatus === "pending").map((member) => (
-                        <div key={member._id} className="flex items-center justify-between gap-3 rounded-xl bg-white p-3">
+                        <div key={member._id} className="flex items-center justify-between gap-3 rounded-xl bg-white dark:bg-slate-950 p-3">
                           <div className="min-w-0">
                             <p className="truncate font-bold text-slate-950">{member.email}</p>
                             <p className="text-xs text-slate-500">{member.role.replace(/_/g, " ")}</p>
@@ -540,7 +540,7 @@ const HospitalAdminDashboard = () => {
                                 <p className="mt-1 text-sm text-slate-600">{member.doctorProfile?.specialization || "General Medicine"}</p>
                               )}
                               {member.doctorId && (
-                                <Link to={`/doctorsProfile/${member.doctorId}`} className="mt-2 inline-block text-xs font-bold text-blue-600">
+                                <Link to={`/doctorsProfile/${member.doctorId}`} className="mt-2 inline-block text-xs font-bold text-blue-600 dark:text-red-500">
                                   View on platform
                                 </Link>
                               )}
@@ -550,7 +550,7 @@ const HospitalAdminDashboard = () => {
                                     Remove (OTP)
                                   </button>
                                   {member.role !== "HOSPITAL_ADMIN" && (
-                                    <button onClick={() => grantAdminAccess(member)} className="text-xs font-bold text-blue-600 hover:underline">
+                                    <button onClick={() => grantAdminAccess(member)} className="text-xs font-bold text-blue-600 dark:text-red-500 hover:underline">
                                       Grant Admin
                                     </button>
                                   )}
@@ -570,19 +570,19 @@ const HospitalAdminDashboard = () => {
 
           {activeTab === "forecast" && (
             <section className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
                 <div>
                   <h2 className="text-xl font-black text-slate-950">AI Capacity Forecast</h2>
                   <p className="mt-1 text-sm text-slate-500">Monthly bed and blood demand estimates based on OPD history, emergency signals, and department type.</p>
                 </div>
-                <button onClick={regenerateForecasts} disabled={forecastLoading} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:bg-slate-400">
+                <button onClick={regenerateForecasts} disabled={forecastLoading} className="rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-slate-400">
                   {forecastLoading ? "Refreshing..." : "Refresh forecast"}
                 </button>
               </div>
 
               <div className="grid gap-6 xl:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><TrendingUp size={20} className="text-blue-600" /> Bed Demand</h3>
+                <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
+                  <h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><TrendingUp size={20} className="text-blue-600 dark:text-red-500" /> Bed Demand</h3>
                   <div className="mt-4 space-y-3">
                     {(forecasts.beds?.forecasts || []).map((item) => (
                       <div key={`${item.departmentId?._id || item.departmentId}-${item.bedType}`} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
@@ -594,8 +594,8 @@ const HospitalAdminDashboard = () => {
                           <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{item.confidence}</span>
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                          <div className="rounded-lg bg-white p-3"><p className="text-slate-500">Predicted</p><p className="font-black">{item.predictedDemand} beds</p></div>
-                          <div className="rounded-lg bg-white p-3"><p className="text-slate-500">Reserve</p><p className="font-black">{item.recommendedReserve} beds</p></div>
+                          <div className="rounded-lg bg-white dark:bg-slate-950 p-3"><p className="text-slate-500">Predicted</p><p className="font-black">{item.predictedDemand} beds</p></div>
+                          <div className="rounded-lg bg-white dark:bg-slate-950 p-3"><p className="text-slate-500">Reserve</p><p className="font-black">{item.recommendedReserve} beds</p></div>
                         </div>
                       </div>
                     ))}
@@ -603,7 +603,7 @@ const HospitalAdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
                   <h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><Droplets size={20} className="text-red-500" /> Blood Bank Demand</h3>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {(forecasts.blood?.forecasts || []).map((item) => (
@@ -627,8 +627,8 @@ const HospitalAdminDashboard = () => {
 
           {activeTab === "website" && (
             <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <Globe2 className="text-blue-600" size={28} />
+              <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
+                <Globe2 className="text-blue-600 dark:text-red-500" size={28} />
                 <h2 className="mt-4 text-xl font-black text-slate-950">Hospital Website</h2>
                 <p className="mt-2 text-sm text-slate-500">Your public path-based website works without wildcard DNS.</p>
                 {websiteUrl && (
@@ -644,12 +644,12 @@ const HospitalAdminDashboard = () => {
                   <h3 className="flex items-center gap-2 font-black text-slate-950"><Lock size={17} /> Change Admin Password</h3>
                   <input value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} type="password" required placeholder="Current password" className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                   <input value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} type="password" required minLength={8} placeholder="New password" className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
-                  <button className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">Update password</button>
+                  <button className="mt-3 rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Update password</button>
                   {passwordMessage && <p className="mt-3 text-sm text-blue-700">{passwordMessage}</p>}
                 </form>
               </div>
-              <form onSubmit={saveBranding} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="flex items-center gap-2 text-xl font-black text-slate-950"><Palette size={20} className="text-blue-600" /> Branding</h2>
+              <form onSubmit={saveBranding} className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
+                <h2 className="flex items-center gap-2 text-xl font-black text-slate-950"><Palette size={20} className="text-blue-600 dark:text-red-500" /> Branding</h2>
                 <div className="mt-5 grid gap-4">
                   <input value={brandingForm.tagline} onChange={(e) => setBrandingForm({ ...brandingForm, tagline: e.target.value })} placeholder="Tagline" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                   <textarea value={brandingForm.about} onChange={(e) => setBrandingForm({ ...brandingForm, about: e.target.value })} placeholder="About hospital" className="min-h-24 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
@@ -659,7 +659,7 @@ const HospitalAdminDashboard = () => {
                   </div>
                   <input value={brandingForm.coverImage} onChange={(e) => setBrandingForm({ ...brandingForm, coverImage: e.target.value })} placeholder="Cover image URL" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                 </div>
-                <button className="mt-5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">Save website branding</button>
+                <button className="mt-5 rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Save website branding</button>
               </form>
             </section>
           )}
@@ -669,7 +669,7 @@ const HospitalAdminDashboard = () => {
       {/* OTP Removal Modal */}
       {otpModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-950 p-6 shadow-2xl">
             <h2 className="text-xl font-black text-slate-950">Remove Staff Member</h2>
             <p className="mt-2 text-sm text-slate-600">You are about to remove <strong>{otpModal.member.name}</strong> ({otpModal.member.role.replace(/_/g, " ")}) from the hospital.</p>
             {otpError && <p className="mt-3 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{otpError}</p>}
@@ -716,7 +716,7 @@ const HospitalAdminDashboard = () => {
 
       {openPanel && (
         <div className="fixed inset-0 z-[60] bg-slate-950/40">
-          <div className="ml-auto h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl">
+          <div className="ml-auto h-full w-full max-w-xl overflow-y-auto bg-white dark:bg-slate-950 p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black text-slate-950">{openPanel === "department" ? "Add Department" : "Invite Staff"}</h2>
               <button onClick={() => setOpenPanel("")} className="rounded-full p-2 hover:bg-slate-100"><X size={20} /></button>
@@ -728,7 +728,7 @@ const HospitalAdminDashboard = () => {
                 <input value={department.code} onChange={(e) => setDepartment({ ...department, code: e.target.value.toUpperCase() })} placeholder="Code" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                 <input value={department.consultationFee} onChange={(e) => setDepartment({ ...department, consultationFee: e.target.value })} required type="number" placeholder="Consultation fee" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                 <textarea value={department.description} onChange={(e) => setDepartment({ ...department, description: e.target.value })} placeholder="Description" className="min-h-24 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
-                <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">Add Department</button>
+                <button className="rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Add Department</button>
               </form>
             ) : (
               <form onSubmit={inviteStaff} className="mt-6 grid gap-4">
@@ -747,7 +747,7 @@ const HospitalAdminDashboard = () => {
                     <textarea value={invite.bio} onChange={(e) => setInvite({ ...invite, bio: e.target.value })} placeholder="Doctor bio" className="min-h-24 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                   </>
                 )}
-                <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+                <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
                   <Send size={16} />
                   Send Invite
                 </button>
