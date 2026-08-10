@@ -97,7 +97,7 @@ const OpdTriage = () => {
               <p className="text-slate-800 dark:text-slate-200 text-lg leading-relaxed">{brief.agentSummary}</p>
             </div>
 
-            {brief.predictedDisease && (
+            {brief?.predictedDisease && brief.predictedDisease !== "Unknown" && (
               <div className="mb-8 p-4 rounded-2xl bg-red-50 border border-indigo-100 flex items-start gap-4">
                 <Activity className="text-indigo-500 shrink-0 mt-1" size={24} />
                 <div>
