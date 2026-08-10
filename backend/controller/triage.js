@@ -390,6 +390,8 @@ const completeTriage = async (req, res) => {
       }
     } catch (mlError) {
       console.error("ML prediction failed:", mlError.message);
+      // Temporarily save the error message as the predicted disease so we can see it on the frontend/DB!
+      predictedDisease = `ERR: ${mlError.message} (${process.env.DISEASE_PREDICTION_SERVICE_URL || 'http://localhost:8003/predict'})`;
       import('fs').then(fs => fs.writeFileSync('ml_error.log', mlError.message + '\n' + (mlError.response?.data ? JSON.stringify(mlError.response.data) : '')));
     }
 
