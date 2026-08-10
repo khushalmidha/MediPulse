@@ -361,11 +361,36 @@ const completeTriage = async (req, res) => {
       const transcript = state.messages
         .map((m) => `${m.role}: ${m.text}`)
         .join("\n");
-      const mlServiceUrl = process.env.DISEASE_PREDICTION_SERVICE_URL || "http://localhost:8003/predict";
-      const mlResponse = await axios.post(mlServiceUrl, { text: transcript });
-      predictedDisease = mlResponse.data.disease;
+      
+      let mlServiceUrl = process.env.DISEASE_PREDICTION_SERVICE_URL || "http://localhost:8003/predict";
+      let mlResponse;
+      
+      try {
+        mlResponse = await axios.post(mlServiceUrl, { text: transcript });
+      } catch (firstErr) {
+        // If we are running in Docker, localhost will fail. Fallback to host.docker.internal
+        if (mlServiceUrl.includes('localhost')) {
+          console.log("Localhost failed, retrying with host.docker.internal...");
+          mlServiceUrl = mlServiceUrl.replace('localhost', 'host.docker.internal');
+          mlResponse = await axios.post(mlServiceUrl, { text: transcript });
+        } else {
+          throw firstErr;
+        }
+      }
+
+      // LOG EVERYTHING
+      import('fs').then(fs => fs.writeFileSync('ml_response.log', JSON.stringify({
+        url: mlServiceUrl,
+        transcript: transcript,
+        response: mlResponse.data
+      }, null, 2)));
+
+      if (mlResponse.data && mlResponse.data.disease) {
+        predictedDisease = mlResponse.data.disease;
+      }
     } catch (mlError) {
       console.error("ML prediction failed:", mlError.message);
+      import('fs').then(fs => fs.writeFileSync('ml_error.log', mlError.message + '\n' + (mlError.response?.data ? JSON.stringify(mlError.response.data) : '')));
     }
 
     const triageProfile = {
