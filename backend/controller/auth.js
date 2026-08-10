@@ -112,15 +112,15 @@ const userSignup = async (req, res, next) => {
 		lastName: cleanString(lastName),
 		password: password,
 		email: email.toLowerCase(),
-		phone: phone,
+		phoneNumber: phone,
 		bio: bio,
-		medical: {
+		medicalHistory: {
 			primaryCondition: primaryCondition,
 		},
 		emergencyContact: {
 			name: emergencyContact,
 			relation: emergencyRelation,
-			phone: emergencyPhone,
+			phoneNumber: emergencyPhone,
 		},
 		gender: gender,
 	});
@@ -278,7 +278,7 @@ const googleAuth = async (req, res) => {
 				password: crypto.randomBytes(32).toString("hex"),
 				gender: profile.gender || "other",
 				bio: profile.bio,
-				phone: profile.phone,
+				phoneNumber: profile.phone,
 			};
 
 			if (role === "doctor") {
@@ -303,13 +303,13 @@ const googleAuth = async (req, res) => {
 			} else {
 				account = await User.create({
 					...baseAccount,
-					medical: {
+					medicalHistory: {
 						primaryCondition: profile.primaryCondition,
 					},
 					emergencyContact: {
 						name: profile.emergencyContact,
 						relation: profile.emergencyRelation,
-						phone: profile.emergencyPhone,
+						phoneNumber: profile.emergencyPhone,
 					},
 				});
 				await ensureWallet({ userId: account._id, userRole: "user" });

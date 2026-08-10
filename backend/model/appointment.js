@@ -80,6 +80,7 @@ const appointmentSchema = new mongoose.Schema(
       conversationTurns: Number,
     },
     soapNote: {
+      markdown: String,
       subjective: String,
       objective: String,
       assessment: String,

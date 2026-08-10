@@ -31,6 +31,9 @@ const doctorSchema = new mongoose.Schema(
     bio: {
       type: String,
     },
+    profilePhoto: {
+      type: String,
+    },
     phone: {
       type: Number,
       min: 1000000000,
