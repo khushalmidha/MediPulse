@@ -135,9 +135,7 @@ Validated urgency level: ${urgencyLevel}`;
     severity: normalizeSeverity(severity),
     relevantHistory: history || "Not provided",
     urgencyLevel,
-    agentSummary: `${symptomText || "Patient concern not specified"}. Duration: ${
-      duration || "not provided"
-    }. Relevant history: ${history || "not provided"}.`,
+    agentSummary: "Patient reported symptoms which have been successfully logged and attached to their file for the doctor's review.",
     generatedAt: new Date(),
     conversationTurns,
   };
