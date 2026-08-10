@@ -1,43 +1,31 @@
 import User from "../model/user.js";
-import jwt from "jsonwebtoken";
-import { configDotenv } from "dotenv";
-
-configDotenv();
 
 const getUserById = async (req, res) => {
-	const token = req.cookies.token;
-	if (!token) {
+	if (!req.auth) return res.status(401).json({ message: "Unauthorized" });
+
+	const user = await User.findById(req.auth.id);
+	if (!user) {
 		return res.status(401).json({ message: "Unauthorized" });
 	}
-	jwt.verify(token, process.env.TOKEN_KEY, async (err, data) => {
-		if (err) {
-			return res.status(401).json({ message: "Unauthorized" });
-		}
-
-		const user = await User.findById(data.id);
-		if (!user) {
-			return res.status(401).json({ message: "Unauthorized" });
-		}
-		return res.status(200).json(user);
-	});
+	return res.status(200).json(user);
 };
 
 const updateUserData = async (req, res) => {
-	const token = req.cookies.token;
-	if (!token) {
+	if (!req.auth) return res.status(401).json({ message: "Unauthorized" });
+
+	const allowedFields = ["firstName", "lastName", "bio", "gender", "phoneNumber", "medicalHistory", "emergencyContact", "familyMembers"];
+	const updateData = {};
+	for (const key of allowedFields) {
+		if (req.body[key] !== undefined) {
+			updateData[key] = req.body[key];
+		}
+	}
+
+	const user = await User.findByIdAndUpdate(req.auth.id, updateData, { new: true });
+	if (!user) {
 		return res.status(401).json({ message: "Unauthorized" });
 	}
-	jwt.verify(token, process.env.TOKEN_KEY, async (err, data) => {
-		if (err) {
-			return res.status(401).json({ message: "Unauthorized" });
-		}
-
-		const user = await User.updateOne({ _id: data.id }, req.body);
-		if (!user) {
-			return res.status(401).json({ message: "Unauthorized" });
-		}
-		return res.json(user);
-	});
+	return res.json(user);
 };
 
 const getAllUsers = async (req, res) => {
