@@ -165,6 +165,8 @@ const callAgent = async (state) => {
     state.contents.push({ role: "model", parts: modelParts });
 
     let generatedBrief = null;
+    const functionResponseParts = [];
+    
     for (const call of calls) {
       const args = parseFunctionArgs(call.args);
       const handler = triageToolHandlers[call.name];
@@ -178,17 +180,16 @@ const callAgent = async (state) => {
         generatedBrief = toolResult;
         state.brief = toolResult;
       }
-      state.contents.push({
-        role: "function",
-        parts: [
-          {
-            functionResponse: {
-              name: call.name,
-              response: toolResult,
-            },
-          },
-        ],
+      functionResponseParts.push({
+        functionResponse: {
+          name: call.name,
+          response: toolResult,
+        },
       });
+    }
+
+    if (functionResponseParts.length > 0) {
+      state.contents.push({ role: "function", parts: functionResponseParts });
     }
 
     if (generatedBrief) {
@@ -201,8 +202,13 @@ const callAgent = async (state) => {
       };
     }
 
-    result = await model.generateContent({ contents: state.contents });
-    response = result.response;
+    try {
+      result = await model.generateContent({ contents: state.contents });
+      response = result.response;
+    } catch (error) {
+      console.warn("Gemini failed on subsequent turn:", error.message);
+      return getFallbackResponse(state);
+    }
   }
 
   return {
@@ -328,8 +334,9 @@ const sendMessage = async (req, res) => {
     });
   } catch (error) {
     console.error("Triage message failed:", error.message);
+    import('fs').then(fs => fs.writeFileSync('triage_error.log', 'sendMessage error: ' + error.stack));
     return res.status(500).json({
-      message: "AI is temporarily unavailable, your appointment is unaffected",
+      message: "AI is temporarily unavailable, your appointment is unaffected (from sendMessage)",
     });
   }
 };
@@ -386,8 +393,9 @@ const completeTriage = async (req, res) => {
     });
   } catch (error) {
     console.error("Triage complete failed:", error.message);
+    import('fs').then(fs => fs.writeFileSync('triage_error.log', 'completeTriage error: ' + error.stack));
     return res.status(500).json({
-      message: "AI is temporarily unavailable, your appointment is unaffected",
+      message: "AI is temporarily unavailable, your appointment is unaffected (from completeTriage)",
     });
   }
 };

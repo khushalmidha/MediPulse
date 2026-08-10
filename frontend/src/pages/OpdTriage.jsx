@@ -146,8 +146,22 @@ const OpdTriage = () => {
         {/* Main interactive area */}
         <div className="w-full">
           {message && (
-            <div className="mb-8 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium">
-              {message}
+            <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <div className="text-red-600 text-sm font-medium mb-3">
+                {message}
+              </div>
+              <button 
+                onClick={() => {
+                  if (doctorId) {
+                    navigate(`/appointment/book/${doctorId}`);
+                  } else {
+                    navigate("/doctors");
+                  }
+                }}
+                className="inline-flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+              >
+                Skip Triage & Continue <ArrowRight size={16} />
+              </button>
             </div>
           )}
 

@@ -7,6 +7,28 @@ import User from "../model/user.js";
 import SharedReport from "../model/sharedReport.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 
+
+const getLinkedDoctorIds = async (doctorId) => {
+  const ids = [doctorId.toString()];
+  const [platformDoc, staffDoc] = await Promise.all([
+    Doctor.findById(doctorId),
+    HospitalStaff.findOne({ _id: doctorId, role: "DOCTOR" })
+  ]);
+  
+  if (platformDoc) {
+    const linkedStaff = await HospitalStaff.find({ doctorId: platformDoc._id, role: "DOCTOR" }, "_id");
+    linkedStaff.forEach(s => ids.push(s._id.toString()));
+  }
+  
+  if (staffDoc && staffDoc.doctorId) {
+    ids.push(staffDoc.doctorId.toString());
+    const linkedStaff = await HospitalStaff.find({ doctorId: staffDoc.doctorId, role: "DOCTOR" }, "_id");
+    linkedStaff.forEach(s => ids.push(s._id.toString()));
+  }
+  
+  return [...new Set(ids)];
+};
+
 const splitName = (value) => {
   const normalized = String(value || "").trim();
   if (!normalized) return { firstName: "", lastName: "" };
@@ -84,11 +106,11 @@ const ensureBookableAppointment = async (doctorId, userId) => {
   const [platformDoctor, hospitalDoctor, existing] = await Promise.all([
     Doctor.findById(doctorId),
     HospitalStaff.findOne({ _id: doctorId, role: "DOCTOR" }),
-    Appointment.findOne({
-      doctor: doctorId,
+    getLinkedDoctorIds(doctorId).then(ids => Appointment.findOne({
+      doctor: { $in: ids },
       user: userId,
       status: { $in: ["queued", "active"] },
-    }),
+    })),
   ]);
 
   const doctor = platformDoctor || hospitalDoctor;
@@ -98,8 +120,9 @@ const ensureBookableAppointment = async (doctorId, userId) => {
   }
 
   if (existing) {
+    const allIds = await getLinkedDoctorIds(doctorId);
     const pendingCount = await Appointment.countDocuments({
-      doctor: doctorId,
+      doctor: { $in: allIds },
       status: "queued",
     });
     return {
@@ -183,6 +206,7 @@ const mapActiveAppointment = (appointment) => {
 };
 
 const buildDoctorQueuePayload = async (doctorId) => {
+  const allIds = await getLinkedDoctorIds(doctorId);
   const redis = getRedis();
   const cached = await redis.get(queueCacheKey(doctorId));
   if (cached) {
@@ -190,10 +214,10 @@ const buildDoctorQueuePayload = async (doctorId) => {
   }
 
   const [queuedAppointments, activeAppointment] = await Promise.all([
-    Appointment.find({ doctor: doctorId, status: "queued" })
+    Appointment.find({ doctor: { $in: allIds }, status: "queued" })
       .sort({ createdAt: 1 })
       .populate("user", "firstName lastName email triageProfile"),
-    Appointment.findOne({ doctor: doctorId, status: "active" })
+    Appointment.findOne({ doctor: { $in: allIds }, status: "active" })
       .sort({ startedAt: 1 })
       .populate("user", "firstName lastName email triageProfile")
       .lean(),
@@ -220,7 +244,10 @@ const emitQueueUpdates = async (doctorId) => {
   if (!io) return;
 
   const payload = await buildDoctorQueuePayload(doctorId);
-  io.to(`doctor:${doctorId}`).emit("appointment:queue-updated", payload);
+  const allIds = await getLinkedDoctorIds(doctorId);
+  allIds.forEach(id => {
+    io.to(`doctor:${id}`).emit("appointment:queue-updated", payload);
+  });
 
   payload.queue.forEach((appointment, index) => {
     io.to(`user:${appointment.user._id}`).emit("appointment:user-status", {
@@ -347,10 +374,10 @@ const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes
       endedReason,
     };
     io.to(`appointment:${appointmentId}`).emit("appointment:ended", endedPayload);
-    io.to(`doctor:${appointment.doctor.toString()}`).emit(
-      "appointment:ended",
-      endedPayload,
-    );
+    const allDocIds = await getLinkedDoctorIds(appointment.doctor);
+    allDocIds.forEach(id => {
+      io.to(`doctor:${id}`).emit("appointment:ended", endedPayload);
+    });
     io.to(`user:${appointment.user.toString()}`).emit("appointment:ended", endedPayload);
   }
 
@@ -485,12 +512,14 @@ const createQueuedAppointmentFromDemoBooking = async ({
   return { appointment, queuePosition };
 };
 
-const queuePositionForAppointment = async (appointment) =>
-  (await Appointment.countDocuments({
-    doctor: appointment.doctor,
+const queuePositionForAppointment = async (appointment) => {
+  const allIds = await getLinkedDoctorIds(appointment.doctor);
+  return (await Appointment.countDocuments({
+    doctor: { $in: allIds },
     status: "queued",
     createdAt: { $lte: appointment.createdAt },
   })) || 1;
+};
 
 const clearLinkedOpdCache = async (token) => {
   if (!token) return;
@@ -637,8 +666,9 @@ const refundAppointmentPayment = async (req, res) => {
     return res.status(404).json({ message: "Appointment not found" });
   }
 
+  const allIds = await getLinkedDoctorIds(req.auth.id);
   const isDoctor =
-    req.auth.role === "doctor" && appointment.doctor.toString() === req.auth.id.toString();
+    req.auth.role === "doctor" && allIds.includes(appointment.doctor.toString());
   const isUser =
     req.auth.role === "user" && appointment.user.toString() === req.auth.id.toString();
   if (!isDoctor && !isUser) {
@@ -797,8 +827,9 @@ const bookAppointment = async (req, res) => {
 
   await emitQueueUpdates(doctorId);
 
+  const allIds = await getLinkedDoctorIds(doctorId);
   const pendingCount = await Appointment.countDocuments({
-    doctor: doctorId,
+    doctor: { $in: allIds },
     status: "queued",
     createdAt: { $lte: appointment.createdAt },
   });
@@ -843,8 +874,9 @@ const getDoctorPendingStatus = async (req, res) => {
     return res.status(404).json({ message: "Doctor not found" });
   }
 
+  const allIds = await getLinkedDoctorIds(doctorId);
   const pendingCount = await Appointment.countDocuments({
-    doctor: doctorId,
+    doctor: { $in: allIds },
     status: "queued",
   });
 
@@ -856,7 +888,7 @@ const getDoctorPendingStatus = async (req, res) => {
 
   if (req.auth.role === "user") {
     const myAppointment = await Appointment.findOne({
-      doctor: doctorId,
+      doctor: { $in: allIds },
       user: req.auth.id,
       status: { $in: ["queued", "active"] },
     }).sort({ createdAt: 1 });
@@ -898,7 +930,7 @@ const getUserAppointmentHistory = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(doctorId)) {
       return res.status(400).json({ message: "Invalid doctor id" });
     }
-    query.doctor = doctorId;
+    query.doctor = { $in: await getLinkedDoctorIds(doctorId) };
   }
 
   const appointmentsRaw = await Appointment.find(query)
@@ -930,7 +962,8 @@ const updateDoctorNotes = async (req, res) => {
     return res.status(404).json({ message: "Appointment not found" });
   }
 
-  if (appointment.doctor.toString() !== req.auth.id.toString()) {
+  const allIds = await getLinkedDoctorIds(req.auth.id);
+  if (!allIds.includes(appointment.doctor.toString())) {
     return res.status(403).json({ message: "You cannot update this appointment" });
   }
 
@@ -971,7 +1004,8 @@ const generateAppointmentReceipt = async (req, res) => {
     return res.status(404).json({ message: "Appointment not found" });
   }
 
-  if (appointment.doctor._id.toString() !== req.auth.id.toString()) {
+  const allIds = await getLinkedDoctorIds(req.auth.id);
+  if (!allIds.includes(appointment.doctor._id.toString())) {
     return res.status(403).json({ message: "You cannot generate receipt for this appointment" });
   }
 
@@ -1018,7 +1052,7 @@ const getAppointmentById = async (req, res) => {
 
   const doctorAccess =
     req.auth.role === "doctor" &&
-    appointment.doctor?._id?.toString() === req.auth.id.toString();
+    (await getLinkedDoctorIds(req.auth.id)).includes(appointment.doctor?._id?.toString());
   const userAccess =
     req.auth.role === "user" &&
     appointment.user?._id?.toString() === req.auth.id.toString();
@@ -1062,7 +1096,8 @@ const startAppointment = async (req, res) => {
     return res.status(404).json({ message: "Appointment not found" });
   }
 
-  if (appointment.doctor.toString() !== req.auth.id.toString()) {
+  const allIds = await getLinkedDoctorIds(req.auth.id);
+  if (!allIds.includes(appointment.doctor.toString())) {
     return res.status(403).json({ message: "You cannot start this appointment" });
   }
 
@@ -1071,7 +1106,7 @@ const startAppointment = async (req, res) => {
   }
 
   const firstInQueue = await Appointment.findOne({
-    doctor: req.auth.id,
+    doctor: { $in: allIds },
     status: "queued",
   }).sort({ createdAt: 1 });
 
@@ -1122,6 +1157,10 @@ const startAppointment = async (req, res) => {
       endsAt: new Date(appointment.startedAt.getTime() + APPOINTMENT_DURATION_MS),
     };
     io.to(`appointment:${appointmentId}`).emit("appointment:started", payload);
+    const allDocIds = await getLinkedDoctorIds(appointment.doctor);
+    allDocIds.forEach(id => {
+      io.to(`doctor:${id}`).emit("appointment:started", payload);
+    });
     // FIXED: The doctor was receiving the patient-facing "join meeting" notification after starting the appointment.
     io.to(`user:${appointment.user.toString()}`).emit("appointment:started", payload);
   }
@@ -1149,7 +1188,8 @@ const endAppointment = async (req, res) => {
   if (!appointment) {
     return res.status(404).json({ message: "Appointment not found" });
   }
-  if (appointment.doctor.toString() !== req.auth.id.toString()) {
+  const allIds = await getLinkedDoctorIds(req.auth.id);
+  if (!allIds.includes(appointment.doctor.toString())) {
     return res.status(403).json({ message: "You cannot end this appointment" });
   }
   if (appointment.status !== "active") {

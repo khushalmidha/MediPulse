@@ -242,7 +242,7 @@ const DoctorsProfile = () => {
                 </div>
 
                 <div className='flex flex-wrap gap-2'>
-                  {role === 'user' && (
+                  {(!role || role === 'user') && (
                     <>
                       {doctor?.sourceType === "hospital" ? (
                         <>
@@ -255,7 +255,7 @@ const DoctorsProfile = () => {
                           </button>
                           <button
                             type='button'
-                            onClick={() => navigate(`/appointment/book/${doctor._id}`)}
+                            onClick={handleBookAppointment}
                             className='inline-flex items-center rounded-md border border-red-600 px-4 py-2 text-red-600 hover:bg-red-50 dark:text-red-500 dark:border-red-500 dark:hover:bg-slate-900'>
                             <Video className='mr-2 h-4 w-4' />
                             Book Video Consult
@@ -264,7 +264,7 @@ const DoctorsProfile = () => {
                       ) : (
                         <button
                           type='button'
-                          onClick={() => navigate(`/appointment/book/${doctor._id}`)}
+                          onClick={handleBookAppointment}
                           className='inline-flex items-center rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700'>
                           <Video className='mr-2 h-4 w-4' />
                           Book Video Consult
