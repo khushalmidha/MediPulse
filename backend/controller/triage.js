@@ -13,16 +13,16 @@ import {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const TRIAGE_TTL_SECONDS = 30 * 60;
-const MAX_TOOL_ITERATIONS = 3;
+const MAX_TOOL_ITERATIONS = 2;
 const MAX_PATIENT_MESSAGES = 10;
 
-const conversationKey = (userId) => `triage:conv:${userId}`;
+const conversationKey = (appointmentId) => `triage:conv:${appointmentId}`;
 
 const systemPrompt = (patientContext) => `You are a pre-consultation medical triage assistant for MediPulse. 
 You are talking to a patient before their telemedicine appointment.
 
 Your job:
-1. Ask 4-5 focused questions to understand their main complaint, symptom duration, severity (1-10), and any relevant medical history
+1. Ask 2-3 focused questions to understand their main complaint, symptom duration, severity (1-10), and any relevant medical history
 2. Ask one question at a time. Be empathetic but concise.
 3. After gathering enough information, call the classify_urgency tool, then call generate_patient_brief tool
 4. If urgency is EMERGENCY, immediately tell the patient to seek emergency care (ER / call 112) before completing the brief
@@ -77,21 +77,30 @@ const readConversation = async (userId) => {
   return raw ? JSON.parse(raw) : null;
 };
 
-const saveConversation = async (userId, state) => {
+const saveConversation = async (appointmentId, state) => {
   await getRedis().set(
-    conversationKey(userId),
+    conversationKey(appointmentId),
     JSON.stringify(state),
     "EX",
     TRIAGE_TTL_SECONDS,
   );
 };
 
-const loadAuthorizedQueuedAppointment = async (userId) => {
+import Appointment from "../model/appointment.js";
+
+const loadAuthorizedQueuedAppointment = async (userId, appointmentId) => {
   const user = await User.findById(userId);
   if (!user) {
     return { status: 404, message: "User not found" };
   }
-  return { user };
+  const appointment = await Appointment.findOne({ _id: appointmentId, user: userId });
+  if (!appointment) {
+    return { status: 404, message: "Appointment not found" };
+  }
+  if (appointment.status !== "queued") {
+    return { status: 400, message: "Triage is only available for queued appointments" };
+  }
+  return { user, appointment };
 };
 
 const fallbackFirstQuestion = (context) =>
@@ -120,7 +129,7 @@ const forceCompleteFromHistory = async (state) => {
 
 const getFallbackResponse = async (state) => {
   const patientTurns = state.messages.filter((message) => message.role === "patient").length;
-  if (patientTurns >= 4) {
+  if (patientTurns >= 3) {
     return {
       text: "Thanks. I have enough information to prepare your doctor summary.",
       brief: await forceCompleteFromHistory(state),
@@ -224,7 +233,8 @@ const startTriage = async (req, res) => {
     }
 
     const userId = req.auth.id;
-    const access = await loadAuthorizedQueuedAppointment(userId);
+    const { appointmentId } = req.params;
+    const access = await loadAuthorizedQueuedAppointment(userId, appointmentId);
     if (access.status) return res.status(access.status).json({ message: access.message });
 
     const patientContext = await getPatientContext({ userId });
@@ -252,7 +262,7 @@ const startTriage = async (req, res) => {
 
     state.contents.push({ role: "model", parts: [{ text: question }] });
     state.messages.push({ role: "agent", text: question });
-    await saveConversation(userId, state);
+    await saveConversation(appointmentId, state);
 
     return res.status(200).json({
       message: question,
@@ -274,16 +284,17 @@ const sendMessage = async (req, res) => {
       return res.status(403).json({ message: "Only patients can use triage" });
     }
     const userId = req.auth.id;
+    const { appointmentId } = req.params;
     const { message = "" } = req.body;
     const trimmed = message.trim();
     if (!trimmed) {
       return res.status(400).json({ message: "Message is required" });
     }
 
-    const access = await loadAuthorizedQueuedAppointment(userId);
+    const access = await loadAuthorizedQueuedAppointment(userId, appointmentId);
     if (access.status) return res.status(access.status).json({ message: access.message });
 
-    let state = await readConversation(userId);
+    let state = await readConversation(appointmentId);
     if (!state) {
       const patientContext = await getPatientContext({ userId });
       state = {
@@ -323,7 +334,7 @@ const sendMessage = async (req, res) => {
       };
     }
 
-    await saveConversation(userId, state);
+    await saveConversation(appointmentId, state);
 
     return res.status(200).json({
       message: state.sessionExpired
@@ -347,10 +358,11 @@ const completeTriage = async (req, res) => {
       return res.status(403).json({ message: "Only patients can complete triage" });
     }
     const userId = req.auth.id;
-    const access = await loadAuthorizedQueuedAppointment(userId);
+    const { appointmentId } = req.params;
+    const access = await loadAuthorizedQueuedAppointment(userId, appointmentId);
     if (access.status) return res.status(access.status).json({ message: access.message });
 
-    const state = await readConversation(userId);
+    const state = await readConversation(appointmentId);
     if (!state?.brief) {
       return res.status(400).json({ message: "Patient brief is not ready yet" });
     }
@@ -407,16 +419,16 @@ const completeTriage = async (req, res) => {
       predictedDisease,
     };
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { triageProfile },
+    const appointment = await Appointment.findByIdAndUpdate(
+      appointmentId,
+      { patientBrief: triageProfile },
       { new: true },
     );
-    await getRedis().del(conversationKey(userId));
+    await getRedis().del(conversationKey(appointmentId));
 
     return res.status(200).json({
       message: "Your doctor now has your health summary.",
-      patientBrief: user.triageProfile,
+      patientBrief: appointment.patientBrief,
     });
   } catch (error) {
     console.error("Triage complete failed:", error.message);

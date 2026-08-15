@@ -59,8 +59,7 @@ function App() {
         <Route path="/hospital/staff-communication" element={<StaffCommunication />} />
         <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
         <Route path="/review" element={<ReviewVisit />} />
-        <Route path="/opd/triage" element={<OpdTriage />} />
-        <Route path="/triage/:doctorId" element={<OpdTriage />} />
+        <Route path="/triage/:appointmentId" element={<OpdTriage />} />
         <Route path="/health-records" element={<PatientHealthPortal />} />
         <Route path="/hospitals" element={<HospitalsListPage />} />
         <Route path="/hospitals/:slug" element={<HospitalByPath />} />

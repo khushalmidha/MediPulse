@@ -206,7 +206,7 @@ const DoctorAppointments = () => {
             <p className="mt-3 text-sm text-gray-600">
               This call auto-ends in 5 minutes if you do not end it manually.
             </p>
-            <PatientBriefCard brief={queueData.activeAppointment.user?.triageProfile} />
+            <PatientBriefCard brief={queueData.activeAppointment.patientBrief} />
             <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
               <div>
                 <AppointmentVideoCall
@@ -276,7 +276,7 @@ const DoctorAppointments = () => {
                     <p className="text-sm text-gray-500">
                       Booked at {new Date(appointment.createdAt).toLocaleTimeString()}
                     </p>
-                    {appointment.user?.triageProfile ? (
+                    {appointment.patientBrief ? (
                       <p className="mt-1 text-sm font-medium text-green-700">
                         AI patient brief ready
                       </p>

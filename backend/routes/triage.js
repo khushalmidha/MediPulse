@@ -4,8 +4,8 @@ import { completeTriage, sendMessage, startTriage } from "../controller/triage.j
 
 const triageRouter = Router();
 
-triageRouter.get("/start", validateUser, startTriage);
-triageRouter.post("/message", validateUser, sendMessage);
-triageRouter.post("/complete", validateUser, completeTriage);
+triageRouter.get("/start/:appointmentId", validateUser, startTriage);
+triageRouter.post("/message/:appointmentId", validateUser, sendMessage);
+triageRouter.post("/complete/:appointmentId", validateUser, completeTriage);
 
 export default triageRouter;

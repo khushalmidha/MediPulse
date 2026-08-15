@@ -144,8 +144,7 @@ const AppointmentBooking = () => {
         { withCredentials: true },
       );
 
-      setMessage(response.data.message);
-      await Promise.all([fetchStatus(), fetchHistory()]);
+      navigate(`/triage/${response.data.appointment._id}`);
     } catch (error) {
       setMessage(
         error.response?.data?.message ||
@@ -413,7 +412,7 @@ const AppointmentBooking = () => {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setTriageOpen(true)}
+                      onClick={() => navigate(`/triage/${myAppointment._id}`)}
                       className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                     >
                       Prepare for Appointment →

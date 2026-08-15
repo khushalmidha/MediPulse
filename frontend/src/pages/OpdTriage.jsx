@@ -12,7 +12,7 @@ const OpdTriage = () => {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [isCompleting, setIsCompleting] = useState(false);
-  const { doctorId } = useParams();
+  const { appointmentId } = useParams();
   const navigate = useNavigate();
 
   const currentAgentMessage = messages.slice().reverse().find(m => m.role === "agent")?.text || "";
@@ -21,7 +21,7 @@ const OpdTriage = () => {
     setLoading(true);
     setMessage("");
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/triage/start`, { withCredentials: true });
+      const response = await axios.get(`${BACKEND_URL}/api/triage/start/${appointmentId}`, { withCredentials: true });
       setMessages([{ role: "agent", text: response.data.message }]);
       setBrief(response.data.patientBrief || null);
       setStep(1);
@@ -39,7 +39,7 @@ const OpdTriage = () => {
   const completeTriage = async () => {
     setIsCompleting(true);
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/triage/complete`, {}, { withCredentials: true });
+      const response = await axios.post(`${BACKEND_URL}/api/triage/complete/${appointmentId}`, {}, { withCredentials: true });
       setBrief(response.data.patientBrief);
     } catch (error) {
       setMessage(error.response?.data?.message || "Unable to complete triage");
@@ -57,7 +57,7 @@ const OpdTriage = () => {
     setLoading(true);
     
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/triage/message`, { message: text }, { withCredentials: true });
+      const response = await axios.post(`${BACKEND_URL}/api/triage/message/${appointmentId}`, { message: text }, { withCredentials: true });
       setMessages((current) => [...current, { role: "agent", text: response.data.message }]);
       if (response.data.isBriefReady) {
         completeTriage();
@@ -110,15 +110,11 @@ const OpdTriage = () => {
 
             <button 
               onClick={() => {
-                if (doctorId) {
-                  navigate(`/appointment/book/${doctorId}`);
-                } else {
-                  navigate("/doctors");
-                }
+                navigate(-1);
               }}
               className="w-full flex items-center justify-center gap-2 bg-red-600 dark:bg-red-700 hover:bg-blue-700 text-white font-bold text-lg py-4 px-8 rounded-2xl transition-all hover:shadow-lg hover:shadow-red-500/30"
             >
-              Proceed to Booking <ArrowRight />
+              Return to Queue <ArrowRight />
             </button>
           </div>
         </div>
@@ -152,11 +148,7 @@ const OpdTriage = () => {
               </div>
               <button 
                 onClick={() => {
-                  if (doctorId) {
-                    navigate(`/appointment/book/${doctorId}`);
-                  } else {
-                    navigate("/doctors");
-                  }
+                  navigate(-1);
                 }}
                 className="inline-flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors"
               >

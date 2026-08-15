@@ -75,7 +75,7 @@ const DoctorsProfile = () => {
   }
 
   const handleBookAppointment = () => {
-    navigate(`/triage/${doctor._id}`)
+    navigate(`/appointment/book/${doctor._id}`)
   }
 
   const getGoogleMapsUrl = () => {
