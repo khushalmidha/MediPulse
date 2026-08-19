@@ -162,21 +162,7 @@ const issueToken = async (req, res) => {
     { new: true, upsert: true }
   );
   
-  // MIGRATION FIX: If sequence just started (seq=1), but old tokens exist for today (from before OpdSequence was introduced)
-  if (sequence.seq === 1) {
-    const existingMax = await OpdToken.findOne({ doctorId, date: { $gte: start, $lt: end } })
-      .sort({ tokenNumber: -1 })
-      .select("tokenNumber")
-      .lean();
-      
-    if (existingMax && existingMax.tokenNumber >= 1) {
-      sequence = await OpdSequence.findOneAndUpdate(
-        { hospitalId, doctorId, date: dateStr },
-        { $set: { seq: existingMax.tokenNumber + 1 } },
-        { new: true }
-      );
-    }
-  }
+
   const tokenNumber = sequence.seq;
   const queueAhead = await OpdToken.countDocuments({
     doctorId,

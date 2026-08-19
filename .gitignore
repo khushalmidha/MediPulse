@@ -35,3 +35,7 @@ mlruns/
 mlflow.db
 medipulse-ranking-engine/venv/
 disease_model.pkl
+
+# Python
+__pycache__/
+*.pyc

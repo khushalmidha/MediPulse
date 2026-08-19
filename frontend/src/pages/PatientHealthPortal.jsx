@@ -86,22 +86,7 @@ const PatientHealthPortal = () => {
           {message && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{message}</p>}
         </section>
 
-        {!user?.triageProfile?.agentSummary && (
-          <section className="rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-blue-950">Complete your health triage</h2>
-            <p className="mt-2 text-sm text-blue-800">
-              Set up your baseline medical profile before booking an appointment. Our AI assistant will ask a few quick questions to prepare a summary for your future doctors.
-            </p>
-            <div className="mt-4">
-              <Link
-                to="/opd/triage"
-                className="inline-flex rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
-              >
-                Start Triage Profile →
-              </Link>
-            </div>
-          </section>
-        )}
+
 
         <section className="grid gap-4 md:grid-cols-3">
           {[

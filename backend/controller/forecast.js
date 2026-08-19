@@ -44,13 +44,28 @@ export const generateBedForecast = async (req, res) => {
     const hospital = await Hospital.findById(hospitalId);
     if (!hospital) return res.status(404).json({ message: "Hospital not found" });
 
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const opdCounts = await OpdToken.aggregate([
+      { $match: { hospitalId: hospital._id, date: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: "$departmentId", count: { $sum: 1 } } }
+    ]);
     const depts = await Department.find({ hospitalId }).lean();
+    const deptStats = depts.map(d => {
+      const stat = opdCounts.find(c => String(c._id) === String(d._id));
+      return `${d.name} (${stat ? stat.count : 0} recent visits)`;
+    }).join(", ") || "General";
     const deptNames = depts.map(d => d.name).join(", ") || "General";
 
     const prompt = `You are an AI forecasting model for a hospital management system. 
 Hospital Name: ${hospital.name}
-Departments: ${deptNames}
+Departments & Recent 30-Day OPD Volume: ${deptStats}
 City: ${hospital.address?.city || "Unknown"}
+Recent 30-Day Total OPD Volume: ${opdVolume} visits
+
+Ground your forecast scale to match the real recent hospital volume.
+
+Ground your forecast in the real 30-day OPD volume provided above.
 
 Analyze seasonal trends and general healthcare patterns for these departments.
 Predict the bed demand for the upcoming month.
@@ -94,6 +109,9 @@ export const generateBloodForecast = async (req, res) => {
     const hospital = await Hospital.findById(hospitalId);
     if (!hospital) return res.status(404).json({ message: "Hospital not found" });
 
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const opdVolume = await OpdToken.countDocuments({ hospitalId: hospital._id, date: { $gte: thirtyDaysAgo } });
     const prompt = `You are an AI forecasting model for a hospital blood bank. 
 Hospital Name: ${hospital.name}
 City: ${hospital.address?.city || "Unknown"}

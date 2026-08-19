@@ -63,23 +63,6 @@ const userSchema = new mongoose.Schema(
 				bloodGroup: String,
 			},
 		],
-		triageProfile: {
-			chiefComplaint: String,
-			symptomDuration: String,
-			severity: {
-				type: String,
-				enum: ["mild", "moderate", "severe"],
-			},
-			relevantHistory: String,
-			urgencyLevel: {
-				type: String,
-				enum: ["ROUTINE", "URGENT", "EMERGENCY"],
-			},
-			agentSummary: String,
-			generatedAt: Date,
-			conversationTurns: Number,
-			predictedDisease: String,
-		},
 	},
 	{
 		timestamps: true,

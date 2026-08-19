@@ -199,6 +199,19 @@ export const getOpdTokenAiContext = async (req, res) => {
   }
 };
 
+/**
+ * ARCHITECTURAL NOTE: Asymmetric AI Copilot Systems
+ * 
+ * We intentionally maintain two asymmetric AI copilot systems:
+ * 1. Telehealth (Appointment) Copilot: Uses a full, autonomous tool-calling Gemini agent 
+ *    (drug-safety, red-flag checks, auto-SOAP) because remote doctors lack direct physical 
+ *    examination capabilities and need extensive automated safeguards.
+ * 2. Physical OPD (OpdToken) Copilot (Implemented here): Uses a simpler, single-shot 
+ *    generation pattern without autonomous tools or auto-SOAP. 
+ *    Reasoning: Physical hospital consultations involve direct examinations where doctors 
+ *    rely on their native EMRs. The AI acts only as a quick reference/second-opinion tool 
+ *    to reduce latency and token cost for high-volume physical OPD traffic.
+ */
 export const askDoctorCopilot = async (req, res) => {
   try {
     const token = await OpdToken.findOne({ _id: req.params.tokenId, hospitalId: req.staff.hospitalId });

@@ -4,7 +4,6 @@ import Appointment from "../model/appointment.js";
 import Doctor from "../model/doctor.js";
 import OpdToken from "../model/opdToken.js";
 import User from "../model/user.js";
-import SharedReport from "../model/sharedReport.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 
 
@@ -151,7 +150,7 @@ const mapQueueAppointment = (appointment) => ({
         firstName: appointment.user.firstName,
         lastName: appointment.user.lastName,
         email: appointment.user.email,
-        triageProfile: appointment.user.triageProfile,
+
       }
     : null,
 });
@@ -199,7 +198,7 @@ const mapActiveAppointment = (appointment) => {
           firstName: appointment.user.firstName,
           lastName: appointment.user.lastName,
           email: appointment.user.email,
-          triageProfile: appointment.user.triageProfile,
+
         }
       : null,
   };
@@ -216,10 +215,10 @@ const buildDoctorQueuePayload = async (doctorId) => {
   const [queuedAppointments, activeAppointment] = await Promise.all([
     Appointment.find({ doctor: { $in: allIds }, status: "queued" })
       .sort({ createdAt: 1 })
-      .populate("user", "firstName lastName email triageProfile"),
+      .populate("user", "firstName lastName email "),
     Appointment.findOne({ doctor: { $in: allIds }, status: "active" })
       .sort({ startedAt: 1 })
-      .populate("user", "firstName lastName email triageProfile")
+      .populate("user", "firstName lastName email ")
       .lean(),
   ]);
 
@@ -325,7 +324,7 @@ const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes
       const generated = await generateSoapNote({
         transcript: transcript || "",
         doctorNotes: appointment.doctorNotes || "",
-        patientBrief: appointment.user?.triageProfile || null,
+        
         agentInsights: storedSuggestions.map((suggestion) => suggestion.message),
       });
 
@@ -702,7 +701,7 @@ const refundAppointmentPayment = async (req, res) => {
     await emitQueueUpdates(appointment.doctor.toString());
 
     const populated = await Appointment.findById(appointment._id)
-      .populate("user", "firstName lastName email triageProfile")
+      .populate("user", "firstName lastName email ")
       .lean();
     await populateDoctorForAppointments([populated]);
 
@@ -935,7 +934,7 @@ const getUserAppointmentHistory = async (req, res) => {
 
   const appointmentsRaw = await Appointment.find(query)
     .sort({ createdAt: -1 })
-    .populate("user", "firstName lastName email triageProfile")
+    .populate("user", "firstName lastName email ")
     .lean();
   
   const appointments = await populateDoctorForAppointments(appointmentsRaw);
@@ -1218,63 +1217,9 @@ const endAppointment = async (req, res) => {
   });
 };
 
-const uploadSharedReport = async (req, res) => {
-  if (req.auth.role !== "user") {
-    return res.status(403).json({ message: "Only patients can upload reports" });
-  }
 
-  const { doctorId, fileUrl, title } = req.body;
-  if (!doctorId || !fileUrl || !title) {
-    return res.status(400).json({ message: "doctorId, fileUrl, and title are required" });
-  }
 
-  const hasCompletedAppointment = await Appointment.exists({
-    user: req.auth.id,
-    doctor: doctorId,
-    status: "completed"
-  });
 
-  if (!hasCompletedAppointment) {
-    return res.status(403).json({ message: "You can only share reports with doctors you have had a completed appointment with" });
-  }
-
-  try {
-    const report = await SharedReport.create({
-      patientId: req.auth.id,
-      doctorId,
-      fileUrl,
-      title,
-    });
-
-    return res.status(201).json({ message: "Report shared successfully", report });
-  } catch (error) {
-    return res.status(500).json({ message: "Failed to upload report", error: error.message });
-  }
-};
-
-const getSharedReports = async (req, res) => {
-  const query = {};
-  if (req.auth.role === "user") {
-    query.patientId = req.auth.id;
-    if (req.query.doctorId) query.doctorId = req.query.doctorId;
-  } else if (req.auth.role === "doctor") {
-    query.doctorId = req.auth.id;
-    if (req.query.patientId) query.patientId = req.query.patientId;
-  } else {
-    return res.status(403).json({ message: "Unauthorized role" });
-  }
-
-  try {
-    const reports = await SharedReport.find(query)
-      .sort({ uploadedAt: -1 })
-      .populate("patientId", "firstName lastName")
-      .populate("doctorId", "firstName lastName");
-
-    return res.status(200).json(reports);
-  } catch (error) {
-    return res.status(500).json({ message: "Failed to fetch reports", error: error.message });
-  }
-};
 
 export {
   APPOINTMENT_DURATION_MS,
@@ -1291,6 +1236,6 @@ export {
   startAutoRefundWorker,
   updateDoctorNotes,
   verifyAppointmentOtp,
-  uploadSharedReport,
-  getSharedReports,
+
 };
+

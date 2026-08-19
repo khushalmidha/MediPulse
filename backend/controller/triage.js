@@ -138,8 +138,7 @@ const getFallbackResponse = async (state) => {
   const questions = [
     "How long have you had these symptoms?",
     "On a scale of 1 to 10, how severe is it right now?",
-    "Do you have any relevant medical history or ongoing condition?",
-    "Is there anything that makes the symptom better or worse?",
+    "Do you have any relevant medical history?",
   ];
   return { text: questions[Math.min(patientTurns, questions.length - 1)] };
 };
