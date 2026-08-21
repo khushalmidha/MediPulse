@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import { BACKEND_URL } from "../utils";
-
+import { useNavigate } from "react-router-dom";
 
 const EditProfile = () => {
-  const { user, role } = useAuth();
+  const { user, role, setUser } = useAuth();
+  const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
     firstName: "",
@@ -68,11 +69,11 @@ const EditProfile = () => {
 
       const endpoint = role === "doctor" ? `${BACKEND_URL}/doctor` : `${BACKEND_URL}/user`;
       
-      await axios.put(endpoint, payload, { withCredentials: true });
+      const res = await axios.put(endpoint, payload, { withCredentials: true });
+      if (res.data) setUser(res.data);
       alert("Profile updated successfully");
       
-      // Optionally, reload to refresh user context
-      window.location.reload();
+      navigate(-1);
     } catch (error) {
       alert(error.response?.data?.message || "Failed to update profile");
     } finally {
