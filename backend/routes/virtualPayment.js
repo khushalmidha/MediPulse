@@ -1,3 +1,4 @@
+import { nosqlGuard } from "../middleware/nosqlGuard.js";
 import { Router } from "express";
 import userValidation from "../middleware/validateUser.js";
 import {
@@ -21,12 +22,9 @@ import {
 
 const virtualPaymentRouter = Router();
 
-import { nosqlGuard } from "../middleware/nosqlGuard.js";
 
 virtualPaymentRouter.use(nosqlGuard);
 
-}
-});
 
 virtualPaymentRouter.get("/wallet/dashboard", userValidation, getWalletDashboard);
 virtualPaymentRouter.post("/wallet/topup", userValidation, topupVirtualFunds);
