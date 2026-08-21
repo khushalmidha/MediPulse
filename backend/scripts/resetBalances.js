@@ -7,7 +7,7 @@ dotenv.config();
 
 const resetBalances = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.DATABASE_URL);
     console.log("Connected to MongoDB for balance migration.");
 
     // Find all user wallets that might have been initialized with 5000 instead of 500.
