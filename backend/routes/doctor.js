@@ -6,7 +6,7 @@ import {
   resetPasswordWithOtp,
   sendPasswordResetOtp,
 } from "../controller/auth.js";
-import { getDoctorById, getAllDoctors, deleteDoctorById, getDoctorHospitals } from "../controller/doctor.js";
+import { getDoctorById, getAllDoctors, deleteDoctorById, getDoctorHospitals, updateDoctorData } from "../controller/doctor.js";
 import userValidation from "../middleware/validateUser.js";
 
 const doctorRouter = Router();
@@ -21,6 +21,6 @@ doctorRouter.get("/:id/hospitals", getDoctorHospitals);
 doctorRouter.get("/:id", getDoctorById);
 doctorRouter.delete("/:id", userValidation, deleteDoctorById);
 doctorRouter.get("/", getAllDoctors);
-
+doctorRouter.put("/", userValidation, updateDoctorData);
 
 export default doctorRouter;

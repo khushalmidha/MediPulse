@@ -249,15 +249,15 @@ const Navbar = () => {
   ]
 
   const userNavLinks = [
-    { to: '/dashboard', label: 'Dashboard' },
-    ...(role !== 'doctor' ? [{ to: '/my-appointments', label: 'My Appointments', badge: appointmentBadge }] : []),
+    ...(isAuth ? [{ to: '/dashboard', label: 'Dashboard' }] : []),
+    ...(isAuth && role !== 'doctor' ? [{ to: '/my-appointments', label: 'My Appointments', badge: appointmentBadge }] : []),
     { to: '/doctors', label: 'Doctors' },
     { to: '/hospitals', label: 'Hospitals' },
-    { to: '/communities', label: 'Communities' },
+    ...(isAuth ? [{ to: '/communities', label: 'Communities' }] : []),
     { to: '/events', label: 'Events' },
-    { to: '/chat', label: 'Chat' },
-    ...(role === 'doctor' ? [{ to: '/doctor/appointments', label: 'Appointments', badge: appointmentBadge }] : []),
-    ...(role === 'user' ? [{ to: '/health-records', label: 'Health Records' }] : []),
+    ...(isAuth ? [{ to: '/chat', label: 'Chat' }] : []),
+    ...(isAuth && role === 'doctor' ? [{ to: '/doctor/appointments', label: 'Appointments', badge: appointmentBadge }] : []),
+    ...(isAuth && role === 'user' ? [{ to: '/health-records', label: 'Health Records' }] : []),
   ]
 
   const handleLogout = () => {
@@ -380,6 +380,10 @@ const Navbar = () => {
                         </div>
                       )}
                     </div>
+                    <Link to="/profile/edit" onClick={() => setShowProfile(false)} className="flex w-full items-center border-t border-gray-100 px-4 py-3 text-left text-gray-700 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-slate-900">
+                      <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      Edit Profile
+                    </Link>
                     <button onClick={handleLogout} className="flex w-full items-center border-t border-gray-100 px-4 py-3 text-left text-red-500 hover:bg-gray-100">
                       <LogOut className="mr-2 h-4 w-4" />
                       Log out
@@ -420,6 +424,10 @@ const Navbar = () => {
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 dark:bg-red-700 text-xs font-bold text-white">{initials}</span>
                     <span className="font-medium text-gray-700">{displayName}</span>
                   </div>
+                  <Link to="/profile/edit" onClick={() => setShowMobileMenu(false)} className="flex w-full items-center px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-slate-900">
+                    <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    Edit Profile
+                  </Link>
                   <button onClick={handleLogout} className="flex w-full items-center px-3 py-2 text-left text-red-500 hover:bg-gray-50 dark:bg-slate-900">
                     <LogOut className="mr-2 h-4 w-4" />
                     Log out

@@ -398,4 +398,32 @@ const getDoctorHospitals = async (req, res) => {
 	}
 };
 
-export { getDoctorById, getAllDoctors, deleteDoctorById, getDoctorHospitals };
+export { getDoctorById, getAllDoctors, deleteDoctorById, getDoctorHospitals, updateDoctorData };
+
+
+const updateDoctorData = async (req, res) => {
+  if (!req.auth || req.auth.role !== "doctor") return res.status(401).json({ message: "Unauthorized" });
+
+  const allowedFields = ["firstName", "lastName", "bio", "gender", "phone", "experience", "clinic"];
+  const updateData = {};
+  for (const key of allowedFields) {
+    if (req.body[key] !== undefined) {
+      updateData[key] = req.body[key];
+    }
+  }
+
+  // specialty check
+  if (updateData.experience && (!updateData.experience.expertise || updateData.experience.expertise.trim() === "")) {
+      return res.status(400).json({ message: "Expertise (Specialty) is required for doctors." });
+  }
+
+  try {
+    const doctor = await Doctor.findByIdAndUpdate(req.auth.id, updateData, { new: true });
+    if (!doctor) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    return res.json(doctor);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to update profile", error: error.message });
+  }
+};

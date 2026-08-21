@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import SignUp from "./pages/SignUp";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import EditProfile from "./pages/EditProfile";
 import Chat from "./pages/Chat";
 import DoctorsProfile from "./pages/DoctorsProfile";
 import CommunityForm from "./pages/CommunityForm";
@@ -65,6 +66,7 @@ function App() {
         <Route path="/hospitals/:slug" element={<HospitalByPath />} />
         <Route path="/login" element={<Login/>} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile/edit" element={<EditProfile />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/doctorsProfile/:id" element={<DoctorsProfile />} />
         <Route path="/appointment/book/:doctorId" element={<AppointmentBooking />} />
