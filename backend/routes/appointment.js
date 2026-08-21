@@ -11,6 +11,7 @@ import {
   sendAppointmentOtp,
   startAppointment,
   updateDoctorNotes,
+  askDoctorAppointmentCopilot,
   verifyAppointmentOtp,
 
 
@@ -40,4 +41,6 @@ appointmentRouter.post("/:appointmentId/refund", userValidation, refundAppointme
 appointmentRouter.post("/:appointmentId/start", userValidation, startAppointment);
 appointmentRouter.post("/:appointmentId/end", userValidation, endAppointment);
 
+appointmentRouter.post("/:appointmentId/copilot", userValidation, askDoctorAppointmentCopilot);
 export default appointmentRouter;
+

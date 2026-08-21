@@ -21,7 +21,7 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    status: {
+    doctorCopilot: { lastPrompt: String, lastSuggestion: String, updatedAt: Date }, status: {
       type: String,
       enum: ["queued", "active", "completed", "cancelled"],
       default: "queued",

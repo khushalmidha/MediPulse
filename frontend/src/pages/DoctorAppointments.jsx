@@ -19,6 +19,26 @@ const DoctorAppointments = () => {
   const [actionMessage, setActionMessage] = useState("");
   const [doctorNotes, setDoctorNotes] = useState("");
   const [voiceConsent, setVoiceConsent] = useState(null);
+  const [aiPrompt, setAiPrompt] = useState("Suggest focused consultation questions and red flags");
+  const [aiSuggestion, setAiSuggestion] = useState("");
+  const [aiBrief, setAiBrief] = useState(null);
+
+  useEffect(() => {
+    setAiBrief(queueData.activeAppointment?.patientBrief || null);
+    setAiSuggestion(queueData.activeAppointment?.doctorCopilot?.lastSuggestion || "");
+  }, [queueData.activeAppointment]);
+
+  const askCopilot = async () => {
+    if (!queueData.activeAppointment?._id) return;
+    setActionMessage("");
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/appointment/${queueData.activeAppointment._id}/copilot`, { prompt: aiPrompt }, { withCredentials: true });
+      setAiSuggestion(response.data.suggestion);
+      setAiBrief(response.data.context?.patientBrief || aiBrief);
+    } catch (error) {
+      setActionMessage(error.response?.data?.message || "Co-pilot unavailable");
+    }
+  };
 
   useEffect(() => {
     setDoctorNotes(queueData.activeAppointment?.doctorNotes || "");
@@ -207,6 +227,12 @@ const DoctorAppointments = () => {
               This call auto-ends in 5 minutes if you do not end it manually.
             </p>
             <PatientBriefCard brief={queueData.activeAppointment.patientBrief} />
+              <div className="mt-4 rounded-lg border border-gray-200 dark:border-red-900/40 bg-gray-50 dark:bg-slate-900 p-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-slate-100">AI Co-Pilot</h3>
+                <textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} className="mt-4 min-h-24 w-full rounded-md border border-gray-300 p-3 text-sm outline-none focus:border-red-500" />
+                <button onClick={askCopilot} className="mt-3 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-gray-400">Ask Co-Pilot</button>
+                {aiSuggestion && <p className="mt-4 whitespace-pre-wrap rounded-lg bg-red-50 p-4 text-sm text-blue-950">{aiSuggestion}</p>}
+              </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
               <div>
                 <AppointmentVideoCall
@@ -387,3 +413,5 @@ const PatientBriefCard = ({ brief }) => {
 };
 
 export default DoctorAppointments;
+
+

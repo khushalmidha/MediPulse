@@ -1221,6 +1221,39 @@ const endAppointment = async (req, res) => {
 
 
 
+export const askDoctorAppointmentCopilot = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.appointmentId);
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+    if (String(appointment.doctor) !== req.auth.id) {
+      return res.status(403).json({ message: "Only assigned doctor can use co-pilot" });
+    }
+
+    const prompt = String(req.body.prompt || "Suggest focused consultation questions").trim();
+    const context = {
+      patientBrief: appointment.patientBrief,
+      status: appointment.status
+    };
+
+    let suggestion = "Review the chief complaint, ask red-flag questions, and document follow-up advice.";
+    if (process.env.GEMINI_API_KEY) {
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction: "You are a doctor co-pilot. Give concise clinical workflow support. Do not diagnose. Suggest questions, red flags, and documentation points.",
+      });
+      const result = await model.generateContent("Doctor request: " + prompt + "\nContext: " + JSON.stringify(context));
+      suggestion = result.response.text();
+    }
+
+    appointment.doctorCopilot = { lastPrompt: prompt, lastSuggestion: suggestion, updatedAt: new Date() };
+    await appointment.save();
+    res.status(200).json({ suggestion, context });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Doctor co-pilot unavailable" });
+  }
+};
 export {
   APPOINTMENT_DURATION_MS,
   bookAppointment,
@@ -1234,8 +1267,9 @@ export {
   sendAppointmentOtp,
   startAppointment,
   startAutoRefundWorker,
-  updateDoctorNotes,
+  updateDoctorNotes, askDoctorAppointmentCopilot,
   verifyAppointmentOtp,
 
 };
+
 
