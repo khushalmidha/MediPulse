@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import { BACKEND_URL } from "../utils";
-import { toast } from "react-toastify";
+
 
 const EditProfile = () => {
   const { user, role } = useAuth();
@@ -43,7 +43,7 @@ const EditProfile = () => {
     e.preventDefault();
     
     if (role === "doctor" && (!formData.expertise || formData.expertise.trim() === "")) {
-      toast.error("Expertise (Specialty) is required for doctors.");
+      alert("Expertise (Specialty) is required for doctors.");
       return;
     }
 
@@ -69,12 +69,12 @@ const EditProfile = () => {
       const endpoint = role === "doctor" ? `${BACKEND_URL}/doctor` : `${BACKEND_URL}/user`;
       
       await axios.put(endpoint, payload, { withCredentials: true });
-      toast.success("Profile updated successfully");
+      alert("Profile updated successfully");
       
       // Optionally, reload to refresh user context
       window.location.reload();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to update profile");
+      alert(error.response?.data?.message || "Failed to update profile");
     } finally {
       setSaving(false);
     }
