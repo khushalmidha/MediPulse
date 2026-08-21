@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { MapPin, Briefcase, Search, Filter, User, GraduationCap, Building, X } from 'lucide-react';
 import { BACKEND_URL } from '../utils';
@@ -8,12 +8,13 @@ const getDoctorsFromPayload = (payload) =>
   Array.isArray(payload) ? payload : payload?.items || [];
 
 const Doctors = () => {
+  const [searchParams] = useSearchParams();
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [selectedSpecialty, setSelectedSpecialty] = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState(searchParams.get('specialty') || '');
   const [sortBy, setSortBy] = useState('recommended');
   const [specialties,setSpecialities] = useState([])
 
@@ -158,7 +159,7 @@ const Doctors = () => {
               <button
                 key={specialty}
                 className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors cursor-pointer
-                  ${selectedSpecialty === specialty ? 'bg-red-100 text-blue-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                  ${selectedSpecialty?.toLowerCase() === specialty?.toLowerCase() ? 'bg-red-100 text-blue-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                 onClick={() => setSelectedSpecialty(specialty)}
               >
                 {specialty}
@@ -333,3 +334,4 @@ const Doctors = () => {
 };
 
 export default Doctors;
+
