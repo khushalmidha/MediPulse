@@ -144,7 +144,7 @@ const AppointmentBooking = () => {
         { withCredentials: true },
       );
 
-      navigate(`/triage/${response.data.appointment._id}`);
+      navigate(`/triage/${response.data.appointmentId}`);
     } catch (error) {
       setMessage(
         error.response?.data?.message ||
