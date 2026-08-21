@@ -1,3 +1,4 @@
+import { normalizeSpecialty } from '../util/normalizeSpecialty.js';
 import Community from "../model/community.js";
 import Doctor from "../model/doctor.js";
 import HospitalStaff from "../model/hospitalStaff.js";
@@ -414,6 +415,12 @@ const updateDoctorData = async (req, res) => {
 
   // specialty check
   if (updateData.experience && (!updateData.experience.expertise || updateData.experience.expertise.trim() === "")) {
+        return res.status(400).json({ message: "Expertise (Specialty) is required for doctors." });
+    }
+    if (updateData.experience && updateData.experience.expertise) {
+        updateData.experience.expertise = normalizeSpecialty(updateData.experience.expertise);
+    }
+    if (false) {
       return res.status(400).json({ message: "Expertise (Specialty) is required for doctors." });
   }
 
@@ -427,3 +434,5 @@ const updateDoctorData = async (req, res) => {
     return res.status(500).json({ message: "Failed to update profile", error: error.message });
   }
 };
+
+

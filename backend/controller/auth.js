@@ -1,3 +1,4 @@
+import { normalizeSpecialty } from '../util/normalizeSpecialty.js';
 import User from "../model/user.js";
 import Doctor from "../model/doctor.js";
 import { createSecret } from "../util/createSecret.js";
@@ -194,7 +195,7 @@ const doctorSignup = async (req, res, next) => {
 		gender: gender,
 		experience: {
 			years: years,
-			expertise: expertise,
+			expertise: normalizeSpecialty(expertise),
 		},
 		clinic: {
 			location: clinicLocation,
@@ -292,7 +293,7 @@ const googleAuth = async (req, res) => {
 					...baseAccount,
 					experience: {
 						years: profile.years,
-						expertise: profile.expertise,
+						expertise: normalizeSpecialty(profile.expertise),
 					},
 					clinic: {
 						location: profile.clinicLocation,
@@ -657,3 +658,4 @@ export {
 	Verifier,
 	StaffVerifier,
 };
+
