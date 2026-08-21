@@ -372,7 +372,7 @@ const AppointmentBooking = () => {
               </div>
             </div>
             <div className="mt-4">
-              <AppointmentVideoCall appointmentId={myAppointment._id} />
+              <AppointmentVideoCall appointmentId={myAppointment._id} onCallEnd={() => window.location.reload()} />
             </div>
           </div>
         )}
@@ -495,3 +495,4 @@ const AppointmentBooking = () => {
 };
 
 export default AppointmentBooking;
+

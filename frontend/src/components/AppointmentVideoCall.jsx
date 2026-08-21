@@ -265,10 +265,26 @@ const AppointmentVideoCall = ({
     if (!socket.connected) socket.connect();
 
     const setupMedia = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      if (!mounted) { stream.getTracks().forEach((t) => t.stop()); return; }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      } catch (err) {
+        console.warn("Could not get video stream, falling back to audio", err);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          setIsCameraOff(true);
+        } catch (audioErr) {
+          console.error("Could not get audio stream either", audioErr);
+          const canvas = document.createElement("canvas");
+          canvas.width = 640; canvas.height = 480;
+          stream = canvas.captureStream();
+          setIsCameraOff(true);
+          setIsMuted(true);
+        }
+      }
+      if (!mounted) { stream?.getTracks().forEach((t) => t.stop()); return; }
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      if (localVideoRef.current && stream) localVideoRef.current.srcObject = stream;
     };
 
     const onPresence = async ({ appointmentId: inId, doctorJoined, patientJoined, ready }) => {
@@ -773,3 +789,4 @@ const AppointmentVideoCall = ({
 };
 
 export default AppointmentVideoCall;
+

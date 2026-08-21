@@ -214,13 +214,6 @@ const DoctorAppointments = () => {
                   {queueData.activeAppointment.user?.lastName || ""}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => endAppointment(queueData.activeAppointment._id)}
-                className="rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-              >
-                End Appointment
-              </button>
             </div>
 
             <p className="mt-3 text-sm text-gray-600">
@@ -240,6 +233,7 @@ const DoctorAppointments = () => {
                   doctorNotes={doctorNotes}
                   onConsentDetected={handleVoiceConsentDetected}
                   onSoapSaved={() => setActionMessage("SOAP note saved successfully")}
+                  onCallEnd={() => endAppointment(queueData.activeAppointment._id)}
                 />
                 {voiceConsent?.detected && (
                   <p className="mt-2 text-sm text-green-700">
@@ -413,5 +407,10 @@ const PatientBriefCard = ({ brief }) => {
 };
 
 export default DoctorAppointments;
+
+
+
+
+
 
 
