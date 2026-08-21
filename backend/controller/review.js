@@ -124,3 +124,38 @@ export const flagReview = async (req, res) => {
     res.status(500).json({ message: error.message || "Unable to flag review" });
   }
 };
+export const getGlobalReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find({ status: "published", comment: { $exists: true, $ne: "" } })
+      .populate("patientId", "firstName lastName")
+      .populate("hospitalId", "name")
+      .populate("doctorId", "name")
+      .sort({ overallRating: -1, createdAt: -1 })
+      .limit(6);
+    res.status(200).json({ reviews });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Unable to fetch global reviews" });
+  }
+};
+
+export const getPendingReview = async (req, res) => {
+  try {
+    if (req.auth.role !== "user") return res.status(200).json({ pending: null });
+    const lastToken = await OpdToken.findOne({ patientId: req.auth.id, status: "completed" })
+      .sort({ createdAt: -1 })
+      .populate("hospitalId", "name")
+      .populate("doctorId", "name");
+    
+    if (!lastToken) return res.status(200).json({ pending: null });
+    
+    const existing = await Review.findOne({ tokenId: lastToken._id, patientId: req.auth.id });
+    if (existing) return res.status(200).json({ pending: null });
+    
+    const { buildReviewUrl } = await import("../services/reviewRequestWorker.js");
+    const reviewUrl = buildReviewUrl({ tokenId: lastToken._id, patientId: req.auth.id });
+    
+    res.status(200).json({ pending: { token: lastToken, url: reviewUrl } });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Unable to fetch pending review" });
+  }
+};

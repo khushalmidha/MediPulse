@@ -118,6 +118,20 @@ const Home = () => {
   const [communityCount, setCommunityCount] = useState(0)
   const [doctorsCount, setDoctorsCount] = useState(0)
   const [targets, setTargets] = useState({ members: 10000, communities: 100, doctors: 1000, loaded: false })
+    const [reviews, setReviews] = useState([])
+  const [pendingReview, setPendingReview] = useState(null)
+
+  useEffect(() => {
+    axios.get(`/api/reviews/global`).then(res => setReviews(res.data.reviews || [])).catch(() => {})
+  }, [])
+  
+  useEffect(() => {
+    if (isAuth) {
+      axios.get(`/api/reviews/pending`, { withCredentials: true }).then(res => setPendingReview(res.data.pending)).catch(() => {})
+    } else {
+      setPendingReview(null)
+    }
+  }, [isAuth])
   const [currentSlide, setCurrentSlide] = useState(0)
   const [heroSlide, setHeroSlide] = useState(0)
   const [autoPlay, setAutoPlay] = useState(true)
@@ -189,7 +203,15 @@ const Home = () => {
   const visibleServices = SERVICES.slice(currentSlide * 4, currentSlide * 4 + 4)
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black transition-colors duration-200">
+          <div className="min-h-screen bg-white dark:bg-black transition-colors duration-200">
+        {pendingReview && (
+          <div className="bg-gradient-to-r from-red-600 to-red-500 px-4 py-3 text-white text-center flex flex-col sm:flex-row items-center justify-center gap-3 shadow-md z-50 relative">
+            <span className="font-medium">How was your visit with {pendingReview.token?.doctorId?.name || 'your doctor'} at {pendingReview.token?.hospitalId?.name}?</span>
+            <a href={pendingReview.url} className="bg-white text-red-600 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+              Rate your OPD Experience
+            </a>
+          </div>
+        )}
       {/* HERO SECTION */}
       <section className="relative flex min-h-[92vh] items-center overflow-hidden bg-slate-950">
         {HERO_SLIDES.map((slide, index) => (
@@ -331,7 +353,7 @@ const Home = () => {
             {SPECIALTIES.map((h) => {
               const Icon = h.icon
               return (
-                <Link to="/doctors" key={h.type} className="group flex flex-col items-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-white dark:bg-slate-950 dark:hover:bg-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 p-8 text-center">
+                <Link to={`/doctors?specialty=${h.type}`} key={h.type} className="group flex flex-col items-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-white dark:bg-slate-950 dark:hover:bg-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 p-8 text-center">
                   <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${h.bg} dark:bg-red-900/20 ${h.color} dark:text-red-400 mb-4 group-hover:scale-110 transition-transform duration-300`}>
                     <Icon size={30} />
                   </div>
@@ -387,25 +409,30 @@ const Home = () => {
             <p className="text-sm font-bold uppercase tracking-widest text-purple-600 dark:text-red-500 mb-3">Patient Stories</p>
             <h2 className="text-4xl font-black text-slate-900 dark:text-white">What Our Users Say</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-6 hover:shadow-lg transition-shadow duration-300">
-                <div className="flex text-yellow-500 mb-4">
-                  {[1,2,3,4,5].map(s => <Star key={s} size={18} fill="currentColor" />)}
-                </div>
-                <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed italic">&ldquo;{t.text}&rdquo;</p>
-                <div className="mt-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 font-black text-blue-700 dark:text-red-400 text-sm">
-                    {t.name[0]}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {(reviews.length > 0 ? reviews : TESTIMONIALS).map((t, i) => {
+                const name = t.isAnonymous ? "Anonymous Patient" : (t.patientId?.firstName ? t.patientId.firstName + ' ' + (t.patientId.lastName || '') : (t.name || 'MediPulse User'));
+                const text = t.comment || t.text;
+                const rating = t.overallRating || t.rating || 5;
+                const location = t.hospitalId?.name || t.city;
+                return (
+                <div key={t._id || t.name + i} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-6 hover:shadow-lg transition-shadow duration-300">
+                  <div className="flex text-yellow-500 mb-4">
+                    {[1,2,3,4,5].map(s => <Star key={s} size={18} fill={s <= rating ? "currentColor" : "none"} />)}
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-900 dark:text-white text-sm">{t.name}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{t.city}</p>
+                  <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed italic">&ldquo;{text}&rdquo;</p>
+                  <div className="mt-5 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 font-black text-blue-700 dark:text-red-400 text-sm">
+                      {name ? name[0] : 'A'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">{name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{location}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              )})}
+            </div>
         </div>
       </section>
 
@@ -429,6 +456,11 @@ const Home = () => {
 }
 
 export default Home
+
+
+
+
+
 
 
 
