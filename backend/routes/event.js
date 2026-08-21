@@ -4,7 +4,7 @@ import { createEvent, getEvents } from "../controller/event.js";
 
 const eventRouter = Router();
 
-eventRouter.get("/", userValidation, getEvents);
+eventRouter.get("/", getEvents);
 eventRouter.post("/", userValidation, createEvent);
 
 export default eventRouter;
