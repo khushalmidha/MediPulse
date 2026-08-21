@@ -72,11 +72,11 @@ const SERVICES = [
   },
 ]
 
-const HOSPITALS = [
-  { type: 'Allopathy', icon: Stethoscope, desc: 'Modern evidence-based medicine', color: 'text-red-600 dark:text-red-500', bg: 'bg-red-100' },
-  { type: 'Ayurveda', icon: Leaf, desc: 'Ancient Indian herbal healing', color: 'text-green-700', bg: 'bg-green-100' },
-  { type: 'Homeopathy', icon: Flower2, desc: 'Natural holistic treatments', color: 'text-purple-700', bg: 'bg-purple-100' },
-  { type: 'Yoga & Wellness', icon: Heart, desc: 'Mind-body wellness centers', color: 'text-orange-700', bg: 'bg-orange-100' },
+const SPECIALTIES = [
+  { type: 'Cardiology', icon: Heart, desc: 'Heart and cardiovascular care', color: 'text-red-600 dark:text-red-500', bg: 'bg-red-100' },
+  { type: 'Neurology', icon: Activity, desc: 'Brain and nervous system', color: 'text-blue-600', bg: 'bg-blue-100' },
+  { type: 'Pediatrics', icon: Users, desc: 'Medical care for children', color: 'text-yellow-600', bg: 'bg-yellow-100' },
+  { type: 'Dermatology', icon: Star, desc: 'Skin, hair, and nail care', color: 'text-purple-600', bg: 'bg-purple-100' },
 ]
 
 const TESTIMONIALS = [
@@ -323,15 +323,15 @@ const Home = () => {
       <section className="py-20 bg-white dark:bg-black">
         <div className="mx-auto max-w-7xl px-4">
           <div className="text-center mb-12">
-            <p className="text-sm font-bold uppercase tracking-widest text-green-600 dark:text-red-500 mb-3">Holistic Healthcare</p>
-            <h2 className="text-4xl font-black text-slate-900 dark:text-white">All Systems of Medicine</h2>
-            <p className="mt-4 text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto">Whether you prefer modern medicine or traditional healing, we have it all under one roof.</p>
+            <p className="text-sm font-bold uppercase tracking-widest text-red-600 dark:text-red-500 mb-3">Top Specialties</p>
+            <h2 className="text-4xl font-black text-slate-900 dark:text-white">Find Specialists by Department</h2>
+            <p className="mt-4 text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto">Connect with highly qualified doctors and specialists across various medical fields.</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {HOSPITALS.map((h) => {
+            {SPECIALTIES.map((h) => {
               const Icon = h.icon
               return (
-                <Link to="/hospitals" key={h.type} className="group flex flex-col items-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-white dark:bg-slate-950 dark:hover:bg-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 p-8 text-center">
+                <Link to="/doctors" key={h.type} className="group flex flex-col items-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-white dark:bg-slate-950 dark:hover:bg-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 p-8 text-center">
                   <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${h.bg} dark:bg-red-900/20 ${h.color} dark:text-red-400 mb-4 group-hover:scale-110 transition-transform duration-300`}>
                     <Icon size={30} />
                   </div>
@@ -429,3 +429,6 @@ const Home = () => {
 }
 
 export default Home
+
+
+
