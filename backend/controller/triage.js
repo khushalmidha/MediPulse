@@ -30,10 +30,11 @@ Your job:
 
 Rules:
 - Do NOT diagnose. You are gathering information only.
+  - Always communicate in ${patientContext.language || 'English'}.
 - Do NOT suggest medications.
 - If patient goes off-topic, gently redirect to their health concern.
 - Keep questions simple — patient may not have medical knowledge.
-- Language: if patient writes in Hindi/Hinglish, respond in Hinglish. If English, respond in English.
+- Language: Always respond exclusively in ${patientContext.language || 'English'} regardless of the patient's language.
 - Brief must be professional and in English regardless of conversation language (it's for the doctor).
 
 You already have this context about the patient: ${JSON.stringify(patientContext.patient)}`;
@@ -238,6 +239,7 @@ const startTriage = async (req, res) => {
     if (access.status) return res.status(access.status).json({ message: access.message });
 
     const patientContext = await getPatientContext({ userId });
+    patientContext.language = req.query.lang || req.body.lang || 'English';
     const firstPrompt = "Start the triage. Ask only the first focused question.";
     const state = {
       userId,
@@ -297,6 +299,7 @@ const sendMessage = async (req, res) => {
     let state = await readConversation(appointmentId);
     if (!state) {
       const patientContext = await getPatientContext({ userId });
+    patientContext.language = req.query.lang || req.body.lang || 'English';
       state = {
         userId,
         patientContext,
@@ -530,3 +533,5 @@ export const fullAssessmentV2 = async (req, res) => {
     return res.status(500).json({ message: "V2 assessment failed", error: error.message });
   }
 };
+
+

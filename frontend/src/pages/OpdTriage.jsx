@@ -7,6 +7,7 @@ import { BACKEND_URL } from "../utils";
 const OpdTriage = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [language, setLanguage] = useState("English");
   const [brief, setBrief] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,7 @@ const OpdTriage = () => {
     setLoading(true);
     setMessage("");
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/triage/start/${appointmentId}`, { withCredentials: true });
+      const response = await axios.get(`${BACKEND_URL}/api/triage/start/${appointmentId}?lang=${language}`, { withCredentials: true });
       setMessages([{ role: "agent", text: response.data.message }]);
       setBrief(response.data.patientBrief || null);
       setStep(1);
@@ -57,7 +58,7 @@ const OpdTriage = () => {
     setLoading(true);
     
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/triage/message/${appointmentId}`, { message: text }, { withCredentials: true });
+      const response = await axios.post(`${BACKEND_URL}/api/triage/message/${appointmentId}`, { message: text, lang: language }, { withCredentials: true });
       setMessages((current) => [...current, { role: "agent", text: response.data.message }]);
       if (response.data.isBriefReady) {
         completeTriage();
@@ -134,9 +135,18 @@ const OpdTriage = () => {
           <span className="font-black text-xl tracking-tight text-slate-800 dark:text-slate-200">MediPulse Triage</span>
         </div>
 
-        {/* Progress indicator */}
-        <div className="absolute top-10 right-8 text-sm font-bold text-slate-400">
-          Question {step}
+        {/* Progress indicator & Language */}
+        <div className="absolute top-8 right-8 flex items-center gap-4">
+          <select value={language} onChange={(e) => setLanguage(e.target.value)} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg px-3 py-1.5 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer">
+            <option value="English">English</option>
+            <option value="Hindi">Hindi</option>
+            <option value="Hinglish">Hinglish</option>
+            <option value="Marathi">Marathi</option>
+            <option value="Telugu">Telugu</option>
+          </select>
+          <div className="text-sm font-bold text-slate-400 mt-1 hidden sm:block">
+            Question {step}
+          </div>
         </div>
 
         {/* Main interactive area */}
@@ -216,3 +226,5 @@ const OpdTriage = () => {
 };
 
 export default OpdTriage;
+
+
