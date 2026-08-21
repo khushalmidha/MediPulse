@@ -1,3 +1,4 @@
+import { flagRedSymptoms } from "../services/copilotTools.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import axios from "axios";
 import User from "../model/user.js";
@@ -439,3 +440,93 @@ const completeTriage = async (req, res) => {
 };
 
 export { completeTriage, sendMessage, startTriage };
+
+
+export const fullAssessmentV2 = async (req, res) => {
+  try {
+    const { symptoms, vitals = {}, history = "", availableDoctors = [] } = req.body;
+    
+    if (!symptoms) {
+      return res.status(400).json({ message: "Symptoms are required for assessment." });
+    }
+
+    const patientContext = { symptoms, vitals, history };
+
+    // 1. Deterministic Safety Layer (build this first)
+    const safetyCheck = await flagRedSymptoms({ symptoms, existingConditions: history });
+    if (safetyCheck && safetyCheck.length > 0) {
+      return res.status(200).json({
+        disclaimer: "SEEK EMERGENCY CARE IMMEDIATELY. Your symptoms suggest a potentially critical condition.",
+        safetyFlags: safetyCheck,
+        severity: "HIGH",
+        esi_level: 1,
+        specialty: "Emergency Medicine",
+        ranked_doctors: []
+      });
+    }
+
+    // 2. Specialty Pipeline
+    let specialty = "General Medicine";
+    let disease = "Unknown";
+    try {
+      const specRes = await axios.post("http://127.0.0.1:8000/v2/specialty", patientContext);
+      specialty = specRes.data.specialty || specialty;
+      disease = specRes.data.disease || disease;
+    } catch (e) {
+      console.warn("FastAPI /v2/specialty failed or unreachable:", e.message);
+    }
+
+    // 3. Severity Model (XGBoost/extended ESI)
+    let severity = "LOW";
+    let esi_level = 4;
+    try {
+      const sevRes = await axios.post("http://127.0.0.1:8000/v2/severity", patientContext);
+      severity = sevRes.data.severity || severity;
+      esi_level = sevRes.data.esi_level || esi_level;
+    } catch (e) {
+      console.warn("FastAPI /v2/severity failed or unreachable:", e.message);
+    }
+
+    // Deterministic override if severity model says HIGH
+    if (severity === "HIGH" || esi_level <= 2) {
+      return res.status(200).json({
+        disclaimer: "SEEK EMERGENCY CARE IMMEDIATELY. Your symptoms indicate high severity.",
+        severity: severity,
+        esi_level: esi_level,
+        specialty: "Emergency Medicine",
+        disease: disease,
+        ranked_doctors: []
+      });
+    }
+
+    // Filter available doctors by specialty (mock logic, if empty fallback to all)
+    // Normally you would fetch doctors from DB where specialty matches
+    
+    const candidates = availableDoctors.map(d => ({ id: d, features: {} }));
+
+    // 4. LambdaMART Ranker
+    let ranked_doctors = candidates;
+    try {
+      const rankRes = await axios.post("http://127.0.0.1:8000/v2/recommend-doctors", {
+        patient: patientContext,
+        doctors: candidates
+      });
+      ranked_doctors = rankRes.data.ranked_doctors || ranked_doctors;
+    } catch (e) {
+      console.warn("FastAPI /v2/recommend-doctors failed or unreachable:", e.message);
+    }
+
+    return res.status(200).json({
+      disclaimer: "This is an AI assessment, not a clinical diagnosis.",
+      disease,
+      specialty,
+      severity,
+      esi_level,
+      ranked_doctors,
+      safetyFlags: []
+    });
+
+  } catch (error) {
+    return res.status(500).json({ message: "V2 assessment failed", error: error.message });
+  }
+};
