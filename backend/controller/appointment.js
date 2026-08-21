@@ -1221,7 +1221,7 @@ const endAppointment = async (req, res) => {
 
 
 
-export const askDoctorAppointmentCopilot = async (req, res) => {
+const askDoctorAppointmentCopilot = async (req, res) => {
   try {
     const appointment = await Appointment.findById(req.params.appointmentId);
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
