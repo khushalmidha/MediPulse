@@ -17,6 +17,8 @@ import {
   Star,
   Clock,
   Video,
+  IndianRupee,
+  Pencil,
 } from 'lucide-react'
 import { BACKEND_URL, MAPS_API } from '../utils'
 import { useAuth } from '../context/AuthContext'
@@ -24,7 +26,7 @@ import { useAuth } from '../context/AuthContext'
 const DoctorsProfile = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { role } = useAuth()
+  const { role, user } = useAuth()
   const [doctor, setDoctor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -239,6 +241,15 @@ const DoctorsProfile = () => {
                       <span className='text-gray-700'>{doctor.phone}</span>
                     </div>
                   )}
+
+                  {/* FIXED: The consultation fee was never shown on the profile, so neither the
+                      patient nor the doctor could see what a booking actually costs. */}
+                  <div className='flex items-center justify-center sm:justify-start'>
+                    <IndianRupee className='h-4 w-4 sm:h-5 sm:w-5 text-red-500 mr-2 flex-shrink-0' />
+                    <span className='text-gray-700'>
+                      {doctor.consultationFee ?? 0} consultation fee
+                    </span>
+                  </div>
                 </div>
 
                 <div className='flex flex-wrap gap-2'>
@@ -279,6 +290,17 @@ const DoctorsProfile = () => {
                       className='inline-flex items-center rounded-md border border-red-600 px-4 py-2 text-blue-700 hover:bg-red-50'>
                       <CalendarPlus className='mr-2 h-4 w-4' />
                       Open Appointment Queue
+                    </button>
+                  )}
+                  {/* FIXED: A doctor viewing their own profile had no way to reach the form that
+                      sets their consultation fee. */}
+                  {role === 'doctor' && user?._id === doctor._id && (
+                    <button
+                      type='button'
+                      onClick={() => navigate('/profile/edit')}
+                      className='inline-flex items-center rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-red-700'>
+                      <Pencil className='mr-2 h-4 w-4' />
+                      Edit Profile &amp; Fee
                     </button>
                   )}
                 </div>

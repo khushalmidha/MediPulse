@@ -38,6 +38,13 @@ const walletSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // FIXED: The starting demo balance used to be inferred from "balance and totals are all zero",
+    // so any wallet that already existed (or had a single transaction) never received it. This
+    // flag makes seeding an explicit one-time, idempotent operation instead.
+    initialCreditApplied: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

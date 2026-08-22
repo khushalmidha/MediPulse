@@ -50,6 +50,7 @@ const ensureWallet = async ({ userId, userRole }, session = null) => {
         status: "active",
         totalSent: 0,
         totalReceived: 0,
+        initialCreditApplied: getInitialWalletBalance(role) > 0,
       },
     },
     { new: true, upsert: true },
@@ -60,17 +61,18 @@ const ensureWallet = async ({ userId, userRole }, session = null) => {
   }
 
   const wallet = await query;
+
+  // FIXED: Wallets created before the demo top-up existed (or that had any transaction at all)
+  // were never credited, so patients kept seeing a 0 balance. Credit exactly once per wallet,
+  // tracked by `initialCreditApplied` rather than by guessing from the balance.
   const initialBalance = getInitialWalletBalance(role);
-  if (
-    role === "user" &&
-    initialBalance > 0 &&
-    wallet.balance === 0 &&
-    wallet.totalSent === 0 &&
-    wallet.totalReceived === 0
-  ) {
-    wallet.balance = initialBalance;
-    wallet.totalReceived = initialBalance;
+  if (role === "user" && initialBalance > 0 && !wallet.initialCreditApplied) {
+    wallet.balance = Math.round((wallet.balance + initialBalance) * 100) / 100;
+    wallet.totalReceived = Math.round((wallet.totalReceived + initialBalance) * 100) / 100;
+    wallet.initialCreditApplied = true;
     await wallet.save({ session });
+    // The dashboard caches the wallet for 20s, so drop the stale copy immediately.
+    await invalidateWalletCache([{ role, userId }]);
   }
 
   return wallet;
