@@ -351,14 +351,22 @@ const MyAppointments = () => {
                       <span>Request Refund</span>
                     </button>
                   )}
-                  {appointment.status === 'active' && appointment.doctor?._id && (
-                    <Link
-                      to={`/triage/${appointment.doctor._id}`}
-                      className="mt-3 flex w-full items-center justify-center rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                    >
-                      Join Meeting
-                    </Link>
-                  )}
+                  {appointment.status === 'queued' && !appointment.patientBrief && (
+                      <Link
+                        to={`/triage/${appointment._id}`}
+                        className="mt-3 flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                      >
+                        Prepare for Appointment
+                      </Link>
+                    )}
+                    {appointment.status === 'active' && appointment.doctor?._id && (
+                      <Link
+                        to={`/appointment/book/${appointment.doctor._id}`}
+                        className="mt-3 flex w-full items-center justify-center rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                      >
+                        Join Meeting
+                      </Link>
+                    )}
                 </div>
               </div>
             ))}
@@ -370,3 +378,7 @@ const MyAppointments = () => {
 }
 
 export default MyAppointments
+
+
+
+
