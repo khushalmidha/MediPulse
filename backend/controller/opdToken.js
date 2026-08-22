@@ -4,13 +4,13 @@ import OpdToken from "../model/opdToken.js";
 import Department from "../model/department.js";
 import Hospital from "../model/hospital.js";
 import HospitalStaff from "../model/hospitalStaff.js";
+import { resolveConsultationFee } from "../config/fees.js";
 import { getRedis } from "../services/redis.js";
 import { scheduleReviewRequest } from "../services/reviewRequestWorker.js";
 import { transferVirtualMoney } from "../services/virtualLedger.js";
 import { getIO } from "../socket.js";
 import OpdSequence from "../model/opdSequence.js";
 
-const OPD_BOOKING_FEE_INR = Number(process.env.APPOINTMENT_BOOKING_FEE_INR || 5);
 
 const dayRange = (date = new Date()) => {
   const start = new Date(date);
@@ -171,8 +171,13 @@ const issueToken = async (req, res) => {
   });
   const estimatedWaitMinutes = queueAhead * (await avgConsultationMinutes(doctorId)) + 5;
   const displayToken = await buildDisplayToken(hospitalId, tokenNumber);
-  // FIXED: Public OPD booking was charging hospital consultation fees (INR 400+), unlike the main doctor booking queue's INR 5 wallet debit.
-  const fee = isPatientBooking ? OPD_BOOKING_FEE_INR : doctor.doctorProfile?.consultationFee || department.opd?.consultationFee || 0;
+  // FIXED: Patients booking an OPD token were charged a flat INR 5 while the same booking made by
+  // hospital staff charged the real consultation fee. Both paths now resolve the same amount, so
+  // the fee shown to the patient is the fee debited from their wallet.
+  const fee = resolveConsultationFee({
+    consultationFee:
+      doctor.doctorProfile?.consultationFee ?? department.opd?.consultationFee,
+  });
   let transaction = null;
   let linkedAppointment = null;
 

@@ -8,7 +8,12 @@ import AppointmentVideoCall from "../components/AppointmentVideoCall";
 import TriageChat from "../components/TriageChat";
 import { getSocket } from "../socket";
 
-const APPOINTMENT_FEE_INR = Number(import.meta.env.VITE_APPOINTMENT_BOOKING_FEE_INR || 5);
+// FIXED: The booking button advertised this build-time constant (default INR 5) instead of the
+// fee the backend actually debits, which is the doctor's own consultationFee. The fee now comes
+// from the doctor record so the button always shows the amount that will be charged.
+const FALLBACK_APPOINTMENT_FEE_INR = Number(
+  import.meta.env.VITE_APPOINTMENT_BOOKING_FEE_INR || 500,
+);
 
 const AppointmentBooking = () => {
   const { doctorId } = useParams();
@@ -281,6 +286,10 @@ const AppointmentBooking = () => {
 
   const myAppointment = status?.myAppointment;
   const canBook = !myAppointment;
+  // The backend charges the doctor's own consultationFee, so display exactly that.
+  const consultationFee = Number.isFinite(Number(doctor?.consultationFee))
+    ? Number(doctor.consultationFee)
+    : FALLBACK_APPOINTMENT_FEE_INR;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
@@ -301,7 +310,7 @@ const AppointmentBooking = () => {
                 disabled={!canBook || booking}
                 className="rounded-md bg-red-600 dark:bg-red-700 px-6 py-2.5 font-medium text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
-                {booking ? "Processing..." : `Confirm Booking for ₹${APPOINTMENT_FEE_INR}`}
+                {booking ? "Processing..." : `Confirm Booking for ₹${consultationFee}`}
               </button>
               <Link to="/doctors" className="rounded-md border border-gray-300 dark:border-red-900/40 bg-white dark:bg-slate-900 px-6 py-2.5 font-medium text-gray-700 dark:text-slate-200 shadow-sm hover:bg-gray-50">
                 Back to doctors
