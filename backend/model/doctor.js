@@ -42,6 +42,13 @@ const doctorSchema = new mongoose.Schema(
     rating: {
       type: Number,
     },
+    // Each doctor sets their own consultation fee; this is the amount actually charged at booking.
+    consultationFee: {
+      type: Number,
+      default: 500,
+      min: 0,
+    },
+
     communities: {
       type: [mongoose.Schema.Types.ObjectId],
     },

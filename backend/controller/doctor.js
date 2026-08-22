@@ -1,4 +1,6 @@
 import { normalizeSpecialty } from '../util/normalizeSpecialty.js';
+import { DEFAULT_CONSULTATION_FEE_INR, MAX_CONSULTATION_FEE_INR, resolveConsultationFee } from '../config/fees.js';
+
 import Community from "../model/community.js";
 import Doctor from "../model/doctor.js";
 import HospitalStaff from "../model/hospitalStaff.js";
@@ -37,6 +39,7 @@ const mapPlatformDoctor = (doctor, communities = []) => ({
 	profilePhoto: doctor.profilePhoto || "",
 	bio: doctor.bio || "",
 	rating: doctor.rating || 0,
+	consultationFee: resolveConsultationFee(doctor),
 	experience: {
 		years: doctor.experience?.years || 0,
 		expertise: doctor.experience?.expertise || "",
@@ -69,6 +72,7 @@ const mapHospitalDoctor = (staff, communities = []) => {
 		profilePhoto: staff.profilePhoto || "",
 		bio: staff.doctorProfile?.bio || "",
 		rating: staff.doctorProfile?.rating || 0,
+		consultationFee: resolveConsultationFee(staff.doctorProfile),
 		experience: {
 			years: staff.doctorProfile?.experience || 0,
 			expertise: staff.doctorProfile?.specialization || "",
@@ -171,6 +175,7 @@ const getAllDoctors = async (req, res) => {
 				profilePhoto: { $ifNull: ["$profilePhoto", ""] },
 				bio: { $ifNull: ["$bio", ""] },
 				rating: { $ifNull: ["$rating", 0] },
+				consultationFee: { $ifNull: ["$consultationFee", DEFAULT_CONSULTATION_FEE_INR] },
 				casesHandled: { $ifNull: [{ $arrayElemAt: ["$caseStats.count", 0] }, 0] },
 				experience: {
 					years: { $ifNull: ["$experience.years", 0] },
@@ -260,6 +265,7 @@ const getAllDoctors = async (req, res) => {
 							bio: { $ifNull: ["$doctorProfile.bio", ""] },
 							rating: { $ifNull: [{ $arrayElemAt: ["$reviewStats.avgRating", 0] }, { $ifNull: ["$doctorProfile.rating", 0] }] },
 							reviewCount: { $ifNull: [{ $arrayElemAt: ["$reviewStats.reviewCount", 0] }, { $ifNull: ["$doctorProfile.totalReviews", 0] }] },
+							consultationFee: { $ifNull: ["$doctorProfile.consultationFee", DEFAULT_CONSULTATION_FEE_INR] },
 							casesHandled: { $ifNull: [{ $arrayElemAt: ["$caseStats.count", 0] }, 0] },
 							experience: {
 								years: { $ifNull: ["$doctorProfile.experience", 0] },
@@ -405,12 +411,23 @@ export { getDoctorById, getAllDoctors, deleteDoctorById, getDoctorHospitals, upd
 const updateDoctorData = async (req, res) => {
   if (!req.auth || req.auth.role !== "doctor") return res.status(401).json({ message: "Unauthorized" });
 
-  const allowedFields = ["firstName", "lastName", "bio", "gender", "phone", "experience", "clinic"];
+  // Doctors set their own consultation fee, so it must be an updatable profile field.
+  const allowedFields = ["firstName", "lastName", "bio", "gender", "phone", "experience", "clinic", "consultationFee"];
   const updateData = {};
   for (const key of allowedFields) {
     if (req.body[key] !== undefined) {
       updateData[key] = req.body[key];
     }
+  }
+
+  if (updateData.consultationFee !== undefined) {
+    const fee = Number(updateData.consultationFee);
+    if (!Number.isFinite(fee) || fee < 0 || fee > MAX_CONSULTATION_FEE_INR) {
+      return res.status(400).json({
+        message: `Consultation fee must be a number between 0 and ${MAX_CONSULTATION_FEE_INR}`,
+      });
+    }
+    updateData.consultationFee = Math.round(fee * 100) / 100;
   }
 
   // specialty check
@@ -420,9 +437,7 @@ const updateDoctorData = async (req, res) => {
     if (updateData.experience && updateData.experience.expertise) {
         updateData.experience.expertise = normalizeSpecialty(updateData.experience.expertise);
     }
-    if (false) {
-      return res.status(400).json({ message: "Expertise (Specialty) is required for doctors." });
-  }
+
 
   try {
     const doctor = await Doctor.findByIdAndUpdate(req.auth.id, updateData, { new: true });
@@ -434,5 +449,4 @@ const updateDoctorData = async (req, res) => {
     return res.status(500).json({ message: "Failed to update profile", error: error.message });
   }
 };
-
 

@@ -379,8 +379,12 @@ export function initSocket(server) {
 
     socket.on("appointment:end", ({ appointmentId }) => {
       if (!appointmentId) return;
-      socket.to(`appointment:${appointmentId}`).emit("appointment:ended", { appointmentId });
+      // FIXED: socket.to() excludes the sender, so only the other side was told the call ended.
+      // Use io.to() so both participants terminate together instead of one being left behind.
+      appointmentPresence.delete(String(appointmentId));
+      io.to(`appointment:${appointmentId}`).emit("appointment:ended", { appointmentId });
     });
+
 
     // ── Disconnect ────────────────────────────────────────
     socket.on("disconnect", () => {

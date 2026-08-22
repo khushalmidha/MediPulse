@@ -162,7 +162,10 @@ const SmartBooking = () => {
                       <div className="flex items-center sm:flex-col gap-4 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-left sm:text-right">
                           <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Consultation Fee</p>
-                          <p className="font-bold text-gray-900 dark:text-white">₹{doctor.fee || 500}</p>
+                          {/* The backend now returns the doctor's own fee, which is exactly what the
+                              wallet is debited at booking time. */}
+                          <p className="font-bold text-gray-900 dark:text-white">₹{doctor.fee ?? 0}</p>
+
                         </div>
                         <Link 
                           to={`/appointment/book/${doctor._id}`}

@@ -30,8 +30,12 @@ const normalizeRole = (role) => {
   return role;
 };
 
+// Demo wallets start funded so a patient can actually book without a top-up flow.
+const INITIAL_USER_WALLET_BALANCE = Number(process.env.INITIAL_USER_WALLET_BALANCE || 5000);
+
 const getInitialWalletBalance = (role) =>
-  role === "user" ? 500 : 0;
+  role === "user" ? INITIAL_USER_WALLET_BALANCE : 0;
+
 
 const ensureWallet = async ({ userId, userRole }, session = null) => {
   const role = normalizeRole(userRole);

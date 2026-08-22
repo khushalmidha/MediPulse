@@ -94,6 +94,11 @@ const AppointmentVideoCall = ({
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const remoteStreamRef = useRef(null);
+  // FIXED: Ending the call could fire the parent callback twice (local click + server broadcast),
+  // and the person who ended it was left on a stale "Waiting for..." screen.
+  const callEndedRef = useRef(false);
+  const teardownCallRef = useRef(() => {});
+
   const pendingIceCandidatesRef = useRef([]);
   const transcriptBufferRef = useRef("");
   const fullTranscriptRef = useRef("");
@@ -156,10 +161,14 @@ const AppointmentVideoCall = ({
   };
 
   const endCall = () => {
+    if (callEndedRef.current) return;
     const socket = getSocket();
     socket.emit("appointment:end", { appointmentId });
-    if (onCallEnd) onCallEnd();
+    // Tear down locally right away instead of waiting for the server round-trip, so the
+    // person who pressed End is not left staring at a "Waiting for..." screen.
+    teardownCallRef.current();
   };
+
 
   const appendTranscriptText = (text) => {
     const cleanText = String(text || "").trim();
@@ -327,8 +336,11 @@ const AppointmentVideoCall = ({
       catch (err) { console.error("Failed to add ICE candidate:", err); }
     };
 
-    const onCallEnded = ({ appointmentId: inId }) => {
-      if (inId !== appointmentId) return;
+    // Shared teardown so the local "End call" click and the server broadcast both run the exact
+    // same cleanup, and the parent callback fires only once.
+    const teardownCall = () => {
+      if (callEndedRef.current) return;
+      callEndedRef.current = true;
       if (localStreamRef.current) localStreamRef.current.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
       remoteStreamRef.current = null;
@@ -336,8 +348,19 @@ const AppointmentVideoCall = ({
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       if (peerConnectionRef.current) { peerConnectionRef.current.close(); peerConnectionRef.current = null; }
-      onCallEnd();
+      setHasRemoteVideo(false);
+      setPresence({ doctorJoined: false, patientJoined: false, ready: false });
+      setConnectionStatus("ended");
+      socket.emit("leaveAppointmentRoom", { appointmentId });
+      if (onCallEnd) onCallEnd();
     };
+    teardownCallRef.current = teardownCall;
+
+    const onCallEnded = ({ appointmentId: inId }) => {
+      if (inId !== appointmentId) return;
+      teardownCall();
+    };
+
 
     socket.on("appointment:peer-joined", onPeerJoined);
     socket.on("appointment:presence", onPresence);
@@ -481,6 +504,7 @@ const AppointmentVideoCall = ({
     connected: "bg-green-500",
     reconnecting: "bg-orange-500",
     failed: "bg-red-500",
+    ended: "bg-slate-500",
   }[connectionStatus] || "bg-gray-50 dark:bg-slate-900";
 
   const statusText = {
@@ -489,7 +513,12 @@ const AppointmentVideoCall = ({
     connected: "Connected",
     reconnecting: "Reconnecting...",
     failed: "Connection failed",
+    // FIXED: After the call ended this fell back to "Waiting for patient/doctor...".
+    ended: "Call ended",
   }[connectionStatus] || connectionStatus;
+
+  const hasEnded = connectionStatus === "ended";
+
 
   return (
     <div className="flex gap-3 xl:gap-4">
@@ -522,11 +551,13 @@ const AppointmentVideoCall = ({
               </div>
               <p className="text-lg font-bold text-white">{remoteLabel}</p>
               <p className="mt-2 text-sm text-slate-400">{statusText}</p>
-              <div className="mt-5 flex gap-2">
-                <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "300ms" }} />
-              </div>
+              {!hasEnded && (
+                <div className="mt-5 flex gap-2">
+                  <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-600 animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              )}
             </div>
           )}
 
@@ -659,7 +690,7 @@ const AppointmentVideoCall = ({
         )}
 
         {/* Presence indicator */}
-        {!presence.ready && (
+        {!presence.ready && !hasEnded && (
           <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
             <strong>{role === "doctor" ? "Patient" : "Doctor"}</strong> has not joined yet. The call will start automatically once both participants are in the room.
           </div>

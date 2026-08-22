@@ -536,6 +536,7 @@ export const fullAssessmentV2 = async (req, res) => {
 
 import Doctor from '../model/doctor.js';
 import { normalizeSpecialty } from '../util/normalizeSpecialty.js';
+import { resolveConsultationFee } from '../config/fees.js';
 
 export const smartBookingAssessment = async (req, res) => {
   try {
@@ -586,13 +587,13 @@ Always format your response as valid JSON without markdown formatting.`
 
     // Fetch doctors for this specialty (Doctor model uses experience.expertise, not specialty)
     let matchedDoctors = await Doctor.find({ 'experience.expertise': normalizedSpecialty })
-      .select('firstName lastName experience profilePhoto clinic rating')
+      .select('firstName lastName experience profilePhoto clinic rating consultationFee')
       .lean();
 
     // If no exact match, fallback to General Medicine
     if (matchedDoctors.length === 0) {
       matchedDoctors = await Doctor.find({ 'experience.expertise': 'General Medicine' })
-        .select('firstName lastName experience profilePhoto clinic rating')
+        .select('firstName lastName experience profilePhoto clinic rating consultationFee')
         .lean();
     }
     
@@ -600,7 +601,7 @@ Always format your response as valid JSON without markdown formatting.`
     if (matchedDoctors.length === 0) {
       matchedDoctors = await Doctor.find({})
         .limit(5)
-        .select('firstName lastName experience profilePhoto clinic rating')
+        .select('firstName lastName experience profilePhoto clinic rating consultationFee')
         .lean();
     }
 
@@ -615,7 +616,9 @@ Always format your response as valid JSON without markdown formatting.`
         name: [d.firstName, d.lastName].filter(Boolean).join(' '),
         specialty: d.experience?.expertise || 'General Medicine',
         experience: d.experience?.years || 0,
-        fee: 500,
+        // FIXED: This was hardcoded to 500 while booking charged a different flat amount, so the
+        // fee shown in Smart Booking never matched what was actually debited.
+        fee: resolveConsultationFee(d),
         profilePicture: d.profilePhoto || null,
         clinic: d.clinic || {},
         rating: d.rating || null,

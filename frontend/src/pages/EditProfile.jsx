@@ -17,7 +17,9 @@ const EditProfile = () => {
     expertise: "",
     years: "",
     clinicName: "",
-    clinicLocation: ""
+    clinicLocation: "",
+    // Doctors set their own consultation fee; this is what patients actually get charged.
+    consultationFee: ""
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,7 +37,11 @@ const EditProfile = () => {
       expertise: user.experience?.expertise || "",
       years: user.experience?.years || "",
       clinicName: user.clinic?.name || "",
-      clinicLocation: user.clinic?.location || ""
+      clinicLocation: user.clinic?.location || "",
+      consultationFee:
+        user.consultationFee === undefined || user.consultationFee === null
+          ? ""
+          : String(user.consultationFee)
     });
     setLoading(false);
   }, [user]);
@@ -50,6 +56,14 @@ const EditProfile = () => {
     if (role === "doctor" && (!formData.expertise || formData.expertise.trim() === "")) {
       alert("Expertise (Specialty) is required for doctors.");
       return;
+    }
+
+    if (role === "doctor" && formData.consultationFee !== "") {
+      const fee = Number(formData.consultationFee);
+      if (!Number.isFinite(fee) || fee < 0) {
+        alert("Consultation fee must be a valid non-negative amount.");
+        return;
+      }
     }
 
     setSaving(true);
@@ -71,6 +85,9 @@ const EditProfile = () => {
           name: formData.clinicName,
           location: formData.clinicLocation
         };
+        if (formData.consultationFee !== "") {
+          payload.consultationFee = Number(formData.consultationFee);
+        }
       } else {
         payload.phoneNumber = formData.phoneNumber;
       }
@@ -142,6 +159,11 @@ const EditProfile = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Years of Experience</label>
                 <input type="number" name="years" value={formData.years} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Consultation Fee (INR)</label>
+                <input type="number" name="consultationFee" min="0" step="1" value={formData.consultationFee} onChange={handleChange} placeholder="E.g., 500" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">This exact amount is charged to the patient when they book you.</p>
               </div>
             </>
           )}

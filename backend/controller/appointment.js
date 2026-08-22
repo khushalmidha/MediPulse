@@ -92,12 +92,17 @@ import {
 } from "../services/redis.js";
 import { publishEvent } from "../services/events.js";
 import { refundVirtualPayment, transferVirtualMoney } from "../services/virtualLedger.js";
+import { resolveConsultationFee } from "../config/fees.js";
 
 const APPOINTMENT_DURATION_MS = 5 * 60 * 1000;
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
 const BOOKING_TOKEN_EXPIRY_MS = 10 * 60 * 1000;
 const AUTO_REFUND_DELAY_MS = 30 * 60 * 1000;
-const WALLET_APPOINTMENT_FEE_INR = Number(process.env.APPOINTMENT_BOOKING_FEE_INR || 5);
+// FIXED: Booking used to debit this flat amount (default INR 5) while every UI advertised the
+// doctor's consultation fee (INR 500), so patients were shown one price and charged another.
+// The fee charged now comes from the doctor's own `consultationFee`; this constant is only a
+// last-resort fallback when an old appointment has no stored payment amount to refund.
+const WALLET_APPOINTMENT_FEE_INR = Number(process.env.APPOINTMENT_BOOKING_FEE_INR || 500);
 // The booking UI does not implement the OTP step yet, so enforcement is opt-in to avoid
 // breaking every booking. Set REQUIRE_BOOKING_OTP=true once the frontend sends bookingToken.
 // Either way, a token that IS supplied is always fully validated below (no more bypass).
@@ -791,6 +796,10 @@ const bookAppointment = async (req, res) => {
     return res.status(bookable.status).json(bookable);
   }
 
+  // FIXED: Charge the fee the doctor set on their own profile (and that the UI displays) instead
+  // of a hardcoded platform amount, so the price shown is always the price debited.
+  const consultationFee = resolveConsultationFee(bookable.doctor);
+
   // FIXED: An insufficient wallet balance threw an unhandled rejection and the request hung forever.
   let transaction;
   try {
@@ -799,9 +808,9 @@ const bookAppointment = async (req, res) => {
       senderRole: "user",
       receiverId: doctorId,
       receiverRole: "doctor",
-      amount: WALLET_APPOINTMENT_FEE_INR,
+      amount: consultationFee,
       type: "PAYMENT",
-      description: "Appointment booking fee",
+      description: "Appointment consultation fee",
       referenceId: `APPOINTMENT-${new mongoose.Types.ObjectId().toString()}`,
       metadata: {
         doctorId,
@@ -828,7 +837,7 @@ const bookAppointment = async (req, res) => {
         provider: "wallet",
         orderId: transaction.transactionId,
         paymentId: transaction.transactionId,
-        amount: WALLET_APPOINTMENT_FEE_INR,
+        amount: consultationFee,
         currency: "INR",
         paidAt: new Date(),
       },
@@ -840,7 +849,7 @@ const bookAppointment = async (req, res) => {
         actorId: normalizeId(doctorId),
         actorRole: "doctor",
         originalTransactionId: transaction.transactionId,
-        amount: WALLET_APPOINTMENT_FEE_INR,
+        amount: consultationFee,
         reason: "appointment-create-failed",
         isAdmin: false,
         idempotencyKey: `appointment-create-failed-${transaction.transactionId}`,
@@ -885,14 +894,15 @@ const bookAppointment = async (req, res) => {
     paymentId: transaction.transactionId,
     doctorId,
     userId: req.auth.id.toString(),
-    amount: WALLET_APPOINTMENT_FEE_INR,
+    amount: consultationFee,
   });
 
   return res.status(201).json({
-    message: `Appointment booked and queued successfully. INR ${WALLET_APPOINTMENT_FEE_INR} debited from your wallet.`,
+    message: `Appointment booked and queued successfully. INR ${consultationFee} debited from your wallet.`,
     appointmentId: appointment._id,
     status: appointment.status,
     queuePosition,
+    amountPaid: consultationFee,
   });
 };
 
