@@ -19,7 +19,7 @@ const SmartBooking = () => {
     setError('');
     
     try {
-      const response = await axios.post(\/api/triage/smart-booking, { symptoms }, { withCredentials: true });
+      const response = await axios.post(`${BACKEND_URL}/api/triage/smart-booking`, { symptoms }, { withCredentials: true });
       setResult(response.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to process symptoms. Please try again.');
@@ -87,7 +87,7 @@ const SmartBooking = () => {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* AI Assessment Card */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className={p-4 sm:p-6 \}>
+              <div className="p-4 sm:p-6">
                 <div className="flex items-start gap-4">
                   {result.severity === 'EMERGENCY' || result.severity === 'HIGH' ? (
                     <AlertTriangle className="w-8 h-8 text-red-600 mt-1 flex-shrink-0" />
@@ -96,7 +96,7 @@ const SmartBooking = () => {
                   )}
                   <div>
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">AI Assessment Complete</h2>
-                    <p className={mt-1 \}>
+                    <p className="">
                       {result.disclaimer}
                     </p>
                   </div>
@@ -117,7 +117,7 @@ const SmartBooking = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Severity / ESI Level</p>
                   <div className="mt-1 flex items-center gap-2">
-                    <span className={inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium \}>
+                    <span className="">
                       {result.severity}
                     </span>
                     <span className="text-sm text-gray-500">Level {result.esi_level}</span>
@@ -165,7 +165,7 @@ const SmartBooking = () => {
                           <p className="font-bold text-gray-900 dark:text-white">₹{doctor.fee || 500}</p>
                         </div>
                         <Link 
-                          to={/appointment/book/\}
+                          to={`/appointment/book/${doctor._id}`}
                           className="px-6 py-2 bg-slate-900 dark:bg-red-600 hover:bg-slate-800 dark:hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap shadow-sm"
                         >
                           Book Now
