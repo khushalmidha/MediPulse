@@ -542,3 +542,86 @@ export const fullAssessmentV2 = async (req, res) => {
 
 
 
+
+import Doctor from '../model/doctor.js';
+import { normalizeSpecialty } from '../util/normalizeSpecialty.js';
+
+export const smartBookingAssessment = async (req, res) => {
+  try {
+    const { symptoms } = req.body;
+    if (!symptoms) {
+      return res.status(400).json({ message: "Symptoms are required for assessment." });
+    }
+
+    const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+    const model = ai.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: `You are an AI diagnostic routing agent for a hospital booking system. Analyze the provided symptoms and return a JSON object with:
+- "predictedDisease": best guess of the medical condition (string).
+- "specialty": the precise medical department needed (e.g. Cardiology, Dermatology, General Medicine, Orthopedics, Neurology, Pediatrics, etc.).
+- "severity": "LOW", "MEDIUM", "HIGH", or "EMERGENCY".
+- "esi_level": number from 1 (most severe) to 5 (least severe).
+Always format your response as valid JSON without markdown formatting.`
+    });
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: symptoms }] }]
+    });
+
+    let rawText = result.response.text().trim();
+    if (rawText.startsWith('' + '' + 'json')) rawText = rawText.slice(7, -3).trim();
+    else if (rawText.startsWith('' + '' + '')) rawText = rawText.slice(3, -3).trim();
+
+    let aiData;
+    try {
+      aiData = JSON.parse(rawText);
+    } catch(e) {
+      console.error("Failed to parse Gemini JSON:", rawText);
+      aiData = { predictedDisease: "Unknown", specialty: "General Medicine", severity: "MEDIUM", esi_level: 4 };
+    }
+
+    // Determine safety flags
+    const disclaimer = (aiData.severity === "EMERGENCY" || aiData.severity === "HIGH" || aiData.esi_level <= 2) 
+      ? "SEEK EMERGENCY CARE IMMEDIATELY. Your symptoms suggest a potentially critical condition."
+      : "This is an AI assessment, not a clinical diagnosis. Please proceed to book your appointment.";
+
+    // Normalize specialty to match database terminology
+    const normalizedSpecialty = normalizeSpecialty(aiData.specialty);
+
+    // Fetch doctors for this specialty
+    let matchedDoctors = await Doctor.find({ specialty: normalizedSpecialty, verified: true })
+      .select('name specialty experience fee profilePicture clinic')
+      .lean();
+
+    // If no exact match, fallback to General Medicine or all verified doctors
+    if (matchedDoctors.length === 0) {
+      matchedDoctors = await Doctor.find({ specialty: 'General Medicine', verified: true })
+        .select('name specialty experience fee profilePicture clinic')
+        .lean();
+    }
+    
+    // If STILL empty, just return a few verified doctors
+    if (matchedDoctors.length === 0) {
+      matchedDoctors = await Doctor.find({ verified: true })
+        .limit(5)
+        .select('name specialty experience fee profilePicture clinic')
+        .lean();
+    }
+
+    return res.status(200).json({
+      disclaimer,
+      disease: aiData.predictedDisease || "Unknown",
+      specialty: normalizedSpecialty,
+      severity: aiData.severity || "MEDIUM",
+      esi_level: aiData.esi_level || 4,
+      ranked_doctors: matchedDoctors,
+      safetyFlags: []
+    });
+
+  } catch (error) {
+    console.error("Smart Booking error:", error);
+    return res.status(500).json({ message: "Failed to run AI assessment", error: error.message });
+  }
+};
+
+
