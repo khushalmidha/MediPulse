@@ -84,6 +84,15 @@ app.get('/count', async (req, res) => {
   res.status(200).json({ users, doctors, communities })
 })
 
+// FIXED: A single unhandled promise rejection (e.g. Gemini returning 429) killed the entire
+// server and dropped every live consultation. Log it and keep serving instead.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason?.message || reason)
+})
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error?.message || error)
+})
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })

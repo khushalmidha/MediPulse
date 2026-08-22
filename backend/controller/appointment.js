@@ -466,9 +466,37 @@ Appointment Date: ${appointment.startedAt ? appointment.startedAt.toISOString() 
 Doctor Notes: ${notes || appointment.doctorNotes || "Not provided"}`;
 };
 
+// FIXED: When Gemini returned 429 (free-tier quota exhausted) this rejection was unhandled and
+// took the whole Node process down. Receipts are non-critical, so fall back to a plain-text
+// receipt built from data we already have instead of failing the request.
+const buildFallbackReceiptText = (appointment, notes) => {
+  const doctorName = [appointment.doctor?.firstName, appointment.doctor?.lastName]
+    .filter(Boolean)
+    .join(" ");
+  const patientName = [appointment.user?.firstName, appointment.user?.lastName]
+    .filter(Boolean)
+    .join(" ");
+  const appointmentDate = appointment.startedAt || appointment.createdAt || new Date();
+
+  return `MediPulse Consultation Receipt
+Patient Name: ${patientName || "Not provided"}
+Doctor Name: ${doctorName || "Not provided"}
+Appointment Date: ${new Date(appointmentDate).toLocaleString()}
+Visit Summary: ${appointment.patientBrief?.agentSummary || "Not provided"}
+Doctor Notes: ${notes || appointment.doctorNotes || "Not provided"}
+Advice: Please follow the doctor notes above.
+Follow Up: Not provided`;
+};
+
 const generateReceiptText = async (appointment, notes) => {
   const prompt = buildReceiptPrompt(appointment, notes);
-  return generateGeminiText(prompt, "general");
+  try {
+    const text = await generateGeminiText(prompt, "general");
+    if (text?.trim()) return text;
+  } catch (error) {
+    console.error("Receipt AI generation failed, using fallback receipt:", error.message);
+  }
+  return buildFallbackReceiptText(appointment, notes);
 };
 
 const queuePositionForAppointment = async (appointment) => {

@@ -16,6 +16,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const TRIAGE_TTL_SECONDS = 30 * 60;
 const MAX_TOOL_ITERATIONS = 2;
 const MAX_PATIENT_MESSAGES = 10;
+const ML_CONFIDENCE_THRESHOLD = Number(process.env.ML_CONFIDENCE_THRESHOLD || 0.3);
 
 const conversationKey = (appointmentId) => `triage:conv:${appointmentId}`;
 
@@ -377,14 +378,41 @@ const completeTriage = async (req, res) => {
       return res.status(400).json({ message: "Patient brief is not ready yet" });
     }
 
+    // FIXED: Despite the "Call ML microservice" comment, the trained model at
+    // DISEASE_PREDICTION_SERVICE_URL was never called - only Gemini was. So whenever Gemini hit
+    // its free-tier 429 quota the prediction silently stayed "Unknown". The ML service is now
+    // the primary predictor (it has no quota), with Gemini only as a fallback.
     let predictedDisease = "Unknown";
-    try {
-      // Call ML microservice
-      const transcript = state.messages
-        .map((m) => `${m.role}: ${m.text}`)
-        .join("\n");
-      
-      // Use Gemini to predict disease from conversation transcript
+    const transcript = state.messages
+      .map((m) => `${m.role}: ${m.text}`)
+      .join("\n");
+    const symptomText = [state.brief.chiefComplaint, state.brief.agentSummary]
+      .filter(Boolean)
+      .join(". ") || transcript;
+
+    const mlServiceUrl = process.env.DISEASE_PREDICTION_SERVICE_URL || process.env.ML_SERVICE_URL;
+    if (mlServiceUrl && symptomText.trim()) {
+      try {
+        const mlResponse = await axios.post(
+          mlServiceUrl,
+          { text: symptomText },
+          { timeout: 20000 },
+        );
+        const disease = String(mlResponse.data?.disease || "").trim();
+        const confidence = Number(mlResponse.data?.confidence);
+        // The model is trained on symptom keywords, so free-form chat text can produce weak
+        // matches. Below the threshold we prefer Gemini rather than showing a shaky guess.
+        if (disease && disease !== "Unknown Condition" && !(confidence < ML_CONFIDENCE_THRESHOLD)) {
+          predictedDisease = Number.isFinite(confidence)
+            ? `${disease} (${Math.round(confidence * 100)}% confidence)`
+            : disease;
+        }
+      } catch (mlError) {
+        console.warn("ML disease prediction service failed:", mlError.message);
+      }
+    }
+
+    if (predictedDisease === "Unknown") {
       try {
         const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
         const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -398,9 +426,11 @@ const completeTriage = async (req, res) => {
       } catch (geminiErr) {
         console.error("Gemini disease prediction failed:", geminiErr.message);
       }
-    } catch (mlError) {
-      console.error("ML prediction failed:", mlError.message);
-      predictedDisease = "Unable to predict";
+    }
+
+    if (predictedDisease === "Unknown" && state.brief.chiefComplaint) {
+      // Never show a bare "Unknown" to the doctor when we at least know the complaint.
+      predictedDisease = `Pending review - reported: ${state.brief.chiefComplaint}`;
     }
 
     const triageProfile = {
