@@ -273,11 +273,12 @@ const startTriage = async (req, res) => {
       patientContext,
     });
   } catch (error) {
-    console.error("Triage start failed:", error.message);
+    // FIXED: The response leaked the internal message and full stack trace to the client.
+    console.error("Triage start failed:", error);
     return res.status(500).json({
-      message: `AI is temporarily unavailable: ${error.message}`,
-      details: error.stack,
+      message: "AI is temporarily unavailable, please try again shortly",
     });
+
   }
 };
 
@@ -351,11 +352,13 @@ const sendMessage = async (req, res) => {
       urgencyLevel: state.brief?.urgencyLevel || null,
     });
   } catch (error) {
-    console.error("Triage message failed:", error.message);
-    import('fs').then(fs => fs.writeFileSync('triage_error.log', 'sendMessage error: ' + error.stack));
+    // FIXED: Removed a leftover debug hook that wrote triage_error.log on every failure
+    // (it overwrote the file each time and leaked stack traces into the repo).
+    console.error("Triage message failed:", error);
     return res.status(500).json({
-      message: "AI is temporarily unavailable, your appointment is unaffected (from sendMessage)",
+      message: "AI is temporarily unavailable, your appointment is unaffected",
     });
+
   }
 };
 
@@ -424,11 +427,12 @@ const completeTriage = async (req, res) => {
       patientBrief: appointment.patientBrief,
     });
   } catch (error) {
-    console.error("Triage complete failed:", error.message);
-    import('fs').then(fs => fs.writeFileSync('triage_error.log', 'completeTriage error: ' + error.stack));
+    // FIXED: Same leftover triage_error.log debug hook removed here.
+    console.error("Triage complete failed:", error);
     return res.status(500).json({
-      message: "AI is temporarily unavailable, your appointment is unaffected (from completeTriage)",
+      message: "AI is temporarily unavailable, your appointment is unaffected",
     });
+
   }
 };
 
@@ -624,5 +628,4 @@ Always format your response as valid JSON without markdown formatting.`
     return res.status(500).json({ message: "Failed to run AI assessment", error: error.message });
   }
 };
-
 

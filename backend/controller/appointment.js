@@ -7,12 +7,23 @@ import User from "../model/user.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 
 
+// Accepts a raw id, an ObjectId, or a populated document and always returns a plain id string.
+const normalizeId = (value) => {
+  if (!value) return "";
+  if (typeof value === "object" && value._id) return value._id.toString();
+  return value.toString();
+};
+
 const getLinkedDoctorIds = async (doctorId) => {
-  const ids = [doctorId.toString()];
+  const rootId = normalizeId(doctorId);
+  if (!rootId || !mongoose.Types.ObjectId.isValid(rootId)) return [];
+
+  const ids = [rootId];
   const [platformDoc, staffDoc] = await Promise.all([
-    Doctor.findById(doctorId),
-    HospitalStaff.findOne({ _id: doctorId, role: "DOCTOR" })
+    Doctor.findById(rootId),
+    HospitalStaff.findOne({ _id: rootId, role: "DOCTOR" })
   ]);
+
   
   if (platformDoc) {
     const linkedStaff = await HospitalStaff.find({ doctorId: platformDoc._id, role: "DOCTOR" }, "_id");
@@ -87,7 +98,13 @@ const OTP_EXPIRY_MS = 10 * 60 * 1000;
 const BOOKING_TOKEN_EXPIRY_MS = 10 * 60 * 1000;
 const AUTO_REFUND_DELAY_MS = 30 * 60 * 1000;
 const WALLET_APPOINTMENT_FEE_INR = Number(process.env.APPOINTMENT_BOOKING_FEE_INR || 5);
+// The booking UI does not implement the OTP step yet, so enforcement is opt-in to avoid
+// breaking every booking. Set REQUIRE_BOOKING_OTP=true once the frontend sends bookingToken.
+// Either way, a token that IS supplied is always fully validated below (no more bypass).
+const REQUIRE_BOOKING_OTP = process.env.REQUIRE_BOOKING_OTP === "true";
+
 const appointmentTimeouts = new Map();
+
 
 const hashValue = (value) =>
   crypto.createHash("sha256").update(value).digest("hex");
@@ -205,12 +222,15 @@ const mapActiveAppointment = (appointment) => {
 };
 
 const buildDoctorQueuePayload = async (doctorId) => {
-  const allIds = await getLinkedDoctorIds(doctorId);
+  const rootId = normalizeId(doctorId);
   const redis = getRedis();
-  const cached = await redis.get(queueCacheKey(doctorId));
+  const cached = await redis.get(queueCacheKey(rootId));
   if (cached) {
     return JSON.parse(cached);
   }
+
+  const allIds = await getLinkedDoctorIds(rootId);
+
 
   const [queuedAppointments, activeAppointment] = await Promise.all([
     Appointment.find({ doctor: { $in: allIds }, status: "queued" })
@@ -227,30 +247,38 @@ const buildDoctorQueuePayload = async (doctorId) => {
   }
 
   const payload = {
-    doctorId,
+    doctorId: rootId,
     pendingCount: queuedAppointments.length,
     queue: queuedAppointments.map(mapQueueAppointment),
     activeAppointment: mapActiveAppointment(activeAppointment),
   };
 
-  await redis.set(queueCacheKey(doctorId), JSON.stringify(payload), "EX", 20);
+  await redis.set(queueCacheKey(rootId), JSON.stringify(payload), "EX", 20);
   return payload;
 };
 
 const emitQueueUpdates = async (doctorId) => {
-  await getRedis().del(queueCacheKey(doctorId));
+  const rootId = normalizeId(doctorId);
+  const allIds = await getLinkedDoctorIds(rootId);
+
+  // FIXED: Only the requested doctor's cache was cleared, so a hospital-staff doctor and the
+  // linked platform doctor kept serving stale queues to each other for up to 20 seconds.
+  const cacheKeys = (allIds.length ? allIds : [rootId]).map(queueCacheKey);
+  await getRedis().del(...cacheKeys);
+
   const io = getIO();
   if (!io) return;
 
-  const payload = await buildDoctorQueuePayload(doctorId);
-  const allIds = await getLinkedDoctorIds(doctorId);
+  const payload = await buildDoctorQueuePayload(rootId);
   allIds.forEach(id => {
     io.to(`doctor:${id}`).emit("appointment:queue-updated", payload);
   });
 
   payload.queue.forEach((appointment, index) => {
+    if (!appointment.user?._id) return;
     io.to(`user:${appointment.user._id}`).emit("appointment:user-status", {
-      doctorId,
+      doctorId: rootId,
+
       pendingCount: payload.pendingCount,
       appointmentId: appointment._id,
       status: "queued",
@@ -262,9 +290,10 @@ const emitQueueUpdates = async (doctorId) => {
     io.to(`user:${payload.activeAppointment.user._id}`).emit(
       "appointment:user-status",
       {
-        doctorId,
+        doctorId: rootId,
         pendingCount: payload.pendingCount,
         appointmentId: payload.activeAppointment._id,
+
         status: "active",
         queuePosition: 0,
         startedAt: payload.activeAppointment.startedAt,
@@ -437,91 +466,8 @@ const generateReceiptText = async (appointment, notes) => {
   return generateGeminiText(prompt, "general");
 };
 
-const createQueuedAppointmentFromDemoBooking = async ({
-  doctorId,
-  userId,
-  bookingToken,
-}) => {
-  const tokenDataRaw = await getRedis().get(bookingTokenKey(bookingToken));
-  if (!tokenDataRaw) {
-    return { status: 401, message: "Booking token expired. Verify OTP again" };
-  }
-
-  const tokenData = JSON.parse(tokenDataRaw);
-  if (tokenData.userId !== userId || tokenData.doctorId !== doctorId) {
-    return { status: 403, message: "Invalid booking token" };
-  }
-
-  const bookable = await ensureBookableAppointment(doctorId, userId);
-  if (bookable.status) {
-    return bookable;
-  }
-
-  const transaction = await transferVirtualMoney({
-    senderId: userId,
-    senderRole: "user",
-    receiverId: doctorId,
-    receiverRole: "doctor",
-    amount: WALLET_APPOINTMENT_FEE_INR,
-    type: "PAYMENT",
-    description: "Appointment booking fee",
-    referenceId: `APPOINTMENT-${hashValue(bookingToken)}`,
-    metadata: {
-      doctorId,
-      userId,
-      source: "appointment-booking",
-    },
-  });
-
-  const appointment = await Appointment.create({
-    doctor: doctorId,
-    user: userId,
-    familyMemberId: tokenData.familyMemberId,
-    roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
-    status: "queued",
-    payment: {
-      provider: "wallet",
-      orderId: transaction.transactionId,
-      paymentId: transaction.transactionId,
-      amount: WALLET_APPOINTMENT_FEE_INR,
-      currency: "INR",
-      paidAt: new Date(),
-    },
-  });
-
-  const autoRefundDueAt = new Date(Date.now() + AUTO_REFUND_DELAY_MS);
-  await getRedis().zadd(autoRefundSetKey, autoRefundDueAt.getTime(), appointment._id.toString());
-  await getRedis().del(bookingTokenKey(bookingToken));
-  await emitQueueUpdates(doctorId);
-
-  const user = await User.findById(userId);
-  try {
-    await sendAppointmentBookedMail({
-      to: user.email,
-      doctorName: buildPersonName(bookable.doctor, "Doctor"),
-      patientName: buildPersonName(user, "Patient"),
-      appointmentId: appointment._id.toString(),
-    });
-  } catch (error) {
-    console.error("Appointment booking email failed:", error.message);
-  }
-
-  await publishEvent("appointment.booked", {
-    appointmentId: appointment._id.toString(),
-    orderId: transaction.transactionId,
-    paymentId: transaction.transactionId,
-    doctorId,
-    userId,
-    amount: WALLET_APPOINTMENT_FEE_INR,
-  });
-
-  const queuePosition =
-    appointment.status === "queued" ? await queuePositionForAppointment(appointment) : 0;
-
-  return { appointment, queuePosition };
-};
-
 const queuePositionForAppointment = async (appointment) => {
+
   const allIds = await getLinkedDoctorIds(appointment.doctor);
   return (await Appointment.countDocuments({
     doctor: { $in: allIds },
@@ -690,12 +636,24 @@ const refundAppointmentPayment = async (req, res) => {
       .json({ message: "Cannot refund an active or completed appointment" });
   }
 
+  // FIXED: A missing payment block threw a TypeError, and an already-refunded
+  // appointment could be refunded again.
+  const originalTransactionId =
+    appointment.payment?.paymentId || appointment.payment?.orderId;
+  if (!originalTransactionId) {
+    return res.status(409).json({ message: "No payment found for this appointment" });
+  }
+  if (appointment.payment?.refundedAt) {
+    return res.status(409).json({ message: "This appointment is already refunded" });
+  }
+
   try {
     const refund = await refundVirtualPayment({
       actorId: appointment.doctor.toString(),
       actorRole: "doctor",
-      originalTransactionId: appointment.payment.paymentId || appointment.payment.orderId,
+      originalTransactionId,
       amount: appointment.payment.amount || WALLET_APPOINTMENT_FEE_INR,
+
       reason,
       isAdmin: false,
       idempotencyKey: `appointment-manual-refund-${appointment._id.toString()}`,
@@ -751,12 +709,17 @@ const processDueAutoRefunds = async () => {
       continue;
     }
 
-    const shouldRefund = appointment.status === "queued" && !appointment.startedAt;
+    const shouldRefund =
+      appointment.status === "queued" &&
+      !appointment.startedAt &&
+      !appointment.payment?.refundedAt &&
+      Boolean(appointment.payment?.paymentId || appointment.payment?.orderId);
 
     if (!shouldRefund) {
       await redis.zrem(autoRefundSetKey, appointmentId);
       continue;
     }
+
 
     try {
       const refund = await refundVirtualPayment({
@@ -801,60 +764,138 @@ const bookAppointment = async (req, res) => {
   if (req.auth.role !== "user") {
     return res.status(403).json({ message: "Only users can book appointments" });
   }
+
+  // FIXED: Booking previously ignored the OTP booking token entirely, so anyone could
+  // skip /otp/send + /otp/verify and charge the wallet directly.
+  let tokenData = null;
+  if (REQUIRE_BOOKING_OTP || bookingToken) {
+    if (!bookingToken) {
+      return res
+        .status(401)
+        .json({ message: "Booking token is required. Verify the OTP sent to your email first" });
+    }
+
+    const tokenDataRaw = await getRedis().get(bookingTokenKey(bookingToken));
+    if (!tokenDataRaw) {
+      return res.status(401).json({ message: "Booking token expired. Verify OTP again" });
+    }
+
+    tokenData = JSON.parse(tokenDataRaw);
+    if (tokenData.userId !== req.auth.id.toString() || tokenData.doctorId !== doctorId) {
+      return res.status(403).json({ message: "Invalid booking token" });
+    }
+  }
+
   const bookable = await ensureBookableAppointment(doctorId, req.auth.id);
   if (bookable.status) {
     return res.status(bookable.status).json(bookable);
   }
 
-  const transaction = await transferVirtualMoney({
-    senderId: req.auth.id,
-    senderRole: "user",
-    receiverId: doctorId,
-    receiverRole: "doctor",
-    amount: WALLET_APPOINTMENT_FEE_INR,
-    type: "PAYMENT",
-    description: "Appointment booking fee",
-    referenceId: `APPOINTMENT-${new mongoose.Types.ObjectId().toString()}`,
-    metadata: {
-      doctorId,
-      userId: req.auth.id,
-      source: "appointment-booking",
-    },
-  });
-
-  const appointment = await Appointment.create({
-    doctor: doctorId,
-    user: req.auth.id,
-    roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
-    status: "queued",
-    payment: {
+  // FIXED: An insufficient wallet balance threw an unhandled rejection and the request hung forever.
+  let transaction;
+  try {
+    transaction = await transferVirtualMoney({
+      senderId: req.auth.id,
+      senderRole: "user",
+      receiverId: doctorId,
+      receiverRole: "doctor",
       amount: WALLET_APPOINTMENT_FEE_INR,
-      paymentId: transaction.transactionId,
-      paidAt: new Date(),
-    },
-  });
+      type: "PAYMENT",
+      description: "Appointment booking fee",
+      referenceId: `APPOINTMENT-${new mongoose.Types.ObjectId().toString()}`,
+      metadata: {
+        doctorId,
+        userId: req.auth.id,
+        source: "appointment-booking",
+      },
+    });
+  } catch (error) {
+    return res.status(402).json({
+      message: error.message || "Wallet payment failed. Please top up and try again",
+    });
+  }
+
+  let appointment;
+  try {
+    appointment = await Appointment.create({
+      doctor: doctorId,
+      user: req.auth.id,
+      familyMemberId: tokenData?.familyMemberId,
+      roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
+      status: "queued",
+      // FIXED: provider/orderId/currency were never persisted, which broke refund lookups.
+      payment: {
+        provider: "wallet",
+        orderId: transaction.transactionId,
+        paymentId: transaction.transactionId,
+        amount: WALLET_APPOINTMENT_FEE_INR,
+        currency: "INR",
+        paidAt: new Date(),
+      },
+    });
+  } catch (error) {
+    // Money already left the wallet, so refund instead of silently keeping it.
+    try {
+      await refundVirtualPayment({
+        actorId: normalizeId(doctorId),
+        actorRole: "doctor",
+        originalTransactionId: transaction.transactionId,
+        amount: WALLET_APPOINTMENT_FEE_INR,
+        reason: "appointment-create-failed",
+        isAdmin: false,
+        idempotencyKey: `appointment-create-failed-${transaction.transactionId}`,
+      });
+    } catch (refundError) {
+      console.error("Rollback refund failed:", refundError.message);
+    }
+    return res.status(500).json({ message: "Could not create the appointment. Payment reversed" });
+  }
+
+  // FIXED: Direct bookings were never registered for auto-refund, so a patient whose doctor
+  // never started the consultation lost the fee permanently.
+  await getRedis().zadd(
+    autoRefundSetKey,
+    Date.now() + AUTO_REFUND_DELAY_MS,
+    appointment._id.toString(),
+  );
+
+  if (bookingToken) {
+    await getRedis().del(bookingTokenKey(bookingToken));
+  }
 
   await emitQueueUpdates(doctorId);
 
-  const allIds = await getLinkedDoctorIds(doctorId);
-  const pendingCount = await Appointment.countDocuments({
-    doctor: { $in: allIds },
-    status: "queued",
-    createdAt: { $lte: appointment.createdAt },
-  });
+  const queuePosition = await queuePositionForAppointment(appointment);
 
-  const result = {
-    appointment,
-    queuePosition: pendingCount,
-  };
+  try {
+    const user = await User.findById(req.auth.id);
+    await sendAppointmentBookedMail({
+      to: user.email,
+      doctorName: buildPersonName(bookable.doctor, "Doctor"),
+      patientName: buildPersonName(user, "Patient"),
+      appointmentId: appointment._id.toString(),
+    });
+  } catch (error) {
+    console.error("Appointment booking email failed:", error.message);
+  }
+
+  await publishEvent("appointment.booked", {
+    appointmentId: appointment._id.toString(),
+    orderId: transaction.transactionId,
+    paymentId: transaction.transactionId,
+    doctorId,
+    userId: req.auth.id.toString(),
+    amount: WALLET_APPOINTMENT_FEE_INR,
+  });
 
   return res.status(201).json({
     message: `Appointment booked and queued successfully. INR ${WALLET_APPOINTMENT_FEE_INR} debited from your wallet.`,
-    appointmentId: result.appointment._id,
-    status: result.appointment.status,
-    queuePosition: result.queuePosition,
+    appointmentId: appointment._id,
+    status: appointment.status,
+    queuePosition,
   });
 };
+
 
 const getDoctorQueue = async (req, res) => {
   if (req.auth.role !== "doctor") {
@@ -903,14 +944,17 @@ const getDoctorPendingStatus = async (req, res) => {
     }).sort({ createdAt: 1 });
 
     if (myAppointment) {
+      // FIXED: This counted only the requested doctor id while the queue itself spans all linked
+      // doctor ids, so patients of hospital-linked doctors saw a wrong position (often 1 for everyone).
       const queuePosition =
         myAppointment.status === "queued"
           ? await Appointment.countDocuments({
-              doctor: doctorId,
+              doctor: { $in: allIds },
               status: "queued",
               createdAt: { $lte: myAppointment.createdAt },
             })
           : 0;
+
       response.myAppointment = {
         _id: myAppointment._id,
         status: myAppointment.status,
@@ -1232,11 +1276,23 @@ const endAppointment = async (req, res) => {
 
 const askDoctorAppointmentCopilot = async (req, res) => {
   try {
+    // FIXED: Any logged-in role could call the co-pilot, and hospital-linked doctor ids were
+    // rejected because the owner check compared only the single primary doctor id.
+    if (req.auth.role !== "doctor") {
+      return res.status(403).json({ message: "Only doctors can use co-pilot" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(req.params.appointmentId)) {
+      return res.status(400).json({ message: "Invalid appointment id" });
+    }
+
     const appointment = await Appointment.findById(req.params.appointmentId);
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
-    if (String(appointment.doctor) !== req.auth.id) {
+
+    const allIds = await getLinkedDoctorIds(req.auth.id);
+    if (!allIds.includes(appointment.doctor.toString())) {
       return res.status(403).json({ message: "Only assigned doctor can use co-pilot" });
     }
+
 
     const prompt = String(req.body.prompt || "Suggest focused consultation questions").trim();
     const context = {
