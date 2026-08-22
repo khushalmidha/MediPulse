@@ -23,9 +23,10 @@ const systemPrompt = (patientContext) => `You are a pre-consultation medical tri
 You are talking to a patient before their telemedicine appointment.
 
 Your job:
-1. Ask 2-3 focused questions to understand their main complaint, symptom duration, severity (1-10), and any relevant medical history
-2. Ask one question at a time. Be empathetic but concise.
-3. After gathering enough information, call the classify_urgency tool, then call generate_patient_brief tool
+1. Begin by asking how you can help them today. 
+2. Ask one question at a time to naturally explore their main complaint. If they already gave symptoms, follow up on them instead of asking generically.
+3. Be empathetic, concise, and conversational. Do not sound like a robot reading a script.
+4. After gathering enough information, call the classify_urgency tool, then call generate_patient_brief tool
 4. If urgency is EMERGENCY, immediately tell the patient to seek emergency care (ER / call 112) before completing the brief
 
 Rules:
@@ -297,6 +298,9 @@ const sendMessage = async (req, res) => {
     if (access.status) return res.status(access.status).json({ message: access.message });
 
     let state = await readConversation(appointmentId);
+    if (state && state.patientContext) {
+      state.patientContext.language = req.query.lang || req.body.lang || state.patientContext.language;
+    }
     if (!state) {
       const patientContext = await getPatientContext({ userId });
     patientContext.language = req.query.lang || req.body.lang || 'English';
@@ -533,5 +537,8 @@ export const fullAssessmentV2 = async (req, res) => {
     return res.status(500).json({ message: "V2 assessment failed", error: error.message });
   }
 };
+
+
+
 
 
