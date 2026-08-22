@@ -337,6 +337,16 @@ const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes
       await redis.del(transcriptKey, suggestionsKey);
     }
     appointment.soapNote = soapNote;
+
+    try {
+      if (!appointment.receiptText) {
+        const receiptText = await generateReceiptText(appointment, roughNotes || "");
+        appointment.receiptText = receiptText;
+        appointment.receiptGeneratedAt = new Date();
+      }
+    } catch (receiptError) {
+      console.error("Auto Receipt generation failed:", receiptError.message);
+    }
   } catch (error) {
     console.error("Auto SOAP generation failed:", error.message);
   }
