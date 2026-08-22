@@ -20,6 +20,7 @@ import reviewRouter from './routes/review.js'
 import opdAiRouter from './routes/opdAi.js'
 import patientPortalRouter from './routes/patientPortal.js'
 import forecastRouter from './routes/forecast.js'
+import copilotRouter from './routes/copilot.js'
 import { startAutoRefundWorker } from './controller/appointment.js'
 import { startReviewRequestWorker } from './services/reviewRequestWorker.js'
 import { configDotenv } from 'dotenv'
@@ -72,6 +73,7 @@ app.use('/api/reviews', reviewRouter)
 app.use('/api/opd-ai', opdAiRouter)
 app.use('/api/patients', patientPortalRouter)
 app.use('/api/forecast', forecastRouter)
+app.use('/api/copilot', copilotRouter)
 app.use('/vpay', virtualPaymentRouter)
 app.get('/verify', Verifier)
 app.get('/verify/staff', StaffVerifier)

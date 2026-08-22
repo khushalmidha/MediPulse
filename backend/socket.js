@@ -333,7 +333,7 @@ export function initSocket(server) {
       const presence = appointmentPresence.get(String(appointmentId));
       if (!presence) return;
       presence.sockets.delete(socket.id);
-      presence.doctorJoined = [...presence.sockets.values()].includes("doctor");
+      presence.doctorJoined = [...presence.sockets.values()].some(r => r === "doctor" || r === "DOCTOR");
       presence.patientJoined = [...presence.sockets.values()].includes("user");
       if (!presence.sockets.size) {
         appointmentPresence.delete(String(appointmentId));
@@ -372,12 +372,22 @@ export function initSocket(server) {
       });
     });
 
+    socket.on("appointment:chat-message", (msg) => {
+      if (!msg || !msg.appointmentId) return;
+      socket.to(`appointment:${msg.appointmentId}`).emit("appointment:chat-message", msg);
+    });
+
+    socket.on("appointment:end", ({ appointmentId }) => {
+      if (!appointmentId) return;
+      socket.to(`appointment:${appointmentId}`).emit("appointment:ended", { appointmentId });
+    });
+
     // ── Disconnect ────────────────────────────────────────
     socket.on("disconnect", () => {
       for (const [appointmentId, presence] of appointmentPresence.entries()) {
         if (!presence.sockets.has(socket.id)) continue;
         presence.sockets.delete(socket.id);
-        presence.doctorJoined = [...presence.sockets.values()].includes("doctor");
+        presence.doctorJoined = [...presence.sockets.values()].some(r => r === "doctor" || r === "DOCTOR");
         presence.patientJoined = [...presence.sockets.values()].includes("user");
         if (!presence.sockets.size) {
           appointmentPresence.delete(appointmentId);

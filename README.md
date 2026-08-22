@@ -28,10 +28,10 @@ By combining traditional hospital management features with cutting-edge AI triag
 
 ## ✨ Core Features & Recent Integrations
 
-### 🤖 AI-Powered Patient Triage & Disease Prediction
-- **Intelligent Pre-Consultation**: Patients interact with a Gemini-powered conversational AI before booking.
-- **Disease Prediction ML Service**: A standalone Python/FastAPI microservice built with scikit-learn analyzes the patient's symptoms and predicts potential diseases using TF-IDF and Naive Bayes models.
-- **Automated Clinical Briefs**: The AI synthesizes the chat into a structured patient brief (Chief Complaint, Duration, Severity, Urgency) for the doctor to review instantly.
+### 🤖 AI-Powered Patient Triage, Disease Prediction & Smart Booking
+- **Smart AI Booking**: Patients simply describe their symptoms in natural language. Our AI engine instantly predicts their condition, determines severity (e.g. LOW, EMERGENCY), matches them to the precise medical specialty required, and directly recommends verified doctors for immediate booking.
+- **Intelligent Pre-Consultation**: For manual bookings, patients interact with a Gemini-powered conversational AI that synthesizes the chat into a structured patient brief (Chief Complaint, Duration, Severity) for the doctor to review instantly.
+- **Disease Prediction Service**: An intelligent fallback pipeline utilizing Gemini and Python/FastAPI microservices to predict diseases using TF-IDF and NLP.
 
 ### 🎥 WebRTC Video Consultations & AI Copilot
 - **Peer-to-Peer Telemedicine**: Crystal-clear, secure video consultations powered directly by WebRTC without third-party meeting links.

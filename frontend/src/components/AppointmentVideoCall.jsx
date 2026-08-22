@@ -88,7 +88,7 @@ const AppointmentVideoCall = ({
   patientPhoto = "",
   onCallEnd,
 }) => {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const peerConnectionRef = useRef(null);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -463,7 +463,7 @@ const AppointmentVideoCall = ({
 
   useEffect(() => {
     if (activeSidePanel === "reports") {
-      axios.get(`${BACKEND_URL}/api/appointment/reports`, { withCredentials: true })
+      axios.get(`${BACKEND_URL}/appointment/history`, { withCredentials: true })
         .then(res => setReports(res.data))
         .catch(console.error);
     }
@@ -480,7 +480,7 @@ const AppointmentVideoCall = ({
     connected: "bg-green-500",
     reconnecting: "bg-orange-500",
     failed: "bg-red-500",
-  }[connectionStatus] || "bg-gray-50 dark:bg-slate-9000";
+  }[connectionStatus] || "bg-gray-50 dark:bg-slate-900";
 
   const statusText = {
     waiting: role === "doctor" ? "Waiting for patient..." : "Waiting for doctor...",

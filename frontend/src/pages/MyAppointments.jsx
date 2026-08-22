@@ -5,6 +5,7 @@ import { FileText, Download, Clock, CheckCircle, XCircle, AlertCircle } from 'lu
 import jsPDF from 'jspdf'
 import axios from 'axios'
 import { BACKEND_URL } from '../utils'
+import { getSocket } from '../socket'
 
 const MyAppointments = () => {
   const [appointments, setAppointments] = useState([])
@@ -13,6 +14,24 @@ const MyAppointments = () => {
   const [activeTab, setActiveTab] = useState('all')
   const { isAuth, user } = useAuth()
   const backendUrl = BACKEND_URL
+
+  useEffect(() => {
+    if (!isAuth) return;
+    const socket = getSocket();
+    if (!socket.connected) socket.connect();
+    
+    const handleStatus = () => fetchAllAppointments();
+    const handleEnded = () => fetchAllAppointments();
+    
+    socket.on('appointment:user-status', handleStatus);
+    socket.on('appointment:ended', handleEnded);
+    
+    return () => {
+      socket.off('appointment:user-status', handleStatus);
+      socket.off('appointment:ended', handleEnded);
+    };
+  }, [isAuth]);
+
 
   useEffect(() => {
     if (isAuth) {

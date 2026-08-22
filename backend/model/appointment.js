@@ -78,6 +78,7 @@ const appointmentSchema = new mongoose.Schema(
       agentSummary: String,
       generatedAt: Date,
       conversationTurns: Number,
+      predictedDisease: String,
     },
     soapNote: {
       markdown: String,

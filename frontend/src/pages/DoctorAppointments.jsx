@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../utils";
@@ -32,7 +32,7 @@ const DoctorAppointments = () => {
     if (!queueData.activeAppointment?._id) return;
     setActionMessage("");
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/appointment/${queueData.activeAppointment._id}/copilot`, { prompt: aiPrompt }, { withCredentials: true });
+      const response = await axios.post(`${BACKEND_URL}/appointment/${queueData.activeAppointment._id}/copilot`, { prompt: aiPrompt }, { withCredentials: true });
       setAiSuggestion(response.data.suggestion);
       setAiBrief(response.data.context?.patientBrief || aiBrief);
     } catch (error) {
@@ -40,9 +40,14 @@ const DoctorAppointments = () => {
     }
   };
 
+  const lastActiveIdRef = useRef(null);
   useEffect(() => {
-    setDoctorNotes(queueData.activeAppointment?.doctorNotes || "");
-  }, [queueData.activeAppointment?._id, queueData.activeAppointment?.doctorNotes]);
+    // Only set notes when the active appointment CHANGES, not on every poll
+    if (queueData.activeAppointment?._id !== lastActiveIdRef.current) {
+      lastActiveIdRef.current = queueData.activeAppointment?._id || null;
+      setDoctorNotes(queueData.activeAppointment?.doctorNotes || "");
+    }
+  }, [queueData.activeAppointment?._id]);
 
   const fetchQueue = async () => {
     const response = await axios.get(`${BACKEND_URL}/appointment/doctor/queue`, {

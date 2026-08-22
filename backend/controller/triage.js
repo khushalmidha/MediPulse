@@ -381,37 +381,23 @@ const completeTriage = async (req, res) => {
         .map((m) => `${m.role}: ${m.text}`)
         .join("\n");
       
-      let mlServiceUrl = process.env.DISEASE_PREDICTION_SERVICE_URL || "http://localhost:8003/predict";
-      let mlResponse;
-      
+      // Use Gemini to predict disease from conversation transcript
       try {
-        mlResponse = await axios.post(mlServiceUrl, { text: transcript });
-      } catch (firstErr) {
-        // If we are running in Docker, localhost will fail. Fallback to host.docker.internal
-        if (mlServiceUrl.includes('localhost')) {
-          console.log("Localhost failed, retrying with host.docker.internal...");
-          mlServiceUrl = mlServiceUrl.replace('localhost', 'host.docker.internal');
-          mlResponse = await axios.post(mlServiceUrl, { text: transcript });
-        } else {
-          throw firstErr;
+        const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+        const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const result = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: `Based on this patient-doctor triage conversation, predict the most likely disease or medical condition in 2-5 words only. No explanation needed.\n\nConversation:\n${transcript}` }] }]
+        });
+        const prediction = result.response.text().trim();
+        if (prediction && prediction.length < 100) {
+          predictedDisease = prediction;
         }
-      }
-
-      // LOG EVERYTHING
-      import('fs').then(fs => fs.writeFileSync('ml_response.log', JSON.stringify({
-        url: mlServiceUrl,
-        transcript: transcript,
-        response: mlResponse.data
-      }, null, 2)));
-
-      if (mlResponse.data && mlResponse.data.disease) {
-        predictedDisease = mlResponse.data.disease;
+      } catch (geminiErr) {
+        console.error("Gemini disease prediction failed:", geminiErr.message);
       }
     } catch (mlError) {
       console.error("ML prediction failed:", mlError.message);
-      // Temporarily save the error message as the predicted disease so we can see it on the frontend/DB!
-      predictedDisease = `ERR: ${mlError.message} (${process.env.DISEASE_PREDICTION_SERVICE_URL || 'http://localhost:8003/predict'})`;
-      import('fs').then(fs => fs.writeFileSync('ml_error.log', mlError.message + '\n' + (mlError.response?.data ? JSON.stringify(mlError.response.data) : '')));
+      predictedDisease = "Unable to predict";
     }
 
     const triageProfile = {
@@ -475,8 +461,9 @@ export const fullAssessmentV2 = async (req, res) => {
     // 2. Specialty Pipeline
     let specialty = "General Medicine";
     let disease = "Unknown";
+    const mlBaseUrl = process.env.ML_MICROSERVICE_URL || "http://127.0.0.1:8000";
     try {
-      const specRes = await axios.post("http://127.0.0.1:8000/v2/specialty", patientContext);
+      const specRes = await axios.post(`${mlBaseUrl}/v2/specialty`, patientContext);
       specialty = specRes.data.specialty || specialty;
       disease = specRes.data.disease || disease;
     } catch (e) {
@@ -487,7 +474,7 @@ export const fullAssessmentV2 = async (req, res) => {
     let severity = "LOW";
     let esi_level = 4;
     try {
-      const sevRes = await axios.post("http://127.0.0.1:8000/v2/severity", patientContext);
+      const sevRes = await axios.post(`${mlBaseUrl}/v2/severity`, patientContext);
       severity = sevRes.data.severity || severity;
       esi_level = sevRes.data.esi_level || esi_level;
     } catch (e) {
@@ -514,7 +501,7 @@ export const fullAssessmentV2 = async (req, res) => {
     // 4. LambdaMART Ranker
     let ranked_doctors = candidates;
     try {
-      const rankRes = await axios.post("http://127.0.0.1:8000/v2/recommend-doctors", {
+      const rankRes = await axios.post(`${mlBaseUrl}/v2/recommend-doctors`, {
         patient: patientContext,
         doctors: candidates
       });
@@ -569,8 +556,13 @@ Always format your response as valid JSON without markdown formatting.`
     });
 
     let rawText = result.response.text().trim();
-    if (rawText.startsWith('' + '' + 'json')) rawText = rawText.slice(7, -3).trim();
-    else if (rawText.startsWith('' + '' + '')) rawText = rawText.slice(3, -3).trim();
+    const jsonMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      rawText = jsonMatch[1].trim();
+    } else {
+      const codeMatch = rawText.match(/```\s*([\s\S]*?)\s*```/);
+      if (codeMatch) rawText = codeMatch[1].trim();
+    }
 
     let aiData;
     try {
@@ -588,23 +580,23 @@ Always format your response as valid JSON without markdown formatting.`
     // Normalize specialty to match database terminology
     const normalizedSpecialty = normalizeSpecialty(aiData.specialty);
 
-    // Fetch doctors for this specialty
-    let matchedDoctors = await Doctor.find({ specialty: normalizedSpecialty, verified: true })
-      .select('name specialty experience fee profilePicture clinic')
+    // Fetch doctors for this specialty (Doctor model uses experience.expertise, not specialty)
+    let matchedDoctors = await Doctor.find({ 'experience.expertise': normalizedSpecialty })
+      .select('firstName lastName experience profilePhoto clinic rating')
       .lean();
 
-    // If no exact match, fallback to General Medicine or all verified doctors
+    // If no exact match, fallback to General Medicine
     if (matchedDoctors.length === 0) {
-      matchedDoctors = await Doctor.find({ specialty: 'General Medicine', verified: true })
-        .select('name specialty experience fee profilePicture clinic')
+      matchedDoctors = await Doctor.find({ 'experience.expertise': 'General Medicine' })
+        .select('firstName lastName experience profilePhoto clinic rating')
         .lean();
     }
     
-    // If STILL empty, just return a few verified doctors
+    // If STILL empty, just return a few doctors
     if (matchedDoctors.length === 0) {
-      matchedDoctors = await Doctor.find({ verified: true })
+      matchedDoctors = await Doctor.find({})
         .limit(5)
-        .select('name specialty experience fee profilePicture clinic')
+        .select('firstName lastName experience profilePhoto clinic rating')
         .lean();
     }
 
@@ -614,7 +606,16 @@ Always format your response as valid JSON without markdown formatting.`
       specialty: normalizedSpecialty,
       severity: aiData.severity || "MEDIUM",
       esi_level: aiData.esi_level || 4,
-      ranked_doctors: matchedDoctors,
+      ranked_doctors: matchedDoctors.map(d => ({
+        _id: d._id,
+        name: [d.firstName, d.lastName].filter(Boolean).join(' '),
+        specialty: d.experience?.expertise || 'General Medicine',
+        experience: d.experience?.years || 0,
+        fee: 500,
+        profilePicture: d.profilePhoto || null,
+        clinic: d.clinic || {},
+        rating: d.rating || null,
+      })),
       safetyFlags: []
     });
 

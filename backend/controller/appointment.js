@@ -290,7 +290,7 @@ const scheduleAppointmentTimeout = (appointmentId) => {
 };
 
 const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes = null) => {
-  const appointment = await Appointment.findById(appointmentId).populate("user");
+  const appointment = await Appointment.findById(appointmentId).populate("user").populate("doctor", "firstName lastName email experience clinic");
   if (!appointment || appointment.status !== "active") {
     clearAppointmentTimeout(appointmentId);
     return null;
@@ -387,13 +387,13 @@ const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes
     allDocIds.forEach(id => {
       io.to(`doctor:${id}`).emit("appointment:ended", endedPayload);
     });
-    io.to(`user:${appointment.user.toString()}`).emit("appointment:ended", endedPayload);
+    io.to(`user:${(appointment.user._id || appointment.user).toString()}`).emit("appointment:ended", endedPayload);
   }
 
   await publishEvent("appointment.completed", {
     appointmentId: appointment._id.toString(),
     doctorId: appointment.doctor.toString(),
-    userId: appointment.user.toString(),
+    userId: (appointment.user._id || appointment.user).toString(),
     endedBy,
     endedReason,
   });
@@ -679,7 +679,7 @@ const refundAppointmentPayment = async (req, res) => {
   const isDoctor =
     req.auth.role === "doctor" && allIds.includes(appointment.doctor.toString());
   const isUser =
-    req.auth.role === "user" && appointment.user.toString() === req.auth.id.toString();
+    req.auth.role === "user" && (appointment.user._id || appointment.user).toString() === req.auth.id.toString();
   if (!isDoctor && !isUser) {
     return res.status(403).json({ message: "You cannot refund this appointment" });
   }
@@ -1004,8 +1004,7 @@ const generateAppointmentReceipt = async (req, res) => {
   }
 
   const appointmentRaw = await Appointment.findById(appointmentId)
-    .populate("user", "firstName lastName email")
-    .lean();
+    .populate("user", "firstName lastName email");
   
   const [appointment] = await populateDoctorForAppointments(appointmentRaw ? [appointmentRaw] : []);
 
@@ -1152,7 +1151,7 @@ const startAppointment = async (req, res) => {
   await publishEvent("appointment.started", {
     appointmentId: appointment._id.toString(),
     doctorId: appointment.doctor.toString(),
-    userId: appointment.user.toString(),
+    userId: (appointment.user._id || appointment.user).toString(),
   });
 
   const io = getIO();
@@ -1160,7 +1159,7 @@ const startAppointment = async (req, res) => {
     const payload = {
       appointmentId: appointment._id,
       doctorId: appointment.doctor.toString(),
-      userId: appointment.user.toString(),
+      userId: (appointment.user._id || appointment.user).toString(),
       status: appointment.status,
       startedAt: appointment.startedAt,
       endsAt: new Date(appointment.startedAt.getTime() + APPOINTMENT_DURATION_MS),
@@ -1171,7 +1170,7 @@ const startAppointment = async (req, res) => {
       io.to(`doctor:${id}`).emit("appointment:started", payload);
     });
     // FIXED: The doctor was receiving the patient-facing "join meeting" notification after starting the appointment.
-    io.to(`user:${appointment.user.toString()}`).emit("appointment:started", payload);
+    io.to(`user:${(appointment.user._id || appointment.user).toString()}`).emit("appointment:started", payload);
   }
 
   return res.status(200).json({

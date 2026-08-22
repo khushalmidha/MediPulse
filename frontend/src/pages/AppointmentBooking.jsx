@@ -372,7 +372,7 @@ const AppointmentBooking = () => {
               </div>
             </div>
             <div className="mt-4">
-              <AppointmentVideoCall appointmentId={myAppointment._id} onCallEnd={() => window.location.reload()} />
+              <AppointmentVideoCall appointmentId={myAppointment._id} onCallEnd={() => { setStatus(prev => ({...prev, myAppointment: null})); fetchStatus(); fetchHistory(); }} />
             </div>
           </div>
         )}
