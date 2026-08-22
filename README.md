@@ -35,6 +35,8 @@ By combining traditional hospital management features with cutting-edge AI triag
 
 ### 🎥 WebRTC Video Consultations & AI Copilot
 - **Peer-to-Peer Telemedicine**: Crystal-clear, secure video consultations powered directly by WebRTC without third-party meeting links.
+- **Advanced Audio Processing**: Built-in echo cancellation, noise suppression, and auto-gain control to eliminate feedback loops and ensure professional audio quality.
+- **Flawless Lifecycle Management**: Graceful call terminations, dynamic UI updates, and real-time Socket.IO presence tracking ensure neither doctor nor patient gets stuck on a frozen screen.
 - **Doctor Copilot**: During live consultations, the AI Copilot actively assists the doctor and automatically generates standard **SOAP (Subjective, Objective, Assessment, Plan)** clinical notes, saving doctors hours of documentation time.
 
 ### 🏥 Multi-Tenant Hospital & Smart OPD Queues
