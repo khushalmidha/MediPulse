@@ -267,11 +267,11 @@ const AppointmentVideoCall = ({
     const setupMedia = async () => {
       let stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: true });
       } catch (err) {
         console.warn("Could not get video stream, falling back to audio", err);
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
           setIsCameraOff(true);
         } catch (audioErr) {
           console.error("Could not get audio stream either", audioErr);
@@ -336,6 +336,7 @@ const AppointmentVideoCall = ({
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       if (peerConnectionRef.current) { peerConnectionRef.current.close(); peerConnectionRef.current = null; }
+      onCallEnd();
     };
 
     socket.on("appointment:peer-joined", onPeerJoined);
