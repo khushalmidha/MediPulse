@@ -1,4 +1,4 @@
-import { Bot, Users, Heart, MessageCircle, Stethoscope, Shield, UserPlus, Users2, Building2, Leaf, Flower2, ChevronRight, Star, Clock, Activity, ArrowRight, Phone } from 'lucide-react'
+import { Bot, Users, Heart, MessageCircle, Stethoscope, Shield, UserPlus, Users2, Building2, Leaf, Flower2, ChevronRight, Star, Clock, Activity, ArrowRight, Phone, X, MessageSquare } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useEffect, useState, useRef } from 'react'
@@ -118,11 +118,31 @@ const Home = () => {
   const [communityCount, setCommunityCount] = useState(0)
   const [doctorsCount, setDoctorsCount] = useState(0)
   const [targets, setTargets] = useState({ members: 10000, communities: 100, doctors: 1000, loaded: false })
-    const [reviews, setReviews] = useState([])
+  const [reviews, setReviews] = useState([])
   const [pendingReview, setPendingReview] = useState(null)
+  
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '', isAnonymous: false })
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmittingReview(true)
+    try {
+      await axios.post('/api/reviews/platform', reviewForm, { withCredentials: true })
+      setShowReviewModal(false)
+      setReviewForm({ rating: 5, comment: '', isAnonymous: false })
+      const res = await axios.get(`/api/reviews/platform/homepage`)
+      setReviews(res.data.reviews || [])
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error submitting review')
+    } finally {
+      setIsSubmittingReview(false)
+    }
+  }
 
   useEffect(() => {
-    axios.get(`/api/reviews/global`).then(res => setReviews(res.data.reviews || [])).catch(() => {})
+    axios.get(`/api/reviews/platform/homepage`).then(res => setReviews(res.data.reviews || [])).catch(() => {})
   }, [])
   
   useEffect(() => {
@@ -427,39 +447,135 @@ const Home = () => {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
-      <section className="py-20 bg-white dark:bg-black">
+      {/* TESTIMONIALS (Animated Marquee) */}
+      <section className="py-20 bg-white dark:bg-black overflow-hidden relative">
         <div className="mx-auto max-w-7xl px-4">
-          <div className="text-center mb-12">
-            <p className="text-sm font-bold uppercase tracking-widest text-purple-600 dark:text-red-500 mb-3">Patient Stories</p>
-            <h2 className="text-4xl font-black text-slate-900 dark:text-white">What Our Users Say</h2>
+          <div className="flex flex-col md:flex-row justify-between items-center mb-12">
+            <div className="text-center md:text-left mb-6 md:mb-0">
+              <p className="text-sm font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-3">Patient Stories</p>
+              <h2 className="text-4xl font-black text-slate-900 dark:text-white">What Our Users Say</h2>
+            </div>
+            {isAuth && (
+              <button 
+                onClick={() => setShowReviewModal(true)}
+                className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all"
+              >
+                <MessageSquare size={18} /> Write a Review
+              </button>
+            )}
           </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {(reviews.length > 0 ? reviews : TESTIMONIALS).map((t, i) => {
-                const name = t.isAnonymous ? "Anonymous Patient" : (t.patientId?.firstName ? t.patientId.firstName + ' ' + (t.patientId.lastName || '') : (t.name || 'MediPulse User'));
-                const text = t.comment || t.text;
-                const rating = t.overallRating || t.rating || 5;
-                const location = t.hospitalId?.name || t.city;
-                return (
-                <div key={t._id || t.name + i} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-6 hover:shadow-lg transition-shadow duration-300">
+        </div>
+
+        {/* CSS Animation for Marquee */}
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes marquee {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-50%); }
+          }
+          .animate-marquee {
+            animation: marquee 35s linear infinite;
+          }
+          .animate-marquee:hover {
+            animation-play-state: paused;
+          }
+        `}} />
+
+        {/* Marquee Container */}
+        <div className="flex w-[200vw] sm:w-[150vw] md:w-[100vw] min-w-max hover:cursor-grab active:cursor-grabbing">
+          <div className="flex animate-marquee gap-6 px-3">
+            {/* Double the list to make infinite scroll seamless */}
+            {[...(reviews.length > 0 ? reviews : TESTIMONIALS), ...(reviews.length > 0 ? reviews : TESTIMONIALS)].map((t, i) => {
+              const name = t.isAnonymous ? "Anonymous Patient" : (t.patientId?.firstName ? t.patientId.firstName + ' ' + (t.patientId.lastName || '') : (t.name || 'MediPulse User'));
+              const text = t.comment || t.text;
+              const rating = t.overallRating || t.rating || 5;
+              const location = t.hospitalId?.name || t.city || 'Platform Review';
+              return (
+                <div key={i} className="w-80 sm:w-96 shrink-0 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-6 shadow-sm hover:shadow-md transition-all">
                   <div className="flex text-yellow-500 mb-4">
                     {[1,2,3,4,5].map(s => <Star key={s} size={18} fill={s <= rating ? "currentColor" : "none"} />)}
                   </div>
-                  <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed italic">&ldquo;{text}&rdquo;</p>
+                  <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed italic line-clamp-4 min-h-[5rem]">&ldquo;{text}&rdquo;</p>
                   <div className="mt-5 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 font-black text-blue-700 dark:text-red-400 text-sm">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30 font-black text-purple-700 dark:text-purple-400 text-sm">
                       {name ? name[0] : 'A'}
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">{name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{location}</p>
+                    <div className="overflow-hidden">
+                      <p className="font-bold text-slate-900 dark:text-white text-sm truncate">{name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{location}</p>
                     </div>
                   </div>
                 </div>
-              )})}
-            </div>
+              )
+            })}
+          </div>
         </div>
       </section>
+
+      {/* Write a Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 relative">
+            <button 
+              onClick={() => setShowReviewModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            >
+              <X size={24} />
+            </button>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-6">Rate MediPulse</h3>
+            
+            <form onSubmit={handleReviewSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Overall Rating</label>
+                <div className="flex gap-2">
+                  {[1,2,3,4,5].map(star => (
+                    <button
+                      type="button"
+                      key={star}
+                      onClick={() => setReviewForm(prev => ({...prev, rating: star}))}
+                      className={`transition-colors ${star <= reviewForm.rating ? 'text-yellow-500' : 'text-slate-300 dark:text-slate-700 hover:text-yellow-300'}`}
+                    >
+                      <Star size={32} fill="currentColor" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Your Feedback</label>
+                <textarea
+                  required
+                  rows="4"
+                  value={reviewForm.comment}
+                  onChange={(e) => setReviewForm(prev => ({...prev, comment: e.target.value}))}
+                  placeholder="How has MediPulse helped you?"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 resize-none outline-none transition-all"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="anonymous"
+                  checked={reviewForm.isAnonymous}
+                  onChange={(e) => setReviewForm(prev => ({...prev, isAnonymous: e.target.checked}))}
+                  className="rounded text-purple-600 focus:ring-purple-500 bg-slate-100 border-slate-300"
+                />
+                <label htmlFor="anonymous" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Post anonymously
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmittingReview}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors disabled:opacity-50"
+              >
+                {isSubmittingReview ? 'Posting...' : 'Post Review'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
 
     </div>

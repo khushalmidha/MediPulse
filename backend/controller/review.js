@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Hospital from "../model/hospital.js";
 import OpdToken from "../model/opdToken.js";
 import Review from "../model/review.js";
+import PlatformFeedback from "../model/platformFeedback.js";
 import { getRedis } from "../services/redis.js";
 import { recalculateDoctorRating, recalculateHospitalRating } from "../services/ratingService.js";
 import { verifyReviewSignature } from "../services/reviewRequestWorker.js";
@@ -157,5 +158,81 @@ export const getPendingReview = async (req, res) => {
     res.status(200).json({ pending: { token: lastToken, url: reviewUrl } });
   } catch (error) {
     res.status(500).json({ message: error.message || "Unable to fetch pending review" });
+  }
+};
+
+export const submitPlatformFeedback = async (req, res) => {
+  try {
+    if (req.auth.role !== "user") {
+      return res.status(403).json({ message: "Only patients can submit reviews" });
+    }
+    
+    const { rating, comment, isAnonymous } = req.body;
+    
+    if (Number(rating) < 1 || Number(rating) > 5) {
+      return res.status(400).json({ message: "Rating must be between 1 and 5" });
+    }
+    if (!comment || comment.trim() === "") {
+      return res.status(400).json({ message: "Comment is required" });
+    }
+
+    const feedback = await PlatformFeedback.create({
+      patientId: req.auth.id,
+      rating: Number(rating),
+      comment: comment.trim(),
+      isAnonymous: Boolean(isAnonymous),
+    });
+
+    res.status(201).json({ message: "Feedback submitted successfully", feedback });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Unable to submit feedback" });
+  }
+};
+
+export const getHomepageFeedbacks = async (req, res) => {
+  try {
+    const fetchRandom = async (matchStage, limit) => {
+      return await PlatformFeedback.aggregate([
+        { $match: { status: "published", ...matchStage } },
+        { $sample: { size: limit } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "patientId",
+            foreignField: "_id",
+            as: "patientInfo"
+          }
+        },
+        { $unwind: "$patientInfo" },
+        {
+          $project: {
+            rating: 1,
+            comment: 1,
+            isAnonymous: 1,
+            createdAt: 1,
+            "patientId.firstName": "$patientInfo.firstName",
+            "patientId.lastName": "$patientInfo.lastName"
+          }
+        }
+      ]);
+    };
+
+    const positive = await fetchRandom({ rating: { $gte: 4 } }, 6);
+    const medium = await fetchRandom({ rating: 3 }, 3);
+    const negative = await fetchRandom({ rating: { $lte: 2 } }, 1);
+
+    let combined = [...positive, ...medium, ...negative];
+    
+    if (combined.length < 10) {
+      const existingIds = combined.map(r => r._id);
+      const fill = await fetchRandom({ _id: { $nin: existingIds } }, 10 - combined.length);
+      combined = [...combined, ...fill];
+    }
+
+    combined.sort((a, b) => b.rating - a.rating);
+
+    res.status(200).json({ reviews: combined });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Unable to fetch homepage feedbacks" });
   }
 };
