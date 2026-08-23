@@ -33,8 +33,8 @@
 | Socket.IO event handlers | **15** |
 | React pages / components | **34** / **12** (35 client routes) |
 | Kafka topics (event-driven payments) | **8** |
-| Python ML microservices | **2** (FastAPI) |
-| Disease classes predicted | **41** conditions |
+| Python ML microservices | **1** (FastAPI Engine) |
+| Deep Learning Models (Hugging Face) | **2** (TriageBERT & PubMedBERT) |
 | Staff roles enforced via RBAC | **7** |
 
 ---
@@ -49,19 +49,11 @@ It combines hospital management with AI triage and peer-to-peer WebRTC telemedic
 
 ## ✨ Core Features
 
-### 🤖 AI Triage, Disease Prediction & Smart Booking
-- **Smart Booking** — Patients describe symptoms in natural language. The pipeline predicts the likely condition, assigns severity (`LOW` → `EMERGENCY`) with an ESI level, maps it to one of **16 medical specialties** via a curated **42-entry disease→specialty table**, then recommends verified doctors.
-- **Conversational pre-consultation** — A Gemini-driven multi-turn triage chat (multi-language) synthesizes the conversation into a structured brief: chief complaint, duration, severity, relevant history, and urgency. Conversation state is cached in Redis with TTLs.
-- **ML disease prediction** — A dedicated FastAPI service (TF-IDF + Logistic Regression) trained on **1,173 deduplicated samples across 41 conditions**, returning the top prediction plus **top-3 differentials** with calibrated confidence.
-
-**Measured on a stratified 20% holdout:**
-
-| Model | Top-1 | Top-3 | Mean confidence |
-|---|---|---|---|
-| TF-IDF + MultinomialNB | 84.7% | — | 0.298 |
-| **TF-IDF + LogisticRegression** (deployed) | **94.5%** | **98.7%** | **0.701** |
-
-> The source dataset was **96.3% duplicate rows** (53,404 → 1,993 unique). Training on it as-is leaked test data into training and produced a meaningless ~95% score. The pipeline now deduplicates before splitting, so the numbers above are real holdout results, not memorization.
+### 🤖 AI Pre-Triage & Smart Routing (Powered by BERT)
+- **Smart Assessment Engine** — Patients describe symptoms in natural language. A dedicated Python FastAPI microservice leverages **Hugging Face Transformers** to run state-of-the-art NLP models concurrently.
+- **Severity Prediction (`TriageBERT`)** — Extracts clinical severity (ESI Level 1-5) directly from unstructured symptom text and overrides with deterministic rule-based safety nets for critical emergencies (e.g. "heart attack").
+- **Specialty Routing (`PubMedBERT`)** — Maps symptoms to **13 distinct medical specialties** with calibrated confidence scores and differential alternatives, significantly narrowing the search space for doctors.
+- **Conversational pre-consultation** — A Gemini-driven multi-turn triage chat synthesizes conversations into a structured brief: chief complaint, duration, severity, and urgency. Conversation state is cached in Redis.
 
 ### 🎥 WebRTC Video Consultations & Doctor Copilot
 - **Peer-to-peer telemedicine** — Direct WebRTC video/audio with no third-party meeting links. Socket.IO handles signalling (offer/answer/ICE) and presence, with STUN plus optional TURN relay for restrictive NATs.
@@ -96,7 +88,7 @@ It combines hospital management with AI triage and peer-to-peer WebRTC telemedic
 | **Cache & Locks** | Redis (state caching, distributed locks, TTL keys) with an in-memory fallback shim for local dev |
 | **Messaging** | Apache Kafka (KafkaJS) — 8 topics, producer + consumer worker |
 | **Real-time** | Socket.IO (queues, presence, signalling), WebRTC (media) |
-| **AI / ML** | Google Gemini, Python, FastAPI, scikit-learn (TF-IDF, Logistic Regression), pandas |
+| **AI / ML** | Google Gemini, Python, FastAPI, Hugging Face Transformers (`TriageBERT`, `PubMedBERT`), PyTorch, LightGBM |
 | **DevOps** | Docker, Docker Compose, Render, Vercel |
 
 ---
@@ -105,29 +97,25 @@ It combines hospital management with AI triage and peer-to-peer WebRTC telemedic
 
 Heavy ML work is decoupled from the Node event loop into standalone FastAPI services. The backend calls them over HTTP with defensive error handling and Docker-network fallback routing (`host.docker.internal`), degrading gracefully when a service is unreachable.
 
-```
+```text
 React (Vercel)
       │  REST + Socket.IO + WebRTC signalling
       ▼
 Node/Express API ──── Redis (cache, locks, triage state)
       │          └─── Kafka ──► vpay consumer worker ──► MongoDB
       │  HTTP
-      ├──► medipulse-disease-prediction  (FastAPI · TF-IDF + LogReg · 41 classes)
-      └──► medipulse-ranking-engine      (FastAPI · specialty routing + severity)
+      └──► medipulse-ranking-engine  (FastAPI · TriageBERT · Specialty Classifier · Ranker)
 ```
 
-- **[medipulse-disease-prediction](https://github.com/khushalmidha/medipulse-disease-prediction)** — Trained diagnostic classifier. Exposes `/predict` (top-1 + top-3 differentials) and `/health` reporting whether the model artifact actually loaded, so a bad deploy is visible instead of silently predicting nothing. The model trains at build time to keep workers from racing on the same artifact.
-- **[medipulse-ranking-engine](https://github.com/khushalmidha/medipulse-ranking-engine)** — Serves specialty routing from the trained classifier plus the curated mapping table. Severity scoring and doctor ranking are currently **deterministic rule-based stubs**; the learned XGBoost/LambdaMART ranker is planned (see roadmap).
+- **medipulse-ranking-engine** — A unified AI engine that runs dual Hugging Face NLP pipelines concurrently on thread pools. Exposes `/v2/assessment` to predict specialty and clinical severity (ESI). It also houses the Learning-to-Rank logic (currently an MVP heuristic ranker, upgrading to LightGBM LambdaMART) for personalized doctor recommendations.
 
 ### Fallback strategy
 
-Disease prediction is intentionally layered so one failure never leaves a doctor with an empty panel:
+The AI prediction is intentionally layered so one failure never leaves a doctor with an empty panel:
 
-1. **ML microservice** (primary — no rate limits, deterministic)
-2. **Gemini** (fallback if the ML service is unreachable)
+1. **ML microservice** (primary — high accuracy NLP)
+2. **Deterministic Rules** (flags critical keywords natively in Node/Python for immediate triage overrides)
 3. **Reported chief complaint** (final fallback — surfaces what the patient actually said instead of a bare "Unknown")
-
-Low-confidence predictions are labelled as such rather than hidden, so the doctor always sees the model's reasoning and how much to trust it.
 
 ---
 
@@ -141,24 +129,22 @@ docker compose up --build
 cd backend  && npm install && npm run dev
 cd frontend && npm install && npm run dev
 
-# ML service (trains on first run if no artifact exists)
-cd medipulse-disease-prediction
+# ML service (Downloads ~860MB of BERT weights on first run)
+cd medipulse-ranking-engine
 pip install -r requirements.txt
-python train.py
-uvicorn app:app --port 8000
-python smoke_test.py   # verifies /health, /predict, and input validation
+uvicorn app.main:app --port 8000 --reload
 ```
 
-Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `TOKEN_KEY`, `GEMINI_API_KEY`, `REDIS_URL`, `KAFKA_BROKERS`, `GOOGLE_CLIENT_ID`, and `DISEASE_PREDICTION_SERVICE_URL`.
+Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `TOKEN_KEY`, `GEMINI_API_KEY`, `REDIS_URL`, `KAFKA_BROKERS`, `GOOGLE_CLIENT_ID`, and `ML_MICROSERVICE_URL`.
 
 ---
 
 ## 🛣️ Roadmap
 
 - **Phase 1 (done)** — Multi-tenant models, OPD tokens, WebRTC consults, virtual wallet.
-- **Phase 2 (done)** — AI triage, ML disease prediction, SOAP copilot, Kafka payment events.
+- **Phase 2 (done)** — AI triage, TriageBERT integration, SOAP copilot, Kafka payment events.
 - **Phase 3 (next)** — Lab orders, report uploads, QR-verified digital prescriptions, family record manager.
-- **Phase 4** — Replace the rule-based severity/ranking stubs with trained XGBoost + LambdaMART models; wait-time prediction.
+- **Phase 4** — Swap the heuristic ranking stub with trained LightGBM LambdaMART models using live interaction data; wait-time prediction.
 - **Phase 5** — ABHA (Ayushman Bharat Health Account) integration, enterprise API access, mobile rollout.
 
 ---
@@ -167,4 +153,4 @@ Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `TOKEN_KEY`, `GEMINI_A
 
 Hospitals lose time because queues, communication, reports, billing, and records live in separate silos. Patients lose trust because wait times are opaque and follow-ups are manual.
 
-MediPulse makes the journey transparent and measurable — built for concurrency correctness (distributed locks, atomic transactions, idempotent refunds) and honest AI (real holdout metrics, labelled confidence, layered fallbacks) rather than demo-only shortcuts.
+MediPulse makes the journey transparent and measurable — built for concurrency correctness (distributed locks, atomic transactions, idempotent refunds) and honest AI (layered fallbacks) rather than demo-only shortcuts.
