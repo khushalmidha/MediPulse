@@ -1,49 +1,38 @@
 <p align="center">
-  <img src="./frontend/public/heart.svg" alt="MediPulse logo" width="86" />
+  <img src="https://raw.githubusercontent.com/khushalmidha/MediPulse/main/frontend/public/heart.svg" alt="MediPulse logo" width="120" />
 </p>
 
-<h1 align="center">MediPulse</h1>
+<h1 align="center" style="font-size: 3rem; font-weight: 800;">MediPulse</h1>
 
 <p align="center">
-  <b>A multi-tenant healthcare SaaS platform combining AI triage, real-time telemedicine, and smart OPD management.</b>
-</p>
-
-<p align="center">
-  <a href="https://www.medipulse.live/"><b>Live Demo</b></a>
+  <b>A next-generation healthcare SaaS platform combining AI triage, real-time telemedicine, and smart OPD management.</b>
 </p>
 
 <p align="center">
-  <img alt="React" src="https://img.shields.io/badge/Frontend-React%20%2B%20Vite%20%2B%20Tailwind-2563eb?style=for-the-badge" />
-  <img alt="Node" src="https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-16a34a?style=for-the-badge" />
-  <img alt="MongoDB" src="https://img.shields.io/badge/Data-MongoDB%20%2B%20Redis%20%2B%20Kafka-047857?style=for-the-badge" />
-  <img alt="Realtime" src="https://img.shields.io/badge/Realtime-Socket.IO%20%2B%20WebRTC-111827?style=for-the-badge" />
-  <img alt="AI" src="https://img.shields.io/badge/AI-Gemini%20%2B%20FastAPI%20ML-8b5cf6?style=for-the-badge" />
+  <a href="https://www.medipulse.live/"><b>🌍 Live Demo</b></a> •
+  <a href="#-core-features"><b>✨ Features</b></a> •
+  <a href="#-tech-stack"><b>🛠️ Tech Stack</b></a> •
+  <a href="#-getting-started"><b>🚀 Getting Started</b></a>
 </p>
 
----
+<p align="center">
+  <img alt="React" src="https://img.shields.io/badge/Frontend-React%20%2B%20Vite%20%2B%20Tailwind-2563eb?style=for-the-badge&logo=react&logoColor=white" />
+  <img alt="Node" src="https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-16a34a?style=for-the-badge&logo=nodedotjs&logoColor=white" />
+  <img alt="MongoDB" src="https://img.shields.io/badge/Data-MongoDB%20%2B%20Redis%20%2B%20Kafka-047857?style=for-the-badge&logo=mongodb&logoColor=white" />
+  <img alt="Realtime" src="https://img.shields.io/badge/Realtime-Socket.IO%20%2B%20WebRTC-111827?style=for-the-badge&logo=socketdotio&logoColor=white" />
+  <img alt="AI" src="https://img.shields.io/badge/AI-Gemini%20%2B%20FastAPI%20ML-8b5cf6?style=for-the-badge&logo=google-gemini&logoColor=white" />
+</p>
 
-## 📊 At a Glance
+<hr>
 
-| Metric | Count |
-|---|---|
-| REST endpoints | **125** across 18 route modules |
-| Mongoose models | **24** |
-| Express controllers | **20** |
-| Backend services (Redis, Kafka, ledger, AI tools) | **9** |
-| Socket.IO event handlers | **15** |
-| React pages / components | **34** / **12** (35 client routes) |
-| Kafka topics (event-driven payments) | **8** |
-| Python ML microservices | **1** (FastAPI Engine) |
-| Deep Learning Models (Hugging Face) | **2** (TriageBERT & PubMedBERT) |
-| Staff roles enforced via RBAC | **7** |
+## 🌟 What is MediPulse?
 
----
+MediPulse bridges the gap between **hospitals, doctors, and patients** in one unified ecosystem. It serves as:
+- 🧑‍⚕️ **A modern healthcare portal** for patients to find doctors and book appointments.
+- 🏥 **An advanced admin suite** for hospitals to manage staff, queues, and OPDs.
+- 🤖 **An AI Copilot** for doctors to automate clinical documentation and triage.
 
-## 🚀 What It Does
-
-MediPulse connects hospitals, doctors, and patients in one system — **Practo for patients, an admin suite for hospitals, and an AI copilot for doctors**.
-
-It combines hospital management with AI triage and peer-to-peer WebRTC telemedicine to cut patient wait times and automate clinical documentation.
+By combining hospital management with cutting-edge AI triage and peer-to-peer WebRTC telemedicine, MediPulse dramatically reduces patient wait times and automates clinical workflows.
 
 ---
 
@@ -51,30 +40,60 @@ It combines hospital management with AI triage and peer-to-peer WebRTC telemedic
 
 ### 🤖 AI Pre-Triage & Smart Routing (Powered by BERT)
 - **Smart Assessment Engine** — Patients describe symptoms in natural language. A dedicated Python FastAPI microservice leverages **Hugging Face Transformers** to run state-of-the-art NLP models concurrently.
-- **Severity Prediction (`TriageBERT`)** — Extracts clinical severity (ESI Level 1-5) directly from unstructured symptom text and overrides with deterministic rule-based safety nets for critical emergencies (e.g. "heart attack").
+- **Severity Prediction (`TriageBERT`)** — Extracts clinical severity (ESI Level 1-5) directly from unstructured symptom text and overrides with deterministic rule-based safety nets for critical emergencies (e.g., "heart attack").
 - **Specialty Routing (`PubMedBERT`)** — Maps symptoms to **13 distinct medical specialties** with calibrated confidence scores and differential alternatives, significantly narrowing the search space for doctors.
-- **Conversational pre-consultation** — A Gemini-driven multi-turn triage chat synthesizes conversations into a structured brief: chief complaint, duration, severity, and urgency. Conversation state is cached in Redis.
+- **Conversational Pre-Consultation** — A Gemini-driven multi-turn triage chat synthesizes conversations into a structured brief: chief complaint, duration, severity, and urgency.
 
 ### 🎥 WebRTC Video Consultations & Doctor Copilot
-- **Peer-to-peer telemedicine** — Direct WebRTC video/audio with no third-party meeting links. Socket.IO handles signalling (offer/answer/ICE) and presence, with STUN plus optional TURN relay for restrictive NATs.
-- **Robust audio** — Echo cancellation, noise suppression, and auto-gain control. Graceful `getUserMedia` degradation: video → audio-only → placeholder canvas track, so a missing webcam never blocks a consult.
-- **Reliable call lifecycle** — A single shared teardown path (guarded by a ref) means ending a call fires cleanup exactly once, releases the microphone, and never leaves either party on a stale "Waiting for…" screen.
-- **Live copilot** — Streams the consultation transcript in batched chunks, flags drug/symptom red flags against the patient's history, and auto-generates **SOAP** notes.
-- **In-call chat & report viewer** — Side panels for messaging and reviewing the patient's uploaded reports without leaving the call.
+- **Peer-to-Peer Telemedicine** — Direct WebRTC video/audio with no third-party meeting links. Socket.IO handles signalling (offer/answer/ICE) and presence.
+- **Robust Audio & Video** — Echo cancellation, noise suppression, and auto-gain control. Graceful degradation: video → audio-only → placeholder canvas track.
+- **Live Doctor Copilot** — Streams the consultation transcript in batched chunks, flags drug/symptom red flags against the patient's history, and auto-generates **SOAP notes**.
+- **In-Call Chat & Reports Viewer** — Side panels for messaging and reviewing the patient's uploaded reports without leaving the call.
 
 ### 🏥 Multi-Tenant Hospitals & Smart OPD
-- **RBAC across 7 staff roles** — `HOSPITAL_ADMIN`, `DEPARTMENT_HEAD`, `DOCTOR`, `NURSE`, `LAB_TECH`, `RECEPTIONIST`, `PHARMACIST`, plus an `adminAccess` flag so a clinician can hold portal access without losing their clinical role.
-- **Custom-branded hospital websites** — Each tenant gets a subdomain-resolved public site.
-- **Live OPD queues** — Atomic per-hospital token sequences, real-time position updates over Socket.IO, and dedicated consoles for doctors, nursing stations, and staff communication.
-- **Identity resolution** — Queues and appointments stay in sync across a doctor's independent practice and their linked hospital-staff profile.
+- **Role-Based Access Control (RBAC)** — 7 staff roles including `HOSPITAL_ADMIN`, `DEPARTMENT_HEAD`, `DOCTOR`, `NURSE`, `RECEPTIONIST`, and more.
+- **Live OPD Queues** — Atomic per-hospital token sequences, real-time position updates over Socket.IO, and dedicated consoles for doctors and nursing stations.
+- **Identity Resolution** — Queues and appointments stay in sync across a doctor's independent practice and their linked hospital-staff profile.
 
 ### 💳 Virtual Payment Gateway
-- **Concurrency-safe ledger** — Redis distributed locks (`SET NX PX`) acquired in **deterministic sorted order** to prevent deadlocks between concurrent transfers, wrapped in **atomic MongoDB multi-document transactions** so no double-spend or partial debit is possible.
-- **Idempotent refunds** — Refunds are keyed by an idempotency key, so retries and duplicate webhooks can never double-refund.
-- **Event-driven** — Every payment, refund, wallet update, notification, and analytics event publishes to **8 Kafka topics** consumed by a separate worker process, keeping the request path fast.
+- **Concurrency-Safe Ledger** — Redis distributed locks (`SET NX PX`) acquired in **deterministic sorted order** to prevent deadlocks, wrapped in **atomic MongoDB multi-document transactions**.
+- **Event-Driven Architecture** — Every payment, refund, wallet update, and notification publishes to **8 Kafka topics** consumed by a separate worker process.
 
-### 🔐 Auth & Security
-- JWT (httpOnly cookies) with Google OAuth, email OTP flows for password reset and booking verification, a NoSQL-injection guard middleware, and CORS allow-listing.
+---
+
+## 📊 At a Glance
+
+| Metric | Count | Metric | Count |
+|---|---|---|---|
+| 🔌 **REST endpoints** | 125 across 18 modules | 🗄️ **Mongoose models** | 24 |
+| 🎮 **Express controllers** | 20 | ⚙️ **Backend services** | 9 |
+| ⚡ **Socket.IO events** | 15 | ⚛️ **React components** | 46 (35 client routes) |
+| 📨 **Kafka topics** | 8 | 🧠 **Deep Learning Models** | 2 (TriageBERT & PubMedBERT) |
+| 🛡️ **Staff Roles (RBAC)** | 7 | 🐍 **Python Microservices** | 1 (FastAPI Engine) |
+
+---
+
+## 🧩 Architecture
+
+Heavy ML work is decoupled from the Node event loop into standalone FastAPI services. The backend calls them over HTTP with defensive error handling and Docker-network fallback routing, degrading gracefully when a service is unreachable.
+
+```mermaid
+graph TD;
+    A[React Frontend] -->|REST + Socket.IO| B(Node/Express API)
+    B -->|Cache, Locks| C[(Redis)]
+    B -->|Async Events| D[Kafka]
+    D -->|Consume| E[Payment Worker]
+    E -->|Write| F[(MongoDB)]
+    B -->|Write/Read| F
+    B -->|HTTP| G[FastAPI AI Engine]
+    G -->|TriageBERT & PubMedBERT| H[Hugging Face Models]
+```
+
+### 🛡️ Layered Fallback Strategy
+The AI prediction is intentionally layered so one failure never leaves a doctor with an empty panel:
+1. **ML Microservice** (Primary — High accuracy NLP)
+2. **Deterministic Rules** (Flags critical keywords natively in Node/Python for immediate triage overrides)
+3. **Reported Chief Complaint** (Final fallback — surfaces what the patient actually said instead of a bare "Unknown")
 
 ---
 
@@ -82,75 +101,57 @@ It combines hospital management with AI triage and peer-to-peer WebRTC telemedic
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | React, Vite, React Router, Tailwind CSS v4, Axios, Lucide, jsPDF |
-| **Backend** | Node.js, Express, JWT, Google OAuth, Nodemailer |
-| **Database** | MongoDB + Mongoose (multi-document transactions) |
-| **Cache & Locks** | Redis (state caching, distributed locks, TTL keys) with an in-memory fallback shim for local dev |
-| **Messaging** | Apache Kafka (KafkaJS) — 8 topics, producer + consumer worker |
-| **Real-time** | Socket.IO (queues, presence, signalling), WebRTC (media) |
-| **AI / ML** | Google Gemini, Python, FastAPI, Hugging Face Transformers (`TriageBERT`, `PubMedBERT`), PyTorch, LightGBM |
-| **DevOps** | Docker, Docker Compose, Render, Vercel |
+| **🎨 Frontend** | React, Vite, React Router, Tailwind CSS v4, Axios, Lucide, jsPDF |
+| **⚙️ Backend** | Node.js, Express, JWT, Google OAuth, Nodemailer |
+| **🗄️ Database** | MongoDB + Mongoose (multi-document transactions) |
+| **⚡ Cache & Locks**| Redis (state caching, distributed locks, TTL keys) |
+| **📨 Messaging** | Apache Kafka (KafkaJS) — 8 topics, producer + consumer worker |
+| **📞 Real-time** | Socket.IO (queues, presence, signalling), WebRTC (media) |
+| **🧠 AI / ML** | Google Gemini, Python, FastAPI, Hugging Face Transformers (`TriageBERT`, `PubMedBERT`), PyTorch, LightGBM |
+| **☁️ DevOps** | Docker, Docker Compose, Render, Vercel |
 
 ---
 
-## 🧩 Architecture
+## 🚀 Getting Started
 
-Heavy ML work is decoupled from the Node event loop into standalone FastAPI services. The backend calls them over HTTP with defensive error handling and Docker-network fallback routing (`host.docker.internal`), degrading gracefully when a service is unreachable.
-
-```text
-React (Vercel)
-      │  REST + Socket.IO + WebRTC signalling
-      ▼
-Node/Express API ──── Redis (cache, locks, triage state)
-      │          └─── Kafka ──► vpay consumer worker ──► MongoDB
-      │  HTTP
-      └──► medipulse-ranking-engine  (FastAPI · TriageBERT · Specialty Classifier · Ranker)
+### Option 1: Docker (Recommended)
+Run the full stack (Mongo, Redis, Kafka, API, consumer, frontend) with one command:
+```bash
+docker compose up --build
 ```
 
-- **medipulse-ranking-engine** — A unified AI engine that runs dual Hugging Face NLP pipelines concurrently on thread pools. Exposes `/v2/assessment` to predict specialty and clinical severity (ESI). It also houses the Learning-to-Rank logic (currently an MVP heuristic ranker, upgrading to LightGBM LambdaMART) for personalized doctor recommendations.
-
-### Fallback strategy
-
-The AI prediction is intentionally layered so one failure never leaves a doctor with an empty panel:
-
-1. **ML microservice** (primary — high accuracy NLP)
-2. **Deterministic Rules** (flags critical keywords natively in Node/Python for immediate triage overrides)
-3. **Reported chief complaint** (final fallback — surfaces what the patient actually said instead of a bare "Unknown")
-
----
-
-## 🚦 Getting Started
-
+### Option 2: Manual Setup
 ```bash
-# Full stack (Mongo, Redis, Kafka, API, consumer, frontend)
-docker compose up --build
+# 1. Start the Backend
+cd backend
+npm install
+npm run dev
 
-# Or run pieces individually
-cd backend  && npm install && npm run dev
-cd frontend && npm install && npm run dev
+# 2. Start the Frontend
+cd frontend
+npm install
+npm run dev
 
-# ML service (Downloads ~860MB of BERT weights on first run)
+# 3. Start the ML Service (Downloads ~860MB of BERT weights on first run)
 cd medipulse-ranking-engine
 pip install -r requirements.txt
 uvicorn app.main:app --port 8000 --reload
 ```
 
-Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `TOKEN_KEY`, `GEMINI_API_KEY`, `REDIS_URL`, `KAFKA_BROKERS`, `GOOGLE_CLIENT_ID`, and `ML_MICROSERVICE_URL`.
+> **Note**: Copy `.env.example` to `.env` and fill in your credentials (`DATABASE_URL`, `TOKEN_KEY`, `GEMINI_API_KEY`, `REDIS_URL`, `KAFKA_BROKERS`, `GOOGLE_CLIENT_ID`, and `ML_MICROSERVICE_URL`).
 
 ---
 
 ## 🛣️ Roadmap
 
-- **Phase 1 (done)** — Multi-tenant models, OPD tokens, WebRTC consults, virtual wallet.
-- **Phase 2 (done)** — AI triage, TriageBERT integration, SOAP copilot, Kafka payment events.
-- **Phase 3 (next)** — Lab orders, report uploads, QR-verified digital prescriptions, family record manager.
-- **Phase 4** — Swap the heuristic ranking stub with trained LightGBM LambdaMART models using live interaction data; wait-time prediction.
-- **Phase 5** — ABHA (Ayushman Bharat Health Account) integration, enterprise API access, mobile rollout.
+- ✅ **Phase 1** — Multi-tenant models, OPD tokens, WebRTC consults, virtual wallet.
+- ✅ **Phase 2** — AI triage, TriageBERT integration, SOAP copilot, Kafka payment events.
+- 🚧 **Phase 3 (Next)** — Lab orders, report uploads, QR-verified digital prescriptions, family record manager.
+- ⏳ **Phase 4** — Swap the heuristic ranking stub with trained LightGBM LambdaMART models using live interaction data; wait-time prediction.
+- ⏳ **Phase 5** — ABHA (Ayushman Bharat Health Account) integration, enterprise API access, mobile rollout.
 
 ---
 
-## 💡 Why It Matters
-
-Hospitals lose time because queues, communication, reports, billing, and records live in separate silos. Patients lose trust because wait times are opaque and follow-ups are manual.
-
-MediPulse makes the journey transparent and measurable — built for concurrency correctness (distributed locks, atomic transactions, idempotent refunds) and honest AI (layered fallbacks) rather than demo-only shortcuts.
+<p align="center">
+  Made with ❤️ by the MediPulse Team
+</p>
