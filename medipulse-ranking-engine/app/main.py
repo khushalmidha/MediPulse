@@ -40,7 +40,17 @@ class AssessmentRequest(BaseModel):
     symptoms: str
     history: str = ""
 
+class DiseasePredictRequest(BaseModel):
+    text: str
+
 # --- Endpoints ---
+
+@app.post("/predict")
+async def predict_disease(req: DiseasePredictRequest):
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty.")
+    result = await asyncio.to_thread(nlp_manager.predict_disease, req.text)
+    return result
 
 @app.get("/health")
 def health_check():

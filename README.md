@@ -42,6 +42,7 @@ By combining hospital management with cutting-edge AI triage and peer-to-peer We
 - **Smart Assessment Engine** — Patients describe symptoms in natural language. A dedicated Python FastAPI microservice leverages **Hugging Face Transformers** to run state-of-the-art NLP models concurrently.
 - **Severity Prediction (`TriageBERT`)** — Extracts clinical severity (ESI Level 1-5) directly from unstructured symptom text and overrides with deterministic rule-based safety nets for critical emergencies (e.g., "heart attack").
 - **Specialty Routing (`PubMedBERT`)** — Maps symptoms to **13 distinct medical specialties** with calibrated confidence scores and differential alternatives, significantly narrowing the search space for doctors.
+- **Disease Prediction (`DistilBERT`)** — Predicts exact medical conditions (e.g., Dengue, Migraine) from raw symptom text using a fine-tuned Hugging Face DistilBERT model.
 - **Conversational Pre-Consultation** — A Gemini-driven multi-turn triage chat synthesizes conversations into a structured brief: chief complaint, duration, severity, and urgency.
 
 ### 🎥 WebRTC Video Consultations & Doctor Copilot
@@ -68,7 +69,7 @@ By combining hospital management with cutting-edge AI triage and peer-to-peer We
 | 🔌 **REST endpoints** | 125 across 18 modules | 🗄️ **Mongoose models** | 24 |
 | 🎮 **Express controllers** | 20 | ⚙️ **Backend services** | 9 |
 | ⚡ **Socket.IO events** | 15 | ⚛️ **React components** | 46 (35 client routes) |
-| 📨 **Kafka topics** | 8 | 🧠 **Deep Learning Models** | 2 (TriageBERT & PubMedBERT) |
+| 📨 **Kafka topics** | 8 | 🧠 **Deep Learning Models** | 3 (TriageBERT, PubMedBERT, DistilBERT) |
 | 🛡️ **Staff Roles (RBAC)** | 7 | 🐍 **Python Microservices** | 1 (FastAPI Engine) |
 
 ---
@@ -86,7 +87,7 @@ graph TD;
     E -->|Write| F[(MongoDB)]
     B -->|Write/Read| F
     B -->|HTTP| G[FastAPI AI Engine]
-    G -->|TriageBERT & PubMedBERT| H[Hugging Face Models]
+    G -->|TriageBERT, PubMedBERT, DistilBERT| H[Hugging Face Models]
 ```
 
 ### 🛡️ Layered Fallback Strategy
@@ -107,7 +108,7 @@ The AI prediction is intentionally layered so one failure never leaves a doctor 
 | **⚡ Cache & Locks**| Redis (state caching, distributed locks, TTL keys) |
 | **📨 Messaging** | Apache Kafka (KafkaJS) — 8 topics, producer + consumer worker |
 | **📞 Real-time** | Socket.IO (queues, presence, signalling), WebRTC (media) |
-| **🧠 AI / ML** | Google Gemini, Python, FastAPI, Hugging Face Transformers (`TriageBERT`, `PubMedBERT`), PyTorch, LightGBM |
+| **🧠 AI / ML** | Google Gemini, Python, FastAPI, Hugging Face Transformers (`TriageBERT`, `PubMedBERT`, `DistilBERT`), PyTorch, LightGBM |
 | **☁️ DevOps** | Docker, Docker Compose, Render, Vercel |
 
 ---

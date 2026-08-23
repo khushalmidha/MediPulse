@@ -93,6 +93,13 @@ opdTokenSchema.index(
 );
 opdTokenSchema.index({ patientId: 1, date: -1 });
 opdTokenSchema.index({ status: 1, doctorId: 1, date: 1 });
+opdTokenSchema.index(
+  { patientId: 1, doctorId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: { $in: ["waiting", "vitals_done", "in_consultation"] } },
+  }
+);
 
 const OpdToken = mongoose.model("OpdToken", opdTokenSchema);
 

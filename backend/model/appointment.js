@@ -124,6 +124,13 @@ const appointmentSchema = new mongoose.Schema(
 );
 
 appointmentSchema.index({ "payment.orderId": 1 }, { unique: true, sparse: true });
+appointmentSchema.index(
+  { user: 1, doctor: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: { $in: ["queued", "active"] } },
+  }
+);
 
 const Appointment = mongoose.model("appointment", appointmentSchema);
 

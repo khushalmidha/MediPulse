@@ -5,9 +5,11 @@ class NLPManager:
     def __init__(self):
         self.triage_model_id = "SHUB-8/Triage-BERT"
         self.specialty_model_id = "anaschahid/medical-specialty-classifier"
+        self.disease_model_id = "DinaSalama/symptom_to_disease_distb"
         
         self.triage_pipeline = None
         self.specialty_pipeline = None
+        self.disease_pipeline = None
 
     def load_models(self):
         """Load the BERT models into memory."""
@@ -30,6 +32,14 @@ class NLPManager:
         except Exception as e:
             print(f"Error loading Specialty Model: {e}")
             self.specialty_pipeline = None
+
+        print(f"Loading Disease Model: {self.disease_model_id} ...")
+        try:
+            self.disease_pipeline = pipeline("text-classification", model=self.disease_model_id, device=device, top_k=None)
+            print("Disease Model loaded successfully.")
+        except Exception as e:
+            print(f"Error loading Disease Model: {e}")
+            self.disease_pipeline = None
 
     def predict_severity(self, text: str):
         """
@@ -85,6 +95,25 @@ class NLPManager:
             "name": top_prediction['label'],
             "confidence": float(top_prediction['score']),
             "differentials": [{"name": diff['label'], "confidence": float(diff['score'])} for diff in differentials]
+        }
+
+    def predict_disease(self, text: str):
+        """Predicts the disease based on symptoms."""
+        if not self.disease_pipeline:
+            raise RuntimeError("Disease model is not loaded.")
+        
+        results = self.disease_pipeline(text)
+        
+        if isinstance(results[0], list):
+            results = results[0]
+            
+        top_prediction = results[0]
+        differentials = results[1:4]
+        
+        return {
+            "disease": top_prediction['label'],
+            "confidence": float(top_prediction['score']),
+            "differentials": [{"disease": diff['label'], "confidence": float(diff['score'])} for diff in differentials]
         }
 
 # Global instance for FastAPI lifecycle
