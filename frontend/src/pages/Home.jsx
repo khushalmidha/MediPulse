@@ -339,6 +339,33 @@ const Home = () => {
         </div>
       </section>
 
+      {/* CTA SECTION */}
+      <section className="py-12 bg-slate-50 dark:bg-black">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-600 via-red-500 to-indigo-600 dark:from-red-900 dark:via-red-800 dark:to-indigo-950 px-8 py-16 sm:px-16 sm:py-20 shadow-2xl">
+            {/* Decorative background elements */}
+            <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-indigo-500/20 blur-3xl" />
+            
+            <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-10">
+              <div className="text-center lg:text-left lg:max-w-xl">
+                <h2 className="text-4xl sm:text-5xl font-black text-white leading-tight">Start Your Health Journey Today</h2>
+                <p className="mt-4 text-lg sm:text-xl text-red-50">Join thousands of patients and doctors already using MediPulse for smarter, faster healthcare.</p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4 shrink-0">
+                <Link to={isAuth ? '/smart-booking' : '/signup/user'} className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-white dark:bg-slate-950 px-8 py-4 text-base font-black text-red-600 dark:text-white shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+                  {isAuth ? <><Bot size={20} className="group-hover:animate-pulse" /> Smart AI Booking</> : <><UserPlus size={20} className="group-hover:animate-pulse" /> Get Started Free</>}
+                </Link>
+                <Link to="/hospitals" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/30 bg-white/10 hover:bg-white/20 backdrop-blur hover:-translate-y-1 transition-all duration-300 px-8 py-4 text-base font-bold text-white">
+                  <Building2 size={20} /> Browse Hospitals
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* HOSPITAL TYPES SECTION */}
       <section className="py-20 bg-white dark:bg-black">
         <div className="mx-auto max-w-7xl px-4">
@@ -434,19 +461,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* CTA SECTION */}
-      <section className="py-20 bg-red-600 dark:bg-red-900">
-        <div className="mx-auto max-w-4xl px-4 text-center">
-          <h2 className="text-4xl font-black text-white">Start Your Health Journey Today</h2>
-          <p className="mt-4 text-xl text-red-100 max-w-xl mx-auto">Join thousands of patients and doctors already using MediPulse for smarter, faster healthcare.</p>
-            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to={isAuth ? '/smart-booking' : '/signup/user'} className="inline-flex items-center gap-2 rounded-2xl bg-white dark:bg-slate-950 hover:bg-red-50 transition-all duration-300 px-8 py-4 text-base font-black text-blue-700 shadow-xl hover:-translate-y-0.5">
-                {isAuth ? <><Bot size={20} /> Smart AI Booking</> : <><UserPlus size={20} /> Get Started Free</>}
-              </Link>
-              <Link to="/hospitals" className="inline-flex items-center gap-2 rounded-2xl border-2 border-white/30 hover:border-white/60 transition-all duration-300 px-8 py-4 text-base font-bold text-white"><Building2 size={20} /> Browse Hospitals</Link>
-            </div>
-        </div>
-      </section>
+
     </div>
   )
 }

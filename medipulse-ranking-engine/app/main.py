@@ -1,30 +1,24 @@
-
-from fastapi import FastAPI
+import asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
-import pickle
-import json
-import os
+from typing import List, Optional, Dict
 
-app = FastAPI(title="MediPulse v2 ML Engine")
+from app.models.nlp_manager import nlp_manager
+from app.models.ranker import ranker
 
-# Load existing models and configs
-DISEASE_MODEL_PATH = os.path.join(os.path.dirname(__file__), "../../medipulse-disease-prediction/lightweight_model.pkl")
-MAPPING_PATH = os.path.join(os.path.dirname(__file__), "../../medipulse-disease-prediction/disease_to_specialty.json")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load BERT models on startup
+    nlp_manager.load_models()
+    yield
+    # Clean up on shutdown
+    nlp_manager.triage_pipeline = None
+    nlp_manager.specialty_pipeline = None
 
-try:
-    with open(DISEASE_MODEL_PATH, "rb") as f:
-        disease_model = pickle.load(f)
-except Exception as e:
-    print(f"Warning: Could not load disease model: {e}")
-    disease_model = None
+app = FastAPI(title="MediPulse AI Engine", lifespan=lifespan)
 
-try:
-    with open(MAPPING_PATH, "r") as f:
-        disease_to_specialty = json.load(f)
-except Exception as e:
-    print(f"Warning: Could not load specialty mapping: {e}")
-    disease_to_specialty = {}
+# --- Pydantic Schemas ---
 
 class PatientContext(BaseModel):
     symptoms: str
@@ -33,55 +27,93 @@ class PatientContext(BaseModel):
 
 class DoctorCandidate(BaseModel):
     id: str
-    features: dict
+    rating: float = 0.0
+    experience_years: int = 0
+    price: float = 1000.0
+    is_available_today: bool = False
 
 class RankingRequest(BaseModel):
-    patient: PatientContext
+    severity: str = "LOW"
     doctors: List[DoctorCandidate]
 
+class AssessmentRequest(BaseModel):
+    symptoms: str
+    history: str = ""
+
+# --- Endpoints ---
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok",
+        "triage_loaded": nlp_manager.triage_pipeline is not None,
+        "specialty_loaded": nlp_manager.specialty_pipeline is not None
+    }
+
+@app.post("/v2/triage")
+async def predict_severity(req: PatientContext):
+    if not req.symptoms.strip():
+        raise HTTPException(status_code=400, detail="Symptoms text cannot be empty.")
+    
+    text = f"{req.symptoms} {req.history}".strip()
+    
+    # Run in thread to prevent blocking the async event loop
+    result = await asyncio.to_thread(nlp_manager.predict_severity, text)
+    
+    # Deterministic override rule for high-risk keywords
+    text_lower = text.lower()
+    if "severe" in text_lower or "bleeding" in text_lower or "heart attack" in text_lower:
+        result["level"] = "HIGH"
+        result["esi"] = min(result["esi"], 2) # Ensure ESI is 1 or 2
+        result["is_override"] = True
+        
+    return result
+
 @app.post("/v2/specialty")
-def predict_specialty(req: PatientContext):
-    if not disease_model:
-        return {"disease": "Unknown", "specialty": "General Medicine", "confidence": 0.0}
-    
-    disease = disease_model.predict([req.symptoms])[0]
-    probs = disease_model.predict_proba([req.symptoms])[0]
-    conf = float(max(probs))
-    specialty = disease_to_specialty.get(disease, "General Medicine")
-    
-    return {
-        "disease": disease,
-        "specialty": specialty,
-        "confidence": conf
-    }
-
-@app.post("/v2/severity")
-def predict_severity(req: PatientContext):
-    # Stubbing the XGBoost model for MVP
-    text = (req.symptoms + " " + req.history).lower()
-    
-    # Heuristic for MVP severity
-    if "severe" in text or "pain" in text or "bleeding" in text:
-        severity = "HIGH"
-    elif "moderate" in text or "fever" in text:
-        severity = "MEDIUM"
-    else:
-        severity = "LOW"
+async def predict_specialty(req: PatientContext):
+    if not req.symptoms.strip():
+        raise HTTPException(status_code=400, detail="Symptoms text cannot be empty.")
         
-    return {
-        "severity": severity,
-        "esi_level": 3 if severity == "MEDIUM" else (2 if severity == "HIGH" else 4)
-    }
+    text = f"{req.symptoms} {req.history}".strip()
+    
+    result = await asyncio.to_thread(nlp_manager.predict_specialty, text)
+    return result
 
-@app.post("/v2/recommend-doctors")
-def recommend_doctors(req: RankingRequest):
-    # Stubbing LambdaMART for MVP - fall back to pointwise XGBoost simulation
-    # We will score them deterministically for now based on some dummy logic
-    scored_doctors = []
-    for doc in req.doctors:
-        score = 0.5
-        scored_doctors.append({"id": doc.id, "score": score})
+@app.post("/v2/rank")
+def rank_doctors(req: RankingRequest):
+    # Convert Pydantic models to dicts for the ranker
+    doctor_dicts = [doc.model_dump() for doc in req.doctors]
+    ranked = ranker.rank_doctors(doctor_dicts, patient_severity=req.severity)
+    return {"ranked_doctors": ranked}
+
+@app.post("/v2/assessment")
+async def full_assessment(req: AssessmentRequest):
+    """
+    Combined endpoint to perform triage and specialty classification in one request.
+    This is useful to minimize network roundtrips between the Node backend and FastAPI.
+    """
+    if not req.symptoms.strip():
+        raise HTTPException(status_code=400, detail="Symptoms text cannot be empty.")
         
-    scored_doctors.sort(key=lambda x: x["score"], reverse=True)
-    return {"ranked_doctors": scored_doctors}
+    text = f"{req.symptoms} {req.history}".strip()
+    
+    # Run both BERT inferences concurrently in thread pool
+    triage_task = asyncio.to_thread(nlp_manager.predict_severity, text)
+    specialty_task = asyncio.to_thread(nlp_manager.predict_specialty, text)
+    
+    triage_result, specialty_result = await asyncio.gather(triage_task, specialty_task)
+    
+    # Deterministic override rule for high-risk keywords
+    text_lower = text.lower()
+    if "severe" in text_lower or "bleeding" in text_lower or "heart attack" in text_lower:
+        triage_result["level"] = "HIGH"
+        triage_result["esi"] = min(triage_result["esi"], 2)
+        triage_result["is_override"] = True
+        specialty_result["name"] = "Emergency Medicine"
+        specialty_result["confidence"] = 1.0
 
+    return {
+        "severity": triage_result,
+        "specialty": specialty_result,
+        "disclaimer": "This is an AI-assisted pre-triage tool, not a diagnostic system. Your reported symptoms may require urgent medical evaluation. We recommend consulting an appropriate medical professional."
+    }

@@ -6,8 +6,8 @@ import { getSocket } from "../socket";
 import { BACKEND_URL } from "../utils";
 import CoPilotSidebar from "./CoPilotSidebar";
 import {
-  Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, MessageSquare, Settings,
-  User, Stethoscope, Wifi, WifiOff, MonitorUp, BrainCircuit, FileText, X, Send
+  Mic, MicOff, Video, VideoOff, PhoneOff, MessageSquare,
+  User, Stethoscope, BrainCircuit, FileText, X, Send
 } from "lucide-react";
 
 const getStaticIceServers = () => {
@@ -64,7 +64,6 @@ const getRtcConfig = async () => {
   return { iceServers: meteredIceServers || getStaticIceServers() };
 };
 
-const CONSENT_KEYWORDS = ["yes", "i consent", "i agree", "agree", "consent", "i do"];
 const MED_KEYWORDS = [
   "aspirin", "ibuprofen", "paracetamol", "acetaminophen", "metformin",
   "insulin", "warfarin", "atorvastatin", "amoxicillin", "azithromycin",
@@ -79,9 +78,6 @@ const SYMPTOM_KEYWORDS = [
 
 const AppointmentVideoCall = ({
   appointmentId,
-  doctorNotes = "",
-  onConsentDetected,
-  onSoapSaved,
   doctorName = "",
   patientName = "",
   doctorPhoto = "",
@@ -107,14 +103,10 @@ const AppointmentVideoCall = ({
   const firstChunkRef = useRef(true);
 
   const [error, setError] = useState("");
-  const [consentStatus, setConsentStatus] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState("waiting");
   const [presence, setPresence] = useState({ doctorJoined: false, patientJoined: false, ready: false });
   const [copilotActive, setCopilotActive] = useState(false);
   const [copilotSuggestions, setCopilotSuggestions] = useState([]);
-  const [isGeneratingSoap, setIsGeneratingSoap] = useState(false);
-  const [showSoapModal, setShowSoapModal] = useState(false);
-  const [soapNote, setSoapNote] = useState(null);
   const [voiceCaptureUnavailable, setVoiceCaptureUnavailable] = useState(false);
   const [activeSidePanel, setActiveSidePanel] = useState(null); // 'copilot', 'chat', 'reports', or null
   const [chatMessages, setChatMessages] = useState([]);
@@ -127,13 +119,10 @@ const AppointmentVideoCall = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
-  const [callStartedAt, setCallStartedAt] = useState(null);
-  const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
 
   // Call duration timer
   useEffect(() => {
     if (!presence.ready) return;
-    setCallStartedAt(Date.now());
     const timer = setInterval(() => {
       setCallDuration(prev => prev + 1);
     }, 1000);
@@ -243,7 +232,6 @@ const AppointmentVideoCall = ({
         remoteVideoRef.current.srcObject = stream;
         remoteVideoRef.current.play().catch(() => {});
       }
-      setHasRemoteVideo(true);
       setConnectionStatus("connected");
     };
     connection.onconnectionstatechange = () => {
@@ -348,7 +336,6 @@ const AppointmentVideoCall = ({
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       if (peerConnectionRef.current) { peerConnectionRef.current.close(); peerConnectionRef.current = null; }
-      setHasRemoteVideo(false);
       setPresence({ doctorJoined: false, patientJoined: false, ready: false });
       setConnectionStatus("ended");
       socket.emit("leaveAppointmentRoom", { appointmentId });
@@ -408,8 +395,26 @@ const AppointmentVideoCall = ({
     if (role !== "doctor" || !appointmentId) return undefined;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) { setVoiceCaptureUnavailable(true); return undefined; }
+
+    // FIXED: On mobile the Web Speech API ignores `continuous`, so it ended after every phrase and
+    // the `onend` handler restarted it instantly. Each restart replayed the system listening chime
+    // ("trin trin" every few seconds) and re-grabbed the microphone, which cut the WebRTC audio and
+    // made the call feel disconnected. Voice capture is a convenience feature, so it is disabled on
+    // mobile instead of breaking the actual consultation audio.
+    const isMobileDevice =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobileDevice) {
+      setVoiceCaptureUnavailable(true);
+      return undefined;
+    }
+
     let mounted = true;
     let shouldRestart = true;
+    let restartTimer = null;
+    let isRunning = false;
+    let consecutiveRestarts = 0;
+    const MAX_CONSECUTIVE_RESTARTS = 20;
+
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -419,6 +424,8 @@ const AppointmentVideoCall = ({
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) finalText = `${finalText} ${event.results[i][0].transcript}`.trim();
       }
+      // A successful result means the session is healthy, so allow restarts again.
+      if (finalText) consecutiveRestarts = 0;
       appendTranscriptText(finalText);
     };
     recognition.onerror = (event) => {
@@ -429,11 +436,29 @@ const AppointmentVideoCall = ({
       }
     };
     recognition.onend = () => {
-      if (!mounted || !shouldRestart) return;
-      try { recognition.start(); } catch { /* Browser restarting */ }
+      isRunning = false;
+      // Never restart once the call is over, or the browser keeps holding the microphone.
+      if (!mounted || !shouldRestart || callEndedRef.current) return;
+      consecutiveRestarts += 1;
+      if (consecutiveRestarts > MAX_CONSECUTIVE_RESTARTS) {
+        // Recognition is failing in a loop (no speech service / no permission). Stop retrying
+        // instead of beeping at the doctor forever.
+        setVoiceCaptureUnavailable(true);
+        setCopilotActive(false);
+        return;
+      }
+      // Debounced restart, so we never spin in a tight start/end loop.
+      restartTimer = setTimeout(() => {
+        if (!mounted || !shouldRestart || isRunning || callEndedRef.current) return;
+        try {
+          recognition.start();
+          isRunning = true;
+        } catch { /* Browser is still releasing the previous session */ }
+      }, 1500);
     };
     try {
       recognition.start();
+      isRunning = true;
       setCopilotActive(true);
       setVoiceCaptureUnavailable(false);
     } catch (err) {
@@ -443,7 +468,9 @@ const AppointmentVideoCall = ({
     return () => {
       mounted = false;
       shouldRestart = false;
+      if (restartTimer) clearTimeout(restartTimer);
       setCopilotActive(false);
+      try { recognition.abort(); } catch { /* Ignore */ }
       try { recognition.stop(); } catch { /* Ignore */ }
     };
   }, [appointmentId, role]);
@@ -464,24 +491,14 @@ const AppointmentVideoCall = ({
       if (inId !== appointmentId) return;
       mergeSuggestions(suggestions);
     };
-    const handleSoapReady = ({ appointmentId: inId, soapNote: incomingSoap }) => {
-      if (inId !== appointmentId) return;
-      setSoapNote(incomingSoap);
-      setShowSoapModal(true);
-    };
     socket.emit("joinCopilotSession", { appointmentId });
     socket.on("copilot:suggestion", handleSuggestion);
-    socket.on("copilot:soap-ready", handleSoapReady);
     axios
       .get(`${BACKEND_URL}/api/copilot/${appointmentId}/suggestions`, { withCredentials: true })
-      .then((response) => {
-        mergeSuggestions(response.data.suggestions || []);
-        if (response.data.soapNote) setSoapNote(response.data.soapNote);
-      })
+      .then((response) => mergeSuggestions(response.data.suggestions || []))
       .catch(() => {});
     return () => {
       socket.off("copilot:suggestion", handleSuggestion);
-      socket.off("copilot:soap-ready", handleSoapReady);
     };
   }, [appointmentId, role]);
 

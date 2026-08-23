@@ -3,8 +3,14 @@ services:
     name: medipulse-ml-engine
     env: python
     rootDir: medipulse-disease-prediction
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT
+    # FIXED: The model artifact is gitignored, so with the old config all 4 gunicorn workers
+    # trained it simultaneously on boot and raced to write the same lightweight_model.pkl, which
+    # can leave a truncated/corrupt pickle. Training once at build time means workers only load it.
+    buildCommand: pip install -r requirements.txt && python train.py
+    # FIXED: 4 workers each hold their own copy of the model. 2 is plenty for this service and
+    # halves memory use on small instances.
+    startCommand: gunicorn app:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0

@@ -400,12 +400,27 @@ const completeTriage = async (req, res) => {
         );
         const disease = String(mlResponse.data?.disease || "").trim();
         const confidence = Number(mlResponse.data?.confidence);
-        // The model is trained on symptom keywords, so free-form chat text can produce weak
-        // matches. Below the threshold we prefer Gemini rather than showing a shaky guess.
-        if (disease && disease !== "Unknown Condition" && !(confidence < ML_CONFIDENCE_THRESHOLD)) {
-          predictedDisease = Number.isFinite(confidence)
-            ? `${disease} (${Math.round(confidence * 100)}% confidence)`
-            : disease;
+        if (disease && disease !== "Unknown Condition") {
+          // The model can only be as confident as the free-form chat text allows, so instead of
+          // discarding weak predictions (which left the doctor with no ML output at all) we always
+          // show the result and label how reliable it is.
+          const confidencePercent = Number.isFinite(confidence)
+            ? `${Math.round(confidence * 100)}%`
+            : null;
+          const isLowConfidence = Number.isFinite(confidence) && confidence < ML_CONFIDENCE_THRESHOLD;
+
+          // Runner-up conditions help the doctor far more than one shaky guess.
+          const differentials = Array.isArray(mlResponse.data?.differentials)
+            ? mlResponse.data.differentials
+                .slice(1, 3)
+                .map((item) => String(item?.disease || "").trim())
+                .filter((name) => name && name !== "Unknown Condition")
+            : [];
+
+          let label = confidencePercent ? `${disease} (${confidencePercent})` : disease;
+          if (isLowConfidence) label = `${label} - low confidence, please verify`;
+          if (differentials.length) label = `${label}. Also consider: ${differentials.join(", ")}`;
+          predictedDisease = label;
         }
       } catch (mlError) {
         console.warn("ML disease prediction service failed:", mlError.message);
@@ -492,27 +507,26 @@ export const fullAssessmentV2 = async (req, res) => {
       });
     }
 
-    // 2. Specialty Pipeline
+    // 2. Triage & Specialty Pipeline (Unified AI Assessment)
     let specialty = "General Medicine";
-    let disease = "Unknown";
-    const mlBaseUrl = process.env.ML_MICROSERVICE_URL || "http://127.0.0.1:8000";
-    try {
-      const specRes = await axios.post(`${mlBaseUrl}/v2/specialty`, patientContext);
-      specialty = specRes.data.specialty || specialty;
-      disease = specRes.data.disease || disease;
-    } catch (e) {
-      console.warn("FastAPI /v2/specialty failed or unreachable:", e.message);
-    }
-
-    // 3. Severity Model (XGBoost/extended ESI)
     let severity = "LOW";
     let esi_level = 4;
+    let disclaimer = "This is an AI-assisted pre-triage tool, not a diagnostic system.";
+    
+    const mlBaseUrl = process.env.ML_MICROSERVICE_URL || "http://127.0.0.1:8000";
     try {
-      const sevRes = await axios.post(`${mlBaseUrl}/v2/severity`, patientContext);
-      severity = sevRes.data.severity || severity;
-      esi_level = sevRes.data.esi_level || esi_level;
+      const assessRes = await axios.post(`${mlBaseUrl}/v2/assessment`, {
+        symptoms: patientContext.symptoms,
+        history: patientContext.history
+      });
+      
+      const data = assessRes.data;
+      specialty = data.specialty?.name || specialty;
+      severity = data.severity?.level || severity;
+      esi_level = data.severity?.esi || esi_level;
+      disclaimer = data.disclaimer || disclaimer;
     } catch (e) {
-      console.warn("FastAPI /v2/severity failed or unreachable:", e.message);
+      console.warn("FastAPI /v2/assessment failed or unreachable:", e.message);
     }
 
     // Deterministic override if severity model says HIGH
@@ -521,33 +535,38 @@ export const fullAssessmentV2 = async (req, res) => {
         disclaimer: "SEEK EMERGENCY CARE IMMEDIATELY. Your symptoms indicate high severity.",
         severity: severity,
         esi_level: esi_level,
-        specialty: "Emergency Medicine",
-        disease: disease,
+        specialty: specialty === "General Medicine" ? "Emergency Medicine" : specialty,
         ranked_doctors: []
       });
     }
 
     // Filter available doctors by specialty (mock logic, if empty fallback to all)
     // Normally you would fetch doctors from DB where specialty matches
-    
-    const candidates = availableDoctors.map(d => ({ id: d, features: {} }));
+    // Here we map mock doctors to the schema expected by the ranker
+    const candidates = availableDoctors.map(d => ({ 
+      id: typeof d === "string" ? d : d._id || d.id, 
+      rating: d.rating || 4.0,
+      experience_years: d.experience_years || 10,
+      price: d.price || 1000.0,
+      is_available_today: d.is_available_today || true
+    }));
 
-    // 4. LambdaMART Ranker
+    // 3. LambdaMART / Heuristic Ranker
     let ranked_doctors = candidates;
     try {
-      const rankRes = await axios.post(`${mlBaseUrl}/v2/recommend-doctors`, {
-        patient: patientContext,
+      const rankRes = await axios.post(`${mlBaseUrl}/v2/rank`, {
+        severity: severity,
         doctors: candidates
       });
       ranked_doctors = rankRes.data.ranked_doctors || ranked_doctors;
     } catch (e) {
-      console.warn("FastAPI /v2/recommend-doctors failed or unreachable:", e.message);
+      console.warn("FastAPI /v2/rank failed or unreachable:", e.message);
     }
 
     return res.status(200).json({
-      disclaimer: "This is an AI assessment, not a clinical diagnosis.",
-      disease,
+      disclaimer,
       specialty,
+      disease: "Pending Doctor Evaluation",
       severity,
       esi_level,
       ranked_doctors,

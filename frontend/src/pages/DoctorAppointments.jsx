@@ -18,7 +18,6 @@ const DoctorAppointments = () => {
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
   const [doctorNotes, setDoctorNotes] = useState("");
-  const [voiceConsent, setVoiceConsent] = useState(null);
   const [aiPrompt, setAiPrompt] = useState("Suggest focused consultation questions and red flags");
   const [aiSuggestion, setAiSuggestion] = useState("");
   const [aiBrief, setAiBrief] = useState(null);
@@ -173,12 +172,7 @@ const DoctorAppointments = () => {
     try {
       const response = await axios.post(
         `${BACKEND_URL}/appointment/${appointmentId}/receipt`,
-        { 
-          doctorNotes,
-          voiceConsentRecorded: voiceConsent?.detected || false,
-          voiceConsentKeywords: voiceConsent?.keywords || [],
-          voiceConsentTimestamp: voiceConsent?.timestamp || null,
-        },
+        { doctorNotes },
         { withCredentials: true },
       );
       setDoctorNotes(response.data.doctorNotes || "");
@@ -187,11 +181,6 @@ const DoctorAppointments = () => {
     } catch (error) {
       setActionMessage(error.response?.data?.message || "Could not generate receipt");
     }
-  };
-
-  const handleVoiceConsentDetected = (consentData) => {
-    setVoiceConsent(consentData);
-    setActionMessage("✓ Voice consent detected successfully!");
   };
 
   if (loading) {
@@ -235,16 +224,8 @@ const DoctorAppointments = () => {
               <div>
                 <AppointmentVideoCall
                   appointmentId={queueData.activeAppointment._id}
-                  doctorNotes={doctorNotes}
-                  onConsentDetected={handleVoiceConsentDetected}
-                  onSoapSaved={() => setActionMessage("SOAP note saved successfully")}
                   onCallEnd={() => endAppointment(queueData.activeAppointment._id)}
                 />
-                {voiceConsent?.detected && (
-                  <p className="mt-2 text-sm text-green-700">
-                    Voice consent recorded for this appointment.
-                  </p>
-                )}
               </div>
               <div className="rounded-lg border border-gray-200 dark:border-red-900/40 bg-gray-50 dark:bg-slate-900 p-4">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-slate-100">Doctor Notes</h3>
