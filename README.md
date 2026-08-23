@@ -79,15 +79,26 @@ By combining hospital management with cutting-edge AI triage and peer-to-peer We
 Heavy ML work is decoupled from the Node event loop into standalone FastAPI services. The backend calls them over HTTP with defensive error handling and Docker-network fallback routing, degrading gracefully when a service is unreachable.
 
 ```mermaid
-graph TD;
-    A[React Frontend] -->|REST + Socket.IO| B(Node/Express API)
-    B -->|Cache, Locks| C[(Redis)]
-    B -->|Async Events| D[Kafka]
-    D -->|Consume| E[Payment Worker]
-    E -->|Write| F[(MongoDB)]
-    B -->|Write/Read| F
-    B -->|HTTP| G[FastAPI AI Engine]
-    G -->|TriageBERT, PubMedBERT, DistilBERT| H[Hugging Face Models]
+graph TD
+    Client[📱 React Frontend] -->|REST + Socket.IO| API[⚙️ Node/Express API]
+
+    subgraph "Data & Cache"
+        API -->|Cache & Locks| Redis[(Redis)]
+        API -->|CRUD| DB[(MongoDB)]
+    end
+
+    subgraph "Async Processing"
+        API -.->|Publish| Kafka[📨 Kafka]
+        Kafka -.->|Consume| Worker[⚙️ Background Worker]
+        Worker -->|Write| DB
+    end
+
+    subgraph "AI Microservice"
+        API ==>|HTTP POST| FastAPI[🧠 FastAPI Engine]
+        FastAPI --> Triage[TriageBERT]
+        FastAPI --> Specialty[PubMedBERT]
+        FastAPI --> Disease[DistilBERT]
+    end
 ```
 
 ### 🛡️ Layered Fallback Strategy
