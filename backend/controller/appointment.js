@@ -5,7 +5,6 @@ import Doctor from "../model/doctor.js";
 import OpdToken from "../model/opdToken.js";
 import User from "../model/user.js";
 import HospitalStaff from "../model/hospitalStaff.js";
-import { publishEvent } from "../services/events.js";
 
 
 // Accepts a raw id, an ObjectId, or a populated document and always returns a plain id string.
