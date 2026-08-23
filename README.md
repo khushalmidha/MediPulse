@@ -58,7 +58,7 @@ By combining hospital management with cutting-edge AI triage and peer-to-peer We
 
 ### 💳 Virtual Payment Gateway
 - **Concurrency-Safe Ledger** — Redis distributed locks (`SET NX PX`) acquired in **deterministic sorted order** to prevent deadlocks, wrapped in **atomic MongoDB multi-document transactions**.
-- **Event-Driven Architecture** — Every payment, refund, wallet update, and notification publishes to **8 Kafka topics** consumed by a separate worker process.
+- **Event-Driven Architecture** — Every payment, refund, wallet update, notification, and appointment booking publishes to **8 Kafka topics** consumed by a separate worker process.
 
 ---
 
