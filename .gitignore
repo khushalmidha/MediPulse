@@ -39,3 +39,5 @@ disease_model.pkl
 # Python
 __pycache__/
 *.pyc
+
+MEDIPULSE_ULTIMATE_INTERVIEW_BOOK.md

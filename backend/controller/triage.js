@@ -39,7 +39,13 @@ Rules:
 - Language: Always respond exclusively in ${patientContext.language || 'English'} regardless of the patient's language.
 - Brief must be professional and in English regardless of conversation language (it's for the doctor).
 
-You already have this context about the patient: ${JSON.stringify(patientContext.patient)}`;
+You already have this base context about the patient: ${JSON.stringify(patientContext.patient)}
+
+IMPORTANT: The system has performed a Semantic Search (RAG) on the patient's past medical records based on their current symptoms.
+Relevant Historical Medical Records:
+${patientContext.relevantMedicalHistoryFromRAG || "No historical context available yet."}
+
+If this history is relevant to their current complaint, use it to guide your questions (e.g. "I see you had chest pain two years ago...").`;
 
 const buildModel = (patientContext) =>
   genAI.getGenerativeModel({

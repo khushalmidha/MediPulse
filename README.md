@@ -44,6 +44,7 @@ By combining hospital management with cutting-edge AI triage and peer-to-peer We
 - **Specialty Routing (`PubMedBERT`)** — Maps symptoms to **13 distinct medical specialties** with calibrated confidence scores and differential alternatives, significantly narrowing the search space for doctors.
 - **Disease Prediction (`DistilBERT`)** — Predicts exact medical conditions (e.g., Dengue, Migraine) from raw symptom text using a fine-tuned Hugging Face DistilBERT model.
 - **Conversational Pre-Consultation** — A Gemini-driven multi-turn triage chat synthesizes conversations into a structured brief: chief complaint, duration, severity, and urgency.
+- **Patient History RAG Pipeline** — Implements Retrieval-Augmented Generation (RAG) by embedding past clinical SOAP notes using `text-embedding-004`. The Node.js backend calculates Cosine Similarity locally to inject highly relevant patient history directly into the AI's contextual prompt, enabling "long-term memory" across appointments.
 
 ### 🎥 WebRTC Video Consultations & Doctor Copilot
 - **Peer-to-Peer Telemedicine** — Direct WebRTC video/audio with no third-party meeting links. Socket.IO handles signalling (offer/answer/ICE) and presence.

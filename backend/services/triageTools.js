@@ -3,6 +3,19 @@ import Appointment from "../model/appointment.js";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+const cosineSimilarity = (vecA, vecB) => {
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+};
+
 const normalizeText = (value) => String(value || "").toLowerCase();
 
 const calculateAge = (dob) => {
@@ -18,8 +31,9 @@ const calculateAge = (dob) => {
   return age;
 };
 
-const getPatientContext = async ({ userId }) => {
+const getPatientContext = async ({ userId, currentSymptoms }) => {
   const User = (await import("../model/user.js")).default;
+  const Appointment = (await import("../model/appointment.js")).default;
   const user = await User.findById(userId);
 
   if (!user) {
@@ -30,14 +44,66 @@ const getPatientContext = async ({ userId }) => {
     [user.firstName, user.lastName].filter(Boolean).join(" ") ||
     "Patient";
 
+  const baseContext = {
+    id: user._id.toString(),
+    name: patientName,
+    age: calculateAge(user.dob || user.dateOfBirth),
+    primaryCondition: user.medicalHistory?.primaryCondition || "Not provided",
+  };
+
+  // --- RAG PIPELINE (Retrieval-Augmented Generation) ---
+  let relevantHistory = "No historical context available.";
+  
+  if (currentSymptoms && process.env.GEMINI_API_KEY) {
+    try {
+      // 1. Fetch past appointments with completed SOAP notes
+      const pastAppointments = await Appointment.find({
+        user: userId,
+        "soapNote.assessment": { $exists: true, $ne: "" }
+      }).sort({ createdAt: -1 }).limit(10); // Look at max last 10 visits
+
+      if (pastAppointments.length > 0) {
+        const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+        
+        // 2. Embed the current symptoms (The Query)
+        const queryRes = await embeddingModel.embedContent(currentSymptoms);
+        const queryEmbedding = queryRes.embedding.values;
+        
+        const scoredNotes = [];
+        
+        // 3. Embed historical notes and calculate similarity
+        for (const appt of pastAppointments) {
+          const pastContextText = `Assessment: ${appt.soapNote.assessment} | Plan: ${appt.soapNote.plan || "N/A"}`;
+          try {
+            const docRes = await embeddingModel.embedContent(pastContextText);
+            const docEmbedding = docRes.embedding.values;
+            const score = cosineSimilarity(queryEmbedding, docEmbedding);
+            scoredNotes.push({ text: pastContextText, score, date: appt.createdAt });
+          } catch (embedErr) {
+            console.warn("Failed to embed past note:", embedErr.message);
+          }
+        }
+        
+        // 4. Sort by cosine similarity (highest first) and take top 2
+        scoredNotes.sort((a, b) => b.score - a.score);
+        const topMatches = scoredNotes.slice(0, 2);
+        
+        if (topMatches.length > 0) {
+          relevantHistory = topMatches
+            .map(m => `[Date: ${m.date.toISOString().split("T")[0]}] (Relevance Score: ${m.score.toFixed(2)}) ${m.text}`)
+            .join("\\n\\n");
+        }
+      }
+    } catch (ragError) {
+      console.error("RAG Pipeline failed:", ragError.message);
+      relevantHistory = "RAG retrieval failed. Fallback to base condition.";
+    }
+  }
+
   return {
     userId: user._id.toString(),
-    patient: {
-      id: user._id.toString(),
-      name: patientName,
-      age: calculateAge(user.dob || user.dateOfBirth),
-      primaryCondition: user.medicalHistory?.primaryCondition || "Not provided",
-    },
+    patient: baseContext,
+    relevantMedicalHistoryFromRAG: relevantHistory
   };
 };
 
@@ -171,13 +237,14 @@ Validated urgency level: ${urgencyLevel}`;
 const triageTools = [
   {
     name: "get_patient_context",
-    description: "Fetch patient medical context from their profile.",
+    description: "Fetch relevant patient medical history based on current symptoms using Semantic Search (RAG). Call this tool early to understand the patient's background.",
     parameters: {
       type: "object",
       properties: {
         userId: { type: "string" },
+        currentSymptoms: { type: "string", description: "The symptoms the patient is currently complaining about. E.g. 'chest pain and fever'" }
       },
-      required: ["userId"],
+      required: ["userId", "currentSymptoms"],
     },
   },
   {
