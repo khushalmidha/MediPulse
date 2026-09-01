@@ -7,19 +7,28 @@ services:
   mongo:
     profiles: ["disabled"] # This disables the local mongo container
 
-  # We host the ML engine on Render.com (Free Tier) to save AWS RAM
+  # Add the FastAPI Machine Learning Engine back! 
+  # We are running it on the same EC2 instance using the 4GB Swap File trick to bypass the RAM limit.
+  fastapi-engine:
+    build: ./medipulse-ranking-engine
+    ports:
+      - "8000:8000"
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    restart: always
+
   backend:
     environment:
-      # You MUST replace this with your actual Render URL later
-      ML_MICROSERVICE_URL: https://medipulse-ml-engine.onrender.com
+      ML_MICROSERVICE_URL: http://fastapi-engine:8000
     depends_on:
       - redis
       - kafka
+      - fastapi-engine
     restart: always
 
   vpay-consumer:
     environment:
-      ML_MICROSERVICE_URL: https://medipulse-ml-engine.onrender.com
+      ML_MICROSERVICE_URL: http://fastapi-engine:8000
     restart: always
 
   frontend:
