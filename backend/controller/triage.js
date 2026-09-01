@@ -11,6 +11,8 @@ import {
   triageToolHandlers,
   triageTools,
 } from "../services/triageTools.js";
+import { nlpManager } from "../services/huggingfaceAPI.js";
+import { ranker } from "../services/ranker.js";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const TRIAGE_TTL_SECONDS = 30 * 60;
@@ -396,29 +398,22 @@ const completeTriage = async (req, res) => {
       .filter(Boolean)
       .join(". ") || transcript;
 
-    const mlServiceUrl = process.env.DISEASE_PREDICTION_SERVICE_URL || process.env.ML_SERVICE_URL;
-    if (mlServiceUrl && symptomText.trim()) {
+    // Use the Node.js Hugging Face API integration to predict disease
+    if (symptomText.trim()) {
       try {
-        const mlResponse = await axios.post(
-          mlServiceUrl,
-          { text: symptomText },
-          { timeout: 20000 },
-        );
-        const disease = String(mlResponse.data?.disease || "").trim();
-        const confidence = Number(mlResponse.data?.confidence);
+        const mlData = await nlpManager.predictDisease(symptomText);
+        const disease = String(mlData?.disease || "").trim();
+        const confidence = Number(mlData?.confidence);
+        
         if (disease && disease !== "Unknown Condition") {
-          // The model can only be as confident as the free-form chat text allows, so instead of
-          // discarding weak predictions (which left the doctor with no ML output at all) we always
-          // show the result and label how reliable it is.
           const confidencePercent = Number.isFinite(confidence)
             ? `${Math.round(confidence * 100)}%`
             : null;
           const isLowConfidence = Number.isFinite(confidence) && confidence < ML_CONFIDENCE_THRESHOLD;
 
-          // Runner-up conditions help the doctor far more than one shaky guess.
-          const differentials = Array.isArray(mlResponse.data?.differentials)
-            ? mlResponse.data.differentials
-                .slice(1, 3)
+          const differentials = Array.isArray(mlData?.differentials)
+            ? mlData.differentials
+                .slice(0, 2)
                 .map((item) => String(item?.disease || "").trim())
                 .filter((name) => name && name !== "Unknown Condition")
             : [];
@@ -513,26 +508,21 @@ export const fullAssessmentV2 = async (req, res) => {
       });
     }
 
-    // 2. Triage & Specialty Pipeline (Unified AI Assessment)
+    // 2. Triage & Specialty Pipeline (Unified AI Assessment via Hugging Face)
     let specialty = "General Medicine";
     let severity = "LOW";
     let esi_level = 4;
     let disclaimer = "This is an AI-assisted pre-triage tool, not a diagnostic system.";
     
-    const mlBaseUrl = process.env.ML_MICROSERVICE_URL || "http://127.0.0.1:8000";
     try {
-      const assessRes = await axios.post(`${mlBaseUrl}/v2/assessment`, {
-        symptoms: patientContext.symptoms,
-        history: patientContext.history
-      });
-      
-      const data = assessRes.data;
-      specialty = data.specialty?.name || specialty;
-      severity = data.severity?.level || severity;
-      esi_level = data.severity?.esi || esi_level;
-      disclaimer = data.disclaimer || disclaimer;
+      const severityData = await nlpManager.predictSeverity(patientContext.symptoms + " " + patientContext.history);
+      severity = severityData.level;
+      esi_level = severityData.esi;
+
+      const specialtyData = await nlpManager.predictSpecialty(patientContext.symptoms + " " + patientContext.history);
+      specialty = specialtyData.name;
     } catch (e) {
-      console.warn("FastAPI /v2/assessment failed or unreachable:", e.message);
+      console.warn("Hugging Face API assessment failed:", e.message);
     }
 
     // Deterministic override if severity model says HIGH
@@ -557,16 +547,12 @@ export const fullAssessmentV2 = async (req, res) => {
       is_available_today: d.is_available_today || true
     }));
 
-    // 3. LambdaMART / Heuristic Ranker
+    // 3. Heuristic Ranker
     let ranked_doctors = candidates;
     try {
-      const rankRes = await axios.post(`${mlBaseUrl}/v2/rank`, {
-        severity: severity,
-        doctors: candidates
-      });
-      ranked_doctors = rankRes.data.ranked_doctors || ranked_doctors;
+      ranked_doctors = ranker.rankDoctors(candidates, severity);
     } catch (e) {
-      console.warn("FastAPI /v2/rank failed or unreachable:", e.message);
+      console.warn("Node Ranker failed:", e.message);
     }
 
     return res.status(200).json({
