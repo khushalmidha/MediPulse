@@ -1,0 +1,41 @@
+# Production Docker Compose for AWS EC2 Deployment
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+services:
+  # We do NOT run MongoDB in production via Docker. 
+  # We use MongoDB Atlas (Cloud) for reliability and backups.
+  mongo:
+    profiles: ["disabled"] # This disables the local mongo container
+
+  # Add the FastAPI Machine Learning Engine
+  fastapi-engine:
+    build: ./medipulse-ranking-engine
+    ports:
+      - "8000:8000"
+    volumes:
+      # Cache HuggingFace models so they aren't redownloaded on every restart
+      - huggingface_cache:/root/.cache/huggingface
+    restart: always
+
+  backend:
+    environment:
+      # Override local variables with production settings
+      ML_MICROSERVICE_URL: http://fastapi-engine:8000
+    depends_on:
+      - redis
+      - kafka
+      - fastapi-engine
+    restart: always
+
+  vpay-consumer:
+    environment:
+      ML_MICROSERVICE_URL: http://fastapi-engine:8000
+    restart: always
+
+  frontend:
+    # If deploying frontend to AWS Amplify, you can disable this container
+    # profiles: ["disabled"]
+    restart: always
+
+volumes:
+  huggingface_cache:
