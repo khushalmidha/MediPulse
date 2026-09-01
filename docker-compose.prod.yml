@@ -7,29 +7,19 @@ services:
   mongo:
     profiles: ["disabled"] # This disables the local mongo container
 
-  # Add the FastAPI Machine Learning Engine
-  fastapi-engine:
-    build: ./medipulse-ranking-engine
-    ports:
-      - "8000:8000"
-    volumes:
-      # Cache HuggingFace models so they aren't redownloaded on every restart
-      - huggingface_cache:/root/.cache/huggingface
-    restart: always
-
+  # We host the ML engine on Render.com (Free Tier) to save AWS RAM
   backend:
     environment:
-      # Override local variables with production settings
-      ML_MICROSERVICE_URL: http://fastapi-engine:8000
+      # You MUST replace this with your actual Render URL later
+      ML_MICROSERVICE_URL: https://medipulse-ml-engine.onrender.com
     depends_on:
       - redis
       - kafka
-      - fastapi-engine
     restart: always
 
   vpay-consumer:
     environment:
-      ML_MICROSERVICE_URL: http://fastapi-engine:8000
+      ML_MICROSERVICE_URL: https://medipulse-ml-engine.onrender.com
     restart: always
 
   frontend:
