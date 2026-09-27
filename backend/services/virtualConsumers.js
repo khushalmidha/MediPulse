@@ -1,6 +1,9 @@
 import { Kafka } from "kafkajs";
 import VirtualAnalyticsEvent from "../model/virtualAnalyticsEvent.js";
 import { TOPICS } from "./virtualEvents.js";
+import User from "../model/user.js";
+import Doctor from "../model/doctor.js";
+import { sendAppointmentBookedMail } from "../util/mailer.js";
 
 const createKafka = () =>
   new Kafka({
@@ -56,11 +59,43 @@ const runVirtualConsumers = async () => {
   for (const topic of Object.values(TOPICS)) {
     await consumer.subscribe({ topic, fromBeginning: false });
   }
+  
+  const APPOINTMENTS_TOPIC = process.env.KAFKA_APPOINTMENT_TOPIC || "medipulse.appointments";
+  await consumer.subscribe({ topic: APPOINTMENTS_TOPIC, fromBeginning: false });
 
   await consumer.run({
     eachMessage: async ({ topic, message }) => {
       const event = parseEvent(message);
-      await storeAnalyticsEvent({ topic, event });
+      
+      // Async Email processing for appointments
+      if (topic === APPOINTMENTS_TOPIC && event.type === "appointment.booked") {
+        try {
+          const { userId, doctorId, appointmentId } = event.payload || {};
+          if (userId && doctorId) {
+            const user = await User.findById(userId);
+            const doctor = await Doctor.findById(doctorId);
+            const patientName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Patient" : "Patient";
+            const doctorName = doctor ? `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "Doctor" : "Doctor";
+            
+            if (user && user.email) {
+              await sendAppointmentBookedMail({
+                to: user.email,
+                doctorName,
+                patientName,
+                appointmentId
+              });
+              console.log(`Async email sent for appointment ${appointmentId}`);
+            }
+          }
+        } catch (error) {
+          console.error("Async email failed:", error.message);
+        }
+      }
+
+      // Store in analytics if it's from the analytics TOPICS list
+      if (Object.values(TOPICS).includes(topic)) {
+        await storeAnalyticsEvent({ topic, event });
+      }
     },
   });
 

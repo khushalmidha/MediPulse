@@ -902,28 +902,7 @@ const bookAppointment = async (req, res) => {
 
   await emitQueueUpdates(doctorId);
   
-  // Publish Kafka event for the booked appointment
-  await publishEvent("appointment.booked", {
-    appointmentId: appointment._id,
-    doctorId,
-    userId: req.auth.id,
-    amount: consultationFee,
-  });
-
-  const queuePosition = await queuePositionForAppointment(appointment);
-
-  try {
-    const user = await User.findById(req.auth.id);
-    await sendAppointmentBookedMail({
-      to: user.email,
-      doctorName: buildPersonName(bookable.doctor, "Doctor"),
-      patientName: buildPersonName(user, "Patient"),
-      appointmentId: appointment._id.toString(),
-    });
-  } catch (error) {
-    console.error("Appointment booking email failed:", error.message);
-  }
-
+  // Publish Kafka event to handle background tasks like Emails and Analytics
   await publishEvent("appointment.booked", {
     appointmentId: appointment._id.toString(),
     orderId: transaction.transactionId,
@@ -932,6 +911,8 @@ const bookAppointment = async (req, res) => {
     userId: req.auth.id.toString(),
     amount: consultationFee,
   });
+
+  const queuePosition = await queuePositionForAppointment(appointment);
 
   return res.status(201).json({
     message: `Appointment booked and queued successfully. INR ${consultationFee} debited from your wallet.`,
