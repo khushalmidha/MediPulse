@@ -12,6 +12,7 @@ import Hospital from "../model/hospital.js";
 import { getRedis, passwordResetOtpKey } from "../services/redis.js";
 import { sendPasswordResetOtpMail } from "../util/mailer.js";
 import { ensureWallet } from "../services/virtualLedger.js";
+import { TOPICS, publishVirtualEvent } from "../services/virtualEvents.js";
 configDotenv()
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -363,8 +364,8 @@ const sendPasswordResetOtp = async (req, res) => {
 			PASSWORD_RESET_OTP_EXPIRY_MS,
 		);
 
-		await sendPasswordResetOtpMail({
-			to: email,
+		await publishVirtualEvent(TOPICS.notificationsCreated, "auth.otp_requested", {
+			email,
 			accountName: buildName(account),
 			otp,
 		});

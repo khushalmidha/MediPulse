@@ -707,15 +707,14 @@ const refundAppointmentPayment = async (req, res) => {
     await populateDoctorForAppointments([populated]);
 
     try {
-      await sendAppointmentRefundMail({
-        to: populated.user.email,
-        patientName: buildPersonName(populated.user, "Patient"),
-        doctorName: buildPersonName(populated.doctor, "Doctor"),
+      await publishEvent("appointment.refunded", {
+        userId: populated.user._id.toString(),
+        doctorId: populated.doctor._id.toString(),
         appointmentId: populated._id.toString(),
         amount: appointment.payment.amount || WALLET_APPOINTMENT_FEE_INR,
       });
     } catch (error) {
-      console.error("Appointment manual refund email failed:", error.message);
+      console.error("Appointment refund event failed:", error.message);
     }
 
     return res.status(200).json({ message: "Refund processed successfully" });

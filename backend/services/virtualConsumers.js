@@ -3,7 +3,7 @@ import VirtualAnalyticsEvent from "../model/virtualAnalyticsEvent.js";
 import { TOPICS } from "./virtualEvents.js";
 import User from "../model/user.js";
 import Doctor from "../model/doctor.js";
-import { sendAppointmentBookedMail } from "../util/mailer.js";
+import { sendAppointmentBookedMail, sendAppointmentRefundMail, sendPasswordResetOtpMail } from "../util/mailer.js";
 
 const createKafka = () =>
   new Kafka({
@@ -89,6 +89,50 @@ const runVirtualConsumers = async () => {
           }
         } catch (error) {
           console.error("Async email failed:", error.message);
+        }
+      }
+      
+      // Async Refund Email processing
+      if (topic === APPOINTMENTS_TOPIC && event.type === "appointment.refunded") {
+        try {
+          const { userId, doctorId, appointmentId, amount } = event.payload || {};
+          if (userId && doctorId) {
+            const user = await User.findById(userId);
+            const doctor = await Doctor.findById(doctorId);
+            const patientName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Patient" : "Patient";
+            const doctorName = doctor ? `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "Doctor" : "Doctor";
+            
+            if (user && user.email) {
+              await sendAppointmentRefundMail({
+                to: user.email,
+                doctorName,
+                patientName,
+                appointmentId,
+                amount,
+                currency: "INR"
+              });
+              console.log(`Async refund email sent for appointment ${appointmentId}`);
+            }
+          }
+        } catch(error) {
+          console.error("Async refund email failed:", error.message);
+        }
+      }
+
+      // Async OTP Email processing
+      if (topic === TOPICS.notificationsCreated && event.eventType === "auth.otp_requested") {
+        try {
+          const { email, accountName, otp } = event.payload || {};
+          if (email && otp) {
+            await sendPasswordResetOtpMail({
+              to: email,
+              accountName,
+              otp
+            });
+            console.log(`Async OTP email sent to ${email}`);
+          }
+        } catch(error) {
+          console.error("Async OTP email failed:", error.message);
         }
       }
 
