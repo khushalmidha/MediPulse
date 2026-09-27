@@ -9,7 +9,7 @@ const getKafkaProducer = async () => {
     const kafka = new Kafka({
       clientId: process.env.KAFKA_CLIENT_ID || "medipulse-api",
       brokers: process.env.KAFKA_BROKERS.split(",").map((broker) => broker.trim()),
-      ssl: process.env.KAFKA_SSL === "true",
+      ssl: process.env.KAFKA_SSL === "true" ? { rejectUnauthorized: false } : false,
       sasl:
         process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD
           ? {

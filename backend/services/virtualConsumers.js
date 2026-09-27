@@ -9,7 +9,7 @@ const createKafka = () =>
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean),
-    ssl: process.env.KAFKA_SSL === "true",
+    ssl: process.env.KAFKA_SSL === "true" ? { rejectUnauthorized: false } : false,
     sasl:
       process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD
         ? {
