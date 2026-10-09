@@ -15,7 +15,8 @@ try {
     fileURLToPath(new URL("../tests/integration/p04-money.test.js", import.meta.url)),
     fileURLToPath(new URL("../tests/integration/p05-sessions.test.js", import.meta.url)),
     fileURLToPath(new URL("../tests/integration/p06-workflows.test.js", import.meta.url)),
-    fileURLToPath(new URL("../tests/integration/p07-products.test.js", import.meta.url))], {
+    fileURLToPath(new URL("../tests/integration/p07-products.test.js", import.meta.url)),
+    fileURLToPath(new URL("../tests/integration/p09-scheduling.test.js", import.meta.url))], {
     stdio: "inherit", env: { ...process.env, TEST_DATABASE_URL: target.mongo, TEST_REDIS_URL: target.redis },
   });
   child.on("exit", (code) => { process.exitCode = code ?? 1; });

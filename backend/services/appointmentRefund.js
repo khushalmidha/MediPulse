@@ -7,7 +7,7 @@ import { transitionVisit } from "./visitTransitions.js";
 import { amountToMinor, moneyError } from "../util/money.js";
 
 // One cancellation identity is shared by manual, automatic and restart recovery.
-export const refundAppointment = async ({ appointmentId, expectedRevision }) => {
+export const refundAppointment = async ({ appointmentId, expectedRevision, session: providedSession, now = new Date() }) => {
   const apply = async (session) => {
     const appointment = await Appointment.findById(appointmentId).session(session);
     if (!appointment) throw moneyError(404, "Appointment not found");
@@ -23,7 +23,7 @@ export const refundAppointment = async ({ appointmentId, expectedRevision }) => 
     }
     if (["active", "completed"].includes(appointment.status)) throw moneyError(409, "Cannot refund an active or completed appointment");
     if (appointment.status !== "refund_pending" && appointment.payment.refundState !== "processing") {
-      await transitionVisit({ appointmentId, action: "refund_hold", expectedRevision, session });
+      await transitionVisit({ appointmentId, action: "refund_hold", expectedRevision, session, now });
     } else if (expectedRevision !== undefined && expectedRevision !== appointment.revision) throw moneyError(409, "Visit changed; refresh before retrying");
     let financial;
     if (original.status === "REFUNDED" && original.refundedMinor === original.amountMinor) {
@@ -32,11 +32,12 @@ export const refundAppointment = async ({ appointmentId, expectedRevision }) => 
       financial = { refund, replay: true };
     } else financial = await refundInSession({ actorId: appointment.doctor, actorRole: "doctor", originalTransactionId: originalId,
       reason: "appointment-cancellation", idempotencyKey: key }, session);
-    const changed = await transitionVisit({ appointmentId, action: "cancel", session, appointmentFields: {
+    const changed = await transitionVisit({ appointmentId, action: "cancel", session, now, appointmentFields: {
       endedReason: "refunded", "payment.refundId": financial.refund.refundId, "payment.refundedAt": new Date(),
     } });
     return { ...changed, financial, replay: financial.replay };
   };
+  if (providedSession) return apply(providedSession);
   let result;
   try { result = await moneyTransaction(apply); }
   catch (error) {

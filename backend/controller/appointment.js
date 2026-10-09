@@ -1,3 +1,4 @@
+import { appointmentPosition } from "../services/appointmentPosition.js";
 import Hospital from "../model/hospital.js";
 import { mailConfigured } from "../services/outbox.js";
 import { queueBookingOtp, verifyBookingOtp, readBookingProof, proofId } from "../services/bookingAuthorization.js";
@@ -136,6 +137,7 @@ const mapQueueAppointment = (appointment) => ({
   _id: appointment._id,
   status: appointment.status,
   ...explicitPractice(appointment), practiceKey: appointment.practiceKey, queueKey: appointment.queueKey, serviceDate: appointment.serviceDate, sessionId: appointment.sessionId, visitMode: appointment.visitMode, revision: appointment.revision,
+  appointmentType: appointment.appointmentType || (appointment.visitMode === "in_person" ? "hospital_in_person" : "online_opd"), scheduleReservationId: appointment.scheduleReservationId, scheduledStart: appointment.scheduledStart, scheduledEnd: appointment.scheduledEnd, admissionState: appointment.admissionState, checkedInAt: appointment.checkedInAt, feeSnapshot: appointment.feeSnapshot,
   createdAt: appointment.createdAt,
   startedAt: appointment.startedAt,
   endedAt: appointment.endedAt,
@@ -158,6 +160,7 @@ const mapHistoryAppointment = (appointment) => ({
   user: appointment.user,
   status: appointment.status,
   ...explicitPractice(appointment), practiceKey: appointment.practiceKey, queueKey: appointment.queueKey, serviceDate: appointment.serviceDate, sessionId: appointment.sessionId, visitMode: appointment.visitMode, revision: appointment.revision,
+  appointmentType: appointment.appointmentType || (appointment.visitMode === "in_person" ? "hospital_in_person" : "online_opd"), scheduleReservationId: appointment.scheduleReservationId, scheduledStart: appointment.scheduledStart, scheduledEnd: appointment.scheduledEnd, admissionState: appointment.admissionState, checkedInAt: appointment.checkedInAt, feeSnapshot: appointment.feeSnapshot,
   createdAt: appointment.createdAt,
   startedAt: appointment.startedAt,
   endedAt: appointment.endedAt,
@@ -179,6 +182,7 @@ const mapActiveAppointment = (appointment) => {
     _id: appointment._id,
     status: appointment.status,
   ...explicitPractice(appointment), practiceKey: appointment.practiceKey, queueKey: appointment.queueKey, serviceDate: appointment.serviceDate, sessionId: appointment.sessionId, visitMode: appointment.visitMode, revision: appointment.revision,
+  appointmentType: appointment.appointmentType || (appointment.visitMode === "in_person" ? "hospital_in_person" : "online_opd"), scheduleReservationId: appointment.scheduleReservationId, scheduledStart: appointment.scheduledStart, scheduledEnd: appointment.scheduledEnd, admissionState: appointment.admissionState, checkedInAt: appointment.checkedInAt, feeSnapshot: appointment.feeSnapshot,
     createdAt: appointment.createdAt,
     startedAt: appointment.startedAt,
     endedAt: appointment.endedAt,
@@ -215,7 +219,7 @@ const buildDoctorQueuePayloadRaw = async (doctorId, selectedQueueKey) => {
   const tokenFor = (row) => tokens.find((token) => normalizeId(token.appointmentId) === normalizeId(row));
   const queues = [...new Map(rows.map((row) => [row.queueKey, { queueKey: row.queueKey, practiceKey: row.practiceKey,
     ...explicitPractice(row), hospitalName: hospitals.find(hospital => row.practiceKey === `hospital:${normalizeId(hospital)}`)?.name, serviceDate: row.serviceDate, sessionId: row.sessionId, visitMode: row.visitMode }])).values()];
-  const ready = (row) => row.visitMode !== "in_person" || Boolean(tokenFor(row)?.arrivedAt);
+  const ready = (row) => row.admissionState !== "reserved" && (!row.scheduledStart || new Date(row.scheduledStart) <= new Date()) && (row.visitMode !== "in_person" || Boolean(tokenFor(row)?.arrivedAt));
   const doctor = await Doctor.findById(rootId);
   const independent = queueContext({ doctorId: rootId, doctor });
   if (!queues.some(queue => queue.queueKey === independent.queueKey)) queues.unshift(independent);
@@ -224,7 +228,7 @@ const buildDoctorQueuePayloadRaw = async (doctorId, selectedQueueKey) => {
   const selectedRows = rows.filter((row) => row.queueKey === selected);
   const queued = selectedRows.filter((row) => row.status === "queued" && ready(row)).sort((left, right) =>
     left.visitMode === "in_person" ? (tokenFor(left)?.tokenNumber || 0) - (tokenFor(right)?.tokenNumber || 0)
-      : new Date(left.createdAt) - new Date(right.createdAt) || normalizeId(left).localeCompare(normalizeId(right)));
+      : new Date(left.checkedInAt || left.createdAt) - new Date(right.checkedInAt || right.createdAt) || normalizeId(left).localeCompare(normalizeId(right)));
   const active = selectedRows.find((row) => row.status === "active");
   if (active) await populateDoctorForAppointments([active]);
   return { doctorId: rootId, queueKey: selected, queues, pendingCount: queued.length, queue: queued.map(mapQueueAppointment),
@@ -448,16 +452,7 @@ const generateReceiptText = async (appointment, notes) => {
   return buildFallbackReceiptText(appointment, notes);
 };
 
-const queuePositionForAppointment = async (appointment) => {
-  if (appointment.status !== "queued") return 0;
-  if (appointment.visitMode === "in_person") {
-    const token = await OpdToken.findOne({ appointmentId: appointment._id });
-    return token?.arrivedAt ? OpdToken.countDocuments({ queueKey: token.queueKey, status: { $in: ["waiting", "vitals_done", "in_consultation"] }, tokenNumber: { $lte: token.tokenNumber } }) : 0;
-  }
-  return Appointment.countDocuments({ queueKey: appointment.queueKey, status: "queued", $or: [
-    { createdAt: { $lt: appointment.createdAt } }, { createdAt: appointment.createdAt, _id: { $lte: appointment._id } },
-  ] });
-};
+const queuePositionForAppointment = async appointment => (await appointmentPosition(appointment)) ?? 0;
 
 const clearLinkedOpdCache = (token) => invalidateVisitQueue(token, getRedis());
 
@@ -630,6 +625,7 @@ const bookAppointment = async (req, res) => {
   return res.status(result.replay ? 200 : 201).json({ message: "Demo appointment booked", appointmentId: appointment._id,
     status: appointment.status,
     ...explicitPractice(appointment), practiceKey: appointment.practiceKey, queueKey: appointment.queueKey, serviceDate: appointment.serviceDate, sessionId: appointment.sessionId, visitMode: appointment.visitMode, revision: appointment.revision,
+  appointmentType: appointment.appointmentType || (appointment.visitMode === "in_person" ? "hospital_in_person" : "online_opd"), scheduleReservationId: appointment.scheduleReservationId, scheduledStart: appointment.scheduledStart, scheduledEnd: appointment.scheduledEnd, admissionState: appointment.admissionState, checkedInAt: appointment.checkedInAt, feeSnapshot: appointment.feeSnapshot,
     queuePosition: await queuePositionForAppointment(appointment), amountPaid: result.operation.fee, replay: result.replay });
 };
 
@@ -662,7 +658,7 @@ const getDoctorPendingStatus = async (req, res) => {
 
   const context = queueContext({ doctorId, doctor, sessionId: req.query.sessionId });
   const snapshotRevision = await readQueueRevision(context.queueKey);
-  const pendingCount = await Appointment.countDocuments({ queueKey: context.queueKey, status: "queued" });
+  const pendingCount = await Appointment.countDocuments({ queueKey: context.queueKey, status: "queued", admissionState: { $ne: "reserved" } });
   const response = {
     doctorId,
     pendingCount,
@@ -837,6 +833,7 @@ const getAppointmentById = async (req, res) => {
     _id: appointment._id,
     status: appointment.status,
   ...explicitPractice(appointment), practiceKey: appointment.practiceKey, queueKey: appointment.queueKey, serviceDate: appointment.serviceDate, sessionId: appointment.sessionId, visitMode: appointment.visitMode, revision: appointment.revision,
+  appointmentType: appointment.appointmentType || (appointment.visitMode === "in_person" ? "hospital_in_person" : "online_opd"), scheduleReservationId: appointment.scheduleReservationId, scheduledStart: appointment.scheduledStart, scheduledEnd: appointment.scheduledEnd, admissionState: appointment.admissionState, checkedInAt: appointment.checkedInAt, feeSnapshot: appointment.feeSnapshot,
     roomId: appointment.roomId,
     createdAt: appointment.createdAt,
     startedAt: appointment.startedAt,
@@ -889,6 +886,7 @@ const startAppointment = async (req, res) => {
       userId: (appointment.user._id || appointment.user).toString(),
       status: appointment.status,
   ...explicitPractice(appointment), practiceKey: appointment.practiceKey, queueKey: appointment.queueKey, serviceDate: appointment.serviceDate, sessionId: appointment.sessionId, visitMode: appointment.visitMode, revision: appointment.revision,
+  appointmentType: appointment.appointmentType || (appointment.visitMode === "in_person" ? "hospital_in_person" : "online_opd"), scheduleReservationId: appointment.scheduleReservationId, scheduledStart: appointment.scheduledStart, scheduledEnd: appointment.scheduledEnd, admissionState: appointment.admissionState, checkedInAt: appointment.checkedInAt, feeSnapshot: appointment.feeSnapshot,
       startedAt: appointment.startedAt,
       endsAt: (appointment.visitMode === "in_person" ? null : appointment.consultationDeadline || null),
     };
@@ -906,6 +904,7 @@ const startAppointment = async (req, res) => {
     appointmentId: appointment._id,
     status: appointment.status,
   ...explicitPractice(appointment), practiceKey: appointment.practiceKey, queueKey: appointment.queueKey, serviceDate: appointment.serviceDate, sessionId: appointment.sessionId, visitMode: appointment.visitMode, revision: appointment.revision,
+  appointmentType: appointment.appointmentType || (appointment.visitMode === "in_person" ? "hospital_in_person" : "online_opd"), scheduleReservationId: appointment.scheduleReservationId, scheduledStart: appointment.scheduledStart, scheduledEnd: appointment.scheduledEnd, admissionState: appointment.admissionState, checkedInAt: appointment.checkedInAt, feeSnapshot: appointment.feeSnapshot,
     startedAt: appointment.startedAt,
     endsAt: (appointment.visitMode === "in_person" ? null : appointment.consultationDeadline || null),
   });

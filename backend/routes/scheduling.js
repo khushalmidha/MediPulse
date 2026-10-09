@@ -1,0 +1,23 @@
+import { Router } from "express";
+import userValidation from "../middleware/validateUser.js";
+import validateStaff from "../middleware/validateStaff.js";
+import asyncHandler from "../middleware/asyncHandler.js";
+import { createCareSession, setCareSessionState, setDoctorAbsence, getAvailability, holdCareSlot, confirmCareReservation,
+  getReservation, listReservations, cancelCareReservation, rescheduleCareReservation, admitCareReservation } from "../services/scheduling.js";
+const router = Router();
+const send = (fn, status = 200) => asyncHandler(async (req, res) => { res.set("Cache-Control", "no-store"); res.status(status).json(await fn(req)); });
+router.get("/availability", send(req => getAvailability(req.query)));
+router.post("/sessions", userValidation, send(createCareSession, 201));
+router.patch("/sessions/:sessionId", userValidation, send(setCareSessionState));
+router.post("/hospital/sessions", validateStaff, send(createCareSession, 201));
+router.patch("/hospital/sessions/:sessionId", validateStaff, send(setCareSessionState));
+router.post("/absences", userValidation, send(setDoctorAbsence, 201));
+router.delete("/absences/:absenceId", userValidation, send(setDoctorAbsence));
+router.post("/holds", userValidation, send(holdCareSlot, 201));
+router.get("/reservations", userValidation, send(listReservations));
+router.get("/reservations/:reservationId", userValidation, send(getReservation));
+router.post("/reservations/:reservationId/confirm", userValidation, send(confirmCareReservation));
+router.post("/reservations/:reservationId/cancel", userValidation, send(cancelCareReservation));
+router.post("/reservations/:reservationId/reschedule", userValidation, send(rescheduleCareReservation));
+router.post("/reservations/:reservationId/check-in", userValidation, send(admitCareReservation));
+export default router;

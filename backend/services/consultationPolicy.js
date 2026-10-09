@@ -7,5 +7,5 @@ export const consultationDeadline = (appointment, startedAt = new Date()) => {
   const duration = consultationDurationMs();
   return appointment?.visitMode === "in_person" || !duration ? null : new Date(startedAt.getTime() + duration);
 };
-export const autoRefundDeadline = appointment => appointment?.visitMode !== "in_person" && appointment?.payment?.paidAt
-  ? new Date(Date.now() + 1800000) : null;
+export const autoRefundDeadline = (appointment, now = new Date()) => appointment?.visitMode !== "in_person" && appointment?.payment?.paidAt && appointment?.admissionState !== "reserved"
+  ? new Date(Math.max(now.getTime(), appointment?.scheduledStart ? new Date(appointment.scheduledStart).getTime() : 0) + 1800000) : null;

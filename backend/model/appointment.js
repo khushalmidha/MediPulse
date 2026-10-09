@@ -3,6 +3,11 @@ import mongoose from "mongoose";
 const appointmentSchema = new mongoose.Schema(
   {
     practiceType: { type: String, enum: ["hospital", "independent"] },
+    appointmentType: { type: String, enum: ["scheduled_online", "online_opd", "hospital_in_person"] },
+    scheduleReservationId: mongoose.Schema.Types.ObjectId, scheduleSessionId: mongoose.Schema.Types.ObjectId,
+    scheduledStart: Date, scheduledEnd: Date, checkedInAt: Date,
+    admissionState: { type: String, enum: ["reserved", "arrived"] },
+    feeSnapshot: { amountMinor: Number, currency: String, demo: Boolean },
     hospitalId: { type: mongoose.Schema.Types.ObjectId, ref: "Hospital" },
     queueKey: String, practiceKey: String, serviceDate: String, sessionId: String, timezone: String,
     personKey: String, revision: { type: Number, default: 0 },

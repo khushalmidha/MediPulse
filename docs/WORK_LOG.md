@@ -357,3 +357,41 @@ All browser records are synthetic local fixtures; calls use fake Chromium device
 Final complete frontend browser run: **67 passed / 0 failed / 1 intentionally skipped** across desktop and mobile, including all 54 existing booking/call/product cases and 13 new design checks. Ran without concurrent build work.
 
 Final formatting check: preserved unchanged snapshot lines and original line endings across the 20-file P08 change; normalized contents stayed identical. Targeted tracked-file whitespace check passed with Windows CRLF handling.
+
+
+## P09 — Appointment scheduling backend (9 October 2026)
+
+### Implemented and verified findings
+
+Verified the review's current-day queue-only limitation and absence of persisted availability/capacity reservations. Preserved P01–P08 code and existing immediate booking contracts.
+
+- Added configured dated sessions and actual slots for scheduled online consultations, online OPD capacity windows and hospital in-person visits. Session identity includes practice/doctor/date/timezone; real breaks remove slots. Doctor leave and hospital-local pause controls gate availability, confirmation and admission.
+- Canonical doctor transaction locks prevent overlapping dated sessions across independent and hospital practices. Patient/family locks and conditional capacity increments protect competing holds/reschedules across API processes. Holds expire durably, release capacity exactly once and never charge credits.
+- Confirmation writes frozen fee, demo-credit transfer, appointment, optional hospital token, reservation/request identity and durable visit event in one Mongo transaction. Insufficient funds or post-ledger resource failure leave no debit/visit; committed retries replay the resource. Existing immediate bookings now also carry explicit type/fee snapshots.
+- Future reservations retain compatible queued storage status plus reserved admission state. Online patients check in within the actual arrival window; authorized staff confirm hospital arrival. New reservations are excluded from ready queues before arrival/start. Arrival ordering is shared by queue positions; hospital token order is retained. Existing revision/single-active/terminal-state and clinical permission constraints remain.
+- Added policy-bound cancellation/full demo refunds, same-doctor/practice/type/fee rescheduling and stable request replay. Target capacity/stale/ownership conflicts preserve the source booking. Shared visit/refund transitions release reservation capacity on cancellation/no-show/completion. Future bookings have no immediate auto-refund timer; admitted online visits start the existing missed-response timer no earlier than the slot start.
+- Added public real availability, private confirmation/tracking/history and management APIs. Payloads distinguish holds from paid reservations, expose freshness/next steps and actual admission/payment state, and keep unknown room/ETA unavailable. Revoked memberships/absent doctors cannot admit existing reservations. No appointment availability or room directions are fabricated.
+- Prepared additive scheduling collections/indexes, explicit-target dry run/apply/guarded rollback, startup readiness and empty-local bootstrap. Legacy records need no P09 backfill or replacement of P03 queue indexes. Rollback refuses after scheduling data exists; recovery must move forward.
+
+Main files: scheduling models/router/policy/lifecycle/service/schema/initializer; appointment/token fields, queue adapters, arrival position service, visit/refund/payment integration, expiry worker/runtime/bootstrap; unit/integration/HTTP fixtures and integration runner. [P09_SCHEDULING.md](P09_SCHEDULING.md) records invariants, configurable defaults, API examples, migration/recovery and P10 contracts. Earlier credential rotation/provider/DNS rollout requirements remain external actions.
+
+### Checks and corrections
+
+- Final backend unit/mocked regression run: **65 passed / 0 failed**, including nine P09 policy/index/clock cases.
+- Initial P09 integration suite: **22 passed**, including actual simultaneous requests through two separate API processes.
+- First complete backend integration run: **111 passed / 0 failed** (86 earlier cases + 25 P09 cases). Added arrival-order and guarded CLI rehearsal coverage for the final run recorded below.
+- Node syntax checks passed for **24** changed/new JS/MJS files before final documentation/formatting checks.
+
+An initial unit run found an older mocked staff queue fixture lacked the new configured-session model; added an empty synthetic session fixture without relaxing permission assertions. An initial integration launcher refused missing explicit TEST targets before connecting; reran with localhost replica-set/test Redis configuration. Inspection found scheduled queue positions still used booking order; extracted a shared arrival-order helper and added a regression. No financial assertions or production checks were bypassed.
+
+All integration writes use generated local medipulse_test databases, synthetic identities and Redis fixture prefixes on database 15; real mail/AI/Kafka delivery is disabled. Migration rehearsal uses a separate disposable database and private temporary index backups. No existing development/production database migration, provider activation, Docker image rebuild, DNS change or live deployment was performed. The frontend remains the P08 implementation; P10 will use these backend contracts for appointment/waiting-room UI. Recurring calendar templates, mixed-fee/provider rescheduling and bulk leave notifications are later extensions.
+
+### Git publication
+
+The repository had damaged OneDrive Git objects and an unreadable origin/main reference, which prevented tree construction/fetch. Recovered matching objects from a clean temporary bare clone of the existing GitHub repository, moved the broken remote reference to a temporary backup and recreated it at the verified remote hash. Working files and existing changes were preserved. No history rewrite or force push was used.
+
+Committed the previously verified P01–P08 baseline separately as **303f02bc**, with P09 edits excluded using the saved phase snapshot. Pushed it to **codex/p09-scheduling-20261009**. Reviewed candidate files for credential URI/private-key/provider-token patterns; no matches were found. P09 is prepared as a separate phase commit on the same branch; the publication hash is reported in the phase completion response. Main is not merged and no deployment was initiated.
+
+Final complete backend integration run: **113 passed / 0 failed** (86 prior cases + **27 P09**). Guarded CLI dry-run/apply/rollback and refusal after use passed in a separate isolated database. Final cleanup check: **0 generated integration databases / 0 test Redis keys**. No frontend code changed in P09; frontend build/browser results remain the separately verified P08 baseline.
+
+Final source check: **24 syntax checks passed**, targeted tracked-file whitespace passed, new files had no trailing spaces, and unchanged lines/line endings were restored without changing normalized contents. Candidate-source credential URI/private-key/provider-token scans found no matches.

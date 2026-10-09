@@ -152,7 +152,9 @@ export const resumeQueueBooking = async (operationId) => {
     const paymentBlock = payment ? { provider: "wallet", orderId: payment.transactionId, paymentId: payment.transactionId,
       amount: fromMinor(payment.amountMinor), amountMinor: payment.amountMinor, currency: "INR", paidAt: payment.createdAt || new Date() } : undefined;
     if (!appointment && intent?.appointmentData) [appointment] = await Appointment.create([{ ...intent.appointmentData, ...context, ...explicitPractice(context), personKey, _id: operation.appointmentId,
-      opdTokenId: operation.tokenId, bookingOperationId: operation._id, status: "queued", revision: 1, ...(paymentBlock ? { payment: paymentBlock } : {}) }], { session });
+      opdTokenId: operation.tokenId, bookingOperationId: operation._id, status: "queued", revision: 1,
+      appointmentType: intent.appointmentData.appointmentType || (context.practiceKey.startsWith("hospital:") ? "hospital_in_person" : "online_opd"),
+      feeSnapshot: { amountMinor: amountToMinor(fee, { zero: true }), currency: "INR", demo: true }, ...(paymentBlock ? { payment: paymentBlock } : {}) }], { session });
     else if (appointment) appointment = await Appointment.findOneAndUpdate({ _id: appointment._id, status: "booking", revision: appointment.revision || 0 },
       { $set: { status: "queued", ...(paymentBlock ? { payment: paymentBlock } : {}) }, $inc: { revision: 1 } }, { new: true, session });
     if (!token && intent?.tokenData) [token] = await OpdToken.create([{ ...intent.tokenData, ...context, ...explicitPractice(context), personKey, _id: operation.tokenId, bookingOperationId: operation._id,

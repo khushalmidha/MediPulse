@@ -54,6 +54,15 @@ try {
   }
   const Domain = (await import("../model/hospitalDomain.js")).default;
   await Domain.createIndexes();
-  console.log("Local queue, demo ledger and auth and durable workflow schema ready");
+  const { assertSchedulingSchema, applySchedulingSchema } = await import("../services/schedulingSchema.js");
+  const { schedulingModels } = await import("../model/scheduling.js");
+  try { await assertSchedulingSchema(); } catch {
+    if ((await Promise.all(schedulingModels.map(model => model.countDocuments({})))).some(Boolean)) throw new Error();
+    let writerRunning = false;
+    try { await fetch(process.env.API_PROBE_URL || "http://backend:8080/health/live", { signal: AbortSignal.timeout(1500) }); writerRunning = true; } catch {}
+    if (writerRunning) throw new Error();
+    await applySchedulingSchema();
+  }
+  console.log("Local queue, demo ledger, auth, durable workflow and scheduling schema ready");
 } catch { console.error("Local bootstrap refused: stop existing API/consumer first; nonempty queues require the reviewed migration"); process.exitCode = 1; }
 finally { await mongoose?.disconnect(); }

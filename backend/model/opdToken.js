@@ -5,6 +5,7 @@ const objectId = mongoose.Schema.Types.ObjectId;
 const opdTokenSchema = new mongoose.Schema(
   {
     practiceType: { type: String, enum: ["hospital", "independent"] },
+    scheduleReservationId: objectId, scheduleSessionId: objectId, scheduledStart: Date, scheduledEnd: Date,
     queueKey: String, practiceKey: String, serviceDate: String, sessionId: String, timezone: String,
     personKey: String, revision: { type: Number, default: 0 },
     refundPreviousStatus: String,

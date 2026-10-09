@@ -1,3 +1,5 @@
+import { CareSession } from "../model/scheduling.js";
+import { scheduledQueueContext } from "../services/scheduling.js";
 import mongoose from "mongoose";
 import OpdToken from "../model/opdToken.js";
 import Department from "../model/department.js";
@@ -75,7 +77,8 @@ const getDoctorQueue = async (req, res) => {
     || (["NURSE", "DEPARTMENT_HEAD"].includes(req.staff.role) && doctor.departmentIds.some((id) => departmentMember(req.staff, id)));
   if (!allowed) throw accessError(403, "You cannot access this doctor queue");
   const hospital = await Hospital.findById(hospitalId);
-  const context = queueContext({ hospital, doctorId, sessionId: req.query.sessionId, serviceDate: req.query.serviceDate, historical: true });
+  const context = await scheduledQueueContext({ hospital, doctorId, sessionId: req.query.sessionId, serviceDate: req.query.serviceDate }) || queueContext({ hospital, doctorId, sessionId: req.query.sessionId, serviceDate: req.query.serviceDate, historical: true });
+  const scheduled = await CareSession.find({ hospitalId, doctorId, serviceDate: context.serviceDate }).select("sessionId").lean();
   // Query authoritative rows: a cache failure or missed event must not change the queue.
   const snapshotRevision = await readQueueRevision(context.queueKey);
   const rows = await OpdToken.find({ queueKey: context.queueKey }).sort({ tokenNumber: 1 }).populate("departmentId", "name").lean();
@@ -83,7 +86,7 @@ const getDoctorQueue = async (req, res) => {
   const tokens = rows.filter((token) => canAccessVisit(req.staff, token) && departments.some((d) => idOf(d) === idOf(token.departmentId)))
     .map((token) => visitForStaff(token, req.staff));
   if (await readQueueRevision(context.queueKey) !== snapshotRevision) throw accessError(409, "Queue changed; refresh status");
-  return res.json({ ...context, queueRevision: snapshotRevision, sessionIds: hospital.settings?.queueSessionIds || ["day"], currentlyServing: tokens.find((token) => token.status === "in_consultation") || null,
+  return res.json({ ...context, queueRevision: snapshotRevision, sessionIds: [...(hospital.settings?.queueSessionIds || ["day"]), ...scheduled.map(row => row.sessionId)], currentlyServing: tokens.find((token) => token.status === "in_consultation") || null,
     waiting: tokens.filter((token) => ["waiting", "vitals_done"].includes(token.status)),
     reservations: tokens.filter((token) => token.status === "reserved"), completed: tokens.filter((token) => token.status === "completed").length,
     noShows: tokens.filter((token) => token.status === "no_show").length, estimatedEndTime: null });

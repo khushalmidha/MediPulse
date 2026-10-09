@@ -33,7 +33,7 @@ export const visitForStaff = (token, staff) => {
   const fields = ["_id", "hospitalId", "departmentId", "doctorId", "patientId", "familyMemberId",
     "tokenNumber", "displayToken", "date", "patientInfo", "visitType", "status", "arrivedAt",
     "vitalsCompletedAt", "consultationStartedAt", "consultationEndedAt", "estimatedWaitMinutes",
-    "paymentStatus", "paymentAmount", "paymentMode", "appointmentId", "createdAt", "updatedAt", "queueKey", "practiceKey", "serviceDate", "sessionId", "timezone", "revision", "visitMode"];
+    "paymentStatus", "paymentAmount", "paymentMode", "appointmentId", "createdAt", "updatedAt", "queueKey", "practiceKey", "serviceDate", "sessionId", "timezone", "revision", "visitMode", "scheduleReservationId", "scheduleSessionId", "scheduledStart", "scheduledEnd"];
   if (canAccessVisit(staff, token, { clinical: true })) {
     fields.push("chiefComplaint", "vitals", "aiTriage", "consultationNotes", "diagnosis", "followUpDate");
   }

@@ -7,8 +7,11 @@ import Department from "../model/department.js";
 import { accessError, idOf } from "./hospitalAccess.js";
 import { queueTransaction } from "./queueBooking.js";
 import { localServiceDate, requireQueueContext } from "./queueContext.js";
+import { scheduleTransition } from "./schedulingLifecycle.js";
+import { autoRefundDeadline } from "./consultationPolicy.js";
 
 const transitions = {
+  admit: { appointment: ["queued"] },
   check_in: { token: ["reserved"], toToken: "waiting" },
   vitals: { token: ["waiting", "vitals_done"], toToken: "vitals_done" },
   start: { token: ["waiting", "vitals_done"], appointment: ["queued"], toToken: "in_consultation", toAppointment: "active" },
@@ -49,11 +52,13 @@ export const transitionVisit = async ({ tokenId, appointmentId, action, expected
     if (expectedRevision !== undefined && (primary.revision || 0) !== expectedRevision) throw accessError(409, "Visit changed; refresh before retrying");
     if (token && rule.token && !rule.token.includes(token.status)) throw accessError(409, "Token is not eligible for this transition");
     if (appointment && rule.appointment && !rule.appointment.includes(appointment.status)) throw accessError(409, "Appointment is not eligible for this transition");
+    if (action === "admit" && (!appointment?.scheduleReservationId || token)) throw accessError(409, "Only scheduled online visits support online check-in");
+    await scheduleTransition(appointment, action, session, now);
     if (["start", "vitals"].includes(action) && token && !token.arrivedAt) throw accessError(409, "Staff check-in is required before care begins");
     if (action === "start") {
       if (primary.serviceDate !== localServiceDate(now, primary.timezone)) throw accessError(409, "This care session is not on the current service date");
-      const head = token ? await OpdToken.findOne({ queueKey: token.queueKey, status: { $in: ["waiting", "vitals_done"] } }).sort({ tokenNumber: 1 }).session(session)
-        : await Appointment.findOne({ queueKey: appointment.queueKey, status: "queued" }).sort({ createdAt: 1, _id: 1 }).session(session);
+      const head = token ? await OpdToken.findOne({ queueKey: token.queueKey, status: { $in: ["waiting", "vitals_done"] }, $or: [{ scheduledStart: { $exists: false } }, { scheduledStart: { $lte: now } }] }).sort({ tokenNumber: 1 }).session(session)
+        : await Appointment.findOne({ queueKey: appointment.queueKey, status: "queued", admissionState: { $ne: "reserved" }, $or: [{ scheduledStart: { $exists: false } }, { scheduledStart: { $lte: now } }] }).sort({ checkedInAt: 1, createdAt: 1, _id: 1 }).session(session);
       if (!head || idOf(head) !== idOf(token || appointment)) throw accessError(409, "Please start visits in this session's queue order");
     }
     const tokenSet = { ...tokenFields }, appointmentSet = { ...appointmentFields };
@@ -71,6 +76,10 @@ export const transitionVisit = async ({ tokenId, appointmentId, action, expected
       if (["no_show", "cancelled"].includes(token?.status)) tokenSet.status = token.status;
     }
     if (action === "check_in") tokenSet.arrivedAt = now;
+    if (["admit", "check_in"].includes(action) && appointment?.scheduleReservationId) {
+      appointmentSet.admissionState = "arrived"; appointmentSet.checkedInAt = now;
+      appointmentSet.refundDueAt = autoRefundDeadline({ ...appointment.toObject(), admissionState: "arrived" }, now);
+    }
     if (action === "vitals") tokenSet.vitalsCompletedAt = now;
     if (action === "start") {
       tokenSet.consultationStartedAt = now;
@@ -95,7 +104,7 @@ export const transitionVisit = async ({ tokenId, appointmentId, action, expected
         { $set: tokenSet, $inc: { revision: 1 } }, { new: true, session, runValidators: true });
       if (!token) throw accessError(409, "Token changed; refresh before retrying");
     }
-    if (appointment && rule.appointment) {
+    if (appointment && (rule.appointment || action === "check_in" && appointment.scheduleReservationId)) {
       appointment = await Appointment.findOneAndUpdate({ _id: appointment._id, status: appointment.status, revision: appointment.revision || 0 },
         { $set: appointmentSet, $inc: { revision: 1 } }, { new: true, session, runValidators: true });
       if (!appointment) throw accessError(409, "Appointment changed; refresh before retrying");

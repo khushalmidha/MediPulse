@@ -1,3 +1,6 @@
+import schedulingRouter from "./routes/scheduling.js";
+import { assertSchedulingSchema } from "./services/schedulingSchema.js";
+import { startScheduleExpiryWorker } from "./services/scheduling.js";
 import { assertDurableSchema } from "./services/durableSchema.js";
 import { startOutboxWorker } from "./services/outbox.js";
 import { deliverOutboxJob } from "./services/outboxDelivery.js";
@@ -59,7 +62,7 @@ const start = async () => {
   catch { throw Object.assign(new Error("Ledger migration is required"), { dependency: "ledger-migration" }); }
   try { await assertAuthSchema(); }
   catch { throw Object.assign(new Error("Auth schema initialization is required"), { dependency: "auth-schema" }); }
-  await assertDurableSchema(); consultationDurationMs();
+  await assertDurableSchema(); await assertSchedulingSchema(); consultationDurationMs();
   const readiness = await checkDependencies();
   if (!readiness.ready) {
     console.error('Dependency readiness:', readiness.dependencies);
@@ -95,6 +98,7 @@ const start = async () => {
   app.use('/event', eventRouter)
   app.use('/gemini', geminiRouter)
   app.use('/appointment', appointmentRouter)
+  app.use('/api/scheduling', schedulingRouter)
   app.use('/api/triage', triageRouter)
   app.use('/api/hospitals', hospitalRouter)
   app.use('/api/opd', opdRouter)
@@ -126,13 +130,14 @@ const start = async () => {
 
   const stopRecovery = startPaymentRecoveryWorker()
   const stopRefunds = startAutoRefundWorker()
+  const stopScheduleExpiry = startScheduleExpiryWorker()
   const stopReviews = startReviewRequestWorker()
   const stopOutbox = startOutboxWorker(job => deliverOutboxJob(job, io))
   let closing = false
   const shutdown = async (code = 0) => {
     if (closing) return
     closing = true
-    stopRefunds?.(); stopReviews?.(); stopRecovery?.()
+    stopRefunds?.(); stopReviews?.(); stopRecovery?.(); stopScheduleExpiry?.()
     const deadline = setTimeout(() => process.exit(code || 1), 10000)
     deadline.unref()
     await stopOutbox();

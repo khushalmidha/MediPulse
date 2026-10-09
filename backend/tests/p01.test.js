@@ -1,3 +1,4 @@
+import { CareSession } from "../model/scheduling.js";
 import { proofId } from "../services/bookingAuthorization.js";
 import OutboxJob from "../model/outboxJob.js";
 import QueueRevision from "../model/queueRevision.js";
@@ -110,7 +111,7 @@ const fixture = (t) => {
     [OpdToken, [{ _id: TOKEN, hospitalId: H, departmentId: D, doctorId: DOC, patientId: U, displayToken: "T001", tokenNumber: 1,
       date: new Date(new Date().setHours(0, 0, 0, 0)), status: "waiting", vitals: { pulse: 77 }, chiefComplaint: "synthetic-clinical-complaint",
       diagnosis: "synthetic-clinical-diagnosis", consultationNotes: "synthetic-clinical-note", patientInfo: { name: "Synthetic Patient", internalNote: "private" }, aiTriage: { patientBrief: { agentSummary: "synthetic-clinical-brief" } } }]],
-    [OutboxJob, []], [QueueRevision, []], [BookingChallenge, []], [BookingOperation, []], [AuthSession, []],
+    [CareSession, []], [OutboxJob, []], [QueueRevision, []], [BookingChallenge, []], [BookingOperation, []], [AuthSession, []],
     [Appointment, [{ _id: APPT, doctor: PLATFORMDOC, user: U, status: "active" }]],
     [Review, [{ _id: id(30), hospitalId: { _id: H, name: "Fixture Hospital" }, doctorId: { _id: DOC, name: "Fixture Doctor" },
       patientId: { _id: U, firstName: "HiddenFirst", lastName: "HiddenLast" }, tokenId: TOKEN, metadata: { moderation: "private" },

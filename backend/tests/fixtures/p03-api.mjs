@@ -17,6 +17,8 @@ await getRedis().ping();
 const { default: payments } = await import("../../routes/virtualPayment.js");
 if (process.env.RUN_PAYMENT_RECOVERY_ON_START === "true") { const { recoverPayments } = await import("../../services/paymentRecovery.js"); await recoverPayments(); }
 const app = express(); app.use(express.json(), cookieParser(), originGuard);
+const { default: scheduling } = await import("../../routes/scheduling.js");
+app.use("/api/scheduling", scheduling);
 app.use("/opd", opd); app.use("/appointment", appointments); app.use("/vpay", payments);
 const { default: users } = await import("../../routes/user.js");
 const { default: doctors } = await import("../../routes/doctor.js");
