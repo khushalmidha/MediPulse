@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
-    "test:ui": "node --test e2e/visual-system.unit.mjs"
+    "test:ui": "node --test e2e/visual-system.unit.mjs e2e/appointments.unit.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

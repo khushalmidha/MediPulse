@@ -1,3 +1,4 @@
+import ReservationTracking from "./pages/ReservationTracking";
 import { useEffect } from "react";
 import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { classifyHostname } from "./utils/productHosts";
@@ -52,6 +53,7 @@ function App() {
       <Route path="/dashboard" element={<Navigate to="/visits" replace />} />
       <Route path="/visits" element={<PatientVisits slug={product.slug} />} />
       <Route path="/visits/:tokenId" element={<PatientVisits slug={product.slug} />} />
+      <Route path="/reservations/:reservationId" element={<ReservationTracking />} />
       <Route path="/profile/edit" element={<EditProfile />} />
       <Route path="/review" element={<ReviewVisit />} />
       <Route path="/privacy" element={<Privacy />} /><Route path="/terms" element={<Terms />} />
@@ -92,6 +94,7 @@ function App() {
         <Route path="/doctorsProfile/:id" element={<DoctorsProfile />} />
         <Route path="/appointment/book/:doctorId" element={<AppointmentBooking />} />
         <Route path="/my-appointments" element={<MyAppointments />} />
+        <Route path="/appointments/reservations/:reservationId" element={<ReservationTracking />} />
         <Route path="/doctor/appointments" element={<DoctorAppointments />} />
         <Route path="/communities" element={<CommunityForm />} />
         <Route path="/events" element={<Events />} />
@@ -107,7 +110,7 @@ function App() {
         <Route path="/cookiepolicy" element={<DataUsagePolicy />}/>
         <Route path="*" element={<RouteNotFound />} />
       </Routes>
-      {(product.kind !== "company" || location.pathname !== "/") && <AiBot />}
+      {(product.kind !== "company" || location.pathname !== "/") && !/^\/(?:appointment\/book|appointments\/reservations|my-appointments|doctors(?:Profile)?)(?:\/|$)/.test(location.pathname) && <AiBot />}
     </ProductShell>
   );
 }

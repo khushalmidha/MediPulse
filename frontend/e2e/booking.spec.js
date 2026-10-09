@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 const api = "http://127.0.0.1:19080";
 const browserApi = process.env.E2E_API_PROXY === "true" ? "http://127.0.0.1:15173/backend" : api;
-const booking = "/appointment/book/000000000000000000000001";
+const booking = "/appointment/book/000000000000000000000001?type=immediate";
 test.beforeEach(async ({ page, request }) => {
   await request.post(`${api}/__fixture/reset`, { data: {} });
   // Block external requests, including live API, Google, AI and media providers.
@@ -27,13 +27,13 @@ test("failed demo payment stays on booking and allows retry", async ({ page, req
   const button = page.getByRole("button", { name: "Confirm Booking for ₹500", exact: true });
   await button.click();
   await expect(page.getByText("Synthetic insufficient demo balance")).toBeVisible();
-  await expect(button).toBeEnabled(); await expect(page).toHaveURL(new RegExp(`${booking}$`));
+  await expect(button).toBeEnabled(); await expect(page).toHaveURL(new RegExp("/appointment/book/000000000000000000000001"));
 });
 
 test("guest booking requires sign-in", async ({ page, request }) => {
   await request.post(`${api}/__fixture/reset`, { data: { guest: true } });
-  await page.goto(booking, { waitUntil: "domcontentloaded" }); await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
+  await page.goto(booking, { waitUntil: "domcontentloaded" }); await expect(page.getByRole("button", { name: "Confirm Booking for ₹500", exact: true })).toHaveCount(0); await page.getByRole("link", { name: "Patient sign in to continue", exact: true }).click(); await expect(page).toHaveURL(/\/login\?returnTo=/);
+  await expect(page.getByRole("button", { name: "Sign in as User" })).toBeVisible();
 });
 
 test("booking deep link survives a reload", async ({ page }) => {
@@ -52,7 +52,8 @@ test("logout uses server CSRF and stays signed out after reload", async ({ page,
   await expect(page).toHaveURL(/\/login$/);
   expect((await (await request.get(`${api}/__fixture/state`)).json()).logouts).toBe(1);
   await page.goto(booking, { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("button", { name: "Confirm Booking for ₹500", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Patient sign in to continue", exact: true })).toBeVisible();
 });
 
 test("patient login clears the old staff workspace and HttpOnly tokens stay unreadable", async ({ page, request, context }) => {

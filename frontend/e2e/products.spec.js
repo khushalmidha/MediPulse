@@ -89,8 +89,9 @@ test("hospital booking uses the hospital context and opens its nested visit trac
   const book = page.getByRole("button", { name: "Book with doctor", exact: true });
   await book.focus(); await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog", { name: "Book OPD Token", exact: true })).toBeVisible();
-  await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).toBeHidden();
   await book.click();
+  await page.getByRole("radio", { name: "Today’s hospital queue", exact: true }).check();
   await expect(page.getByText(/Consultation charges use demo credits; no real money is collected/)).toBeVisible();
   await page.getByRole("textbox", { name: "Reason for visit" }).fill("Synthetic routine follow-up");
   await page.getByRole("button", { name: "Confirm OPD Token", exact: true }).focus(); await page.keyboard.press("Enter");

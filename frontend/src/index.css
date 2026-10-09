@@ -170,3 +170,39 @@ textarea.mp-input { min-height: 100px; resize: vertical; }
 .mp-patient-quicknav a[aria-current="page"] { color: var(--mp-accent-ink); border-bottom: 2px solid var(--mp-accent); }
 
 .mp-staff .mp-empty { padding: 18px 8px; }
+
+/* P10 appointment and discovery workflows reuse the P08 tokens. */
+.mp-booking-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+.mp-booking-layout > * { min-width: 0; }
+.mp-booking-steps { display: flex; flex-wrap: wrap; gap: 12px 20px; padding: 0 0 18px; margin: 0; list-style: none; border-bottom: 1px solid var(--mp-border); font-size: .8rem; color: var(--mp-muted); }
+.mp-booking-steps [aria-current] { color: var(--mp-accent-ink); font-weight: 700; }
+.mp-choice-group { border: 0; padding: 0; margin: 0; min-width: 0; }
+.mp-choice-group legend { font-size: .86rem; font-weight: 650; margin-bottom: 12px; }
+.mp-choice { display: flex; align-items: center; gap: 12px; padding: 15px; border: 1px solid var(--mp-border); border-radius: 12px; margin: 8px 0; cursor: pointer; min-height: 48px; }
+.mp-choice--selected, .mp-slot--selected { background: var(--mp-accent-soft); border-color: var(--mp-accent-ink) !important; }
+.mp-choice input, .mp-slot input { accent-color: var(--mp-accent); width: 18px; height: 18px; flex-shrink: 0; }
+.mp-choice:has(:focus-visible), .mp-slot:has(:focus-visible) { outline: 3px solid var(--mp-focus); outline-offset: 3px; }
+.mp-slot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mp-slot { display: grid; grid-template-columns: 18px 1fr; column-gap: 10px; align-items: start; padding: 14px; border: 1px solid var(--mp-border); border-radius: 12px; cursor: pointer; min-width: 0; }
+.mp-slot strong { font-size: .84rem; overflow-wrap: anywhere; }
+.mp-slot small { grid-column: 2; color: var(--mp-muted); font-size: .74rem; }
+.mp-slot--unavailable { color: var(--mp-muted); background: var(--mp-surface-muted); cursor: default; }
+.mp-session-choice { margin: 14px 0; }
+.mp-fee-row { display: flex; align-items: start; justify-content: space-between; gap: 14px; padding: 15px 0; border-bottom: 1px solid var(--mp-border); font-size: .9rem; }
+.mp-fee-row strong { text-align: right; }
+.mp-doctor-summary { display: flex; gap: 22px; align-items: start; }
+.mp-doctor-summary > div { min-width: 0; }
+.mp-doctor-summary h2 { margin: 4px 0 10px; font-size: 1.4rem; }
+.mp-doctor-summary p { display: flex; gap: 8px; align-items: start; margin: 6px 0; color: var(--mp-muted); font-size: .88rem; }
+.mp-doctor-summary svg { flex-shrink: 0; margin-top: 3px; }
+.mp-doctor-summary .mp-eyebrow { font-size: .65rem; color: var(--mp-accent-ink); }
+.mp-doctor-avatar { flex-shrink: 0; display: grid; place-items: center; width: 76px; height: 76px; background: var(--mp-accent-soft); color: var(--mp-accent-ink); border-radius: 18px; overflow: hidden; }
+.mp-doctor-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.mp-doctor-summary--compact { gap: 14px; }
+.mp-doctor-summary--compact .mp-doctor-avatar { width: 48px; height: 48px; border-radius: 13px; }
+.mp-doctor-summary--compact h2 { font-size: 1.05rem; }
+.mp-doctor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin: 24px 0; }
+.mp-discovery-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; align-items: end; gap: 18px; }
+@media (max-width: 900px) { .mp-booking-layout { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .mp-doctor-grid, .mp-discovery-filters { grid-template-columns: 1fr; } .mp-doctor-summary { gap: 14px; } .mp-doctor-avatar { width: 52px; height: 52px; } }
+@media (max-width: 400px) { .mp-slot-grid { grid-template-columns: 1fr; } }

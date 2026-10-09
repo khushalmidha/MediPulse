@@ -1,3 +1,4 @@
+import { handleScheduling } from "./scheduling-fixture.mjs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 const { Server } = createRequire(new URL("../../backend/package.json", import.meta.url))("socket.io");
@@ -73,6 +74,7 @@ const server = createServer(async (req, res) => {
     return reply({ token, tokens: state.secondToken ? [token, { ...token, _id: "000000000000000000000007", displayToken: "T002" }] : [token] });
   }
   if (path === "/__fixture/stale-opd-hint" && req.method === "POST") { io.emit("opd:patient-called", { displayToken: "STALE" }); return reply({ sent: true }); }
+  if (await handleScheduling({ req, state, reply, doctor })) return;
   if (path === "/count") return reply({ users: 0, doctors: 1, communities: 0 });
   if (path === "/vpay/admin/stats") return reply({});
   if (path === "/vpay/admin/wallets") return reply({ items: [] });
@@ -86,9 +88,18 @@ const server = createServer(async (req, res) => {
     return reply({ message: topup ? "Demo top-up completed" : "Demo refund completed" });
   }
   if (path === "/vpay/wallet/dashboard") return reply({ wallet: { balance: 1000 }, recentTransactions: [] });
-  if (path === `/doctor/${doctor._id}`) return reply({ user: { ...doctor, communities: state.communitySummary ? [community] : [] }, communities: state.communitySummary ? [community] : [] });
-  if (path === `/doctor/${doctor._id}/hospitals`) return reply({ hospitals: [] });
-  if (path === "/appointment/history" || path === "/appointment/my-appointments") return reply({ appointments: [] });
+  if (path === `/doctor/${doctor._id}`) return reply({ user: { ...doctor, ...(state.hospitalDoctor ? { sourceType: "hospital", hospitalContext: { hospitalId, hospitalSlug: "fixture", hospitalName: "Fixture Hospital" } } : {}), communities: state.communitySummary ? [community] : [] }, communities: state.communitySummary ? [community] : [] });
+  if (path === `/doctor/${doctor._id}/hospitals`) return reply({ hospitals: state.hospitalDoctor ? [{ hospitalId, hospitalName: "Fixture Hospital", slug: "fixture" }] : [] });
+  if (path === "/appointment/history" || path === "/appointment/my-appointments") return reply({ appointments: state.legacyVisit ? [{ _id: appointmentId, doctor, status: state.legacyRefunded ? "cancelled" : "queued", visitMode: "online", revision: state.legacyRefunded ? 2 : 1, createdAt: "2026-10-09T00:00:00Z", payment: { paymentId: "fixture-payment", amount: 500, refundedAt: state.legacyRefunded ? "2026-10-09T00:01:00Z" : null } }] : [] });
+  if (path === `/appointment/${appointmentId}/refund` && req.method === "POST") {
+    if (state.guest || req.headers["x-csrf-token"] !== "fixture-account-csrf") return reply({ message: "Patient session required" }, 403);
+    let raw = ""; for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw); state.legacyRefundRequests ||= []; state.legacyRefundRequests.push(body);
+    if (state.pendingLegacyRefund) return reply({ compensationStatus: "pending" }, 202);
+    if (!state.legacyRefunded && body.revision !== 1) return reply({ message: "Visit changed; refresh before retrying" }, 409);
+    if (!state.legacyRefunded) { state.legacyRefunded = true; state.refunds++; }
+    return reply({ compensationStatus: "completed" });
+  }
   if (state.callMode && path === `/appointment/doctor/${doctor._id}/pending`) return reply({ queueKey: "independent:fixture", queueRevision: state.callEnded ? 3 : 2, pendingCount: 0,
     myAppointment: state.callEnded ? null : { _id: appointmentId, status: "active", visitMode: "online", revision: 2 } });
   if (path === `/appointment/doctor/${doctor._id}/pending`) return reply({ pendingCount: state.bookings, myAppointment: state.bookings && !state.failBooking && !state.hidePending ? { _id: appointmentId, status: "queued", queuePosition: 1 } : null });

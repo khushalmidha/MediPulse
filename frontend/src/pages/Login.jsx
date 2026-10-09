@@ -1,6 +1,7 @@
+import { safeReturnPath } from "../utils/appointments";
 import { useProduct } from "../context/ProductContext";
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Mail, Lock, UserCircle2, Stethoscope, ArrowLeft, AlertCircle, Building2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
@@ -389,12 +390,14 @@ const Login = ({ initialType, lockProfile = false }) => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = safeReturnPath(new URLSearchParams(location.search).get("returnTo"));
 
   useEffect(() => {
     if(isAuth && initialType !== "hospital-admin"){
-      navigate("/dashboard");
+      navigate(returnTo);
     }
-  },[isAuth, navigate, initialType]);
+  },[isAuth, navigate, initialType, returnTo]);
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
@@ -439,7 +442,7 @@ const Login = ({ initialType, lockProfile = false }) => {
         setIsAuth(true);
         setUser(res.data.result);
         setRole(userType);
-        navigate("/dashboard");
+        navigate(returnTo);
       } else {
         setMessage(res.data.message || "Login failed. Please check your credentials.");
       }
@@ -452,7 +455,7 @@ const Login = ({ initialType, lockProfile = false }) => {
       }
     }
     setLoading(false);
-  }, [email, password, hospitalId, rememberMe, userType, navigate, setIsAuth, setUser, setRole, syncStaffSession, product.kind]);
+  }, [email, password, hospitalId, rememberMe, userType, navigate, setIsAuth, setUser, setRole, syncStaffSession, product.kind, returnTo]);
 
   const handleGoogleSignin = useCallback(async (response) => {
     setMessage("");
@@ -474,7 +477,7 @@ const Login = ({ initialType, lockProfile = false }) => {
         setIsAuth(true);
         setUser(res.data.result);
         setRole(res.data.role || userType);
-        navigate("/dashboard");
+        navigate(returnTo);
       } else {
         setMessage(res.data.message || "Google sign in failed");
       }
@@ -487,7 +490,7 @@ const Login = ({ initialType, lockProfile = false }) => {
       );
     }
     setLoading(false);
-  }, [rememberMe, userType, navigate, setIsAuth, setUser, setRole]);
+  }, [rememberMe, userType, navigate, setIsAuth, setUser, setRole, returnTo]);
 
   const sendForgotPasswordOtp = useCallback(async (e) => {
     e.preventDefault();

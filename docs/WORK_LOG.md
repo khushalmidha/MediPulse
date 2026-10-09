@@ -395,3 +395,38 @@ Committed the previously verified P01–P08 baseline separately as **303f02bc**,
 Final complete backend integration run: **113 passed / 0 failed** (86 prior cases + **27 P09**). Guarded CLI dry-run/apply/rollback and refusal after use passed in a separate isolated database. Final cleanup check: **0 generated integration databases / 0 test Redis keys**. No frontend code changed in P09; frontend build/browser results remain the separately verified P08 baseline.
 
 Final source check: **24 syntax checks passed**, targeted tracked-file whitespace passed, new files had no trailing spaces, and unchanged lines/line endings were restored without changing normalized contents. Candidate-source credential URI/private-key/provider-token scans found no matches.
+
+
+## P10 — Appointment and waiting-room UI (10 October 2026)
+
+### Implemented and verified findings
+
+Verified the P08 appointment screens still used immediate queues, the P09 API supplies actual dated availability/holds/reservations, and doctor affiliations use hospitalName/hospitalId. Preserved P01–P09 behavior and existing immediate routes.
+
+- Rebuilt doctor discovery/profile, shared independent/hospital booking, MyAppointments and owned reservation tracking with P08 controls. Care type, self/family, real session/date/slot, actual fee/policy review and confirmation are explicit. Guest sign-in returns to selection; hospital doctor profiles/direct booking retain hospital context.
+- Holds do not charge or assert confirmation. Stable request identities and minimal owner/provider-scoped drafts preserve original interrupted hold/confirmation/mutation requests across reloads. Failed/pending payments retain recovery actions without false success; capacity conflicts preserve patient/date. Synchronous guards prevent duplicate local submissions.
+- Tracking shows actual slot/token, arrival, queue position when known, payment, next step, status freshness, permitted reschedule/cancel and online check-in. Hospital visits require staff arrival and expose no video. Active online visits reuse the existing call implementation with leave/rejoin. Unknown room/ETA stay unavailable.
+- Private scopes dispose old requests and hide old-owner rendering. Access-denied/missing private responses clear cached details, including held receipt fallback. Network/server failures retain visibly stale details. Queue revision guards survive manual retry and reject an older snapshot. Offline mutation controls are disabled.
+- Preserved legacy queued cancellation through P04’s canonical server refund identity, with pending/completed distinction, original revision retry and native confirmation. Draft consultation summaries remain downloadable; jsPDF loads on demand. Calendar downloads use actual UTC times and a 15-minute alarm without claiming delivered mail or adding medical/patient input.
+- Shared hospital review stays within one native dialog and scrolls/focuses its heading after the hold. Published slots, fees, cancellation terms and doctor information come from existing APIs; unrecorded professional verification is explicit.
+
+Main files: appointment components, care-resource hook, formatting/calendar/download helpers; doctor/booking/history/tracking pages, hospital booking/visits, App routes, safe login return, targeted styles and synthetic fixtures/tests. [P10_APPOINTMENT_UI.md](P10_APPOINTMENT_UI.md) documents contracts and recovery boundaries.
+
+### Checks and corrections
+
+- Final `npm run test:ui`: **13 passed / 0 failed** (eight appointment utilities plus five design utilities).
+- Affected ESLint comparison: **0 new diagnostics** across **16 source files**; **36 existing errors / 1 existing warning** remain (baseline 47 findings). Rule/severity/message comparisons normalize shifted line references.
+
+The first appointment browser run had **28 passed / 1 failed / 1 intentionally skipped**. Its mobile recovery test clicked a booking-only refresh control after automatic recovery had already navigated to confirmation. A later expiry check encountered the same obsolete-control race when an in-flight read had already shown expiry. Changed those checks to await the actual recovered/expired state, retaining payment-count and disabled-confirmation assertions. Partial follow-up runs were stopped before source refinements; their results are not counted as complete runs. Source inspection/screenshot review also corrected hospital affiliation fields/care routing, denied-access cache retention, hospital modal scroll position and revision reset on manual retry. Added regressions for those workflows without bypassing financial or authorization assertions.
+
+All browser records are synthetic local fixtures with external requests blocked; calls use fake Chromium devices and local signaling. No backend source, schema or dependency changes are required for this phase. Backend integration was not rerun; P09’s separately verified backend results remain recorded above. No existing database migration, live configuration, provider activation, deployment, DNS change or Docker image rebuild was executed. Published availability requires P09 configuration. Real room/file guidance and ETA depend on P12/P13; broader UI/accessibility and remaining page bodies continue in **P11**.
+
+### Final verification and publication
+
+- Complete frontend browser suite: **108 passed / 0 failed / 2 intentionally skipped duplicate viewport sweeps**. Includes **41 active P10 cases** and **67 earlier cases** across desktop/mobile, with keyboard booking, real browser media/signaling fixtures, refunds, family ownership UI, offline/revoked access, online arrival and stale-revision recovery. Ran separately from the production build.
+- Responsive appointment sweep rendered discovery, profile, booking, tracking and history at **360px, 768px and 1440px** and saved **15 screenshots**. Online OPD and hospital review saved **4 additional desktop/mobile screenshots**. The earlier shell sweep also saved 12 screenshots: **31 total in the final run**. Visually inspected booking/tracking mobile, profile desktop, online OPD reviews and corrected hospital review desktop/mobile. Browser artifacts are under the local temporary `medipulse-p10-browser-verified` directory; records and screenshots are synthetic.
+- Final production build: **passed**; main bundle **754.02 kB**, gzip **207.10 kB**; lazy jsPDF chunk **390.24 kB**, gzip **128.71 kB**. Main bundle is smaller than P08’s separately recorded baseline; the existing large-chunk warning remains.
+- Final utility rerun after source formatting: **13 passed / 0 failed**. Restored original unchanged lines/endings in five frontend files and verified normalized content stayed identical. Documentation formatting was similarly preserved; targeted whitespace and candidate-source scans are checked before commit.
+- Credential URI/private-key/provider-token pattern scan: **27 candidate files / 0 matches**; no matched credential text was printed.
+
+Prepared as the next phase on **codex/p09-scheduling-20261009**, following P09 **1f209796**. Commit/push are authorized by the user’s earlier instruction; the phase hash is reported in the completion response. Main is not merged and no deployment is initiated. Next task is **P11**, one remaining UI batch per run.
