@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { configDotenv } from "dotenv";
+import { loadRuntimeEnv } from "../util/runtimeEnv.js";
 
-configDotenv();
+loadRuntimeEnv();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -24,6 +24,7 @@ Do not provide specific medical diagnoses but can offer general health informati
 };
 
 const generateGeminiText = async (prompt, type = "general") => {
+  if (!process.env.GEMINI_API_KEY) throw new Error("AI is not configured");
   const model = buildGeminiModel(type);
   const result = await model.generateContent(prompt);
   return result.response.text();

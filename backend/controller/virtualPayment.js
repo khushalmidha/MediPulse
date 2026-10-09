@@ -1,4 +1,5 @@
-import crypto from "crypto";
+import Appointment from "../model/appointment.js";
+import { fingerprint, requestKey } from "../util/money.js";
 import mongoose from "mongoose";
 import Wallet from "../model/wallet.js";
 import VirtualTransaction from "../model/virtualTransaction.js";
@@ -7,7 +8,7 @@ import VirtualRefund from "../model/virtualRefund.js";
 import VirtualAnalyticsEvent from "../model/virtualAnalyticsEvent.js";
 import { getRedis } from "../services/redis.js";
 import { TOPICS, publishVirtualEvent } from "../services/virtualEvents.js";
-import { ensureWallet, invalidateWalletCache, refundVirtualPayment, topupWallet, transferVirtualMoney } from "../services/virtualLedger.js";
+import { ensureWallet, financialEffects, invalidateWalletCache, refundVirtualPayment, topupWallet, transferVirtualMoney } from "../services/virtualLedger.js";
 
 const MAX_PAGE_SIZE = 50;
 const RATE_LIMIT_MAX = Number(process.env.VPAY_RATE_LIMIT_MAX || 30);
@@ -47,49 +48,18 @@ const enforceRateLimit = async (req, action) => {
     await redis.expire(key, RATE_LIMIT_WINDOW_SEC);
   }
   if (count > RATE_LIMIT_MAX) {
-    throw new Error("Too many payment requests. Please wait and retry.");
+    throw Object.assign(new Error("Too many payment requests. Please wait and retry."), { status: 429 });
   }
 };
 
-const getIdempotencyKey = (req, fallbackPrefix) => {
-  const raw =
-    req.headers["x-idempotency-key"] ||
-    req.body?.requestId;
-  if (!raw) {
-    throw new Error(`x-idempotency-key header or requestId is required for ${fallbackPrefix}`);
-  }
-  return `payment:${String(raw).trim()}`;
+const withIdempotency = async (req, kind, action) => {
+  const key = requestKey(req.headers["idempotency-key"] || req.headers["x-idempotency-key"] || req.body?.requestId);
+  const referenceId = `HTTP-${fingerprint({ actor: req.auth.id, role: req.auth.role, kind, key })}`;
+  const response = await action(referenceId);
+  return { replay: Boolean(response.transaction?.$locals?.replay), response };
 };
 
-const withIdempotency = async (req, keyPrefix, action) => {
-  const redis = getRedis();
-  const key = getIdempotencyKey(req, keyPrefix);
-  const existing = await redis.get(key);
-  if (existing) {
-    const parsed = JSON.parse(existing);
-    if (parsed.state === "done") {
-      return { replay: true, response: parsed.response };
-    }
-    throw new Error("A request with this idempotency key is already in progress");
-  }
-
-  const claimed = await redis.set(key, JSON.stringify({ state: "processing" }), "NX", "EX", 300);
-  if (!claimed) {
-    throw new Error("Unable to claim idempotency key, retry shortly");
-  }
-
-  try {
-    const response = await action();
-    await redis.set(key, JSON.stringify({ state: "done", response }), "EX", 600);
-    return { replay: false, response };
-  } catch (error) {
-    await redis.del(key);
-    throw error;
-  }
-};
-
-
-const buildTxnQuery = ({ userId, userRole, query, includeAll = false }) => {
+export const buildTxnQuery = ({ userId, userRole, query, includeAll = false }) => {
   const filters = {};
 
   if (!includeAll) {
@@ -102,7 +72,7 @@ const buildTxnQuery = ({ userId, userRole, query, includeAll = false }) => {
   if (query.type) filters.type = query.type;
   if (query.status) filters.status = query.status;
   if (query.search) {
-    filters.$or = [...(filters.$or || []), { transactionId: { $regex: query.search, $options: "i" } }, { referenceId: { $regex: query.search, $options: "i" } }, { description: { $regex: query.search, $options: "i" } }];
+    filters.$and = [{ $or: [{ transactionId: { $regex: query.search, $options: "i" } }, { referenceId: { $regex: query.search, $options: "i" } }, { description: { $regex: query.search, $options: "i" } }] }];
   }
 
   const dateRange = {};
@@ -119,11 +89,6 @@ const getWalletDashboard = async (req, res) => {
   const actor = { userId: req.auth.id, userRole: req.auth.role };
   const redis = getRedis();
   const cacheKey = walletCacheKey(actor.userId, actor.userRole);
-  const cached = await redis.get(cacheKey);
-  if (cached) {
-    return res.status(200).json(JSON.parse(cached));
-  }
-
   const wallet = await ensureWallet(actor);
 
   const [recentTransactions, totals] = await Promise.all([
@@ -184,11 +149,12 @@ const getWalletDashboard = async (req, res) => {
   const summary = totals[0] || { totalSent: 0, totalReceived: 0 };
   const payload = {
     wallet,
+    demo: true, units: "demo INR credits",
     summary,
     recentTransactions,
   };
 
-  await redis.set(cacheKey, JSON.stringify(payload), "EX", 20);
+  await financialEffects(() => redis.set(cacheKey, JSON.stringify(payload), "EX", 20));
 
   return res.status(200).json(payload);
 };
@@ -201,7 +167,7 @@ const sendMoney = async (req, res) => {
 
   try {
     await enforceRateLimit(req, "send");
-    const result = await withIdempotency(req, "send", async () => {
+    const result = await withIdempotency(req, "send", async (requestReference) => {
       const transaction = await transferVirtualMoney({
         senderId: req.auth.id,
         senderRole: req.auth.role,
@@ -210,10 +176,10 @@ const sendMoney = async (req, res) => {
         amount,
         type: "PAYMENT",
         description: description || "Peer transfer",
-        referenceId: referenceId || `SEND-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
-        metadata: { channel: "send-money" },
+        referenceId: requestReference,
+        metadata: { channel: "send-money", clientReference: referenceId || null, demo: true },
       });
-      return { message: "Transfer completed", transaction };
+      return { message: "Demo transfer completed", transaction };
     });
 
     return res.status(result.replay ? 200 : 201).json(result.response);
@@ -224,7 +190,7 @@ const sendMoney = async (req, res) => {
       amount,
       reason: error.message,
     });
-    return res.status(400).json({ message: error.message || "Transfer failed" });
+    return res.status(error.status || 503).json({ message: error.status ? error.message : "Demo transfer could not be confirmed; retry the same request key" });
   }
 };
 
@@ -237,9 +203,10 @@ const topupVirtualFunds = async (req, res) => {
   }
 
   try {
-    const result = await withIdempotency(req, "topup", async () => {
+    const result = await withIdempotency(req, "topup", async (requestReference) => {
       const transaction = await topupWallet({
         adminId: req.auth.id,
+        referenceId: requestReference,
         targetId,
         targetRole,
         amount,
@@ -250,7 +217,7 @@ const topupVirtualFunds = async (req, res) => {
 
     return res.status(result.replay ? 200 : 201).json(result.response);
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Top-up failed" });
+    return res.status(error.status || 503).json({ message: error.status ? error.message : "Demo top-up could not be confirmed; retry the same request key" });
   }
 };
 
@@ -262,7 +229,7 @@ const merchantPayDoctor = async (req, res) => {
 
   try {
     await enforceRateLimit(req, "doctor-pay");
-    const result = await withIdempotency(req, "doctor-pay", async () => {
+    const result = await withIdempotency(req, "doctor-pay", async (requestReference) => {
       const transaction = await transferVirtualMoney({
         senderId: req.auth.id,
         senderRole: req.auth.role,
@@ -271,12 +238,12 @@ const merchantPayDoctor = async (req, res) => {
         amount,
         type: "PAYMENT",
         description: description || "Doctor consultation payment",
-        referenceId: referenceId || `DOCPAY-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+        referenceId: requestReference,
         metadata: {
-          channel: "merchant",
+          channel: "merchant", clientReference: referenceId || null, demo: true,
         },
       });
-      return { message: "Doctor payment successful", transaction };
+      return { message: "Demo doctor payment completed", transaction };
     });
 
     return res.status(result.replay ? 200 : 201).json(result.response);
@@ -287,7 +254,7 @@ const merchantPayDoctor = async (req, res) => {
       amount,
       reason: error.message,
     });
-    return res.status(400).json({ message: error.message || "Doctor payment failed" });
+    return res.status(error.status || 503).json({ message: error.status ? error.message : "Demo payment could not be confirmed; retry the same request key" });
   }
 };
 
@@ -299,13 +266,14 @@ const createRefund = async (req, res) => {
 
   try {
     const idempotencyKey = String(
-      req.headers["x-idempotency-key"] || req.body?.requestId || "",
+      req.headers["idempotency-key"] || req.headers["x-idempotency-key"] || req.body?.requestId || "",
     ).trim();
     if (!idempotencyKey) {
       return res.status(400).json({
         message: "x-idempotency-key header or requestId is required for refund",
       });
     }
+    if (await Appointment.exists({ $or: [{ "payment.paymentId": transactionId }, { "payment.orderId": transactionId }] })) return res.status(409).json({ message: "Use the appointment cancellation endpoint for this payment" });
     const result = await refundVirtualPayment({
       actorId: req.auth.id,
       actorRole: req.auth.role,
@@ -313,7 +281,7 @@ const createRefund = async (req, res) => {
       amount,
       reason,
       isAdmin: isAdmin(req),
-      idempotencyKey,
+      idempotencyKey: `${req.auth.role}:${req.auth.id}:${requestKey(idempotencyKey)}`,
     });
 
     return res.status(result.replay ? 200 : 201).json({
@@ -323,7 +291,7 @@ const createRefund = async (req, res) => {
       refundTransaction: result.refundTxn,
     });
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Refund failed" });
+    return res.status(error.status || 503).json({ message: error.status ? error.message : "Demo refund could not be confirmed; retry the same request key" });
   }
 };
 
@@ -454,6 +422,7 @@ const freezeWallet = async (req, res) => {
   const { walletId } = req.params;
   const wallet = await Wallet.findByIdAndUpdate(walletId, { $set: { status: "frozen" } }, { new: true });
   if (!wallet) return res.status(404).json({ message: "Wallet not found" });
+  await financialEffects(() => invalidateWalletCache([{ role: wallet.userRole, userId: wallet.userId }]));
   return res.status(200).json({ message: "Wallet frozen", wallet });
 };
 
@@ -462,6 +431,7 @@ const unfreezeWallet = async (req, res) => {
   const { walletId } = req.params;
   const wallet = await Wallet.findByIdAndUpdate(walletId, { $set: { status: "active" } }, { new: true });
   if (!wallet) return res.status(404).json({ message: "Wallet not found" });
+  await financialEffects(() => invalidateWalletCache([{ role: wallet.userRole, userId: wallet.userId }]));
   return res.status(200).json({ message: "Wallet unfrozen", wallet });
 };
 

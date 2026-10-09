@@ -1,3 +1,4 @@
+import { createSnapshotGuard } from "../utils/queueSnapshot";
 /* eslint-disable react/prop-types */
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
@@ -15,6 +16,7 @@ const DoctorAppointments = () => {
     queue: [],
     activeAppointment: null,
   });
+  const [selectedQueueKey, setSelectedQueueKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
   const [doctorNotes, setDoctorNotes] = useState("");
@@ -48,11 +50,24 @@ const DoctorAppointments = () => {
     }
   }, [queueData.activeAppointment?._id]);
 
+  const snapshotGuard = useRef(createSnapshotGuard());
   const fetchQueue = async () => {
-    const response = await axios.get(`${BACKEND_URL}/appointment/doctor/queue`, {
-      withCredentials: true,
-    });
-    setQueueData(response.data);
+    const ticket = snapshotGuard.current.begin(selectedQueueKey);
+    try {
+      const response = await axios.get(`${BACKEND_URL}/appointment/doctor/queue`, {
+        params: { queueKey: selectedQueueKey || undefined }, withCredentials: true,
+      });
+      if (snapshotGuard.current.accept(ticket, response.data)) setQueueData(response.data);
+    } catch (error) {
+      if (error.response?.status === 403 && snapshotGuard.current.isCurrent(ticket)) {
+        snapshotGuard.current.reset();
+        setQueueData({ queue: [], reservations: [], queues: [], pendingCount: 0, activeAppointment: null });
+        setSelectedQueueKey("");
+        setActionMessage("This hospital queue is unavailable. The independent practice has been selected.");
+        return;
+      }
+      throw error;
+    }
   };
 
   useEffect(() => {
@@ -69,7 +84,7 @@ const DoctorAppointments = () => {
     fetchQueue()
       .catch(() => setActionMessage("Unable to load doctor queue right now"))
       .finally(() => setLoading(false));
-  }, [isAuth, loader, navigate, role]);
+  }, [isAuth, loader, navigate, role, selectedQueueKey]);
 
   useEffect(() => {
     if (!isAuth || role !== "doctor") return;
@@ -78,9 +93,7 @@ const DoctorAppointments = () => {
       socket.connect();
     }
 
-    const handleQueueUpdated = (payload) => {
-      setQueueData(payload);
-    };
+    const handleQueueUpdated = () => { fetchQueue().catch(() => {}); };
 
     const handleAppointmentEnded = () => {
       fetchQueue().catch(() => {});
@@ -90,6 +103,9 @@ const DoctorAppointments = () => {
       fetchQueue().catch(() => {});
     };
 
+    socket.on("connect", handleQueueUpdated);
+    socket.on("visit:changed", handleQueueUpdated);
+    document.addEventListener("visibilitychange", handleQueueUpdated);
     socket.on("appointment:queue-updated", handleQueueUpdated);
     socket.on("appointment:ended", handleAppointmentEnded);
     socket.on("appointment:brief-ready", handleBriefReady);
@@ -99,18 +115,21 @@ const DoctorAppointments = () => {
     }, 4000);
     return () => {
       clearInterval(interval);
+      socket.off("connect", handleQueueUpdated);
+      socket.off("visit:changed", handleQueueUpdated);
+      document.removeEventListener("visibilitychange", handleQueueUpdated);
       socket.off("appointment:queue-updated", handleQueueUpdated);
       socket.off("appointment:ended", handleAppointmentEnded);
       socket.off("appointment:brief-ready", handleBriefReady);
     };
-  }, [isAuth, role]);
+  }, [isAuth, role, selectedQueueKey]);
 
   const startAppointment = async (appointmentId) => {
     setActionMessage("");
     try {
       const response = await axios.post(
         `${BACKEND_URL}/appointment/${appointmentId}/start`,
-        {},
+        { revision: queueData.queue.find((item) => item._id === appointmentId)?.revision },
         { withCredentials: true },
       );
       setActionMessage(response.data.message);
@@ -119,21 +138,6 @@ const DoctorAppointments = () => {
       setActionMessage(
         error.response?.data?.message || "Could not start appointment. Please retry",
       );
-    }
-  };
-
-  const endAppointment = async (appointmentId) => {
-    setActionMessage("");
-    try {
-      const response = await axios.post(
-        `${BACKEND_URL}/appointment/${appointmentId}/end`,
-        {},
-        { withCredentials: true },
-      );
-      setActionMessage(`${response.data.message}. SOAP note automatically generated.`);
-      await fetchQueue();
-    } catch (error) {
-      setActionMessage(error.response?.data?.message || "Could not end appointment");
     }
   };
 
@@ -192,6 +196,19 @@ const DoctorAppointments = () => {
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Doctor Appointment Queue</h1>
+          <label className="mt-4 block">Care queue
+            <select aria-label="Care queue" value={selectedQueueKey || queueData.queueKey || ""} onChange={(event) => {
+              snapshotGuard.current.reset(); setLoading(true);
+              setQueueData(previous => ({ queues: previous.queues, queue: [], reservations: [], pendingCount: 0, activeAppointment: null }));
+              setSelectedQueueKey(event.target.value);
+            }} className="ml-3 rounded border p-2">
+              {!queueData.queues?.length && <option value="">No live queues</option>}
+              {queueData.queues?.map((queue) => <option key={queue.queueKey} value={queue.queueKey}>
+                {queue.visitMode === "in_person" ? (queue.hospitalName || `Hospital ${queue.hospitalId || "OPD"}`) : "Independent online"} · {queue.serviceDate} · {queue.sessionId}
+              </option>)}
+            </select>
+          </label>
+          {!!queueData.reservations?.length && <p className="mt-3">{queueData.reservations.length} reserved hospital visits await staff check-in.</p>}
           <p className="mt-2 text-gray-600">
             Pending appointments: <span className="font-semibold">{queueData.pendingCount}</span>
           </p>
@@ -211,7 +228,7 @@ const DoctorAppointments = () => {
             </div>
 
             <p className="mt-3 text-sm text-gray-600">
-              This call auto-ends in 5 minutes if you do not end it manually.
+              {queueData.activeAppointment.visitMode === "in_person" ? "In-person visit: complete the consultation when care is finished." : "End the consultation when care is finished. Any configured deadline is shown in the visit status."}
             </p>
             <PatientBriefCard brief={queueData.activeAppointment.patientBrief} />
               <div className="mt-4 rounded-lg border border-gray-200 dark:border-red-900/40 bg-gray-50 dark:bg-slate-900 p-4">
@@ -222,10 +239,10 @@ const DoctorAppointments = () => {
               </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
               <div>
-                <AppointmentVideoCall
+                {queueData.activeAppointment.visitMode !== "in_person" && <AppointmentVideoCall
                   appointmentId={queueData.activeAppointment._id}
-                  onCallEnd={() => endAppointment(queueData.activeAppointment._id)}
-                />
+                  onCallEnd={() => fetchQueue().catch(() => {})}
+                />}
               </div>
               <div className="rounded-lg border border-gray-200 dark:border-red-900/40 bg-gray-50 dark:bg-slate-900 p-4">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-slate-100">Doctor Notes</h3>

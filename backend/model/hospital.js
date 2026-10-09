@@ -82,6 +82,8 @@ const hospitalSchema = new mongoose.Schema(
       totalReviews: { type: Number, default: 0 },
     },
     settings: {
+      timezone: { type: String, default: "Asia/Kolkata" },
+      queueSessionIds: { type: [String], default: ["day"] },
       appointmentConfirmationRequired: { type: Boolean, default: false },
       allowWalkIns: { type: Boolean, default: true },
       tokenPrefix: { type: String, default: "T" },

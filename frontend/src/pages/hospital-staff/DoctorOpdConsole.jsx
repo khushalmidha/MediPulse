@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { createSnapshotGuard } from "../../utils/queueSnapshot";
+import { useEffect, useMemo, useState, useRef } from "react";
 import axios from "axios";
 import { Activity, Bot, CheckCircle2, Clock, RefreshCcw, Stethoscope, UserRound, XCircle } from "lucide-react";
 import { BACKEND_URL } from "../../utils";
@@ -67,6 +68,7 @@ const DoctorOpdConsole = () => {
   const hospital = saved?.hospital;
   const hospitalId = staff?.hospitalId || hospital?._id;
   const doctorId = staff?._id || staff?.id;
+  const [sessionId, setSessionId] = useState("");
   const [queue, setQueue] = useState({ currentlyServing: null, waiting: [], completed: 0, noShows: 0 });
   const [message, setMessage] = useState("");
   const [notes, setNotes] = useState("");
@@ -75,17 +77,24 @@ const DoctorOpdConsole = () => {
   const [aiSuggestion, setAiSuggestion] = useState("");
   const [aiBrief, setAiBrief] = useState(null);
 
+  const snapshotGuard = useRef(createSnapshotGuard());
   const loadQueue = async () => {
+    const ticket = snapshotGuard.current.begin(`${hospitalId}:${doctorId}:${sessionId}`);
     if (!hospitalId || !doctorId) return;
-    const response = await axios.get(`${BACKEND_URL}/api/opd/${hospitalId}/${doctorId}/queue`, { withCredentials: true });
-    setQueue(response.data);
+    const response = await axios.get(`${BACKEND_URL}/api/opd/${hospitalId}/${doctorId}/queue`, { params: { sessionId: sessionId || undefined }, withCredentials: true });
+    if (snapshotGuard.current.accept(ticket, response.data)) setQueue(response.data);
   };
 
   useEffect(() => {
     loadQueue().catch((error) => setMessage(error.response?.data?.message || "Unable to load OPD queue")).finally(() => setLoading(false));
-    const socket = getSocket();
+    const socket = getSocket("staff");
     if (!socket.connected) socket.connect();
     const refresh = () => loadQueue().catch(() => {});
+    socket.on("connect", refresh);
+    socket.on("opd:queue-changed", refresh);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    socket.on("opd:checked-in", refresh);
     socket.on("opd:token-issued", refresh);
     socket.on("opd:vitals-ready", refresh);
     socket.on("opd:consultation-started", refresh);
@@ -93,6 +102,11 @@ const DoctorOpdConsole = () => {
     socket.on("opd:no-show", refresh);
     const interval = window.setInterval(refresh, 12000);
     return () => {
+      socket.off("connect", refresh);
+      socket.off("opd:queue-changed", refresh);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      socket.off("opd:checked-in", refresh);
       socket.off("opd:token-issued", refresh);
       socket.off("opd:vitals-ready", refresh);
       socket.off("opd:consultation-started", refresh);
@@ -100,12 +114,12 @@ const DoctorOpdConsole = () => {
       socket.off("opd:no-show", refresh);
       window.clearInterval(interval);
     };
-  }, [hospitalId, doctorId]);
+  }, [hospitalId, doctorId, sessionId]);
 
   const startConsultation = async (tokenId) => {
     setMessage("");
     try {
-      await axios.patch(`${BACKEND_URL}/api/opd/tokens/${tokenId}/start-consultation`, {}, { withCredentials: true });
+      await axios.patch(`${BACKEND_URL}/api/opd/tokens/${tokenId}/start-consultation`, { revision: queue.waiting?.find((token) => token._id === tokenId)?.revision }, { withCredentials: true });
       await loadQueue();
     } catch (error) {
       setMessage(error.response?.data?.message || "Could not start consultation");
@@ -116,7 +130,7 @@ const DoctorOpdConsole = () => {
     if (!queue.currentlyServing?._id) return;
     setMessage("");
     try {
-      await axios.patch(`${BACKEND_URL}/api/opd/tokens/${queue.currentlyServing._id}/complete`, { notes }, { withCredentials: true });
+      await axios.patch(`${BACKEND_URL}/api/opd/tokens/${queue.currentlyServing._id}/complete`, { notes, revision: queue.currentlyServing.revision }, { withCredentials: true });
       setNotes("");
       await loadQueue();
     } catch (error) {
@@ -172,7 +186,12 @@ const DoctorOpdConsole = () => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase text-red-600 dark:text-red-500">{hospital?.name || "Hospital"} OPD</p>
-              <h1 className="text-2xl font-extrabold text-gray-950">Doctor OPD Console</h1>
+              <label className="mb-4 block">Care session
+            <select aria-label="Care session" value={sessionId || queue.sessionId || "day"} onChange={(event) => setSessionId(event.target.value)} className="ml-3 rounded border p-2">
+              {(queue.sessionIds || [queue.sessionId || "day"]).map((id) => <option key={id} value={id}>{id}</option>)}
+            </select>
+          </label>
+          <h1 className="text-2xl font-extrabold text-gray-950">Doctor OPD Console</h1>
             </div>
             <button onClick={loadQueue} className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium">
               <RefreshCcw size={16} />

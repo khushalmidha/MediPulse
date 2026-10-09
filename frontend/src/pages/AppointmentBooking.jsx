@@ -1,3 +1,5 @@
+import { createSnapshotGuard } from "../utils/queueSnapshot";
+import { bookingRequestKey, clearBookingRequest } from "../utils/bookingRequest";
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -27,10 +29,13 @@ const AppointmentBooking = () => {
   const [appointmentHistory, setAppointmentHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [callStartedPopup, setCallStartedPopup] = useState(false);
+  const [leftCallId, setLeftCallId] = useState(null);
   const [triageOpen, setTriageOpen] = useState(false);
   const previousAppointmentStatusRef = useRef(null);
 
+  const snapshotGuard = useRef(createSnapshotGuard());
   const fetchStatus = async () => {
+    const ticket = snapshotGuard.current.begin(doctorId);
     try {
       const doctorResponse = await axios.get(`${BACKEND_URL}/doctor/${doctorId}`, { withCredentials: true }).catch(() => null);
       if (doctorResponse?.data?.user) {
@@ -41,7 +46,7 @@ const AppointmentBooking = () => {
         withCredentials: true,
       }).catch(() => null);
       if (statusResponse?.data) {
-        setStatus(statusResponse.data);
+        if (snapshotGuard.current.accept(ticket, statusResponse.data)) setStatus(statusResponse.data);
       }
     } catch (error) {
       console.error("Failed to load status:", error);
@@ -102,30 +107,12 @@ const AppointmentBooking = () => {
       socket.connect();
     }
 
-    const handleUserStatus = (payload) => {
-      if (payload.doctorId !== doctorId) return;
-      setStatus((current) => ({
-        ...(current || {}),
-        pendingCount: payload.pendingCount,
-        myAppointment: {
-          ...(current?.myAppointment || {}),
-          _id: payload.appointmentId,
-          status: payload.status,
-          queuePosition: payload.queuePosition,
-          startedAt: payload.startedAt,
-          endsAt: payload.endsAt,
-        },
-      }));
-    };
+    const handleUserStatus = () => fetchStatus().catch(() => {});
+    const handleEnded = () => { fetchStatus().catch(() => {}); fetchHistory().catch(() => {}); };
 
-    const handleEnded = ({ appointmentId }) => {
-      setStatus((current) => {
-        if (current?.myAppointment?._id !== appointmentId) return current;
-        return { ...(current || {}), myAppointment: null };
-      });
-      fetchHistory().catch(() => {});
-    };
-
+    socket.on("connect", handleUserStatus);
+    socket.on("visit:changed", handleUserStatus);
+    document.addEventListener("visibilitychange", handleUserStatus);
     socket.on("appointment:user-status", handleUserStatus);
     socket.on("appointment:ended", handleEnded);
 
@@ -134,23 +121,30 @@ const AppointmentBooking = () => {
     }, 5000);
     return () => {
       clearInterval(interval);
+      socket.off("connect", handleUserStatus);
+      socket.off("visit:changed", handleUserStatus);
+      document.removeEventListener("visibilitychange", handleUserStatus);
       socket.off("appointment:user-status", handleUserStatus);
       socket.off("appointment:ended", handleEnded);
     };
   }, [doctorId, isAuth, role]);
 
   const handleBookDirectly = async () => {
+    const requestScope = `appointment:${user?._id}:${doctorId}`;
     setBooking(true);
     setMessage("");
     try {
+      const requestKey = await bookingRequestKey(requestScope, { doctorId });
       const response = await axios.post(
         `${BACKEND_URL}/appointment/book/${doctorId}`,
         {},
-        { withCredentials: true },
+        { withCredentials: true, headers: { "Idempotency-Key": requestKey } },
       );
-
+      if (response.status === 202) { setMessage(response.data.message); return; }
+      clearBookingRequest(requestScope);
       navigate(`/triage/${response.data.appointmentId}`);
     } catch (error) {
+      if (error.response?.status && ![409, 500, 502, 503, 504].includes(error.response.status)) clearBookingRequest(requestScope);
       setMessage(
         error.response?.data?.message ||
           error.message ||
@@ -370,18 +364,20 @@ const AppointmentBooking = () => {
           </div>
         )}
 
-        {myAppointment?.status === "active" && (
+        {myAppointment?.status === "active" && myAppointment?.visitMode !== "in_person" && (
           <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Active Appointment</h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Your doctor has started the consultation. The session auto-ends after 5 minutes.
+                  Your consultation stays active if someone disconnects. The doctor ends the visit when care is finished.
                 </p>
               </div>
             </div>
             <div className="mt-4">
-              <AppointmentVideoCall appointmentId={myAppointment._id} onCallEnd={() => { setStatus(prev => ({...prev, myAppointment: null})); fetchStatus(); fetchHistory(); }} />
+              {leftCallId === myAppointment._id
+                ? <button type="button" onClick={() => setLeftCallId(null)} className="rounded-md bg-red-600 px-4 py-2 font-semibold text-white">Rejoin call</button>
+                : <AppointmentVideoCall appointmentId={myAppointment._id} onCallEnd={() => { setLeftCallId(myAppointment._id); fetchStatus(); fetchHistory(); }} />}
             </div>
           </div>
         )}

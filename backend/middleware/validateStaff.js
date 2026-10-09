@@ -1,43 +1,11 @@
-import jwt from "jsonwebtoken";
-import HospitalStaff from "../model/hospitalStaff.js";
-
+import { authenticateRequest } from "../services/authSessions.js";
 const validateStaff = async (req, res, next) => {
-  const token = req.cookies.staffToken || req.cookies.token || req.headers.authorization?.replace(/^Bearer\s+/i, "");
-
-  if (!token) {
-    return res.status(401).json({ message: "Staff token is required" });
-  }
-
-  jwt.verify(token, process.env.TOKEN_KEY, async (err, data) => {
-    if (err) {
-      return res.status(401).json({ message: err.message || "Expired or invalid staff token" });
-    }
-
-    if (data.type !== "staff" || !data.hospitalId) {
-      return res.status(401).json({ message: "Invalid staff session" });
-    }
-
-    const staff = await HospitalStaff.findOne({
-      _id: data.id,
-      hospitalId: data.hospitalId,
-      isActive: true,
-    });
-
-    if (!staff) {
-      return res.status(401).json({ message: "Staff account is inactive or missing" });
-    }
-
-    req.staff = {
-      id: staff._id.toString(),
-      hospitalId: staff.hospitalId.toString(),
-      role: staff.role,
-      adminAccess: Boolean(staff.adminAccess),
-      name: staff.name,
-      departmentIds: staff.departmentIds.map((departmentId) => departmentId.toString()),
-    };
-
+  try {
+    const { principal: staff } = await authenticateRequest(req, "staff");
+    req.staff = { id: String(staff._id), hospitalId: String(staff.hospitalId), role: staff.role,
+      adminAccess: Boolean(staff.adminAccess), name: staff.name, departmentIds: (staff.departmentIds || []).map(String) };
     next();
-  });
+  } catch (error) { next(error); }
 };
 
 const requireRole = (...roles) => (req, res, next) => {

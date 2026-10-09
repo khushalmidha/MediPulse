@@ -127,31 +127,13 @@ The AI prediction is intentionally layered so one failure never leaves a doctor 
 
 ## 🚀 Getting Started
 
-### Option 1: Docker (Recommended)
-Run the full stack (Mongo, Redis, Kafka, API, consumer, frontend) with one command:
+Use [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the isolated local MongoDB replica set, Redis/Kafka, host development and regression commands. Docker Compose 2.24.4+ and a running Docker Engine are required.
+
 ```bash
 docker compose up --build
 ```
 
-### Option 2: Manual Setup
-```bash
-# 1. Start the Backend
-cd backend
-npm install
-npm run dev
-
-# 2. Start the Frontend
-cd frontend
-npm install
-npm run dev
-
-# 3. Start the ML Service (Downloads ~860MB of BERT weights on first run)
-cd medipulse-ranking-engine
-pip install -r requirements.txt
-uvicorn app.main:app --port 8000 --reload
-```
-
-> **Note**: Copy `.env.example` to `.env` and fill in your credentials (`DATABASE_URL`, `TOKEN_KEY`, `GEMINI_API_KEY`, `REDIS_URL`, `KAFKA_BROKERS`, `GOOGLE_CLIENT_ID`, and `ML_MICROSERVICE_URL`).
+The Docker frontend is at `http://localhost:8081`; the API is at `http://localhost:8080`. Local defaults use only `medipulse_dev` with mail disabled. Host development uses `.env.local` templates; do not copy deployment credentials into local test configuration.
 
 ---
 

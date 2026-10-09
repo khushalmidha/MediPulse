@@ -1,3 +1,4 @@
+import { communityMemberCount } from "../utils/community";
 import { useState, useEffect, useRef } from 'react'
 import {
   Send,
@@ -366,7 +367,7 @@ useEffect(() => {
                     </h2>
                     <div className="flex items-center text-xs text-gray-500">
                       <Users size={12} className="mr-1 flex-shrink-0" />
-                      <span className="truncate">{community.members?.length || 0} members</span>
+                      <span className="truncate">{communityMemberCount(community)} members</span>
                     </div>
                   </div>
                 </div>
@@ -403,7 +404,7 @@ useEffect(() => {
                 <div className="flex items-center text-xs text-gray-500">
                   <Users size={12} className="mr-1 flex-shrink-0" />
                   <span className="truncate">
-                    {communities[selectedCommunity].members?.length || 0} members
+                    {communityMemberCount(communities[selectedCommunity])} members
                   </span>
                 </div>
               </div>

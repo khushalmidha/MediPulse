@@ -44,13 +44,13 @@ const StaffCommunication = () => {
   const listRef = useRef(null);
   const shouldScrollRef = useRef(false); // Only auto-scroll on NEW messages, not initial load
 
-  const conversationType = activeTab === "lab" ? "announcement" : activeTab;
+  const conversationType = activeTab === "lab" ? "patient_context" : activeTab;
   const messageType = activeTab === "lab" ? "lab_alert" : "text";
 
   const currentFilters = useMemo(
     () => ({
       conversationType,
-      tokenId: activeTab === "patient_context" ? tokenId : "",
+      tokenId: ["patient_context", "lab"].includes(activeTab) ? tokenId : "",
       departmentId: activeTab === "department" ? departmentId : "",
       recipientStaffId: activeTab === "direct" ? recipientStaffId : "",
       messageType: activeTab === "lab" ? "lab_alert" : "",
@@ -109,7 +109,7 @@ const StaffCommunication = () => {
 
   useEffect(() => {
     if (!hospitalId) return undefined;
-    const socket = getSocket();
+    const socket = getSocket("staff");
     if (!socket.connected) socket.connect();
     socket.emit("staff:joinHospital", { hospitalId });
 
@@ -142,8 +142,8 @@ const StaffCommunication = () => {
     event.preventDefault();
     const trimmed = content.trim();
     if (!trimmed || !hospitalId) return;
-    if (activeTab === "patient_context" && !tokenId) {
-      setMessage("Token ID is required for patient context chat");
+    if (["patient_context", "lab"].includes(activeTab) && !tokenId) {
+      setMessage("A visit token ID is required for patient messages and lab alerts");
       return;
     }
     if (activeTab === "department" && !departmentId) {
@@ -156,7 +156,7 @@ const StaffCommunication = () => {
     }
 
     setMessage("");
-    const socket = getSocket();
+    const socket = getSocket("staff");
     if (!socket.connected) socket.connect();
 
     socket.emit(
@@ -165,7 +165,7 @@ const StaffCommunication = () => {
         hospitalId,
         conversationType,
         content: trimmed,
-        tokenId: activeTab === "patient_context" ? tokenId : undefined,
+        tokenId: ["patient_context", "lab"].includes(activeTab) ? tokenId : undefined,
         departmentId: activeTab === "department" ? departmentId : undefined,
         recipientStaffId: activeTab === "direct" ? recipientStaffId : undefined,
         messageType,
@@ -226,7 +226,7 @@ const StaffCommunication = () => {
             </div>
 
             <div className="mt-6 space-y-3 border-t border-gray-100 pt-4">
-              {activeTab === "patient_context" && (
+              {["patient_context", "lab"].includes(activeTab) && (
                 <input value={tokenId} onChange={(e) => setTokenId(e.target.value)} placeholder="Patient token ID" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500" />
               )}
               {activeTab === "department" && (

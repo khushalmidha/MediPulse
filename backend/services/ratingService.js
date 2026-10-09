@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Hospital from "../model/hospital.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 import Review from "../model/review.js";
-import { getRedis } from "./redis.js";
+import { invalidatePublicHospitalCache } from "./publicHospitalCache.js";
 
 const asObjectId = (id) => new mongoose.Types.ObjectId(String(id));
 
@@ -30,7 +30,7 @@ export async function recalculateHospitalRating(hospitalId) {
     },
   ]);
 
-  const hospital = await Hospital.findById(hospitalId).select("slug");
+  const hospital = await Hospital.findById(hospitalId).select("slug websiteConfig.customDomain");
   const average = result ? Number(weightedRating(result).toFixed(1)) : 0;
   const count = result?.count || 0;
 
@@ -40,7 +40,7 @@ export async function recalculateHospitalRating(hospitalId) {
   });
 
   if (hospital?.slug) {
-    await getRedis().del(`hospital:public:${hospital.slug}`);
+    await invalidatePublicHospitalCache(hospital);
   }
 
   return { average, count };

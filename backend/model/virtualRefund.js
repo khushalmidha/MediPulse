@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
+import { amountToMinor } from "../util/money.js";
 
 const virtualRefundSchema = new mongoose.Schema(
   {
+    amountMinor: { type: Number, default() { return amountToMinor(this.amount); } }, fingerprint: String,
     refundId: {
       type: String,
       required: true,

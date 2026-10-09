@@ -569,9 +569,10 @@ const DoctorSignUp = ({handleSubmit, handleGoogleSignup, message, doctor, setDoc
   </form>
 );
 
-const SignUp = () => {
+// eslint-disable-next-line react/prop-types -- These props are supplied by the product router.
+const SignUp = ({ initialType, lockProfile = false }) => {
   const {type} = useParams();
-  const [userType, setUserType] = useState(type || "select");
+  const [userType, setUserType] = useState(initialType || type || "select");
   const navigate = useNavigate();
   const [patient, setPatient] = useState({});
   const [doctor, setDoctor] = useState({});
@@ -713,6 +714,7 @@ const SignUp = () => {
 
           {userType !== "select" && (
             <button
+              hidden={lockProfile}
               onClick={() => setUserType("select")}
               className="mt-6 flex items-center justify-center w-full text-sm text-gray-600 hover:text-red-600 dark:text-red-500 py-2 transition-colors font-medium"
             >

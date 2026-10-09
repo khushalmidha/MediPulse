@@ -1,3 +1,4 @@
+import { communitySummary } from "../services/communityAccess.js";
 import { normalizeSpecialty } from '../util/normalizeSpecialty.js';
 import { DEFAULT_CONSULTATION_FEE_INR, MAX_CONSULTATION_FEE_INR, resolveConsultationFee } from '../config/fees.js';
 
@@ -100,7 +101,7 @@ const getDoctorById = async (req, res) => {
 
 	const platformDoctor = await Doctor.findById(id).lean();
 	if (platformDoctor) {
-		const communities = await Community.find({ author: id }).lean();
+		const communities = (await Community.find({ author: id }).lean()).map(communitySummary);
 		return res.json({ user: mapPlatformDoctor(platformDoctor, communities), communities });
 	}
 
@@ -119,7 +120,7 @@ const getDoctorById = async (req, res) => {
 	}
 
 	const communities = staffDoctor.doctorId?._id
-		? await Community.find({ author: staffDoctor.doctorId._id }).lean()
+		? (await Community.find({ author: staffDoctor.doctorId._id }).lean()).map(communitySummary)
 		: [];
 	return res.json({ user: mapHospitalDoctor(staffDoctor, communities), communities });
 };

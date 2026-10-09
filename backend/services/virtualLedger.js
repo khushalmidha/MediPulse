@@ -1,518 +1,170 @@
-import crypto from "crypto";
-import mongoose from "mongoose";
+import crypto from "node:crypto";
 import Wallet from "../model/wallet.js";
 import VirtualTransaction from "../model/virtualTransaction.js";
-import PaymentNotification from "../model/paymentNotification.js";
 import VirtualRefund from "../model/virtualRefund.js";
+import PaymentNotification from "../model/paymentNotification.js";
 import { getRedis } from "./redis.js";
 import { TOPICS, publishVirtualEvent } from "./virtualEvents.js";
-
-const createTransactionId = () =>
-  `TXN-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-const createRefundId = () =>
-  `RFND-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-
-const walletCacheKey = (role, userId) => `wallet:${role}:${userId}`;
-const walletLockKey = (role, userId) => `lock:wallet:${role}:${userId}`;
-
-const sanitizeAmount = (value) => {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    throw new Error("Amount must be a positive number");
-  }
-  return Math.round(numeric * 100) / 100;
+import { moneyTransaction } from "./moneyTransaction.js";
+import { amountToMinor, fromMinor, fingerprint, moneyError } from "../util/money.js";
+export const sanitizeAmount = (value) => fromMinor(amountToMinor(value));
+const roleOf = (role) => { if (!["user", "doctor"].includes(role)) throw moneyError(400, "Invalid wallet role"); return role; };
+const initialCredit = (role) => role === "user" ? amountToMinor(process.env.INITIAL_USER_WALLET_BALANCE || 5000, { zero: true }) : 0;
+export const financialEffects = async (...effects) => {
+  for (const effect of effects) { try { await effect(); } catch { console.error("Demo ledger committed; optional delivery needs retry"); } }
 };
-
-const normalizeRole = (role) => {
-  if (!["user", "doctor"].includes(role)) {
-    throw new Error("Invalid wallet role");
-  }
-  return role;
+export const invalidateWalletCache = async (entries) => {
+  if (entries.length) await getRedis().del(...entries.map(({ role, userId }) => `wallet:${role}:${userId}`));
 };
-
-// Demo wallets start funded so a patient can actually book without a top-up flow.
-const INITIAL_USER_WALLET_BALANCE = Number(process.env.INITIAL_USER_WALLET_BALANCE || 5000);
-
-const getInitialWalletBalance = (role) =>
-  role === "user" ? INITIAL_USER_WALLET_BALANCE : 0;
-
-
-const ensureWallet = async ({ userId, userRole }, session = null) => {
-  const role = normalizeRole(userRole);
-  const query = Wallet.findOneAndUpdate(
-    { userId, userRole: role },
-    {
-      $setOnInsert: {
-        userId,
-        userRole: role,
-        balance: getInitialWalletBalance(role),
-        currency: "INR",
-        status: "active",
-        totalSent: 0,
-        totalReceived: 0,
-        initialCreditApplied: getInitialWalletBalance(role) > 0,
-      },
-    },
-    { new: true, upsert: true },
-  );
-
-  if (session) {
-    query.session(session);
+export const ensureWallet = async (actor, session = null) => {
+  if (!session) {
+    const wallet = await moneyTransaction((txn) => ensureWallet(actor, txn));
+    await financialEffects(() => invalidateWalletCache([{ role: actor.userRole, userId: actor.userId }]));
+    return wallet;
   }
-
-  const wallet = await query;
-
-  // FIXED: Wallets created before the demo top-up existed (or that had any transaction at all)
-  // were never credited, so patients kept seeing a 0 balance. Credit exactly once per wallet,
-  // tracked by `initialCreditApplied` rather than by guessing from the balance.
-  const initialBalance = getInitialWalletBalance(role);
-  if (role === "user" && initialBalance > 0 && !wallet.initialCreditApplied) {
-    wallet.balance = Math.round((wallet.balance + initialBalance) * 100) / 100;
-    wallet.totalReceived = Math.round((wallet.totalReceived + initialBalance) * 100) / 100;
-    wallet.initialCreditApplied = true;
-    await wallet.save({ session });
-    // The dashboard caches the wallet for 20s, so drop the stale copy immediately.
-    await invalidateWalletCache([{ role, userId }]);
+  const role = roleOf(actor.userRole), credit = initialCredit(role);
+  let wallet = await Wallet.findOneAndUpdate({ userId: actor.userId, userRole: role }, { $setOnInsert: {
+    balance: fromMinor(credit), balanceMinor: credit, totalSent: 0, totalSentMinor: 0,
+    totalReceived: fromMinor(credit), totalReceivedMinor: credit, currency: "INR", status: "active", initialCreditApplied: credit > 0,
+  } }, { upsert: true, new: true, session, setDefaultsOnInsert: false }).lean();
+  if (![wallet.balanceMinor, wallet.totalSentMinor, wallet.totalReceivedMinor].every(Number.isSafeInteger)) throw moneyError(409, "Wallet accounting migration is required");
+  if (wallet.currency !== "INR" || ["balance", "totalSent", "totalReceived"].some((field) => amountToMinor(wallet[field], { zero: true }) !== wallet[`${field}Minor`])) throw moneyError(409, "Wallet units or accounting require review");
+  if (role === "user" && credit && !wallet.initialCreditApplied && wallet.status === "active") {
+    wallet = await Wallet.findOneAndUpdate({ _id: wallet._id, initialCreditApplied: { $ne: true }, status: "active" }, [
+      { $set: { balanceMinor: { $add: ["$balanceMinor", credit] }, totalReceivedMinor: { $add: ["$totalReceivedMinor", credit] }, initialCreditApplied: true } },
+      { $set: { balance: { $divide: ["$balanceMinor", 100] }, totalReceived: { $divide: ["$totalReceivedMinor", 100] } } },
+    ], { new: true, session });
+    if (!wallet) throw moneyError(409, "Wallet is frozen");
   }
-
   return wallet;
 };
-
-const createNotification = async (
-  { userId, userRole, type, title, message, transactionId, data = {} },
-  session = null,
-) => {
-  const payload = {
-    userId,
-    userRole,
-    type,
-    title,
-    message,
-    transactionId: transactionId || null,
-    data,
-  };
-
-  if (session) {
-    return PaymentNotification.create([payload], { session });
-  }
-
+export const createNotification = async (payload, session = null) => {
+  if (session) return PaymentNotification.create([payload], { session });
   const created = await PaymentNotification.create(payload);
-  await publishVirtualEvent(TOPICS.notificationsCreated, "notification.created", {
-    userId,
-    userRole,
-    type,
-    title,
-    message,
-    transactionId: transactionId || null,
-    data,
-  });
+  await financialEffects(() => publishVirtualEvent(TOPICS.notificationsCreated, "notification.created", payload));
   return created;
 };
-
-const acquireWalletLocks = async (pairs) => {
-  const redis = getRedis();
-  const ordered = [...new Set(pairs.map((entry) => `${entry.role}:${entry.userId}`))].sort();
-  const acquired = [];
-
-  try {
-    for (const pair of ordered) {
-      const [role, userId] = pair.split(":");
-      const key = walletLockKey(role, userId);
-      const token = crypto.randomBytes(8).toString("hex");
-      const lock = await redis.set(key, token, "NX", "PX", 5000);
-      if (!lock) {
-        throw new Error("Payment is currently processing for this wallet, please retry");
-      }
-      acquired.push({ key, token });
+const changeWallet = async (wallet, minor, debit, session) => {
+  const updated = await Wallet.findOneAndUpdate({ _id: wallet._id, status: "active", balanceMinor: debit ? { $gte: minor } : { $lte: 1e12 - minor } }, [
+    { $set: { balanceMinor: { $add: ["$balanceMinor", debit ? -minor : minor] },
+      [debit ? "totalSentMinor" : "totalReceivedMinor"]: { $add: [debit ? "$totalSentMinor" : "$totalReceivedMinor", minor] } } },
+    { $set: { balance: { $divide: ["$balanceMinor", 100] }, totalSent: { $divide: ["$totalSentMinor", 100] }, totalReceived: { $divide: ["$totalReceivedMinor", 100] } } },
+  ], { new: true, session });
+  if (!updated) throw moneyError(402, debit ? "Insufficient demo wallet balance or frozen wallet" : "Recipient wallet is frozen or exceeds its limit");
+};
+export const transactionFingerprint = (input, minor = amountToMinor(input.amount)) => fingerprint({
+  senderId: String(input.senderId), senderRole: input.senderRole, receiverId: String(input.receiverId), receiverRole: input.receiverRole,
+  amountMinor: minor, type: input.type || "PAYMENT", description: input.description || "", relatedTransactionId: input.relatedTransactionId || null, metadata: input.metadata || {},
+});
+export const transferInSession = async (input, session, { refund = false } = {}) => {
+  const minor = amountToMinor(input.amount), type = input.type || "PAYMENT";
+  if (!(type === "PAYMENT" || (type === "REFUND" && refund))) throw moneyError(400, "Use the refund service for refunds");
+  roleOf(input.senderRole); roleOf(input.receiverRole);
+  if (String(input.senderId) === String(input.receiverId) && input.senderRole === input.receiverRole) throw moneyError(400, "Sender and receiver cannot be the same wallet");
+  const digest = transactionFingerprint(input, minor);
+  if (input.referenceId) {
+    const prior = await VirtualTransaction.findOne({ senderId: input.senderId, senderRole: input.senderRole, referenceId: input.referenceId }).session(session);
+    if (prior) {
+      if (prior.fingerprint !== digest || !["SUCCESS", "REFUNDED"].includes(prior.status)) throw moneyError(409, "Request reference conflicts with an existing transaction");
+      return { transaction: prior, replay: true };
     }
-    return acquired;
-  } catch (error) {
-    for (const lock of acquired.reverse()) {
-      await redis.del(lock.key);
+  }
+  const sender = await ensureWallet({ userId: input.senderId, userRole: input.senderRole }, session);
+  const receiver = await ensureWallet({ userId: input.receiverId, userRole: input.receiverRole }, session);
+  await changeWallet(sender, minor, true, session);
+  await changeWallet(receiver, minor, false, session);
+  const [transaction] = await VirtualTransaction.create([{ ...input, amount: fromMinor(minor), amountMinor: minor, refundedMinor: 0,
+    transactionId: `TXN-${crypto.randomUUID()}`, type, status: "SUCCESS", fingerprint: digest }], { session });
+  await createNotification({ userId: input.receiverId, userRole: input.receiverRole, type: type === "REFUND" ? "REFUND_RECEIVED" : "PAYMENT_RECEIVED",
+    title: type === "REFUND" ? "Demo refund credited" : "Demo payment received", message: `${fromMinor(minor).toFixed(2)} demo INR credits received`,
+    transactionId: transaction.transactionId, data: { demo: true, referenceId: input.referenceId } }, session);
+  return { transaction, replay: false };
+};
+export const afterTransferCommit = async (txn) => financialEffects(
+  () => invalidateWalletCache([{ role: txn.senderRole, userId: txn.senderId }, { role: txn.receiverRole, userId: txn.receiverId }]),
+  () => publishVirtualEvent(txn.type === "REFUND" ? TOPICS.refundsCompleted : TOPICS.paymentsCompleted, txn.type === "REFUND" ? "refund.completed" : "payment.completed", txn.toObject()),
+  () => publishVirtualEvent(TOPICS.walletUpdated, "wallet.updated", { userId: txn.senderId, userRole: txn.senderRole, change: -txn.amount, transactionId: txn.transactionId }),
+  () => publishVirtualEvent(TOPICS.walletUpdated, "wallet.updated", { userId: txn.receiverId, userRole: txn.receiverRole, change: txn.amount, transactionId: txn.transactionId }),
+  () => publishVirtualEvent(TOPICS.analyticsEvents, "transaction.recorded", txn.toObject()),
+);
+export const transferVirtualMoney = async (input) => {
+  let result;
+  try { result = await moneyTransaction((session) => transferInSession(input, session)); }
+  catch (error) {
+    const prior = input.referenceId ? await VirtualTransaction.findOne({ senderId: input.senderId, senderRole: input.senderRole, referenceId: input.referenceId }) : null;
+    if (!prior || prior.fingerprint !== transactionFingerprint(input) || !["SUCCESS", "REFUNDED"].includes(prior.status)) throw error;
+    result = { transaction: prior, replay: true };
+  }
+  if (!result.replay) await afterTransferCommit(result.transaction);
+  result.transaction.$locals.replay = result.replay;
+  return result.transaction;
+};
+export const topupWallet = async ({ adminId, targetId, targetRole, amount, description = "Admin demo top-up", referenceId }) => {
+  const minor = amountToMinor(amount); roleOf(targetRole);
+  const input = { senderId: adminId, senderRole: "user", receiverId: targetId, receiverRole: targetRole, amount: fromMinor(minor), type: "TOPUP", description, metadata: { source: "admin", demo: true } };
+  const digest = transactionFingerprint(input, minor);
+  const apply = async (session) => {
+    if (referenceId) {
+      const prior = await VirtualTransaction.findOne({ senderId: adminId, senderRole: "user", referenceId }).session(session);
+      if (prior) { if (prior.fingerprint !== digest) throw moneyError(409, "Top-up request details changed"); return { transaction: prior, replay: true }; }
     }
-    throw error;
-  }
-};
-
-const releaseWalletLocks = async (locks) => {
-  if (!locks?.length) return;
-  const redis = getRedis();
-  for (const lock of locks.reverse()) {
-    await redis.eval(
-      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-      1,
-      lock.key,
-      lock.token,
-    );
-  }
-};
-
-const invalidateWalletCache = async (entries) => {
-  const redis = getRedis();
-  const keys = entries.map((entry) => walletCacheKey(entry.role, entry.userId));
-  if (keys.length) {
-    await redis.del(...keys);
-  }
-};
-
-const transferVirtualMoney = async ({
-  senderId,
-  senderRole,
-  receiverId,
-  receiverRole,
-  amount,
-  type,
-  description,
-  referenceId,
-  relatedTransactionId,
-  metadata = {},
-}) => {
-  if (String(senderId) === String(receiverId) && senderRole === receiverRole) {
-    throw new Error("Sender and receiver cannot be the same wallet");
-  }
-
-  const debitAmount = sanitizeAmount(amount);
-  const normalizedSenderRole = normalizeRole(senderRole);
-  const normalizedReceiverRole = normalizeRole(receiverRole);
-  const txnType = type || "PAYMENT";
-
-  const session = await mongoose.startSession();
-  let createdTransaction;
-  const locks = await acquireWalletLocks([
-    { role: normalizedSenderRole, userId: senderId },
-    { role: normalizedReceiverRole, userId: receiverId },
-  ]);
-
-  try {
-    await session.withTransaction(async () => {
-      if (referenceId) {
-        const duplicate = await VirtualTransaction.findOne({
-          referenceId,
-          senderId,
-          receiverId,
-          type: txnType,
-          status: { $in: ["SUCCESS", "REFUNDED"] },
-        }).session(session);
-        if (duplicate) {
-          throw new Error("Duplicate transaction request detected");
-        }
-      }
-
-      const [senderWallet, receiverWallet] = await Promise.all([
-        ensureWallet({ userId: senderId, userRole: normalizedSenderRole }, session),
-        ensureWallet({ userId: receiverId, userRole: normalizedReceiverRole }, session),
-      ]);
-
-      if (senderWallet.status !== "active" || receiverWallet.status !== "active") {
-        throw new Error("One of the wallets is frozen");
-      }
-
-      const debitResult = await Wallet.updateOne(
-        {
-          _id: senderWallet._id,
-          status: "active",
-          balance: { $gte: debitAmount },
-        },
-        {
-          $inc: {
-            balance: -debitAmount,
-            totalSent: debitAmount,
-          },
-        },
-        { session },
-      );
-
-      if (!debitResult.modifiedCount) {
-        throw new Error("Insufficient wallet balance");
-      }
-
-      await Wallet.updateOne(
-        { _id: receiverWallet._id, status: "active" },
-        {
-          $inc: {
-            balance: debitAmount,
-            totalReceived: debitAmount,
-          },
-        },
-        { session },
-      );
-
-      const payload = {
-        transactionId: createTransactionId(),
-        senderId,
-        senderRole: normalizedSenderRole,
-        receiverId,
-        receiverRole: normalizedReceiverRole,
-        amount: debitAmount,
-        type: txnType,
-        status: "SUCCESS",
-        description: description || "",
-        referenceId: referenceId || null,
-        relatedTransactionId: relatedTransactionId || null,
-        metadata,
-      };
-
-      const created = await VirtualTransaction.create([payload], { session });
-      createdTransaction = created[0];
-
-      await createNotification(
-        {
-          userId: receiverId,
-          userRole: normalizedReceiverRole,
-          type: txnType === "REFUND" ? "REFUND_RECEIVED" : "PAYMENT_RECEIVED",
-          title: txnType === "REFUND" ? "Refund credited" : "Payment received",
-          message:
-            txnType === "REFUND"
-              ? `You received a refund of INR ${debitAmount.toFixed(2)}`
-              : `You received INR ${debitAmount.toFixed(2)}`,
-          transactionId: payload.transactionId,
-          data: { referenceId },
-        },
-        session,
-      );
-    });
-  } finally {
-    await session.endSession();
-    await releaseWalletLocks(locks);
-  }
-
-  await invalidateWalletCache([
-    { role: normalizedSenderRole, userId: senderId },
-    { role: normalizedReceiverRole, userId: receiverId },
-  ]);
-
-  const eventBase = {
-    transactionId: createdTransaction.transactionId,
-    senderId,
-    senderRole: normalizedSenderRole,
-    receiverId,
-    receiverRole: normalizedReceiverRole,
-    amount: debitAmount,
-    type: txnType,
-    referenceId: referenceId || null,
-    relatedTransactionId: relatedTransactionId || null,
+    const wallet = await ensureWallet({ userId: targetId, userRole: targetRole }, session);
+    await changeWallet(wallet, minor, false, session);
+    const [transaction] = await VirtualTransaction.create([{ ...input, referenceId, fingerprint: digest, amountMinor: minor, refundedMinor: 0, transactionId: `TXN-${crypto.randomUUID()}`, status: "SUCCESS" }], { session });
+    await createNotification({ userId: targetId, userRole: targetRole, type: "TOPUP_SUCCESS", title: "Demo credits added", message: `${fromMinor(minor).toFixed(2)} demo INR credits added`, transactionId: transaction.transactionId }, session);
+    return { transaction, replay: false };
   };
-
-  if (txnType === "REFUND") {
-    await publishVirtualEvent(TOPICS.refundsCompleted, "refund.completed", eventBase);
-  } else {
-    await publishVirtualEvent(TOPICS.paymentsCompleted, "payment.completed", eventBase);
+  let result;
+  try { result = await moneyTransaction(apply); }
+  catch (error) {
+    const prior = referenceId ? await VirtualTransaction.findOne({ senderId: adminId, senderRole: "user", referenceId }) : null;
+    if (!prior || prior.fingerprint !== digest || prior.status !== "SUCCESS") throw error;
+    result = { transaction: prior, replay: true };
   }
-
-  await publishVirtualEvent(TOPICS.walletUpdated, "wallet.updated", {
-    userId: senderId,
-    userRole: normalizedSenderRole,
-    change: -debitAmount,
-    transactionId: createdTransaction.transactionId,
-  });
-  await publishVirtualEvent(TOPICS.walletUpdated, "wallet.updated", {
-    userId: receiverId,
-    userRole: normalizedReceiverRole,
-    change: debitAmount,
-    transactionId: createdTransaction.transactionId,
-  });
-  await publishVirtualEvent(TOPICS.analyticsEvents, "transaction.recorded", eventBase);
-
-  return createdTransaction;
+  if (!result.replay) await financialEffects(() => invalidateWalletCache([{ role: targetRole, userId: targetId }]), () => publishVirtualEvent(TOPICS.analyticsEvents, "wallet.topup", result.transaction.toObject()));
+  result.transaction.$locals.replay = result.replay;
+  return result.transaction;
 };
-
-const topupWallet = async ({ adminId, targetId, targetRole, amount, description }) => {
-  const creditAmount = sanitizeAmount(amount);
-  const role = normalizeRole(targetRole);
-  const wallet = await ensureWallet({ userId: targetId, userRole: role });
-
-  if (wallet.status !== "active") {
-    throw new Error("Target wallet is frozen");
+export const refundInSession = async (input, session) => {
+  let original = await VirtualTransaction.findOne({ transactionId: input.originalTransactionId }).session(session).lean();
+  if (!original) throw moneyError(404, "Original transaction not found");
+  if (!input.isAdmin && (String(original.receiverId) !== String(input.actorId) || original.receiverRole !== input.actorRole)) throw moneyError(403, "Only the merchant can refund this payment");
+  const digest = fingerprint({ amount: input.amount === undefined ? "remaining" : amountToMinor(input.amount), reason: input.reason || "Refund issued" });
+  const key = input.idempotencyKey || `remaining:${input.actorRole}:${input.actorId}`;
+  const prior = await VirtualRefund.findOne({ paymentId: original.transactionId, idempotencyKey: key }).session(session);
+  if (prior?.status === "COMPLETED") {
+    if (prior.fingerprint !== digest) throw moneyError(409, "Refund request details changed");
+    const refundTxn = await VirtualTransaction.findOne({ transactionId: prior.refundTransactionId }).session(session);
+    if (!refundTxn) throw moneyError(409, "Refund ledger requires reviewed recovery");
+    return { original, refundTxn, refund: prior, replay: true };
   }
-
-  await Wallet.updateOne(
-    { _id: wallet._id },
-    {
-      $inc: {
-        balance: creditAmount,
-        totalReceived: creditAmount,
-      },
-    },
-  );
-
-  const transaction = await VirtualTransaction.create({
-    transactionId: createTransactionId(),
-    senderId: adminId,
-    senderRole: "user",
-    receiverId: targetId,
-    receiverRole: role,
-    amount: creditAmount,
-    type: "TOPUP",
-    status: "SUCCESS",
-    description: description || "Admin demo top-up",
-    referenceId: `TOPUP-${Date.now()}-${targetId}`,
-    metadata: {
-      source: "admin",
-    },
-  });
-
-  await createNotification({
-    userId: targetId,
-    userRole: role,
-    type: "TOPUP_SUCCESS",
-    title: "Top-up received",
-    message: `INR ${creditAmount.toFixed(2)} was added to your wallet`,
-    transactionId: transaction.transactionId,
-  });
-
-  await invalidateWalletCache([{ role, userId: targetId }]);
-  await publishVirtualEvent(TOPICS.walletUpdated, "wallet.updated", {
-    userId: targetId,
-    userRole: role,
-    change: creditAmount,
-    transactionId: transaction.transactionId,
-  });
-  await publishVirtualEvent(TOPICS.analyticsEvents, "wallet.topup", {
-    transactionId: transaction.transactionId,
-    amount: creditAmount,
-    targetId,
-    targetRole: role,
-    adminId,
-  });
-
-  return transaction;
+  if (prior) throw moneyError(409, "Legacy refund requires reconciliation");
+  if (original.type !== "PAYMENT" || original.status !== "SUCCESS") throw moneyError(409, "Only successful payments with remaining balance can be refunded");
+  if (!Number.isSafeInteger(original.amountMinor) || !Number.isSafeInteger(original.refundedMinor)) throw moneyError(409, "Ledger migration is required");
+  const remaining = original.amountMinor - original.refundedMinor;
+  const minor = input.amount === undefined ? remaining : amountToMinor(input.amount);
+  if (minor <= 0 || minor > remaining) throw moneyError(409, "Refund amount exceeds remaining refundable balance");
+  original = await VirtualTransaction.findOneAndUpdate({ _id: original._id, refundedMinor: original.refundedMinor, status: "SUCCESS" },
+    { $inc: { refundedMinor: minor }, $set: { status: minor === remaining ? "REFUNDED" : "SUCCESS", "metadata.refundedAmount": fromMinor(original.refundedMinor + minor) } }, { new: true, session });
+  if (!original) throw moneyError(409, "Payment refund state changed");
+  const refundId = `RFND-${crypto.randomUUID()}`;
+  const moved = await transferInSession({ senderId: original.receiverId, senderRole: original.receiverRole, receiverId: original.senderId, receiverRole: original.senderRole,
+    amount: fromMinor(minor), type: "REFUND", description: input.reason || "Refund issued", referenceId: `REFUND-${refundId}`, relatedTransactionId: original.transactionId,
+    metadata: { originalTransactionId: original.transactionId, refundId, demo: true } }, session, { refund: true });
+  const [refund] = await VirtualRefund.create([{ refundId, paymentId: original.transactionId, amount: fromMinor(minor), amountMinor: minor, fingerprint: digest,
+    reason: input.reason || "Refund issued", requestedById: input.actorId, requestedByRole: input.actorRole, idempotencyKey: key, status: "COMPLETED", refundTransactionId: moved.transaction.transactionId }], { session });
+  await VirtualTransaction.updateOne({ _id: original._id }, { $set: { "metadata.latestRefundTransactionId": moved.transaction.transactionId } }, { session });
+  return { original, refundTxn: moved.transaction, refund, replay: false };
 };
-
-const refundVirtualPayment = async ({
-  actorId,
-  actorRole,
-  originalTransactionId,
-  amount,
-  reason,
-  isAdmin,
-  idempotencyKey,
-}) => {
-  const original = await VirtualTransaction.findOne({ transactionId: originalTransactionId });
-  if (!original) {
-    throw new Error("Original transaction not found");
+export const refundVirtualPayment = async (input) => {
+  let result;
+  try { result = await moneyTransaction((session) => refundInSession(input, session)); }
+  catch (error) {
+    const prior = await VirtualRefund.findOne({ paymentId: input.originalTransactionId, idempotencyKey: input.idempotencyKey || `remaining:${input.actorRole}:${input.actorId}`, status: "COMPLETED" });
+    if (!prior) throw error;
+    // Re-enter the read/replay path so authorization and input validation still run.
+    result = await moneyTransaction((session) => refundInSession(input, session));
   }
-
-  if (original.type !== "PAYMENT" || original.status !== "SUCCESS") {
-    throw new Error("Only successful PAYMENT transactions can be refunded");
-  }
-
-  if (!isAdmin && (String(original.receiverId) !== String(actorId) || original.receiverRole !== actorRole)) {
-    throw new Error("Only the merchant can refund this payment");
-  }
-
-  if (idempotencyKey) {
-    const existingRefund = await VirtualRefund.findOne({
-      paymentId: original.transactionId,
-      idempotencyKey,
-    });
-    if (existingRefund?.status === "COMPLETED") {
-      const existingTxn = await VirtualTransaction.findOne({
-        transactionId: existingRefund.refundTransactionId,
-      });
-      return { original, refundTxn: existingTxn, refund: existingRefund, replay: true };
-    }
-    if (existingRefund?.status === "CREATED") {
-      throw new Error("Refund with this idempotency key is already processing");
-    }
-  }
-
-  const previousRefunds = await VirtualTransaction.aggregate([
-    {
-      $match: {
-        relatedTransactionId: original.transactionId,
-        type: "REFUND",
-        status: "SUCCESS",
-      },
-    },
-    {
-      $group: {
-        _id: null,
-        refundedAmount: { $sum: "$amount" },
-      },
-    },
-  ]);
-  const alreadyRefunded = previousRefunds[0]?.refundedAmount || 0;
-
-  const duplicateFullRefund = await VirtualTransaction.findOne({
-    relatedTransactionId: original.transactionId,
-    type: "REFUND",
-    status: "SUCCESS",
-    amount: original.amount,
-  });
-
-  const refundAmount = amount ? sanitizeAmount(amount) : original.amount;
-  if (!amount && duplicateFullRefund) {
-    throw new Error("Full refund already issued");
-  }
-  if (alreadyRefunded + refundAmount > original.amount) {
-    throw new Error("Refund amount exceeds remaining refundable balance");
-  }
-
-  let refund = await VirtualRefund.create({
-    refundId: createRefundId(),
-    paymentId: original.transactionId,
-    amount: refundAmount,
-    reason: reason || "Refund issued",
-    requestedById: actorId,
-    requestedByRole: actorRole,
-    idempotencyKey,
-  });
-
-  await publishVirtualEvent(TOPICS.refundsCreated, "refund.created", {
-    refundId: refund.refundId,
-    paymentId: original.transactionId,
-    amount: refundAmount,
-    requestedById: actorId,
-    requestedByRole: actorRole,
-  });
-
-  try {
-    const refundTxn = await transferVirtualMoney({
-      senderId: original.receiverId,
-      senderRole: original.receiverRole,
-      receiverId: original.senderId,
-      receiverRole: original.senderRole,
-      amount: refundAmount,
-      type: "REFUND",
-      description: reason || "Refund issued",
-      referenceId: `REFUND-${original.transactionId}-${refund.refundId}`,
-      relatedTransactionId: original.transactionId,
-      metadata: {
-        originalTransactionId: original.transactionId,
-        refundId: refund.refundId,
-      },
-    });
-
-    refund.status = "COMPLETED";
-    refund.refundTransactionId = refundTxn.transactionId;
-    await refund.save();
-
-    const totalRefunded = alreadyRefunded + refundAmount;
-    if (totalRefunded >= original.amount) {
-      original.status = "REFUNDED";
-    }
-    original.metadata = {
-      ...(original.metadata || {}),
-      refundedAmount: totalRefunded,
-      latestRefundTransactionId: refundTxn.transactionId,
-    };
-    await original.save();
-
-    return { original, refundTxn, refund, replay: false };
-  } catch (error) {
-    refund.status = "FAILED";
-    refund.failureReason = error.message;
-    await refund.save();
-    throw error;
-  }
-};
-
-export {
-  createNotification,
-  ensureWallet,
-  invalidateWalletCache,
-  refundVirtualPayment,
-  sanitizeAmount,
-  topupWallet,
-  transferVirtualMoney,
+  if (!result.replay) await afterTransferCommit(result.refundTxn);
+  return result;
 };

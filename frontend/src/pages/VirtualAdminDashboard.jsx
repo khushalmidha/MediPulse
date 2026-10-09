@@ -1,3 +1,5 @@
+import { bookingRequestKey, clearBookingRequest } from "../utils/bookingRequest";
+import { useAuth } from "../context/AuthContext";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { BACKEND_URL } from "../utils";
@@ -6,6 +8,9 @@ const VirtualAdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [wallets, setWallets] = useState([]);
   const [message, setMessage] = useState("");
+  const { user, role } = useAuth();
+  const requestScope = `topup:${role}:${user?._id || "guest"}`;
+  const [busy, setBusy] = useState(false);
   const [topup, setTopup] = useState({ targetId: "", targetRole: "user", amount: 100, description: "Demo top-up" });
 
   const fetchData = async () => {
@@ -37,29 +42,35 @@ const VirtualAdminDashboard = () => {
 
   const onTopup = async (event) => {
     event.preventDefault();
+    if (busy || !user?._id) return;
+    setBusy(true);
     setMessage("");
     try {
-      const requestId = `topup-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const payload = { ...topup, amount: String(topup.amount) };
+      const requestId = await bookingRequestKey(requestScope, payload);
       const res = await axios.post(
         `${BACKEND_URL}/vpay/wallet/topup`,
-        { ...topup, requestId },
-        { withCredentials: true, headers: { "x-idempotency-key": requestId } },
+        { ...payload, requestId },
+        { withCredentials: true, headers: { "Idempotency-Key": requestId } },
       );
-      setMessage(res.data.message || "Top-up done");
+      clearBookingRequest(requestScope);
+      setMessage(res.data.message || "Demo top-up completed");
       await fetchData();
     } catch (error) {
-      setMessage(error.response?.data?.message || "Top-up failed");
-    }
+      if ([400, 402, 403, 404, 422].includes(error.response?.status)) clearBookingRequest(requestScope);
+      setMessage(error.response?.data?.message || "Could not confirm the demo top-up. Retry the same details.");
+    } finally { setBusy(false); }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Virtual Payments Admin</h1>
+        <p className="text-sm text-gray-600">Demo INR credits only. No real money is collected.</p>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-xl bg-white dark:bg-slate-950 p-4 shadow-sm">
-            <p className="text-xs text-gray-500">Money in circulation</p>
+            <p className="text-xs text-gray-500">Demo credits in circulation</p>
             <p className="text-2xl font-semibold">INR {(stats?.totalVirtualMoneyInCirculation || 0).toFixed(2)}</p>
           </div>
           <div className="rounded-xl bg-white dark:bg-slate-950 p-4 shadow-sm">
@@ -115,13 +126,13 @@ const VirtualAdminDashboard = () => {
         </div>
 
         <form onSubmit={onTopup} className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm grid gap-3 md:grid-cols-5">
-          <input value={topup.targetId} onChange={(e) => setTopup((p) => ({ ...p, targetId: e.target.value }))} placeholder="Target user id" className="rounded-md border border-gray-300 px-3 py-2 text-sm md:col-span-2" required />
-          <select value={topup.targetRole} onChange={(e) => setTopup((p) => ({ ...p, targetRole: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+          <input value={topup.targetId} onChange={(e) => setTopup((p) => ({ ...p, targetId: e.target.value }))} aria-label="Target user id" placeholder="Target user id" className="rounded-md border border-gray-300 px-3 py-2 text-sm md:col-span-2" required />
+          <select aria-label="Target wallet role" value={topup.targetRole} onChange={(e) => setTopup((p) => ({ ...p, targetRole: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
             <option value="user">User</option>
             <option value="doctor">Doctor</option>
           </select>
-          <input type="number" min="1" step="0.01" value={topup.amount} onChange={(e) => setTopup((p) => ({ ...p, amount: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm" required />
-          <button className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white">Top-up</button>
+          <input aria-label="Demo top-up amount" type="number" min="0.01" step="0.01" value={topup.amount} onChange={(e) => setTopup((p) => ({ ...p, amount: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2 text-sm" required />
+          <button disabled={busy || !user?._id} className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white disabled:opacity-50">{busy ? "Processing..." : "Top-up"}</button>
         </form>
 
         <div className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm overflow-x-auto">

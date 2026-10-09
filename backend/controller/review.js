@@ -3,9 +3,10 @@ import Hospital from "../model/hospital.js";
 import OpdToken from "../model/opdToken.js";
 import Review from "../model/review.js";
 import PlatformFeedback from "../model/platformFeedback.js";
-import { getRedis } from "../services/redis.js";
 import { recalculateDoctorRating, recalculateHospitalRating } from "../services/ratingService.js";
 import { verifyReviewSignature } from "../services/reviewRequestWorker.js";
+import { publicReview } from "../services/publicViews.js";
+import { invalidatePublicHospitalCache } from "../services/publicHospitalCache.js";
 
 const validRating = (value) => Number(value) >= 1 && Number(value) <= 5;
 
@@ -82,7 +83,7 @@ export const getHospitalReviews = async (req, res) => {
       Review.countDocuments(filter),
     ]);
 
-    res.status(200).json({ items, page, total, pages: Math.ceil(total / limit) });
+    res.status(200).json({ items: items.map(publicReview), page, total, pages: Math.ceil(total / limit) });
   } catch (error) {
     res.status(500).json({ message: error.message || "Unable to load reviews" });
   }
@@ -100,9 +101,9 @@ export const respondToReview = async (req, res) => {
     };
     await review.save();
 
-    const hospital = await Hospital.findById(req.staff.hospitalId).select("slug");
+    const hospital = await Hospital.findById(req.staff.hospitalId).select("slug websiteConfig.customDomain");
     if (hospital?.slug) {
-      await getRedis().del(`hospital:public:${hospital.slug}`);
+      await invalidatePublicHospitalCache(hospital);
     }
 
     res.status(200).json({ message: "Response saved", review });
@@ -133,7 +134,7 @@ export const getGlobalReviews = async (req, res) => {
       .populate("doctorId", "name")
       .sort({ overallRating: -1, createdAt: -1 })
       .limit(6);
-    res.status(200).json({ reviews });
+    res.status(200).json({ reviews: reviews.map(publicReview) });
   } catch (error) {
     res.status(500).json({ message: error.message || "Unable to fetch global reviews" });
   }
@@ -231,7 +232,7 @@ export const getHomepageFeedbacks = async (req, res) => {
 
     combined.sort((a, b) => b.rating - a.rating);
 
-    res.status(200).json({ reviews: combined });
+    res.status(200).json({ reviews: combined.map(publicReview) });
   } catch (error) {
     res.status(500).json({ message: error.message || "Unable to fetch homepage feedbacks" });
   }

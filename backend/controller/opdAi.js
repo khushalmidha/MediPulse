@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpdToken from "../model/opdToken.js";
+import { emitOpdEvent, loadVisit } from "../services/hospitalAccess.js";
 import { getRedis } from "../services/redis.js";
 import { getIO } from "../socket.js";
 
@@ -166,7 +167,7 @@ export const sendOpdTriageMessage = async (req, res) => {
       await getRedis().del(triageKey(token._id));
 
       const io = getIO();
-      if (io) io.to(`doctor:${token.doctorId}`).emit("opd:brief-ready", { tokenId: token._id, displayToken: token.displayToken });
+      await emitOpdEvent(io, "opd:brief-ready", token);
 
       return res.status(200).json({ message: "Thanks. Your doctor summary is ready.", isBriefReady: true, patientBrief });
     }
@@ -188,14 +189,10 @@ export const sendOpdTriageMessage = async (req, res) => {
 
 export const getOpdTokenAiContext = async (req, res) => {
   try {
-    const token = await OpdToken.findOne({ _id: req.params.tokenId, hospitalId: req.staff.hospitalId }).lean();
-    if (!token) return res.status(404).json({ message: "Token not found" });
-    if (req.staff.role === "DOCTOR" && String(token.doctorId) !== req.staff.id) {
-      return res.status(403).json({ message: "Only assigned doctor can view this OPD AI context" });
-    }
-    res.status(200).json({ aiTriage: token.aiTriage || null, doctorCopilot: token.doctorCopilot || null });
+    const token = await loadVisit(req.staff, req.params.tokenId, { clinical: true });
+    res.status(200).json({ aiTriage: token.aiTriage || null, doctorCopilot: req.staff.role === "DOCTOR" ? token.doctorCopilot || null : null });
   } catch (error) {
-    res.status(500).json({ message: error.message || "Unable to load AI context" });
+    res.status(error.status || 500).json({ message: error.status ? error.message : "Unable to load AI context" });
   }
 };
 
@@ -214,11 +211,8 @@ export const getOpdTokenAiContext = async (req, res) => {
  */
 export const askDoctorCopilot = async (req, res) => {
   try {
-    const token = await OpdToken.findOne({ _id: req.params.tokenId, hospitalId: req.staff.hospitalId });
-    if (!token) return res.status(404).json({ message: "Token not found" });
-    if (req.staff.role === "DOCTOR" && String(token.doctorId) !== req.staff.id) {
-      return res.status(403).json({ message: "Only assigned doctor can use co-pilot" });
-    }
+    if (req.staff.role !== "DOCTOR") return res.status(403).json({ message: "Assigned doctor is required to use co-pilot" });
+    const token = await loadVisit(req.staff, req.params.tokenId, { clinical: true });
 
     const prompt = String(req.body.prompt || "Suggest focused consultation questions").trim();
     const context = {
@@ -242,6 +236,6 @@ export const askDoctorCopilot = async (req, res) => {
     await token.save();
     res.status(200).json({ suggestion, context });
   } catch (error) {
-    res.status(500).json({ message: error.message || "Doctor co-pilot unavailable" });
+    res.status(error.status || 500).json({ message: error.status ? error.message : "Doctor co-pilot unavailable" });
   }
 };

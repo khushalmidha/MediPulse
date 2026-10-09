@@ -1,6 +1,9 @@
+import { hospitalPalette } from "../../utils/visualSystem";
+import { createSnapshotGuard } from "../../utils/queueSnapshot";
+import { bookingRequestKey, clearBookingRequest } from "../../utils/bookingRequest";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Cookies from "js-cookie";
+import { csrfHeaders } from "../../utils/sessionHttp";
 import { Activity, CalendarDays, MapPin, Phone, Search, Star, Stethoscope, Users, X } from "lucide-react";
 import { BACKEND_URL } from "../../utils";
 import { useAuth } from "../../context/AuthContext";
@@ -44,6 +47,7 @@ const HospitalWebsite = ({ slug }) => {
   const [chiefComplaint, setChiefComplaint] = useState("");
   const [bookingMessage, setBookingMessage] = useState("");
   const [bookingResult, setBookingResult] = useState(null);
+  const [selectedSession, setSelectedSession] = useState("");
   const [booking, setBooking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,9 +56,10 @@ const HospitalWebsite = ({ slug }) => {
 
   useEffect(() => {
     if (!hospitalKey) return;
-    let active = true;
+    let active = true, loadSequence = 0, appliedLoad = 0;
 
     const load = async (showSpinner = false) => {
+      const sequence = ++loadSequence;
       if (showSpinner) setLoading(true);
       setError("");
       try {
@@ -74,7 +79,8 @@ const HospitalWebsite = ({ slug }) => {
           : null;
         const reviewsPayload = reviewsResponse?.ok ? await reviewsResponse.json() : { items: [] };
 
-        if (active) {
+        if (active && sequence >= appliedLoad) {
+          appliedLoad = sequence;
           setProfile(profilePayload);
           setQueue(queuePayload);
           setReviews(reviewsPayload.items || []);
@@ -105,7 +111,8 @@ const HospitalWebsite = ({ slug }) => {
   const hospital = profile?.hospital;
   const departments = profile?.departments || [];
   const doctors = profile?.doctors || [];
-  const primaryColor = hospital?.branding?.primaryColor || "#2563eb";
+  const brand = hospitalPalette(hospital?.branding?.primaryColor);
+  const primaryColor = brand.accent;
   const queueByDepartment = useMemo(() => {
     const map = new Map();
     (queue?.departments || []).forEach((item) => {
@@ -145,9 +152,9 @@ const HospitalWebsite = ({ slug }) => {
     () => ({
       backgroundImage: hospital?.branding?.coverImage
         ? `linear-gradient(90deg, rgba(15,23,42,.82), rgba(15,23,42,.35)), url(${hospital.branding.coverImage})`
-        : `linear-gradient(135deg, ${primaryColor}, #0f172a)`,
+        : `linear-gradient(135deg, ${brand.ink}, #0f172a)`,
     }),
-    [hospital?.branding?.coverImage, primaryColor],
+    [hospital?.branding?.coverImage, brand.ink],
   );
 
   useEffect(() => {
@@ -159,42 +166,45 @@ const HospitalWebsite = ({ slug }) => {
   }, [sliderImages.length]);
 
   useEffect(() => {
-    if (!isAuth || role !== "user") return undefined;
+    if (!isAuth || role !== "user" || !hospital?._id) return undefined;
+    let active = true;
+    const guard = createSnapshotGuard(), notified = new Set();
     const socket = getSocket();
+    const refresh = async () => {
+      const ticket = guard.begin(hospital._id);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/opd/${hospital._id}/my-token`, { credentials: "include" });
+        if (!response.ok) return;
+        const data = await response.json(), token = data.tokens?.find(item => item.status === "in_consultation") || data.token;
+        if (!active || !guard.accept(ticket, { queueKey: token?._id, queueRevision: token?.revision })) return;
+        if (token?.status === "in_consultation") {
+          if (notified.has(token._id)) return;
+          notified.add(token._id);
+          setPatientToast({ message: `Token ${token.displayToken} is now in consultation. Please proceed to the consultation room or ask reception for the destination.`, isOpd: true, hospitalSlug: hospital.slug });
+        } else setPatientToast(null);
+      } catch { /* The next reconnect, visibility event or poll retries the authorized snapshot. */ }
+    };
+    const events = ["connect", "visit:changed", "appointment:started", "appointment:user-status", "opd:patient-called"];
+    for (const event of events) socket.on(event, refresh);
     if (!socket.connected) socket.connect();
-    const showJoin = (payload = {}) => {
-      if (!payload.doctorId) return;
-      setPatientToast({
-        message: "Doctor has started your consultation.",
-        doctorId: payload.doctorId,
-      });
-    };
-    const handleStatus = (payload = {}) => {
-      if (payload.status === "active") showJoin(payload);
-    };
-    const handleOpdCalled = (payload = {}) => {
-      setPatientToast({
-        message: `${payload.doctorName || "Doctor"} is ready for you. Token: ${payload.displayToken || ""}. Please proceed to the consultation room.`,
-        hospitalSlug: payload.hospitalSlug,
-        isOpd: true,
-      });
-    };
-    socket.on("appointment:started", showJoin);
-    socket.on("appointment:user-status", handleStatus);
-    socket.on("opd:patient-called", handleOpdCalled);
+    void refresh();
+    const interval = window.setInterval(refresh, 10000);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
-      socket.off("appointment:started", showJoin);
-      socket.off("appointment:user-status", handleStatus);
-      socket.off("opd:patient-called", handleOpdCalled);
+      active = false; guard.reset(); clearInterval(interval);
+      for (const event of events) socket.off(event, refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
-  }, [isAuth, role]);
+  }, [isAuth, role, hospital?._id, hospital?.slug]);
 
   const openBooking = (doctor) => {
     if (!isAuth || role !== "user") {
       navigate("/login");
       return;
     }
-    navigate(`/triage/${doctor._id}`);
+    setBookingResult(null); setBookingMessage(""); setChiefComplaint("");
+    setSelectedSession(hospital.settings?.queueSessionIds?.[0] || "day");
+    setBookingDoctor(doctor);
   };
 
   const bookOpdToken = async () => {
@@ -204,16 +214,18 @@ const HospitalWebsite = ({ slug }) => {
       setBookingMessage("Doctor department is not configured yet");
       return;
     }
+    const requestScope = `opd:${user?._id}:${hospital._id}:${bookingDoctor._id}`;
     setBooking(true);
     setBookingMessage("");
     try {
+      const requestKey = await bookingRequestKey(requestScope, { doctorId: bookingDoctor._id, chiefComplaint, sessionId: selectedSession || hospital.settings?.queueSessionIds?.[0] || "day" });
       const response = await fetchWithBackendWake(`${BACKEND_URL}/api/opd/${hospital._id}/${departmentId}/book`, {
         method: "POST",
         credentials: "include",
-        // FIXED: Deployed custom domains can drop cross-site cookies; bearer fallback keeps OPD booking authenticated.
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Cookies.get("token") || ""}` },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": requestKey, ...csrfHeaders() },
         body: JSON.stringify({
-          doctorId: bookingDoctor._id,
+          practiceType: "hospital", hospitalId: hospital._id, visitMode: "in_person",
+          doctorId: bookingDoctor._id, sessionId: selectedSession || hospital.settings?.queueSessionIds?.[0] || "day",
           visitType: "new",
           chiefComplaint,
           patientInfo: {
@@ -223,8 +235,10 @@ const HospitalWebsite = ({ slug }) => {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || "Could not book OPD token");
+      if (response.status === 202) { setBookingMessage(payload.message); return; }
+      clearBookingRequest(requestScope);
       setBookingResult(payload);
-      setBookingMessage(`Token ${payload.displayToken} booked. Queue position ${payload.queuePosition}.`);
+      setBookingMessage(`Token ${payload.displayToken} reserved. Check in with hospital staff when you arrive.`);
     } catch (err) {
       setBookingMessage(
         err.message === "Failed to fetch"
@@ -285,7 +299,7 @@ const HospitalWebsite = ({ slug }) => {
             {hospital.branding?.logo ? (
               <img src={hospital.branding.logo} alt={hospital.name} className="h-11 w-11 rounded-md object-cover" />
             ) : (
-              <div className="flex h-11 w-11 items-center justify-center rounded-md text-white" style={{ backgroundColor: primaryColor }}>
+              <div className="flex h-11 w-11 items-center justify-center rounded-md text-white" style={{ backgroundColor: primaryColor, color: brand.onAccent }}>
                 <Stethoscope size={22} />
               </div>
             )}
@@ -294,7 +308,7 @@ const HospitalWebsite = ({ slug }) => {
               <div className="text-xs text-slate-500">{hospital.address?.city}, {hospital.address?.state}</div>
             </div>
           </div>
-          <a href="#doctors" className="rounded-md px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>
+          <a href="#doctors" className="rounded-md px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: primaryColor, color: brand.onAccent }}>
             Book Appointment
           </a>
         </div>
@@ -456,7 +470,7 @@ const HospitalWebsite = ({ slug }) => {
                 <button
                   onClick={() => openBooking(doctor)}
                   className="mt-4 w-full rounded-md px-4 py-2 text-sm font-semibold text-white"
-                  style={{ backgroundColor: primaryColor }}>
+                  style={{ backgroundColor: primaryColor, color: brand.onAccent }}>
                   Book with doctor
                 </button>
               </div>
@@ -471,14 +485,14 @@ const HospitalWebsite = ({ slug }) => {
       </section>
 
       {bookingDoctor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+        <div role="dialog" aria-modal="true" aria-labelledby="hospital-booking-title" onKeyDown={event => { if (event.key === "Escape") setBookingDoctor(null); }} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
           <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-950 p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-slate-950">Book OPD Token</h2>
+                <h2 id="hospital-booking-title" className="text-xl font-bold text-slate-950">Book OPD Token</h2>
                 <p className="mt-1 text-sm text-slate-500">{bookingDoctor.name} · {bookingDoctor.doctorProfile?.specialization || "Doctor"}</p>
               </div>
-              <button onClick={() => setBookingDoctor(null)} className="rounded-full p-2 hover:bg-slate-100">
+              <button aria-label="Close booking" onClick={() => setBookingDoctor(null)} className="rounded-full p-2 hover:bg-slate-100">
                 <X size={18} />
               </button>
             </div>
@@ -491,44 +505,50 @@ const HospitalWebsite = ({ slug }) => {
                   </div>
                   <div>
                     <p className="font-black text-green-900">Token Confirmed!</p>
-                    <p className="text-sm text-green-700">Queue position #{bookingResult.queuePosition}</p>
+                    <p className="text-sm text-green-700">{bookingResult.queuePosition > 0 ? `Queue position #${bookingResult.queuePosition}` : "Reserved — check in at reception to join the queue"}</p>
                   </div>
                 </div>
-                <p className="mt-3 text-sm text-green-700">Estimated wait: ~{bookingResult.estimatedWaitMinutes} minutes</p>
+                <p className="mt-3 text-sm text-green-700">{bookingResult.estimatedWaitMinutes == null ? "Wait estimate is not available yet. Check in at reception when you arrive." : `Estimated wait: about ${bookingResult.estimatedWaitMinutes} minutes`}</p>
                 <p className="text-xs text-green-600">You will be notified when the doctor is ready for you.</p>
                 <div className="mt-4 flex flex-col gap-2">
                   {bookingResult.token?._id && (
                     <button
-                      onClick={() => { setBookingDoctor(null); navigate(`/opd/triage?token=${bookingResult.token._id}`); }}
+                      onClick={() => { setBookingDoctor(null); navigate(`/visits/${bookingResult.token._id}`); }}
                       className="w-full rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
                     >
-                      Complete AI Triage (Recommended)
+                      Track this hospital visit
                     </button>
                   )}
                   <button
-                    onClick={() => { setBookingDoctor(null); navigate('/my-appointments'); }}
+                    onClick={() => { setBookingDoctor(null); navigate('/visits'); }}
                     className="w-full rounded-lg border border-green-300 px-4 py-2 text-sm font-bold text-green-800 hover:bg-green-50"
                   >
-                    View My Appointments
+                    View My Hospital Visits
                   </button>
                 </div>
               </div>
             ) : (
               <div className="mt-5 space-y-4">
-                <textarea
+                <label className="mb-3 block">Care session
+                <select autoFocus aria-label="Booking care session" value={selectedSession || hospital.settings?.queueSessionIds?.[0] || "day"} onChange={(event) => setSelectedSession(event.target.value)} className="ml-3 rounded border p-2">
+                  {(hospital.settings?.queueSessionIds || ["day"]).map((id) => <option key={id} value={id}>{id}</option>)}
+                </select>
+              </label>
+              <label className="block text-sm font-medium" htmlFor="hospital-chief-complaint">Reason for visit</label>
+              <textarea id="hospital-chief-complaint"
                   value={chiefComplaint}
                   onChange={(event) => setChiefComplaint(event.target.value)}
                   placeholder="Describe your chief complaint or reason for visit..."
                   className="min-h-28 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-red-500"
                 />
                 <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-blue-800">
-                  Your OPD token will be added to the live queue immediately. Please arrive at the hospital on time.
+                  Your token reserves a visit. Check in with hospital staff when you arrive to join the care queue. Consultation charges use demo credits; no real money is collected.
                 </div>
                 <button
                   onClick={bookOpdToken}
                   disabled={booking}
                   className="w-full rounded-lg px-4 py-3 text-sm font-bold text-white disabled:bg-slate-400"
-                  style={{ backgroundColor: primaryColor }}>
+                  style={{ backgroundColor: primaryColor, color: brand.onAccent }}>
                   {booking ? "Booking..." : "Confirm OPD Token"}
                 </button>
               </div>

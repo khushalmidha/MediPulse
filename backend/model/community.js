@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 
 const communitySchema = new mongoose.Schema(
   {
+    activityRevision: { type: Number, default: 0 },
     title: {
       type: String,
       required: true,

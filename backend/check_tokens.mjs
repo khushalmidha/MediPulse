@@ -1,20 +1,22 @@
 import mongoose from "mongoose";
+import { configDotenv } from "dotenv";
+import { requireDatabaseUrl } from "./util/databaseConfig.js";
 
-const uri = "mongodb+srv://khushalmidha:7H5qXGxJ03vfYt9A@cluster0.qyi5j.mongodb.net/";
-
+configDotenv({ path: [".env", "../.env"], quiet: true });
 const run = async () => {
-  await mongoose.connect(uri);
-  const db = mongoose.connection.useDb('test'); 
-  
-  const tokens = await db.collection("opdtokens").find().sort({ createdAt: -1 }).limit(2).toArray();
-  tokens.forEach(t => {
-    console.log(`- Token ID: ${t._id}`);
-    console.log(`  Symptoms/Complaint: ${t.chiefComplaint}`);
-    console.log(`  Patient Brief: ${JSON.stringify(t.aiTriage?.patientBrief, null, 2)}`);
-    console.log("  -----------------------------");
-  });
-  
-  await mongoose.disconnect();
+  try {
+    await mongoose.connect(requireDatabaseUrl(), { serverSelectionTimeoutMS: 5000 });
+    const tokens = mongoose.connection.collection("opdtokens");
+    const [total, completedTriage] = await Promise.all([
+      tokens.countDocuments({}),
+      tokens.countDocuments({ "aiTriage.status": "completed" }),
+    ]);
+    console.log(JSON.stringify({ totalTokens: total, completedTriageTokens: completedTriage }));
+  } finally {
+    await mongoose.disconnect();
+  }
 };
-
-run().catch(console.error);
+run().catch(() => {
+  console.error("Token diagnostic failed. Check DATABASE_URL and database access privately.");
+  process.exitCode = 1;
+});

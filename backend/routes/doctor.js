@@ -1,5 +1,7 @@
+import asyncHandler from "../middleware/asyncHandler.js";
 import { Router } from "express";
 import {
+  logout,
   doctorSignup,
   doctorLogin,
   googleAuth,
@@ -11,16 +13,17 @@ import userValidation from "../middleware/validateUser.js";
 
 const doctorRouter = Router();
 
-doctorRouter.post("/signup", doctorSignup);
-doctorRouter.post("/login", doctorLogin);
-doctorRouter.post("/google-auth", googleAuth);
-doctorRouter.post("/forgot-password/send-otp", sendPasswordResetOtp);
-doctorRouter.post("/forgot-password/reset", resetPasswordWithOtp);
+doctorRouter.post("/logout", asyncHandler(logout));
+doctorRouter.post("/signup", asyncHandler(doctorSignup));
+doctorRouter.post("/login", asyncHandler(doctorLogin));
+doctorRouter.post("/google-auth", asyncHandler(googleAuth));
+doctorRouter.post("/forgot-password/send-otp", asyncHandler(sendPasswordResetOtp));
+doctorRouter.post("/forgot-password/reset", asyncHandler(resetPasswordWithOtp));
 
-doctorRouter.get("/:id/hospitals", getDoctorHospitals);
-doctorRouter.get("/:id", getDoctorById);
-doctorRouter.delete("/:id", userValidation, deleteDoctorById);
-doctorRouter.get("/", getAllDoctors);
-doctorRouter.put("/", userValidation, updateDoctorData);
+doctorRouter.get("/:id/hospitals", asyncHandler(getDoctorHospitals));
+doctorRouter.get("/:id", asyncHandler(getDoctorById));
+doctorRouter.delete("/:id", userValidation, asyncHandler(deleteDoctorById));
+doctorRouter.get("/", asyncHandler(getAllDoctors));
+doctorRouter.put("/", userValidation, asyncHandler(updateDoctorData));
 
 export default doctorRouter;

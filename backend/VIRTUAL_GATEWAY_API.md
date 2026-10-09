@@ -4,14 +4,13 @@ This module is a virtual currency gateway. It does not use any external payment 
 
 Base path: `/vpay`
 Auth: existing JWT cookie middleware.
-Currency: virtual INR.
+Units: demo INR credits only; no real payment collection. Integer hundredths are authoritative; numeric major-unit response fields remain compatible. See `../docs/P04_MIGRATION.md` before updating existing writers.
 
 ## Infrastructure
 
 - MongoDB stores wallets, ledger transactions, refund records, notifications,
   and analytics events.
-- Redis stores wallet cache, rate limits, idempotency state, and
-  distributed wallet locks.
+- Redis supports rate limits and optional wallet cache; MongoDB transactions and unique references enforce financial correctness.
 - Kafka publishes and consumes gateway events.
 
 ## Required Headers
@@ -19,10 +18,10 @@ Currency: virtual INR.
 Mutation endpoints that move money require idempotency:
 
 ```http
-x-idempotency-key: unique-client-request-id
+Idempotency-Key: unique-client-request-id
 ```
 
-Alternatively send `requestId` in the JSON body.
+Legacy `x-idempotency-key` or JSON `requestId` are also accepted. Reuse the same key and details after a lost response; keys are scoped to actor and action.
 
 ## User APIs
 
@@ -67,9 +66,10 @@ Money movement must go through `transferVirtualMoney` or `topupWallet`.
 
 - Payments debit sender wallet and credit receiver wallet.
 - Refunds debit merchant wallet and credit payer wallet.
-- Wallet balances are guarded by Redis locks.
-- Duplicate payment requests are blocked by Redis idempotency keys.
-- Duplicate refunds are blocked by refund records and remaining refundable amount.
+- Integer wallet balances, ledger records, refunds and linked booking completion commit atomically in MongoDB.
+- Matching persistent request references replay across API processes; changed successful input conflicts.
+- Refund limits, refund transfers and original totals commit together. An omitted amount refunds the remaining balance. Appointment payments must use the appointment cancellation endpoint.
+- Optional Redis/Kafka delivery failure does not reverse committed accounting; P06 owns durable delivery.
 
 ## Kafka Topics
 

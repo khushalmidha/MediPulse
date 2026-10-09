@@ -1,8 +1,8 @@
 const isBrowser = typeof window !== "undefined";
 const isLocalhost = isBrowser && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
-const productionBackendUrl = "https://medipulse-4fi1.onrender.com";
+const productionBackendUrl = "/backend";
 
-// FIXED: Deployed builds without VITE_BACKEND_URL were calling localhost, causing hospital OPD booking to fail with "Failed to fetch".
+// The production default uses the same-origin relay; an explicit API URL remains supported.
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || (isLocalhost ? "http://localhost:8080" : productionBackendUrl);
 const MAPS_API = import.meta.env.VITE_GOOGLE_MAPS_API;
 const CLOUDINARY_API = import.meta.env.VITE_CLOUDINARY_API;

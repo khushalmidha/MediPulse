@@ -1,3 +1,4 @@
+import { communityMemberCount } from "../utils/community";
 import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { Users, Plus, Calendar, Tag, Info, X } from 'lucide-react'
@@ -323,6 +324,7 @@ const CommunityCard = () => {
               <div className='h-32 bg-gradient-to-r from-red-500 to-red-600'></div>
               <button
                 onClick={onClose}
+                aria-label="Close community details"
                 className='absolute top-3 right-3 bg-white dark:bg-slate-950 rounded-full p-1 shadow-md hover:bg-gray-100'>
                 <X size={20} />
               </button>
@@ -383,7 +385,7 @@ const CommunityCard = () => {
                     size={18}
                   />
                   <span className='text-gray-600'>
-                    {community.members?.length || 0} members
+                    {communityMemberCount(community)} members
                   </span>
                 </div>
 

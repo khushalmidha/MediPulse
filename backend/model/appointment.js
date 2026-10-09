@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 
 const appointmentSchema = new mongoose.Schema(
   {
+    practiceType: { type: String, enum: ["hospital", "independent"] },
+    hospitalId: { type: mongoose.Schema.Types.ObjectId, ref: "Hospital" },
+    queueKey: String, practiceKey: String, serviceDate: String, sessionId: String, timezone: String,
+    personKey: String, revision: { type: Number, default: 0 },
+    bookingOperationId: mongoose.Schema.Types.ObjectId,
+    opdTokenId: { type: mongoose.Schema.Types.ObjectId, ref: "OpdToken" },
+    visitMode: { type: String, enum: ["in_person", "online"], default: "online" },
     doctor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "doctor",
@@ -23,10 +30,11 @@ const appointmentSchema = new mongoose.Schema(
     },
     doctorCopilot: { lastPrompt: String, lastSuggestion: String, updatedAt: Date }, status: {
       type: String,
-      enum: ["queued", "active", "completed", "cancelled"],
+      enum: ["booking", "queued", "active", "completed", "cancelled", "refund_pending"],
       default: "queued",
       index: true,
     },
+    consultationDeadline: Date, refundDueAt: Date,
     startedAt: {
       type: Date,
     },
@@ -90,6 +98,8 @@ const appointmentSchema = new mongoose.Schema(
       generatedBy: String,
     },
     payment: {
+      nextRecoveryAt: Date,
+      refundState: { type: String, enum: ["processing", "completed"] },
       provider: {
         type: String,
         enum: ["wallet"],
@@ -101,6 +111,7 @@ const appointmentSchema = new mongoose.Schema(
       paymentId: {
         type: String,
       },
+      amountMinor: Number,
       amount: {
         type: Number,
       },
@@ -120,18 +131,25 @@ const appointmentSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    autoIndex: false,
   },
 );
 
 appointmentSchema.index({ "payment.orderId": 1 }, { unique: true, sparse: true });
 appointmentSchema.index(
-  { user: 1, doctor: 1 },
+  { queueKey: 1, personKey: 1 },
   {
     unique: true,
-    partialFilterExpression: { status: { $in: ["queued", "active"] } },
+    name: "queue_live_appointment_p03",
+    partialFilterExpression: { queueKey: { $type: "string" }, status: { $in: ["booking", "queued", "active", "refund_pending"] } },
   }
 );
 
-const Appointment = mongoose.model("appointment", appointmentSchema);
+appointmentSchema.index({ queueKey: 1 }, { unique: true, name: "queue_active_appointment_p03", partialFilterExpression: { queueKey: { $type: "string" }, status: "active" } });
 
+
+appointmentSchema.index({ status: 1, consultationDeadline: 1 }, { name: "p06_consultation_deadline" });
+appointmentSchema.index({ status: 1, refundDueAt: 1 }, { name: "p06_refund_deadline" });
+
+const Appointment = mongoose.model("appointment", appointmentSchema);
 export default Appointment;

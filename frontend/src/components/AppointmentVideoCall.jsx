@@ -10,60 +10,6 @@ import {
   User, Stethoscope, BrainCircuit, FileText, X, Send
 } from "lucide-react";
 
-const getStaticIceServers = () => {
-  const servers = [
-    { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
-  ];
-  const turnUrls = (import.meta.env.VITE_TURN_URLS || "")
-    .split(",")
-    .map((url) => url.trim())
-    .filter(Boolean);
-
-  if (turnUrls.length) {
-    servers.push({
-      urls: turnUrls,
-      username: import.meta.env.VITE_TURN_USERNAME || undefined,
-      credential: import.meta.env.VITE_TURN_CREDENTIAL || undefined,
-    });
-  }
-
-  return servers;
-};
-
-let meteredIceServersPromise = null;
-
-const fetchMeteredIceServers = async () => {
-  const meteredApp = import.meta.env.VITE_METERED_TURN_APP || "";
-  const meteredApiKey = import.meta.env.VITE_METERED_TURN_API_KEY || "";
-  const meteredUrl =
-    import.meta.env.VITE_METERED_TURN_URL ||
-    (meteredApp && meteredApiKey
-      ? `https://${meteredApp}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(meteredApiKey)}`
-      : "");
-
-  if (!meteredUrl) return null;
-
-  if (!meteredIceServersPromise) {
-    meteredIceServersPromise = fetch(meteredUrl)
-      .then((response) => {
-        if (!response.ok) throw new Error(`Metered TURN request failed: ${response.status}`);
-        return response.json();
-      })
-      .then((iceServers) => (Array.isArray(iceServers) && iceServers.length ? iceServers : null))
-      .catch((err) => {
-        console.error("Metered TURN credentials error:", err);
-        return null;
-      });
-  }
-
-  return meteredIceServersPromise;
-};
-
-const getRtcConfig = async () => {
-  const meteredIceServers = await fetchMeteredIceServers();
-  return { iceServers: meteredIceServers || getStaticIceServers() };
-};
-
 const MED_KEYWORDS = [
   "aspirin", "ibuprofen", "paracetamol", "acetaminophen", "metformin",
   "insulin", "warfarin", "atorvastatin", "amoxicillin", "azithromycin",
@@ -85,6 +31,8 @@ const AppointmentVideoCall = ({
   onCallEnd,
 }) => {
   const { role, user } = useAuth();
+  const onCallEndRef = useRef(onCallEnd);
+  useEffect(() => { onCallEndRef.current = onCallEnd; }, [onCallEnd]);
   const peerConnectionRef = useRef(null);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -95,6 +43,10 @@ const AppointmentVideoCall = ({
   const callEndedRef = useRef(false);
   const teardownCallRef = useRef(() => {});
 
+  const [mediaAttempt, setMediaAttempt] = useState(0);
+  const [ending, setEnding] = useState(false);
+  const [mediaNotice, setMediaNotice] = useState("");
+  const [relayNotice, setRelayNotice] = useState("");
   const pendingIceCandidatesRef = useRef([]);
   const transcriptBufferRef = useRef("");
   const fullTranscriptRef = useRef("");
@@ -149,15 +101,16 @@ const AppointmentVideoCall = ({
     setIsCameraOff((prev) => !prev);
   };
 
-  const endCall = () => {
-    if (callEndedRef.current) return;
-    const socket = getSocket();
-    socket.emit("appointment:end", { appointmentId });
-    // Tear down locally right away instead of waiting for the server round-trip, so the
-    // person who pressed End is not left staring at a "Waiting for..." screen.
-    teardownCallRef.current();
+  const endCall = async () => {
+    if (callEndedRef.current || ending) return;
+    if (role !== "doctor") { teardownCallRef.current(); return; }
+    setEnding(true);
+    try {
+      await axios.post(`${BACKEND_URL}/appointment/${appointmentId}/end`, {}, { withCredentials: true });
+      teardownCallRef.current();
+    } catch (err) { setError(err.response?.data?.message || "Unable to end the visit. Please retry."); }
+    finally { setEnding(false); }
   };
-
 
   const appendTranscriptText = (text) => {
     const cleanText = String(text || "").trim();
@@ -208,187 +161,171 @@ const AppointmentVideoCall = ({
   };
 
 
-  const flushPendingIceCandidates = async (connection) => {
-    if (!connection.remoteDescription) return;
-    const candidates = pendingIceCandidatesRef.current.splice(0);
-    for (const candidate of candidates) {
-      try { await connection.addIceCandidate(candidate); }
-      catch (err) { console.error("Failed to add queued ICE candidate:", err); }
-    }
-  };
-
-  const ensurePeerConnection = async (socket) => {
-    if (peerConnectionRef.current) return peerConnectionRef.current;
-    const connection = new RTCPeerConnection(await getRtcConfig());
-    connection.onicecandidate = (event) => {
-      if (!event.candidate) return;
-      socket.emit("appointment:ice-candidate", { appointmentId, candidate: event.candidate });
-    };
-    connection.ontrack = (event) => {
-      const stream = event.streams?.[0] || remoteStreamRef.current || new MediaStream();
-      if (!event.streams?.[0]) stream.addTrack(event.track);
-      remoteStreamRef.current = stream;
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = stream;
-        remoteVideoRef.current.play().catch(() => {});
-      }
-      setConnectionStatus("connected");
-    };
-    connection.onconnectionstatechange = () => {
-      const state = connection.connectionState;
-      if (state === "connected") setConnectionStatus("connected");
-      if (state === "connecting") setConnectionStatus("connecting");
-      if (state === "disconnected") setConnectionStatus("reconnecting");
-      if (state === "failed") setConnectionStatus("failed");
-    };
-    const localStream = localStreamRef.current;
-    if (localStream) localStream.getTracks().forEach((track) => connection.addTrack(track, localStream));
-    peerConnectionRef.current = connection;
-    return connection;
-  };
-
-  const createOffer = async (socket) => {
-    if (role !== "doctor") return;
-    const connection = await ensurePeerConnection(socket);
-    if (connection.signalingState !== "stable") return;
-    const offer = await connection.createOffer();
-    await connection.setLocalDescription(offer);
-    socket.emit("appointment:offer", { appointmentId, sdp: offer });
-  };
-
   useEffect(() => {
-    let mounted = true;
+    let mounted = true, mediaReady = false, joining = false, negotiating = false, reconnectAttempts = 0;
+    let peerPromise = null, peerGeneration = 0, recoveryTimer;
+    callEndedRef.current = false;
+    setError(""); setMediaNotice(""); setIsCameraOff(false); setIsMuted(false);
     const socket = getSocket();
-    if (!socket.connected) socket.connect();
-
-    const setupMedia = async () => {
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: true });
-      } catch (err) {
-        console.warn("Could not get video stream, falling back to audio", err);
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
-          setIsCameraOff(true);
-        } catch (audioErr) {
-          console.error("Could not get audio stream either", audioErr);
-          const canvas = document.createElement("canvas");
-          canvas.width = 640; canvas.height = 480;
-          stream = canvas.captureStream();
-          setIsCameraOff(true);
-          setIsMuted(true);
-        }
-      }
-      if (!mounted) { stream?.getTracks().forEach((t) => t.stop()); return; }
-      localStreamRef.current = stream;
-      if (localVideoRef.current && stream) localVideoRef.current.srcObject = stream;
-    };
-
-    const onPresence = async ({ appointmentId: inId, doctorJoined, patientJoined, ready }) => {
-      if (inId !== appointmentId) return;
-      setPresence({ doctorJoined, patientJoined, ready });
-      if (!ready) { setConnectionStatus("waiting"); return; }
-      setConnectionStatus("connecting");
-      if (role === "doctor") await createOffer(socket);
-    };
-
-    const onPeerJoined = async ({ appointmentId: inId, ready }) => {
-      if (inId !== appointmentId || !ready) return;
-      await createOffer(socket);
-    };
-
-    const onOffer = async ({ appointmentId: inId, sdp }) => {
-      if (inId !== appointmentId) return;
-      const connection = await ensurePeerConnection(socket);
-      await connection.setRemoteDescription(new RTCSessionDescription(sdp));
-      await flushPendingIceCandidates(connection);
-      const answer = await connection.createAnswer();
-      await connection.setLocalDescription(answer);
-      socket.emit("appointment:answer", { appointmentId, sdp: answer });
-    };
-
-    const onAnswer = async ({ appointmentId: inId, sdp }) => {
-      if (inId !== appointmentId || !peerConnectionRef.current) return;
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
-      await flushPendingIceCandidates(peerConnectionRef.current);
-    };
-
-    const onIceCandidate = async ({ appointmentId: inId, candidate }) => {
-      if (inId !== appointmentId || !peerConnectionRef.current) return;
-      const iceCandidate = new RTCIceCandidate(candidate);
-      if (!peerConnectionRef.current.remoteDescription) {
-        pendingIceCandidatesRef.current.push(iceCandidate);
-        return;
-      }
-      try { await peerConnectionRef.current.addIceCandidate(iceCandidate); }
-      catch (err) { console.error("Failed to add ICE candidate:", err); }
-    };
-
-    // Shared teardown so the local "End call" click and the server broadcast both run the exact
-    // same cleanup, and the parent callback fires only once.
-    const teardownCall = () => {
-      if (callEndedRef.current) return;
-      callEndedRef.current = true;
-      if (localStreamRef.current) localStreamRef.current.getTracks().forEach((t) => t.stop());
-      localStreamRef.current = null;
-      remoteStreamRef.current = null;
-      pendingIceCandidatesRef.current = [];
-      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    const closePeer = () => {
+      peerGeneration++; peerPromise = null;
+      const peer = peerConnectionRef.current;
+      if (peer) { peer.onconnectionstatechange = null; peer.onicecandidate = null; peer.ontrack = null; peer.close(); }
+      peerConnectionRef.current = null; remoteStreamRef.current = null; pendingIceCandidatesRef.current = [];
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-      if (peerConnectionRef.current) { peerConnectionRef.current.close(); peerConnectionRef.current = null; }
-      setPresence({ doctorJoined: false, patientJoined: false, ready: false });
-      setConnectionStatus("ended");
-      socket.emit("leaveAppointmentRoom", { appointmentId });
-      if (onCallEnd) onCallEnd();
+    };
+    const credentials = async () => {
+      const { data } = await axios.get(`${BACKEND_URL}/appointment/${appointmentId}/call-credentials`, { withCredentials: true });
+      if (mounted) setRelayNotice(data.relayConfigured ? "" : "Relay service is not configured. Some networks may prevent this call.");
+      return { iceServers: data.iceServers };
+    };
+    const ensurePeer = async () => {
+      if (peerConnectionRef.current) return peerConnectionRef.current;
+      if (peerPromise) return peerPromise;
+      const generation = peerGeneration;
+      peerPromise = (async () => {
+        const config = await credentials();
+        if (!mounted || callEndedRef.current || generation !== peerGeneration) throw new Error("Call connection changed");
+        const peer = new RTCPeerConnection(config);
+        peerConnectionRef.current = peer;
+        localStreamRef.current?.getTracks().forEach(track => peer.addTrack(track, localStreamRef.current));
+        peer.onicecandidate = event => { if (event.candidate) socket.emit("appointment:ice-candidate", { appointmentId, candidate: event.candidate }); };
+        peer.ontrack = event => {
+          const stream = event.streams?.[0] || remoteStreamRef.current || new MediaStream();
+          if (!event.streams?.[0]) stream.addTrack(event.track);
+          remoteStreamRef.current = stream;
+          if (remoteVideoRef.current) { remoteVideoRef.current.srcObject = stream; remoteVideoRef.current.play().catch(() => {}); }
+        };
+        peer.onconnectionstatechange = () => {
+          if (!mounted || callEndedRef.current) return;
+          const state = peer.connectionState;
+          if (state === "connected") { reconnectAttempts = 0; clearTimeout(recoveryTimer); setConnectionStatus("connected"); }
+          if (state === "connecting") setConnectionStatus("connecting");
+          if (["disconnected", "failed"].includes(state)) {
+            setConnectionStatus("reconnecting"); clearTimeout(recoveryTimer);
+            recoveryTimer = setTimeout(() => {
+              if (!mounted || callEndedRef.current || peer.connectionState === "connected") return;
+              if (++reconnectAttempts > 3) { setConnectionStatus("failed"); setError("Connection could not recover. Retry the call."); return; }
+              if (role === "doctor") offer(true).catch(() => setError("Unable to reconnect. Retry the call."));
+              else socket.emit("appointment:renegotiate", { appointmentId });
+            }, 2000);
+          }
+        };
+        return peer;
+      })();
+      try { return await peerPromise; } finally { peerPromise = null; }
+    };
+    const flushCandidates = async peer => {
+      if (!peer.remoteDescription) return;
+      for (const candidate of pendingIceCandidatesRef.current.splice(0)) await peer.addIceCandidate(candidate).catch(() => {});
+    };
+    const offer = async (restart = false) => {
+      if (role !== "doctor" || !mediaReady || negotiating || !socket.connected || callEndedRef.current) return;
+      negotiating = true;
+      try {
+        const peer = await ensurePeer();
+        if (peer.signalingState !== "stable") return;
+        if (restart) peer.setConfiguration(await credentials());
+        const sdp = await peer.createOffer({ iceRestart: restart });
+        await peer.setLocalDescription(sdp);
+        if (mounted) socket.emit("appointment:offer", { appointmentId, sdp });
+      } finally { negotiating = false; }
+    };
+    const teardownCall = () => {
+      if (callEndedRef.current || !mounted) return;
+      callEndedRef.current = true; clearTimeout(recoveryTimer); closePeer();
+      localStreamRef.current?.getTracks().forEach(track => track.stop()); localStreamRef.current = null;
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      setPresence({ doctorJoined: false, patientJoined: false, ready: false }); setConnectionStatus("ended");
+      socket.emit("leaveAppointmentRoom", { appointmentId }); onCallEndRef.current?.();
     };
     teardownCallRef.current = teardownCall;
-
-    const onCallEnded = ({ appointmentId: inId }) => {
-      if (inId !== appointmentId) return;
-      teardownCall();
-    };
-
-
-    socket.on("appointment:peer-joined", onPeerJoined);
-    socket.on("appointment:presence", onPresence);
-    socket.on("appointment:offer", onOffer);
-    socket.on("appointment:answer", onAnswer);
-    socket.on("appointment:ice-candidate", onIceCandidate);
-    socket.on("appointment:ended", onCallEnded);
-    
-    // basic chat stub
-    socket.on("appointment:chat-message", (msg) => {
-      setChatMessages((prev) => [...prev, msg]);
-    });
-
-    setupMedia()
-      .then(() => {
-        socket.emit("joinAppointmentRoom", { appointmentId }, (response) => {
-          if (!response?.ok) { setError(response?.message || "Unable to join appointment room"); return; }
-          setPresence({ doctorJoined: Boolean(response.doctorJoined), patientJoined: Boolean(response.patientJoined), ready: Boolean(response.ready) });
-          setConnectionStatus(response.ready ? "connecting" : "waiting");
+    const recover = async () => {
+      if (!mounted || !mediaReady || callEndedRef.current || !socket.connected || joining) return;
+      joining = true;
+      try {
+        const { data } = await axios.get(`${BACKEND_URL}/appointment/${appointmentId}`, { withCredentials: true });
+        if (!mounted || callEndedRef.current) return;
+        if (!["queued", "active"].includes(data.status)) { teardownCall(); return; }
+        socket.timeout(7000).emit("joinAppointmentRoom", { appointmentId }, (err, result) => {
+          if (!mounted || callEndedRef.current) return;
+          joining = false;
+          if (err || !result?.ok) { setError(result?.message || "Unable to join. Retry the call."); return; }
+          setError("");
         });
-      })
-      .catch(() => setError("Camera or microphone permission is required for this call"));
-
-    return () => {
-      mounted = false;
-      socket.emit("leaveAppointmentRoom", { appointmentId });
-      socket.off("appointment:peer-joined", onPeerJoined);
-      socket.off("appointment:presence", onPresence);
-      socket.off("appointment:offer", onOffer);
-      socket.off("appointment:answer", onAnswer);
-      socket.off("appointment:ice-candidate", onIceCandidate);
-      socket.off("appointment:ended", onCallEnded);
-      socket.off("appointment:chat-message");
-      if (peerConnectionRef.current) { peerConnectionRef.current.close(); peerConnectionRef.current = null; }
-      if (localStreamRef.current) { localStreamRef.current.getTracks().forEach((t) => t.stop()); localStreamRef.current = null; }
-      remoteStreamRef.current = null;
-      pendingIceCandidatesRef.current = [];
-      if (localVideoRef.current) localVideoRef.current.srcObject = null;
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      } catch (err) {
+        joining = false;
+        if (mounted) setError(err.response?.status === 401 ? "Your session ended. Sign in again." : "Unable to refresh the call. Retrying...");
+      }
     };
-  }, [appointmentId]);
+    const onPresence = payload => {
+      if (!mounted || !mediaReady || callEndedRef.current || payload.appointmentId !== appointmentId) return;
+      setPresence({ doctorJoined: payload.doctorJoined, patientJoined: payload.patientJoined, ready: payload.ready });
+      if (!payload.ready) { closePeer(); setConnectionStatus("waiting"); }
+      else if (peerConnectionRef.current?.connectionState !== "connected") {
+        setConnectionStatus("connecting"); offer().catch(() => setError("Unable to connect. Retry the call."));
+      }
+    };
+    const onOffer = async payload => {
+      if (role === "doctor" || !mounted || !mediaReady || callEndedRef.current || payload.appointmentId !== appointmentId) return;
+      try {
+        const peer = await ensurePeer();
+        await peer.setRemoteDescription(new RTCSessionDescription(payload.sdp)); await flushCandidates(peer);
+        const sdp = await peer.createAnswer(); await peer.setLocalDescription(sdp);
+        if (mounted) socket.emit("appointment:answer", { appointmentId, sdp });
+      } catch { if (mounted) setError("Call negotiation failed. Retry the call."); }
+    };
+    const onAnswer = async payload => {
+      const peer = peerConnectionRef.current;
+      if (role !== "doctor" || payload.appointmentId !== appointmentId || !peer || peer.signalingState !== "have-local-offer") return;
+      try { await peer.setRemoteDescription(new RTCSessionDescription(payload.sdp)); await flushCandidates(peer); }
+      catch { if (mounted) setError("Call negotiation failed. Retry the call."); }
+    };
+    const onCandidate = async payload => {
+      if (!mounted || callEndedRef.current || payload.appointmentId !== appointmentId) return;
+      const candidate = new RTCIceCandidate(payload.candidate), peer = peerConnectionRef.current;
+      if (!peer?.remoteDescription) { pendingIceCandidatesRef.current.push(candidate); return; }
+      await peer.addIceCandidate(candidate).catch(() => {});
+    };
+    const onEnded = payload => { if (payload.appointmentId === appointmentId) teardownCall(); };
+    const onDisconnect = reason => {
+      if (callEndedRef.current || !mounted) return;
+      joining = false; closePeer(); setConnectionStatus("reconnecting");
+      if (reason === "io server disconnect") setError("Your session or permissions changed. Sign in again.");
+    };
+    const onRenegotiate = payload => { if (payload.appointmentId === appointmentId) offer(true).catch(() => setError("Unable to reconnect. Retry the call.")); };
+    const onChat = msg => { if (msg.appointmentId === appointmentId) setChatMessages(prev => [...prev, msg]); };
+    const listeners = { connect: recover, disconnect: onDisconnect, "appointment:presence": onPresence,
+      "appointment:offer": onOffer, "appointment:answer": onAnswer, "appointment:ice-candidate": onCandidate,
+      "appointment:ended": onEnded, "appointment:renegotiate": onRenegotiate, "appointment:chat-message": onChat };
+    for (const [event, listener] of Object.entries(listeners)) socket.on(event, listener);
+    if (!socket.connected) socket.connect();
+    const setup = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera and microphone require a secure browser connection.");
+      let stream;
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true }); }
+      catch {
+        try { stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          if (mounted) { setIsCameraOff(true); setMediaNotice("Camera unavailable. Connected with audio only."); }
+        } catch { throw new Error("Microphone access is required. Allow it in browser settings, then retry."); }
+      }
+      if (!mounted) { stream.getTracks().forEach(track => track.stop()); return; }
+      localStreamRef.current = stream; mediaReady = true;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      await recover();
+    };
+    setup().catch(err => { if (mounted) { setError(err.message); setConnectionStatus("failed"); } });
+    const interval = setInterval(recover, 10000);
+    document.addEventListener("visibilitychange", recover); window.addEventListener("online", recover);
+    return () => {
+      mounted = false; clearInterval(interval); clearTimeout(recoveryTimer);
+      socket.emit("leaveAppointmentRoom", { appointmentId });
+      for (const [event, listener] of Object.entries(listeners)) socket.off(event, listener);
+      document.removeEventListener("visibilitychange", recover); window.removeEventListener("online", recover);
+      closePeer(); localStreamRef.current?.getTracks().forEach(track => track.stop()); localStreamRef.current = null;
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    };
+  }, [appointmentId, mediaAttempt, role]);
 
   // Speech recognition for Co-Pilot
   useEffect(() => {
@@ -635,7 +572,7 @@ const AppointmentVideoCall = ({
           </div>
 
           {/* Controls bar */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-3 bg-slate-900/90 dark:bg-black/90 px-6 py-3 rounded-full shadow-2xl backdrop-blur border border-white/10 dark:border-red-900/50">
+          <div className="absolute bottom-4 left-2 right-2 flex flex-wrap items-center justify-center gap-2 bg-slate-900/90 dark:bg-black/90 px-2 py-2 rounded-2xl sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-3 sm:rounded-full shadow-2xl backdrop-blur border border-white/10 dark:border-red-900/50">
             {/* Mute */}
             <button
               onClick={toggleMute}
@@ -656,8 +593,8 @@ const AppointmentVideoCall = ({
 
             {/* End call */}
             <button
-              onClick={endCall}
-              title="End call"
+              onClick={endCall} disabled={ending}
+              title={role === "doctor" ? "End consultation" : "Leave call"} aria-label={role === "doctor" ? "End consultation" : "Leave call"}
               className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 hover:bg-red-500 transition-all duration-200 text-white shadow-lg shadow-red-600/40"
             >
               <PhoneOff size={24} />
@@ -702,9 +639,13 @@ const AppointmentVideoCall = ({
         {/* Error message */}
         {error && (
           <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
+            <p role="alert">{error}</p>
+            {!hasEnded && <button type="button" onClick={() => setMediaAttempt(value => value + 1)} className="mt-2 rounded border border-red-700 px-3 py-2 font-semibold">Retry call</button>}
           </div>
         )}
+
+        {mediaNotice && !hasEnded && <p className="mt-3 text-sm text-amber-800" role="status">{mediaNotice}</p>}
+        {relayNotice && !hasEnded && <p className="mt-3 text-sm text-amber-800" role="status">{relayNotice}</p>}
 
         {/* Presence indicator */}
         {!presence.ready && !hasEnded && (

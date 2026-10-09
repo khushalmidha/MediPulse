@@ -1,547 +1,138 @@
 import mongoose from "mongoose";
-import Appointment from "../model/appointment.js";
 import OpdToken from "../model/opdToken.js";
 import Department from "../model/department.js";
 import Hospital from "../model/hospital.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 import { resolveConsultationFee } from "../config/fees.js";
 import { getRedis } from "../services/redis.js";
-import { scheduleReviewRequest } from "../services/reviewRequestWorker.js";
-import { transferVirtualMoney } from "../services/virtualLedger.js";
+import { readQueueRevision } from "../services/workflowEvents.js";
 import { getIO } from "../socket.js";
-import OpdSequence from "../model/opdSequence.js";
+import { accessError, assertVisitAccess, canAccessVisit, departmentMember, emitOpdEvent, idOf,
+  loadVisit, requireRecordId, resolveBookingIdentity, visitForStaff } from "../services/hospitalAccess.js";
+import { queueContext, localServiceDate, patientKey, liveTokenStatuses, invalidateVisitQueue } from "../services/queueContext.js";
+import { bookingRequest, createQueueBooking } from "../services/queueBooking.js";
+import { transitionVisit, afterVisitCommit } from "../services/visitTransitions.js";
 
-
-const dayRange = (date = new Date()) => {
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return { start, end };
-};
-
-const queueCacheKey = (doctorId, date = new Date()) => `opd:queue:${doctorId}:${date.toISOString().slice(0, 10)}`;
-const hospitalQueueCacheKey = (hospitalId) => `hospital:queue-status:${hospitalId}`;
-
-const clearOpdCache = async ({ hospitalId, doctorId }) => {
-  // Cache invalidation: token queue and public hospital queue status depend on OPD token mutations.
-  await getRedis().del(queueCacheKey(doctorId), hospitalQueueCacheKey(hospitalId));
-};
-
-const sameHospital = (req, hospitalId) => req.staff?.hospitalId === String(hospitalId);
-
-const emitHospital = (hospitalId, event, payload) => {
-  const io = getIO();
-  if (io) io.to(`hospital:${hospitalId}`).emit(event, payload);
-};
-
-const emitDoctor = (doctorId, event, payload) => {
-  const io = getIO();
-  if (io) io.to(`doctor:${doctorId}`).emit(event, payload);
-};
-
-const avgConsultationMinutes = async (doctorId) => {
-  const since = new Date();
-  since.setDate(since.getDate() - 30);
-  const result = await OpdToken.aggregate([
-    {
-      $match: {
-        doctorId: new mongoose.Types.ObjectId(doctorId),
-        consultationStartedAt: { $gte: since },
-        consultationEndedAt: { $ne: null },
-      },
-    },
-    {
-      $project: {
-        minutes: {
-          $divide: [{ $subtract: ["$consultationEndedAt", "$consultationStartedAt"] }, 1000 * 60],
-        },
-      },
-    },
-    { $group: { _id: null, avgMinutes: { $avg: "$minutes" } } },
-  ]);
-
-  return Math.max(8, Math.round(result[0]?.avgMinutes || 12));
-};
-
-const buildDisplayToken = async (hospitalId, tokenNumber) => {
-  const hospital = await Hospital.findById(hospitalId).select("settings.tokenPrefix");
-  const prefix = hospital?.settings?.tokenPrefix || "T";
-  return `${prefix}${String(tokenNumber).padStart(3, "0")}`;
-};
+const sameHospital = (req, hospitalId) => idOf(req.staff?.hospitalId) === String(hospitalId);
+const queuePosition = (token) => token.status === "reserved" ? 0 : OpdToken.countDocuments({ queueKey: token.queueKey,
+  status: { $in: ["waiting", "vitals_done", "in_consultation"] }, tokenNumber: { $lte: token.tokenNumber } });
+const notify = async (event, token) => afterVisitCommit(
+  () => invalidateVisitQueue(token, getRedis()), () => emitOpdEvent(getIO(), event, token));
 
 const issueToken = async (req, res) => {
   const { hospitalId, departmentId } = req.params;
-  const isPatientBooking = req.auth?.role === "user" && !req.staff;
-
-  if (req.staff && !sameHospital(req, hospitalId)) {
-    return res.status(403).json({ message: "Forbidden hospital access" });
-  }
-
-  const { doctorId, patientId, familyMemberId, patientInfo = {}, visitType = "new", chiefComplaint } = req.body;
-  if (!doctorId) {
-    return res.status(400).json({ message: "Doctor id is required" });
-  }
-
-  const [department, doctor, existingPatientToken] = await Promise.all([
-    Department.findOne({ _id: departmentId, hospitalId, status: "active" }),
-    HospitalStaff.findOne({ _id: doctorId, hospitalId, role: "DOCTOR", isActive: true }),
-    isPatientBooking
-      ? OpdToken.findOne({
-          hospitalId,
-          doctorId,
-          patientId: req.auth.id,
-          status: { $in: ["waiting", "vitals_done", "in_consultation"] },
-        })
-      : null,
-  ]);
-
-  if (!department) return res.status(404).json({ message: "Department not found" });
-  if (!doctor) return res.status(404).json({ message: "Doctor not found in this hospital" });
-  if (existingPatientToken) {
-    let linkedAppointmentId = existingPatientToken.appointmentId;
-    if (isPatientBooking && doctor.doctorId && !linkedAppointmentId) {
-      const existingAppointment = await Appointment.findOne({
-        doctor: doctor.doctorId,
-        user: req.auth.id,
-        status: { $in: ["queued", "active"] },
-      });
-      const linkedAppointment =
-        existingAppointment ||
-        (await Appointment.create({
-          doctor: doctor.doctorId,
-          user: req.auth.id,
-          familyMemberId: existingPatientToken.familyMemberId,
-          roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
-          status: "queued",
-          patientBrief: existingPatientToken.chiefComplaint
-            ? {
-                chiefComplaint: existingPatientToken.chiefComplaint,
-                urgencyLevel: "ROUTINE",
-                agentSummary: existingPatientToken.chiefComplaint,
-                generatedAt: new Date(),
-                conversationTurns: 0,
-              }
-            : undefined,
-        }));
-      // FIXED: Tokens created before Appointment sync stayed invisible to the synced doctor's appointment queue.
-      existingPatientToken.appointmentId = linkedAppointment._id;
-      await existingPatientToken.save();
-      linkedAppointmentId = linkedAppointment._id;
-      const io = getIO();
-      if (io) {
-        io.to(`doctor:${doctor.doctorId.toString()}`).emit("appointment:brief-ready", {
-          appointmentId: linkedAppointment._id,
-          source: "hospital-opd",
-        });
-      }
-    }
-    const queuePosition = await OpdToken.countDocuments({
-      doctorId,
-      date: existingPatientToken.date,
-      status: { $in: ["waiting", "vitals_done", "in_consultation"] },
-      tokenNumber: { $lte: existingPatientToken.tokenNumber },
-    });
-    // FIXED: A browser retry after a successful token create used to show an error instead of returning the already-created queue token.
-    return res.status(200).json({
-      message: "You already have an active OPD token for this doctor",
-      token: existingPatientToken,
-      appointmentId: linkedAppointmentId,
-      displayToken: existingPatientToken.displayToken,
-      estimatedWaitMinutes: existingPatientToken.estimatedWaitMinutes,
-      queuePosition,
-      payment: null,
-    });
-  }
-
-  const { start, end } = dayRange();
-  const dateStr = start.toISOString().slice(0, 10);
-  let sequence = await OpdSequence.findOneAndUpdate(
-    { hospitalId, doctorId, date: dateStr },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  );
-  
-
-  const tokenNumber = sequence.seq;
-  const queueAhead = await OpdToken.countDocuments({
-    doctorId,
-    date: { $gte: start, $lt: end },
-    status: { $in: ["waiting", "vitals_done", "in_consultation"] },
+  if (req.staff && !sameHospital(req, hospitalId)) throw accessError(403, "Forbidden hospital access");
+  const { doctorId, patientInfo = {}, visitType = "new", chiefComplaint = "" } = req.body;
+  requireRecordId(hospitalId, "hospital"); requireRecordId(departmentId, "department"); requireRecordId(doctorId, "doctor");
+  const { patientId, familyMemberId } = await resolveBookingIdentity(req, req.body.patientId, req.body.familyMemberId);
+  if (req.staff && (!["RECEPTIONIST", "HOSPITAL_ADMIN", "NURSE"].includes(req.staff.role)
+    || !canAccessVisit(req.staff, { hospitalId, departmentId, doctorId }))) throw accessError(403, "You cannot book for this department");
+  const department = await Department.findOne({ _id: departmentId, hospitalId, status: "active" });
+  const doctor = await HospitalStaff.findOne({ _id: doctorId, hospitalId, departmentIds: departmentId, role: "DOCTOR", isActive: true, inviteStatus: "accepted" });
+  if (!department) throw accessError(404, "Department not found");
+  if (!doctor) throw accessError(404, "Doctor not found in this hospital");
+  const hospital = await Hospital.findOne({ _id: hospitalId, status: "active" });
+  if (!hospital) throw accessError(404, "Active hospital not found");
+  if (!["new", "follow_up", "emergency"].includes(visitType)) throw accessError(400, "Invalid visit type");
+  const context = queueContext({ hospital, doctorId, sessionId: req.body.sessionId, serviceDate: req.body.serviceDate });
+  const person = patientId ? patientKey(patientId, familyMemberId) : `walkin:${req.staff?.id}:${req.get?.("Idempotency-Key") || req.body.requestId || "missing"}`;
+  const request = bookingRequest(req, "opd", context, person, { hospitalId, departmentId, doctorId, patientId, familyMemberId,
+    patientInfo, visitType, chiefComplaint, sessionId: context.sessionId, serviceDate: req.body.serviceDate || null });
+  const patientBooking = !req.staff;
+  const fee = resolveConsultationFee({ consultationFee: doctor.doctorProfile?.consultationFee ?? department.opd?.consultationFee });
+  if (patientBooking && fee > 0 && !doctor.doctorId) throw accessError(409, "This hospital doctor is still syncing");
+  const result = await createQueueBooking({ request, context, personKey: person, fee: patientBooking ? fee : 0,
+    payerId: patientBooking ? patientId : undefined, receiverId: doctor.doctorId,
+    tokenData: { hospitalId, departmentId, doctorId, patientId, familyMemberId, patientInfo: { ...patientInfo, isWalkIn: !patientId },
+      visitType, chiefComplaint, visitMode: "in_person", tokenPrefix: hospital.settings?.tokenPrefix || "T",
+      arrivedAt: req.staff ? new Date() : undefined, paymentAmount: fee, paymentMode: patientBooking ? "wallet" : undefined,
+      estimatedWaitMinutes: undefined },
+    appointmentData: patientId && doctor.doctorId ? { doctor: doctor.doctorId, user: patientId, familyMemberId, visitMode: "in_person",
+      roomId: `appointment-${new mongoose.Types.ObjectId()}`, patientBrief: chiefComplaint ? { chiefComplaint, urgencyLevel: "ROUTINE", agentSummary: chiefComplaint } : undefined } : undefined,
   });
-  const estimatedWaitMinutes = queueAhead * (await avgConsultationMinutes(doctorId)) + 5;
-  const displayToken = await buildDisplayToken(hospitalId, tokenNumber);
-  // FIXED: Patients booking an OPD token were charged a flat INR 5 while the same booking made by
-  // hospital staff charged the real consultation fee. Both paths now resolve the same amount, so
-  // the fee shown to the patient is the fee debited from their wallet.
-  const fee = resolveConsultationFee({
-    consultationFee:
-      doctor.doctorProfile?.consultationFee ?? department.opd?.consultationFee,
+  if (result.operation.state !== "completed") return res.status(202).json({ message: result.operation.state === "review_required" ? "Booking requires reviewed recovery; do not make another payment" : "Booking is processing; retry with the same request key", operationId: result.operation._id, status: "processing" });
+  const token = result.token;
+  if (!result.replay) await notify("opd:token-issued", token);
+  if (result.appointment) await afterVisitCommit(async () => {
+    const io = getIO();
+    io?.to(`doctor:${idOf(result.appointment.doctor)}`).emit("appointment:brief-ready", { appointmentId: result.appointment._id, source: "hospital-opd" });
+    io?.to(`user:${idOf(token.patientId)}`).emit("appointment:user-status", { doctorId: idOf(result.appointment.doctor), appointmentId: result.appointment._id,
+      status: result.appointment.status, queueKey: token.queueKey, visitMode: "in_person" });
   });
-  let transaction = null;
-  let linkedAppointment = null;
-
-  if (isPatientBooking && fee > 0) {
-    if (!doctor.doctorId) {
-      return res.status(409).json({ message: "This hospital doctor is still syncing. Please try again shortly." });
-    }
-
-    const existingAppointment = await Appointment.findOne({
-      doctor: doctor.doctorId,
-      user: req.auth.id,
-      status: { $in: ["queued", "active"] },
-    });
-    if (existingAppointment) {
-      // FIXED: Duplicate hospital OPD booking checked the normal appointment queue only after wallet debit.
-      return res.status(409).json({
-        message: "You already have an active appointment in this doctor's queue",
-        appointmentId: existingAppointment._id,
-        appointmentStatus: existingAppointment.status,
-      });
-    }
-
-    try {
-      transaction = await transferVirtualMoney({
-        senderId: req.auth.id,
-        senderRole: "user",
-        receiverId: doctor.doctorId,
-        receiverRole: "doctor",
-        amount: fee,
-        type: "PAYMENT",
-        description: `OPD token booking fee for ${doctor.name}`,
-        referenceId: `OPD-${hospitalId}-${departmentId}-${doctorId}-${req.auth.id}-${Date.now()}`,
-        metadata: {
-          source: "hospital-opd-token",
-          hospitalId,
-          departmentId,
-          doctorStaffId: doctorId,
-          platformDoctorId: doctor.doctorId,
-        },
-      });
-    } catch (error) {
-      // FIXED: Wallet failures in OPD booking used to reject the async route and look like a dead backend in the browser.
-      return res.status(error.message === "Insufficient wallet balance" ? 402 : 409).json({
-        message: error.message || "Could not debit OPD booking fee",
-      });
-    }
-  }
-
-  if (isPatientBooking && doctor.doctorId) {
-    // FIXED: Hospital OPD bookings created only OpdToken records, so synced doctors never saw them in the normal appointment queue.
-    linkedAppointment = await Appointment.create({
-      doctor: doctor.doctorId,
-      user: req.auth.id,
-      familyMemberId,
-      roomId: `appointment-${new mongoose.Types.ObjectId().toString()}`,
-      status: "queued",
-      patientBrief: chiefComplaint
-        ? {
-            chiefComplaint,
-            urgencyLevel: "ROUTINE",
-            agentSummary: chiefComplaint,
-            generatedAt: new Date(),
-            conversationTurns: 0,
-          }
-        : undefined,
-      payment: transaction
-        ? {
-            provider: "wallet",
-            orderId: transaction.transactionId,
-            paymentId: transaction.transactionId,
-            amount: fee,
-            currency: "INR",
-            paidAt: new Date(),
-          }
-        : undefined,
-    });
-  }
-
-  const token = await OpdToken.create({
-    hospitalId,
-    departmentId,
-    doctorId,
-    patientId: patientId || req.auth?.id,
-    familyMemberId,
-    tokenNumber,
-    displayToken,
-    date: start,
-    patientInfo: {
-      ...patientInfo,
-      isWalkIn: !patientId && !req.auth?.id,
-    },
-    visitType,
-    chiefComplaint,
-    arrivedAt: new Date(),
-    estimatedWaitMinutes,
-    paymentStatus: isPatientBooking ? (fee > 0 ? "paid" : "waived") : "pending",
-    paymentAmount: isPatientBooking ? fee : doctor.doctorProfile?.consultationFee || department.opd?.consultationFee || 0,
-    paymentMode: isPatientBooking ? "wallet" : undefined,
-    appointmentId: linkedAppointment?._id,
-  });
-
-  await clearOpdCache({ hospitalId, doctorId });
-  emitHospital(hospitalId, "opd:token-issued", { token });
-  emitDoctor(doctorId, "opd:token-issued", { token });
-  const io = getIO();
-  if (io && linkedAppointment) {
-    // FIXED: New hospital OPD appointments did not notify the synced platform doctor or patient appointment badge.
-    io.to(`doctor:${doctor.doctorId.toString()}`).emit("appointment:brief-ready", {
-      appointmentId: linkedAppointment._id,
-      source: "hospital-opd",
-    });
-    io.to(`user:${req.auth.id}`).emit("appointment:user-status", {
-      doctorId: doctor.doctorId.toString(),
-      pendingCount: 1,
-      appointmentId: linkedAppointment._id,
-      status: "queued",
-      queuePosition: queueAhead + 1,
-      hospitalId,
-      opdTokenId: token._id,
-      displayToken,
-    });
-  }
-
-  return res.status(201).json({
-    token,
-    appointmentId: linkedAppointment?._id,
-    displayToken,
-    estimatedWaitMinutes,
-    queuePosition: queueAhead + 1,
-    payment: transaction
-      ? {
-          transactionId: transaction.transactionId,
-          amount: fee,
-          mode: "wallet",
-        }
-      : null,
-  });
+  return res.status(result.replay ? 200 : 201).json({ token: req.staff ? visitForStaff(token, req.staff) : token,
+    appointmentId: result.appointment?._id, displayToken: token.displayToken, queuePosition: await queuePosition(token),
+    estimatedWaitMinutes: token.estimatedWaitMinutes ?? null, replay: result.replay,
+    payment: result.operation.paymentId ? { transactionId: result.operation.paymentId, amount: result.operation.fee, mode: "wallet" } : null });
 };
 
 const getDoctorQueue = async (req, res) => {
   const { hospitalId, doctorId } = req.params;
-  if (!sameHospital(req, hospitalId)) {
-    return res.status(403).json({ message: "Forbidden hospital access" });
-  }
-
-  const redis = getRedis();
-  const cacheKey = queueCacheKey(doctorId);
-  const cached = await redis.get(cacheKey);
-  if (cached) return res.status(200).json(JSON.parse(cached));
-
-  const { start, end } = dayRange();
-  const tokens = await OpdToken.find({ hospitalId, doctorId, date: { $gte: start, $lt: end } })
-    .sort({ tokenNumber: 1 })
-    .populate("departmentId", "name")
-    .lean();
-
-  const currentlyServing = tokens.find((token) => token.status === "in_consultation") || null;
-  const waiting = tokens.filter((token) => ["waiting", "vitals_done"].includes(token.status));
-  const completed = tokens.filter((token) => token.status === "completed").length;
-  const noShows = tokens.filter((token) => token.status === "no_show").length;
-  const avgMinutes = await avgConsultationMinutes(doctorId);
-  const estimatedEndTime = waiting.length ? new Date(Date.now() + waiting.length * avgMinutes * 60 * 1000) : null;
-
-  const payload = { currentlyServing, waiting, completed, noShows, estimatedEndTime };
-  await redis.set(cacheKey, JSON.stringify(payload), "EX", 20);
-  return res.status(200).json(payload);
+  if (!sameHospital(req, hospitalId)) throw accessError(403, "Forbidden hospital access");
+  requireRecordId(doctorId, "doctor");
+  const doctor = await HospitalStaff.findOne({ _id: doctorId, hospitalId, role: "DOCTOR", isActive: true, inviteStatus: "accepted" });
+  if (!doctor) throw accessError(404, "Doctor not found");
+  const allowed = req.staff.role === "DOCTOR" ? req.staff.id === String(doctorId) : ["HOSPITAL_ADMIN", "RECEPTIONIST"].includes(req.staff.role)
+    || (["NURSE", "DEPARTMENT_HEAD"].includes(req.staff.role) && doctor.departmentIds.some((id) => departmentMember(req.staff, id)));
+  if (!allowed) throw accessError(403, "You cannot access this doctor queue");
+  const hospital = await Hospital.findById(hospitalId);
+  const context = queueContext({ hospital, doctorId, sessionId: req.query.sessionId, serviceDate: req.query.serviceDate, historical: true });
+  // Query authoritative rows: a cache failure or missed event must not change the queue.
+  const snapshotRevision = await readQueueRevision(context.queueKey);
+  const rows = await OpdToken.find({ queueKey: context.queueKey }).sort({ tokenNumber: 1 }).populate("departmentId", "name").lean();
+  const departments = await Department.find({ hospitalId, _id: { $in: doctor.departmentIds } }).select("_id").lean();
+  const tokens = rows.filter((token) => canAccessVisit(req.staff, token) && departments.some((d) => idOf(d) === idOf(token.departmentId)))
+    .map((token) => visitForStaff(token, req.staff));
+  if (await readQueueRevision(context.queueKey) !== snapshotRevision) throw accessError(409, "Queue changed; refresh status");
+  return res.json({ ...context, queueRevision: snapshotRevision, sessionIds: hospital.settings?.queueSessionIds || ["day"], currentlyServing: tokens.find((token) => token.status === "in_consultation") || null,
+    waiting: tokens.filter((token) => ["waiting", "vitals_done"].includes(token.status)),
+    reservations: tokens.filter((token) => token.status === "reserved"), completed: tokens.filter((token) => token.status === "completed").length,
+    noShows: tokens.filter((token) => token.status === "no_show").length, estimatedEndTime: null });
 };
 
-const getTokenForStaff = async (req, res, tokenId) => {
-  const token = await OpdToken.findById(tokenId);
-  if (!token) {
-    res.status(404).json({ message: "Token not found" });
-    return null;
+const mutateToken = async (req, res, action) => {
+  const token = await loadVisit(req.staff, req.params.tokenId);
+  if (["start", "complete"].includes(action) && idOf(token.doctorId) !== req.staff.id) throw accessError(403, "Only the assigned doctor can manage this consultation");
+  if (action === "vitals") {
+    assertVisitAccess(req.staff, token, { clinical: true });
+    if (req.staff.role !== "NURSE") throw accessError(403, "Assigned nursing staff are required to record vitals");
   }
-  if (!sameHospital(req, token.hospitalId)) {
-    res.status(403).json({ message: "Forbidden hospital access" });
-    return null;
+  if (["no_show", "check_in"].includes(action) && !["NURSE", "RECEPTIONIST", "HOSPITAL_ADMIN"].includes(req.staff.role)) throw accessError(403, "Nurse, receptionist or admin access is required");
+  const fields = {};
+  if (action === "vitals") {
+    fields.vitals = { ...Object.fromEntries(["bp", "temperature", "pulse", "oxygenSat", "weight", "height"].filter((key) => req.body[key] !== undefined).map((key) => [key, req.body[key]])), recordedAt: new Date(), recordedBy: req.staff.id };
+    if (req.body.chiefComplaint !== undefined) fields.chiefComplaint = String(req.body.chiefComplaint);
   }
-  return token;
-};
-
-const recordVitals = async (req, res) => {
-  const token = await getTokenForStaff(req, res, req.params.tokenId);
-  if (!token) return;
-
-  token.vitals = {
-    bp: req.body.bp,
-    temperature: req.body.temperature,
-    pulse: req.body.pulse,
-    oxygenSat: req.body.oxygenSat,
-    weight: req.body.weight,
-    height: req.body.height,
-    recordedAt: new Date(),
-    recordedBy: req.staff.id,
-  };
-  token.chiefComplaint = req.body.chiefComplaint || token.chiefComplaint;
-  token.status = "vitals_done";
-  token.vitalsCompletedAt = new Date();
-  await token.save();
-  await clearOpdCache({ hospitalId: token.hospitalId, doctorId: token.doctorId });
-
-  const payload = { tokenId: token._id, displayToken: token.displayToken, vitals: token.vitals, chiefComplaint: token.chiefComplaint };
-  emitDoctor(token.doctorId, "opd:vitals-ready", payload);
-  emitHospital(token.hospitalId, "opd:vitals-ready", payload);
-  return res.status(200).json({ message: "Vitals recorded", token });
-};
-
-const startConsultation = async (req, res) => {
-  const token = await getTokenForStaff(req, res, req.params.tokenId);
-  if (!token) return;
-  if (String(token.doctorId) !== req.staff.id) {
-    return res.status(403).json({ message: "Only the assigned doctor can start this consultation" });
+  if (action === "complete") {
+    fields.consultationNotes = String(req.body.notes || "").trim(); fields.diagnosis = String(req.body.diagnosis || "").trim();
+    if (req.body.followUpDate) { const date = new Date(req.body.followUpDate); if (Number.isNaN(date.getTime())) throw accessError(400, "Invalid follow-up date"); fields.followUpDate = date; }
   }
-  if (!["waiting", "vitals_done"].includes(token.status)) {
-    return res.status(400).json({ message: "Token is not ready for consultation" });
-  }
-
-  const { start, end } = dayRange(token.date);
-  const active = await OpdToken.findOne({
-    doctorId: token.doctorId,
-    date: { $gte: start, $lt: end },
-    status: "in_consultation",
-    _id: { $ne: token._id },
+  const changed = await transitionVisit({ tokenId: token._id, action, expectedRevision: req.body.revision, tokenFields: fields,
+    appointmentFields: action === "complete" ? { endedBy: "doctor" } : {} });
+  const events = { start: "opd:consultation-started", complete: "opd:consultation-completed", vitals: "opd:vitals-ready", no_show: "opd:no-show", check_in: "opd:checked-in" };
+  await notify(events[action], changed.token);
+  if (changed.appointment && ["start", "complete", "no_show"].includes(action)) await afterVisitCommit(async () => {
+    const io = getIO(); const appointment = changed.appointment;
+    io?.to(`user:${idOf(appointment.user)}`).emit(action === "start" ? "appointment:started" : "appointment:ended", {
+      appointmentId: appointment._id, doctorId: idOf(appointment.doctor), status: appointment.status, visitMode: appointment.visitMode,
+      startedAt: appointment.startedAt, endedAt: appointment.endedAt, endsAt: null });
   });
-  if (active) return res.status(409).json({ message: "Another consultation is already active" });
-
-  token.status = "in_consultation";
-  token.consultationStartedAt = new Date();
-  await token.save();
-  let linkedAppointment = null;
-  if (token.appointmentId) {
-    linkedAppointment = await Appointment.findById(token.appointmentId);
-    if (linkedAppointment && linkedAppointment.status === "queued") {
-      // FIXED: Starting a hospital OPD token did not activate the linked patient video appointment.
-      linkedAppointment.status = "active";
-      linkedAppointment.startedAt = token.consultationStartedAt;
-      linkedAppointment.endedAt = null;
-      linkedAppointment.endedBy = null;
-      linkedAppointment.endedReason = null;
-      await linkedAppointment.save();
-    }
-  }
-  await clearOpdCache({ hospitalId: token.hospitalId, doctorId: token.doctorId });
-  emitHospital(token.hospitalId, "opd:consultation-started", { token });
-  emitDoctor(token.doctorId, "opd:consultation-started", { token });
-  const io = getIO();
-  if (io && linkedAppointment) {
-    const payload = {
-      appointmentId: linkedAppointment._id,
-      doctorId: linkedAppointment.doctor.toString(),
-      userId: linkedAppointment.user.toString(),
-      status: linkedAppointment.status,
-      startedAt: linkedAppointment.startedAt,
-      endsAt: new Date(linkedAppointment.startedAt.getTime() + 5 * 60 * 1000),
-      source: "hospital-opd",
-      opdTokenId: token._id,
-    };
-    io.to(`user:${linkedAppointment.user.toString()}`).emit("appointment:started", payload);
-    io.to(`user:${linkedAppointment.user.toString()}`).emit("appointment:user-status", {
-      doctorId: linkedAppointment.doctor.toString(),
-      pendingCount: 0,
-      appointmentId: linkedAppointment._id,
-      status: "active",
-      queuePosition: 0,
-      startedAt: linkedAppointment.startedAt,
-      endsAt: payload.endsAt,
-    });
-  }
-
-  // Always notify the patient that they have been called, even without a linked appointment
-  if (io && token.patientId) {
-    const hospital = await Hospital.findById(token.hospitalId).select("name slug").lean();
-    const doctor = await HospitalStaff.findById(token.doctorId).select("name").lean();
-    io.to(`user:${token.patientId.toString()}`).emit("opd:patient-called", {
-      tokenId: token._id,
-      displayToken: token.displayToken,
-      hospitalId: token.hospitalId.toString(),
-      hospitalName: hospital?.name || "Hospital",
-      hospitalSlug: hospital?.slug || "",
-      doctorName: doctor?.name || "Doctor",
-      departmentId: token.departmentId?.toString(),
-      status: "in_consultation",
-    });
-  }
-  return res.status(200).json({ message: "Consultation started", token });
+  if (action === "start" && token.patientId) await afterVisitCommit(async () => getIO()?.to(`user:${idOf(token.patientId)}`).emit("opd:patient-called", {
+    tokenId: token._id, displayToken: token.displayToken, hospitalId: idOf(token.hospitalId), departmentId: idOf(token.departmentId), status: "in_consultation", visitMode: "in_person" }));
+  return res.json({ message: { start: "Consultation started", complete: "Consultation completed", vitals: "Vitals recorded", no_show: "Token marked as no-show", check_in: "Patient checked in" }[action],
+    token: visitForStaff(changed.token, req.staff) });
 };
-
-const completeConsultation = async (req, res) => {
-  const token = await getTokenForStaff(req, res, req.params.tokenId);
-  if (!token) return;
-  if (String(token.doctorId) !== req.staff.id) {
-    return res.status(403).json({ message: "Only the assigned doctor can complete this consultation" });
-  }
-
-  token.status = "completed";
-  token.consultationEndedAt = new Date();
-  token.consultationNotes = String(req.body.notes || "").trim();
-  token.diagnosis = String(req.body.diagnosis || "").trim();
-  if (req.body.followUpDate) {
-    const followUp = new Date(req.body.followUpDate);
-    if (!Number.isNaN(followUp.getTime())) token.followUpDate = followUp;
-  }
-  await token.save();
-  if (token.appointmentId) {
-    const linkedAppointment = await Appointment.findById(token.appointmentId);
-    if (linkedAppointment && linkedAppointment.status === "active") {
-      // FIXED: Completing a hospital OPD token left the linked video appointment active for the patient.
-      linkedAppointment.status = "completed";
-      linkedAppointment.endedAt = token.consultationEndedAt;
-      linkedAppointment.endedBy = "doctor";
-      linkedAppointment.endedReason = "doctor-ended";
-      await linkedAppointment.save();
-      const io = getIO();
-      if (io) {
-        io.to(`user:${linkedAppointment.user.toString()}`).emit("appointment:ended", {
-          appointmentId: linkedAppointment._id,
-          status: "completed",
-          endedAt: linkedAppointment.endedAt,
-        });
-      }
-    }
-  }
-  await clearOpdCache({ hospitalId: token.hospitalId, doctorId: token.doctorId });
-  await scheduleReviewRequest({ tokenId: token._id, patientId: token.patientId, hospitalId: token.hospitalId });
-  emitHospital(token.hospitalId, "opd:consultation-completed", {
-    token,
-    notes: token.consultationNotes,
-    diagnosis: token.diagnosis,
-    followUpDate: token.followUpDate,
-  });
-  return res.status(200).json({ message: "Consultation completed", token });
-};
-
-const markNoShow = async (req, res) => {
-  const token = await getTokenForStaff(req, res, req.params.tokenId);
-  if (!token) return;
-  if (!["NURSE", "RECEPTIONIST", "HOSPITAL_ADMIN"].includes(req.staff.role)) {
-    return res.status(403).json({ message: "Nurse, receptionist or admin access is required" });
-  }
-  token.status = "no_show";
-  await token.save();
-  await clearOpdCache({ hospitalId: token.hospitalId, doctorId: token.doctorId });
-  emitHospital(token.hospitalId, "opd:no-show", { token });
-  return res.status(200).json({ message: "Token marked as no-show", token });
-};
-
+const recordVitals = (req, res) => mutateToken(req, res, "vitals");
+const startConsultation = (req, res) => mutateToken(req, res, "start");
+const completeConsultation = (req, res) => mutateToken(req, res, "complete");
+const markNoShow = (req, res) => mutateToken(req, res, "no_show");
+const checkIn = (req, res) => mutateToken(req, res, "check_in");
 const getMyActiveToken = async (req, res) => {
-  const { hospitalId } = req.params;
-  const { start, end } = dayRange();
-  const token = await OpdToken.findOne({
-    hospitalId,
-    patientId: req.auth.id,
-    date: { $gte: start, $lt: end },
-    status: { $in: ["waiting", "vitals_done", "in_consultation"] },
-  }).lean();
-  return res.status(200).json({ token });
+  if (req.auth?.role !== "user") throw accessError(403, "Patient account required");
+  const hospital = await Hospital.findById(req.params.hospitalId);
+  if (!hospital) throw accessError(404, "Hospital not found");
+  const tokens = await OpdToken.find({ hospitalId: hospital._id, patientId: req.auth.id, status: { $in: liveTokenStatuses }, serviceDate: req.query.serviceDate || localServiceDate(new Date(), hospital.settings?.timezone),
+    ...(req.query.doctorId ? { doctorId: requireRecordId(req.query.doctorId, "doctor") } : {}),
+    ...(req.query.familyMemberId ? { familyMemberId: requireRecordId(req.query.familyMemberId, "family member") } : {}) }).sort({ createdAt: -1 }).lean();
+  return res.json({ token: tokens[0] || null, tokens });
 };
-
-export {
-  completeConsultation,
-  getDoctorQueue,
-  getMyActiveToken,
-  issueToken,
-  markNoShow,
-  recordVitals,
-  startConsultation,
-};
+export { issueToken, getDoctorQueue, recordVitals, startConsultation, completeConsultation, markNoShow, getMyActiveToken, checkIn };

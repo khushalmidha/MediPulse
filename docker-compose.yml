@@ -1,71 +1,131 @@
+name: medipulse-local
 services:
   mongo:
     image: mongo:7
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports: ["127.0.0.1:27017:27017"]
+    volumes: ["mongo_dev_data:/data/db"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ping:1}).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongo: {condition: service_healthy}
+    volumes: ["./infra/mongo-init.js:/scripts/mongo-init.js:ro"]
+    entrypoint: ["mongosh", "--host", "mongo:27017", "--quiet", "/scripts/mongo-init.js"]
+    restart: "no"
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["127.0.0.1:6379:6379"]
+    volumes: ["redis_dev_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-
+    environment: {ZOOKEEPER_CLIENT_PORT: 2181, ZOOKEEPER_TICK_TIME: 2000}
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
+    depends_on: [zookeeper]
+    ports: ["127.0.0.1:9092:9092"]
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
   backend:
     build: ./backend
     depends_on:
-      - mongo
-      - redis
-      - kafka
-    ports:
-      - "8080:8080"
+      mongo-init: {condition: service_completed_successfully}
+      queue-init: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    ports: ["127.0.0.1:8080:8080"]
     env_file:
-      - ./backend/.env
-    environment:
-      DATABASE_URL: mongodb://mongo:27017/medipulse
-      REDIS_URL: redis://redis:6379
+      - {path: ./backend/.env.local, required: false}
+    environment: &local-env
+      NODE_ENV: development
+      PORT: 8080
+      DATABASE_URL: mongodb://mongo:27017/medipulse_dev?replicaSet=rs0&directConnection=true
+      TOKEN_KEY: local-development-signing-key-replace-before-production
+      USE_REAL_REDIS: "true"
+      REDIS_URL: redis://redis:6379/0
       KAFKA_BROKERS: kafka:29092
-      CLIENT_URLS: http://localhost:5173,http://localhost:8081
-
+      KAFKA_CREATE_TOPICS: "true"
+      KAFKA_SSL: "false"
+      KAFKA_USERNAME: ""
+      KAFKA_PASSWORD: ""
+      CLIENT_URLS: http://localhost:5173,http://localhost:8081,http://127.0.0.1:5173,http://127.0.0.1:8081
+      FRONTEND_URL: http://localhost:8081
+      MAIL_DELIVERY: disabled
+      REQUIRE_BOOKING_OTP: "false"
+    healthcheck:
+      test: ["CMD", "node", "scripts/healthcheck.js"]
+      interval: 10s
+      timeout: 15s
+      retries: 12
+      start_period: 30s
+  queue-init:
+    build: ./backend
+    depends_on:
+      mongo-init: {condition: service_completed_successfully}
+    environment:
+      DATABASE_URL: mongodb://mongo:27017/medipulse_dev?replicaSet=rs0&directConnection=true
+      NODE_ENV: development
+      API_PROBE_URL: http://backend:8080/health/live
+    command: ["node", "scripts/bootstrapQueues.js"]
+    restart: "no"
   vpay-consumer:
     build: ./backend
     depends_on:
-      - backend
-      - kafka
+      backend: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
     env_file:
-      - ./backend/.env
+      - {path: ./backend/.env.local, required: false}
     environment:
-      DATABASE_URL: mongodb://mongo:27017/medipulse
-      REDIS_URL: redis://redis:6379
-      KAFKA_BROKERS: kafka:29092
+      <<: *local-env
+      CONSUMER_HEALTH_PORT: 8082
     command: ["npm", "run", "consumer:vpay"]
-
+    healthcheck:
+      test: ["CMD", "node", "scripts/healthcheck.js", "consumer"]
+      interval: 10s
+      timeout: 15s
+      retries: 12
+      start_period: 30s
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_BACKEND_URL: /backend
+        VITE_BASE_DOMAIN: medipulse.live
+        VITE_APP_DOMAINS: localhost,127.0.0.1
     depends_on:
-      - backend
-    ports:
-      - "8081:80"
-
+      backend: {condition: service_healthy}
+    ports: ["127.0.0.1:8081:80"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 volumes:
-  mongo_data:
+  mongo_dev_data:
+  redis_dev_data:

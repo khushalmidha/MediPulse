@@ -1,3 +1,5 @@
+import { resolveHospitalHost } from "../services/productHosts.js";
+import asyncRoute from "../middleware/asyncHandler.js";
 import { Router } from "express";
 import {
   acceptStaffInvite,
@@ -56,6 +58,7 @@ hospitalRouter.post("/:id/website/custom-domain", validateStaff, addCustomDomain
 hospitalRouter.post("/:id/website/verify-domain", validateStaff, verifyCustomDomain);
 hospitalRouter.delete("/:id/website/custom-domain", validateStaff, removeCustomDomain);
 
+hospitalRouter.get("/resolve-host", asyncRoute(resolveHospitalHost));
 hospitalRouter.get("/:slug", getHospitalProfile);
 hospitalRouter.get("/:slug/doctors", getHospitalDoctors);
 hospitalRouter.get("/:slug/queue-status", getHospitalQueueStatus);

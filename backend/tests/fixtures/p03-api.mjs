@@ -1,0 +1,33 @@
+import asyncHandler from "../../middleware/asyncHandler.js";
+import { originGuard } from "../../services/authSessions.js";
+import mongoose from "mongoose";
+import express from "express";
+import cookieParser from "cookie-parser";
+import { createServer } from "node:http";
+import { localTestTargets } from "../../util/testTargets.js";
+import { getRedis, closeRedis } from "../../services/redis.js";
+const targets = localTestTargets();
+process.env.DATABASE_URL = targets.mongo;
+process.env.USE_REAL_REDIS = "true";
+process.env.REDIS_URL = targets.redis;
+const { default: opd } = await import("../../routes/opd.js");
+const { default: appointments } = await import("../../routes/appointment.js");
+await mongoose.connect(targets.mongo, { autoIndex: false, autoCreate: false, serverSelectionTimeoutMS: 5000 });
+await getRedis().ping();
+const { default: payments } = await import("../../routes/virtualPayment.js");
+if (process.env.RUN_PAYMENT_RECOVERY_ON_START === "true") { const { recoverPayments } = await import("../../services/paymentRecovery.js"); await recoverPayments(); }
+const app = express(); app.use(express.json(), cookieParser(), originGuard);
+app.use("/opd", opd); app.use("/appointment", appointments); app.use("/vpay", payments);
+const { default: users } = await import("../../routes/user.js");
+const { default: doctors } = await import("../../routes/doctor.js");
+const { Verifier, StaffVerifier } = await import("../../controller/auth.js");
+app.use("/user", users); app.use("/doctor", doctors);
+app.get("/verify", asyncHandler(Verifier)); app.get("/verify/staff", asyncHandler(StaffVerifier));
+app.use((error, req, res, next) => res.status(error.status || 500).json({ message: error.status ? error.message : "Fixture request failed" }));
+const server = createServer(app);
+server.listen(0, "127.0.0.1", () => process.send?.({ port: server.address().port }));
+process.on("message", async (message) => {
+  if (message !== "stop") return;
+  await new Promise((resolve) => server.close(resolve));
+  await mongoose.disconnect(); await closeRedis(); process.exit(0);
+});

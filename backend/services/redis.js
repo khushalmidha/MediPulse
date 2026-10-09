@@ -232,6 +232,7 @@ const createMemoryMulti = () => {
 };
 
 const createMemoryRedis = () => ({
+  ping: async () => "PONG",
   get: memoryGet,
   set: memorySet,
   del: memoryDel,
@@ -254,9 +255,17 @@ const createMemoryRedis = () => ({
   },
 });
 
+export const usesRealRedis = (env = process.env) => env.NODE_ENV === "production" || env.USE_REAL_REDIS === "true";
+
+export const closeRedis = async () => {
+  if (redisClient) {
+    const client = redisClient; redisClient = undefined;
+    try { await client.quit(); } finally { client.disconnect(); }
+  }
+};
+
 const getRedis = () => {
-  const useRealRedis =
-    process.env.NODE_ENV === "production" || process.env.USE_REAL_REDIS === "true";
+  const useRealRedis = usesRealRedis();
 
   if (!useRealRedis) {
     return createMemoryRedis();
@@ -270,10 +279,11 @@ const getRedis = () => {
       lazyConnect: false,
       maxRetriesPerRequest: 1,
       enableReadyCheck: !redisUrl.startsWith("rediss://"),
+      keyPrefix: process.env.REDIS_KEY_PREFIX || "",
     });
 
-    redisClient.on("error", (error) => {
-      console.error("Redis error:", error.message);
+    redisClient.on("error", () => {
+      console.error("Redis dependency is unavailable");
     });
   }
 

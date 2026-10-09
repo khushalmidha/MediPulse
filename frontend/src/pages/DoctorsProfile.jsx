@@ -1,3 +1,4 @@
+import { communityMemberCount } from "../utils/community";
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
@@ -259,7 +260,7 @@ const DoctorsProfile = () => {
                         <>
                           <button
                             type='button'
-                            onClick={() => navigate(`/hospital/${doctor.hospitalContext?.hospitalSlug}/book-opd`, { state: { preSelectedDoctorId: doctor._id } })}
+                            onClick={() => navigate(`/hospitals/${doctor.hospitalContext?.hospitalSlug}`, { state: { preSelectedDoctorId: doctor._id } })}
                             className='inline-flex items-center rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700'>
                             <CalendarPlus className='mr-2 h-4 w-4' />
                             Book OPD Token
@@ -564,7 +565,7 @@ const DoctorsProfile = () => {
                           <div className='flex items-center'>
                             <Users className='w-3 h-3 mr-1' />
                             <span>
-                              {community.members?.length || 0} members
+                              {communityMemberCount(community)} members
                             </span>
                           </div>
                           <div className='flex items-center'>

@@ -5,12 +5,13 @@ import Review from "../model/review.js";
 import User from "../model/user.js";
 import { sendReviewRequestMail } from "../util/mailer.js";
 import { getRedis } from "./redis.js";
+import { enqueueJob } from "./outbox.js";
 
 const reviewRequestQueueKey = "review:request:queue";
 const REVIEW_DELAY_MS = 30 * 60 * 1000;
 let workerStarted = false;
 
-const reviewSecret = () => process.env.REVIEW_SIGNATURE_SECRET || process.env.TOKEN_KEY || "medipulse-review-secret";
+const reviewSecret = () => process.env.REVIEW_SIGNATURE_SECRET || process.env.TOKEN_KEY;
 
 export const signReviewRequest = ({ tokenId, patientId }) =>
   crypto.createHmac("sha256", reviewSecret()).update(`${tokenId}:${patientId}`).digest("base64url");
@@ -32,24 +33,20 @@ export const buildReviewUrl = ({ tokenId, patientId }) => {
 export const scheduleReviewRequest = async ({ tokenId, patientId, hospitalId, delayMs = REVIEW_DELAY_MS }) => {
   if (!tokenId || !patientId || !hospitalId) return;
 
-  await getRedis().zadd(
-    reviewRequestQueueKey,
-    Date.now() + delayMs,
-    JSON.stringify({ tokenId: String(tokenId), patientId: String(patientId), hospitalId: String(hospitalId) }),
-  );
+  await enqueueJob({ id: `review:${tokenId}`, kind: "review.mail", payload: {
+    tokenId: String(tokenId), patientId: String(patientId), hospitalId: String(hospitalId) }, availableAt: new Date(Date.now() + delayMs) });
 };
 
-const processReviewRequest = async (rawJob) => {
-  const job = JSON.parse(rawJob);
+export const processReviewRequest = async (job) => {
   const [existingReview, token, patient, hospital] = await Promise.all([
     Review.findOne({ tokenId: job.tokenId, patientId: job.patientId }).lean(),
-    OpdToken.findById(job.tokenId).select("displayToken doctorId departmentId patientId").lean(),
+    OpdToken.findById(job.tokenId).select("displayToken doctorId departmentId patientId hospitalId status").lean(),
     User.findById(job.patientId).select("firstName lastName email").lean(),
     Hospital.findById(job.hospitalId).select("name").lean(),
   ]);
 
-  if (existingReview || !token || !patient?.email || String(token.patientId) !== String(job.patientId)) {
-    return;
+  if (existingReview || !token || !patient?.email || token.status !== "completed" || String(token.hospitalId) !== String(job.hospitalId) || String(token.patientId) !== String(job.patientId)) {
+    return { skipped: true };
   }
 
   await sendReviewRequestMail({
@@ -61,25 +58,21 @@ const processReviewRequest = async (rawJob) => {
   });
 };
 
+// Transfer legacy Redis jobs to Mongo before removing them. Delivery is owned by the outbox.
+export const importLegacyReviewJobs = async () => {
+  const redis = getRedis(), jobs = await redis.zrangebyscore(reviewRequestQueueKey, 0, Date.now(), "LIMIT", 0, 25);
+  for (const raw of jobs) {
+    const job = JSON.parse(raw);
+    if (!job.tokenId || !job.patientId || !job.hospitalId) throw new Error("Invalid legacy review job requires operator review");
+    await scheduleReviewRequest({ ...job, delayMs: 0 });
+    await redis.zrem(reviewRequestQueueKey, raw);
+  }
+};
 export const startReviewRequestWorker = () => {
-  if (workerStarted) return;
-  workerStarted = true;
-
-  const run = async () => {
-    const redis = getRedis();
-    const dueJobs = await redis.zrangebyscore(reviewRequestQueueKey, 0, Date.now(), "LIMIT", 0, 10);
-    for (const job of dueJobs) {
-      try {
-        await processReviewRequest(job);
-      } catch (error) {
-        console.error("Review request worker failed:", error.message);
-      } finally {
-        await redis.zrem(reviewRequestQueueKey, job);
-      }
-    }
-  };
-
-  const interval = setInterval(() => run().catch((error) => console.error("Review worker tick failed:", error.message)), 60 * 1000);
-  interval.unref?.();
-  run().catch((error) => console.error("Review worker initial run failed:", error.message));
+  if (workerStarted) return () => {};
+  workerStarted = true; let running = false;
+  const tick = async () => { if (running) return; running = true;
+    try { await importLegacyReviewJobs(); } catch { console.error("Legacy review import needs retry"); } finally { running = false; } };
+  const interval = setInterval(tick, 60000); interval.unref?.(); void tick();
+  return () => { clearInterval(interval); workerStarted = false; };
 };

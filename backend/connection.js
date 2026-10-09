@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { assertMongoTransactions } from "./services/readiness.js";
 
 const connectMongo = async (url) => {
 	if (!url) {
@@ -8,6 +9,7 @@ const connectMongo = async (url) => {
 	await mongoose.connect(url, {
 		serverSelectionTimeoutMS: 10000,
 	});
+	await assertMongoTransactions(mongoose.connection);
 	console.log("Connected to mongoDB");
 };
 

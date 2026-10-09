@@ -83,7 +83,7 @@ const HospitalAdminSignup = () => {
         { withCredentials: true },
       );
 
-      sessionStorage.setItem("medipulse.hospitalAdmin", JSON.stringify(response.data));
+      sessionStorage.setItem("medipulse.hospitalAdmin", JSON.stringify({ hospital: response.data.hospital, staff: response.data.staff }));
       navigate("/hospital/admin");
     } catch (error) {
       setMessage(error.response?.data?.message || "Hospital registration failed");
@@ -165,8 +165,8 @@ const HospitalAdminSignup = () => {
           </div>
 
           <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-5">
-            <Link to="/signup" className="text-sm font-medium text-gray-600 hover:text-red-600 dark:text-red-500">
-              Back to profile selection
+            <Link to="/hospital" className="text-sm font-medium text-gray-600 hover:text-red-600 dark:text-red-500">
+              Back to hospital workspace
             </Link>
             <button
               type="submit"

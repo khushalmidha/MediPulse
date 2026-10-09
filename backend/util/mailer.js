@@ -52,20 +52,7 @@ const isSmtpConnectionError = (error) => {
 const getTransporter = async (smtpConfig = getSmtpConfigs()[0]) => {
   const missing = requiredMailConfig.filter((key) => !process.env[key]);
   if (missing.length) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(`Mail service is not configured. Missing: ${missing.join(", ")}`);
-    }
-
-    console.warn(
-      `Mail service is not configured. Missing: ${missing.join(", ")}. Using console fallback in development.`,
-    );
-
-    return {
-      sendMail: async ({ to, subject, text }) => {
-        console.log("[mail:fallback]", { to, subject, text });
-        return { messageId: `dev-${Date.now()}` };
-      },
-    };
+    throw new Error("Mail service is not configured");
   }
 
   const smtpHost = await resolveSmtpHost();
@@ -92,6 +79,7 @@ const getTransporter = async (smtpConfig = getSmtpConfigs()[0]) => {
 };
 
 const verifyMailTransport = async () => {
+  if (process.env.MAIL_DELIVERY === "disabled") return;
   if (process.env.BREVO_API_KEY) {
     console.log("Mail provider: Brevo API");
     return;
@@ -228,7 +216,8 @@ const sendWithBrevo = async ({ from, to, subject, text, html }) => {
   }
 };
 
-const sendMail = async (mailOptions) => {
+export const sendMail = async (mailOptions) => {
+  if (process.env.MAIL_DELIVERY === "disabled") throw new Error("Mail delivery is disabled");
   if (process.env.BREVO_API_KEY) {
     try {
       return await sendWithBrevo(mailOptions);
@@ -376,7 +365,7 @@ const sendAppointmentRefundMail = async ({
     text: `Hi ${patientName || "there"},
 
 Your appointment request with Dr. ${doctorName || "Doctor"} was cancelled.
-INR ${Number(amount || 0).toFixed(2)} has been refunded to your wallet.
+Demo INR ${Number(amount || 0).toFixed(2)} has been refunded to your virtual wallet.
 
 Appointment ID: ${appointmentId}
 
@@ -386,7 +375,7 @@ MediPulse`,
         <h2 style="margin: 0 0 12px;">Booking refunded</h2>
         <p>Hi ${patientName || "there"},</p>
         <p>Your appointment request with <strong>Dr. ${doctorName || "Doctor"}</strong> was cancelled.</p>
-        <p><strong>INR ${Number(amount || 0).toFixed(2)}</strong> has been refunded to your wallet.</p>
+        <p><strong>Demo INR ${Number(amount || 0).toFixed(2)}</strong> has been refunded to your virtual wallet.</p>
         <p style="color: #6b7280;">Appointment ID: ${appointmentId}</p>
       </div>
     `,

@@ -1,25 +1,67 @@
-# Production Docker Compose for AWS EC2 Deployment
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-
+# Override the local stack using --env-file backend/.env.production.
+# Compose 2.24.4+ is required for !override; see docs/DEVELOPMENT.md.
+name: medipulse-production
 services:
-  # We do NOT run MongoDB in production via Docker. 
-  # We use MongoDB Atlas (Cloud) for reliability and backups.
   mongo:
-    profiles: ["disabled"] # This disables the local mongo container
-
+    profiles: ["local-only"]
+  mongo-init:
+    profiles: ["local-only"]
+  queue-init:
+    profiles: ["local-only"]
+  redis:
+    ports: !reset []
+    volumes: !override ["redis_prod_data:/data"]
+    restart: unless-stopped
+  kafka:
+    ports: !reset []
+    volumes: ["kafka_prod_data:/var/lib/kafka/data"]
+    restart: unless-stopped
+  zookeeper:
+    volumes: ["zookeeper_prod_data:/var/lib/zookeeper/data", "zookeeper_prod_log:/var/lib/zookeeper/log"]
+    restart: unless-stopped
   backend:
-    depends_on:
-      - redis
-      - kafka
-    restart: always
-
+    depends_on: !override
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    env_file: !override
+      - {path: ./backend/.env.production, required: true}
+    environment: &production-env
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: ${DATABASE_URL:?Set the approved production database URI in backend/.env.production}
+      TOKEN_KEY: ${TOKEN_KEY:?Set a production signing key}
+      USE_REAL_REDIS: "true"
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CREATE_TOPICS: "true"
+      KAFKA_SSL: "false"
+      KAFKA_USERNAME: ""
+      KAFKA_PASSWORD: ""
+      CLIENT_URLS: ${CLIENT_URLS:?Set production client origins}
+      FRONTEND_URL: https://medipulse.live
+      MAIL_DELIVERY: ${MAIL_DELIVERY:-enabled}
+      REQUIRE_BOOKING_OTP: ${REQUIRE_BOOKING_OTP:-false}
+    restart: unless-stopped
   vpay-consumer:
-    restart: always
-
+    depends_on: !override
+      backend: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    env_file: !override
+      - {path: ./backend/.env.production, required: true}
+    environment:
+      <<: *production-env
+      CONSUMER_HEALTH_PORT: 8082
+    restart: unless-stopped
   frontend:
-    # If deploying frontend to AWS Amplify, you can disable this container
-    # profiles: ["disabled"]
-    restart: always
-
+    build:
+      args:
+        VITE_BACKEND_URL: ${PUBLIC_API_URL:-/backend}
+        VITE_BASE_DOMAIN: medipulse.live
+        VITE_APP_DOMAINS: medipulse.live,www.medipulse.live,connect.medipulse.live,app.medipulse.live
+    restart: unless-stopped
 volumes:
-  huggingface_cache:
+  redis_prod_data:
+  kafka_prod_data:
+  zookeeper_prod_data:
+  zookeeper_prod_log:

@@ -35,7 +35,8 @@ const hospitalStaffSchema = new mongoose.Schema(
     inviteToken: String,
     inviteExpiresAt: Date,
     invitedBy: { type: objectId, ref: "HospitalStaff" },
-    password: String,
+    password: { type: String, select: false },
+    authVersion: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
     joinedAt: Date,
   },
@@ -48,8 +49,14 @@ hospitalStaffSchema.index({ role: 1, isActive: 1, inviteStatus: 1, name: 1 });
 
 hospitalStaffSchema.pre("save", async function () {
   if (!this.isModified("password") || !this.password) return;
+  if (!this.isNew) this.authVersion = (this.authVersion || 0) + 1;
   this.password = await bcrypt.hash(this.password, 12);
 });
+
+hospitalStaffSchema.set("toJSON", { transform: (_doc, value) => {
+  for (const key of ["password", "inviteToken", "inviteExpiresAt", "authVersion"]) delete value[key];
+  return value;
+} });
 
 const HospitalStaff = mongoose.model("HospitalStaff", hospitalStaffSchema);
 

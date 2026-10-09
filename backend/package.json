@@ -5,12 +5,15 @@
 	"type": "module",
 	"scripts": {
 		"start": "node index.js",
-		"dev": "nodemon index.js",
+		"dev": "nodemon --exec \"node scripts/startLocal.js\"",
 		"consumer:vpay": "node scripts/runVirtualConsumers.js",
 		"seed:vpay": "node scripts/seedVirtualGateway.js",
 		"seed:alchemist": "node scripts/seedExistingAlchemistHospital.js",
 		"seed:existing-alchemist": "node scripts/seedExistingAlchemistHospital.js",
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test": "node --import ./tests/bootstrap.js --test tests/*.test.js",
+		"test:p01": "node --import ./tests/bootstrap.js --test tests/p01.test.js",
+		"test:integration": "node scripts/testIntegration.js",
+		"consumer:local": "node scripts/startLocal.js consumer"
 	},
 	"keywords": [],
 	"author": "",

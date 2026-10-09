@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs'
 
 const doctorSchema = new mongoose.Schema(
   {
+    queueTimezone: { type: String, default: "Asia/Kolkata" },
+    queueSessionIds: { type: [String], default: ["day"] },
     firstName: {
       type: String,
       required: true,
@@ -13,7 +15,9 @@ const doctorSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
+      select: false,
     },
+    authVersion: { type: Number, default: 0 },
     email: {
       type: String,
       required: true,
@@ -101,8 +105,14 @@ doctorSchema.index({ 'experience.expertise': 1 })
 
 doctorSchema.pre('save', async function () {
   if (!this.isModified('password')) return
+  if (!this.isNew) this.authVersion = (this.authVersion || 0) + 1;
   this.password = await bcrypt.hash(this.password, 12)
 })
+
+doctorSchema.set("toJSON", { transform: (_doc, value) => {
+  for (const key of ["password", "inviteToken", "inviteExpiresAt", "authVersion"]) delete value[key];
+  return value;
+} });
 
 const Doctor = mongoose.model('doctor', doctorSchema)
 

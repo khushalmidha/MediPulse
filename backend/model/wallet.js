@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
+import { amountToMinor } from "../util/money.js";
 
 const walletSchema = new mongoose.Schema(
   {
+    balanceMinor: { type: Number, default() { return amountToMinor(this?.balance || 0, { zero: true }); } },
+    totalSentMinor: { type: Number, default() { return amountToMinor(this?.totalSent || 0, { zero: true }); } },
+    totalReceivedMinor: { type: Number, default() { return amountToMinor(this?.totalReceived || 0, { zero: true }); } },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,

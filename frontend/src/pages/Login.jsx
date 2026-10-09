@@ -1,3 +1,4 @@
+import { useProduct } from "../context/ProductContext";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, UserCircle2, Stethoscope, ArrowLeft, AlertCircle, Building2 } from "lucide-react";
@@ -139,7 +140,7 @@ const ProfileSelection = ({ setUserType }) => (
         <div className="bg-red-100 p-4 rounded-full">
           <Building2 className="h-10 w-10 text-red-600 dark:text-red-500" />
         </div>
-        <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Sign in as Hospital Admin</h4>
+        <h4 className="mt-4 text-lg font-medium text-gray-800 dark:text-slate-200">Sign in as Hospital Staff</h4>
         <p className="mt-2 text-center text-sm text-gray-600">
           Manage hospital workspace, departments, and staff
         </p>
@@ -263,7 +264,7 @@ const LoginForm = ({ handleSubmit, handleGoogleSignin, message, email, setEmail,
         disabled={loading}
         className={`relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 dark:bg-red-700 ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'} shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors`}
       >
-        {loading ? 'Signing in...' : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Admin'}`}
+        {loading ? 'Signing in...' : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Staff'}`}
       </button>
     </div>
     {userType !== "hospital-admin" && (
@@ -372,8 +373,10 @@ const ForgotPasswordForm = ({
   </form>
 );
 
-const Login = () => {
-  const [userType, setUserType] = useState("select");
+// eslint-disable-next-line react/prop-types -- These props are supplied by the product router.
+const Login = ({ initialType, lockProfile = false }) => {
+  const product = useProduct();
+  const [userType, setUserType] = useState(initialType || "select");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [hospitalId, setHospitalId] = useState("");
@@ -388,10 +391,10 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if(isAuth){
+    if(isAuth && initialType !== "hospital-admin"){
       navigate("/dashboard");
     }
-  },[isAuth, navigate]);
+  },[isAuth, navigate, initialType]);
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
@@ -405,7 +408,7 @@ const Login = () => {
           return;
         }
         const res = await axios.post(
-          `${BACKEND_URL}/api/auth/staff/login`,
+          `${BACKEND_URL}/user/staff/login`,
           { email, password, hospitalId, rememberMe },
           { withCredentials: true, headers: { "Content-Type": "application/json" } }
         );
@@ -420,7 +423,9 @@ const Login = () => {
             JSON.stringify({ hospital: staffPayload.hospital, staff: staffPayload.data })
           );
           syncStaffSession(staffPayload);
-          navigate("/hospital/admin");
+          const destination = staffPayload.role === "DOCTOR" ? "/hospital/doctor-opd" : ["NURSE", "RECEPTIONIST"].includes(staffPayload.role) ? "/hospital/nursing-station" : staffPayload.role === "HOSPITAL_ADMIN" || staffPayload.data.adminAccess ? "/hospital/admin" : "/hospital/staff-communication";
+          if (product.kind === "staff") navigate(destination);
+          else window.location.assign((["localhost", "127.0.0.1"].includes(window.location.hostname) ? "" : `https://${import.meta.env.VITE_BASE_DOMAIN || "medipulse.live"}`) + destination);
           return;
         }
       }
@@ -447,7 +452,7 @@ const Login = () => {
       }
     }
     setLoading(false);
-  }, [email, password, hospitalId, rememberMe, userType, navigate, setIsAuth, setUser, setRole, syncStaffSession]);
+  }, [email, password, hospitalId, rememberMe, userType, navigate, setIsAuth, setUser, setRole, syncStaffSession, product.kind]);
 
   const handleGoogleSignin = useCallback(async (response) => {
     setMessage("");
@@ -529,7 +534,7 @@ const Login = () => {
       <div className={`${userType === "select" ? "max-w-3xl" : "max-w-md"} w-full bg-white dark:bg-slate-950 p-8 sm:p-10 rounded-2xl shadow-md border border-gray-100`}>
         <div className="mb-10 text-center">
           <h2 className="text-3xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight">
-            {userType === "select" ? "Welcome Back" : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Admin'}`}
+            {userType === "select" ? "Welcome Back" : `Sign in as ${userType === 'user' ? 'User' : userType === 'doctor' ? 'Doctor' : 'Hospital Staff'}`}
           </h2>
           <p className="mt-3 text-gray-600">
             Don't have an account?{" "}
@@ -589,6 +594,7 @@ const Login = () => {
             />
             
             <button
+              hidden={lockProfile}
               onClick={() => {
                 setUserType("select");
                 setAuthMode("login");

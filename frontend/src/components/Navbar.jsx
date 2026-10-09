@@ -1,3 +1,4 @@
+import { useProduct } from "../context/ProductContext"
 import { NavLink, Link, useNavigate } from 'react-router-dom'
 import {
   Building2,
@@ -8,24 +9,26 @@ import {
   MessageSquare,
   Stethoscope,
   X,
+  Pencil,
   Moon,
   Sun,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import Cookies from 'js-cookie'
 import axios from 'axios'
 import { BACKEND_URL } from '../utils'
 import { getSocket } from '../socket'
 
 const Badge = ({ count }) =>
   count > 0 ? (
-    <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+    <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-teal-800 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
       {count > 99 ? '99+' : count}
     </span>
   ) : null
 
 const Navbar = () => {
+  const product = useProduct()
+  const inStaffWorkspace = product.kind === "staff"
   const [showProfile, setShowProfile] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [walletBalance, setWalletBalance] = useState(null)
@@ -40,13 +43,12 @@ const Navbar = () => {
     user,
     isAuth,
     role,
-    setIsAuth,
-    setUser,
     isStaffAuth,
     staffUser,
     staffRole,
     staffHospital,
     logoutStaff,
+    logoutAccount,
   } = useAuth()
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -153,7 +155,7 @@ const Navbar = () => {
     }
 
     loadBadge()
-    const socket = getSocket()
+    const socket = getSocket(isStaffAuth ? "staff" : "account")
     if (!socket.connected) socket.connect()
 
     const refreshDoctorBadge = () => {
@@ -236,19 +238,18 @@ const Navbar = () => {
     }
   }, [isLoggedIn, isAuth, role, isStaffAuth, staffRole, staffUser?._id, staffUser?.id, staffUser?.hospitalId, staffHospital?._id, navigate])
 
-  const activeStyle = 'whitespace-nowrap text-red-600 dark:text-red-500 font-medium border-b-2 border-red-600 pb-1'
-  const inactiveStyle = 'whitespace-nowrap text-gray-700 hover:text-red-600 dark:text-red-500 transition-colors'
-  const mobileLinkStyle = ({ isActive }) =>
-    `block rounded-md px-3 py-2 ${isActive ? 'bg-red-50 font-medium text-red-600 dark:text-red-500' : 'text-gray-700 hover:bg-gray-50 dark:bg-slate-900 hover:text-red-600 dark:text-red-500'}`
+  const activeStyle = 'whitespace-nowrap mp-nav-link mp-nav-link--active'
+  const inactiveStyle = 'whitespace-nowrap mp-nav-link'
+  const mobileLinkStyle = ({ isActive }) => 'mp-nav-mobile-link' + (isActive ? ' mp-nav-mobile-link--active' : '')
 
   const staffNavLinks = [
-    { to: '/hospital/admin', label: 'Dashboard', icon: Building2 },
+    ...((staffRole === 'HOSPITAL_ADMIN' || staffUser?.adminAccess) ? [{ to: '/hospital/admin', label: 'Dashboard', icon: Building2 }] : []),
     ...(['HOSPITAL_ADMIN', 'NURSE', 'RECEPTIONIST'].includes(staffRole) ? [{ to: '/hospital/nursing-station', label: 'OPD Tokens', icon: ClipboardList }] : []),
     ...(staffRole === 'DOCTOR' ? [{ to: '/hospital/doctor-opd', label: 'Consultation', icon: Stethoscope, badge: staffOpdBadge }] : []),
     { to: '/hospital/staff-communication', label: 'Staff Chat', icon: MessageSquare },
   ]
 
-  const userNavLinks = [
+  const userNavLinks = inStaffWorkspace ? [{ to: "/hospital", label: "Overview" }, { to: "/hospital/login", label: "Staff access" }, { to: "/hospital/signup", label: "Onboarding" }] : [
     ...(isAuth ? [{ to: '/dashboard', label: 'Dashboard' }] : []),
     ...(isAuth && role !== 'doctor' ? [{ to: '/my-appointments', label: 'My Appointments', badge: appointmentBadge }] : []),
     { to: '/doctors', label: 'Doctors' },
@@ -260,40 +261,37 @@ const Navbar = () => {
     ...(isAuth && role === 'user' ? [{ to: '/health-records', label: 'Health Records' }] : []),
   ]
 
-  const handleLogout = () => {
-    if (isStaffAuth) {
-      logoutStaff()
-    } else {
-      setIsAuth(false)
-      setUser(null)
-      Cookies.remove('token')
-      Cookies.remove('id')
+  const handleLogout = async () => {
+    try {
+      await (isStaffAuth ? logoutStaff() : logoutAccount())
+      setShowProfile(false)
+      setShowMobileMenu(false)
+      navigate(isStaffAuth ? '/hospital/login' : '/login')
+    } catch {
+      setToast({ title: 'Sign out failed', message: 'Please try again.' })
     }
-    setShowProfile(false)
-    setShowMobileMenu(false)
-    navigate('/')
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-white dark:bg-black border-b border-transparent dark:border-red-900 shadow-sm transition-colors duration-200">
+    <nav onKeyDown={event => { if (event.key === "Escape") { const selector = showProfile ? 'button[aria-label="Profile menu"]' : 'button[aria-controls="care-mobile-navigation"]'; setShowMobileMenu(false); setShowProfile(false); event.currentTarget.querySelector(selector)?.focus(); } }} className="mp-navigation sticky top-0 z-50 border-b">
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-5">
           <div className="flex min-w-fit flex-shrink-0 items-center">
-            <Link to={isStaffAuth ? '/hospital/admin' : '/'} className="flex items-center gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-500">
+            <Link to={isStaffAuth ? (staffRole === 'DOCTOR' ? '/hospital/doctor-opd' : ['NURSE', 'RECEPTIONIST'].includes(staffRole) ? '/hospital/nursing-station' : staffRole === 'HOSPITAL_ADMIN' || staffUser?.adminAccess ? '/hospital/admin' : '/hospital/staff-communication') : inStaffWorkspace ? '/hospital' : '/'} className="flex items-center gap-2">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300">
                 <Heart size={28} strokeWidth={1.8} />
               </span>
               <span className="text-xl font-bold leading-none text-slate-950 dark:text-white">MediPulse</span>
             </Link>
             {isStaffAuth && staffHospital && (
-              <span className="ml-3 hidden items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-blue-700 sm:flex">
+              <span className="ml-3 hidden items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-blue-700 sm:flex">
                 <Building2 size={12} />
                 {staffHospital.name}
               </span>
             )}
           </div>
 
-          <div className="hidden min-w-0 flex-1 items-center justify-center gap-4 text-sm lg:gap-5 xl:gap-6 md:flex">
+          <div className="hidden min-w-0 flex-1 items-center justify-center gap-4 text-sm lg:gap-5 xl:gap-6 xl:flex">
             {isStaffAuth
               ? staffNavLinks.map(({ to, label, icon: Icon, badge }) => (
                   <NavLink key={to} to={to} className={({ isActive }) => `flex items-center gap-1.5 ${isActive ? activeStyle : inactiveStyle}`}>
@@ -310,8 +308,9 @@ const Navbar = () => {
                 ))}
           </div>
 
-          <div className="flex items-center md:hidden gap-2">
+          <div className="flex items-center xl:hidden gap-2">
             <button
+              aria-label={isDarkMode ? "Use light theme" : "Use dark theme"}
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
             >
@@ -319,14 +318,15 @@ const Navbar = () => {
             </button>
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/50 hover:text-red-600 dark:text-red-500 dark:hover:text-red-500 focus:outline-none"
-              aria-label="Toggle mobile menu">
+              className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 dark:text-gray-300 hover:bg-teal-50 dark:hover:bg-teal-900/50 hover:text-teal-800 dark:text-teal-300 dark:hover:text-red-500 focus:outline-none"
+              aria-expanded={showMobileMenu} aria-controls="care-mobile-navigation" aria-label="Toggle mobile menu">
               {showMobileMenu ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
 
-          <div className="hidden min-w-fit items-center md:flex gap-3">
+          <div className="hidden min-w-fit items-center xl:flex gap-3">
             <button
+              aria-label={isDarkMode ? "Use light theme" : "Use dark theme"}
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
             >
@@ -334,25 +334,25 @@ const Navbar = () => {
             </button>
             {isLoggedIn ? (
               <div className="relative" ref={profileRef}>
-                <button onClick={() => setShowProfile(!showProfile)} className="flex items-center gap-2 focus:outline-none">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 dark:bg-red-700 text-sm font-bold text-white">
+                <button aria-label="Profile menu" aria-expanded={showProfile} onClick={() => setShowProfile(!showProfile)} className="flex items-center gap-2 focus:outline-none">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-800 dark:bg-teal-800 text-sm font-bold text-white">
                     {initials}
                   </span>
                   <span className="hidden text-gray-700 lg:inline-block">{displayName}</span>
                 </button>
 
                 {showProfile && (
-                  <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-lg border border-gray-200 dark:border-red-900 bg-white dark:bg-black shadow-lg">
+                  <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-black shadow-lg">
                     <div className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-600 dark:bg-red-600 text-base font-bold text-white">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-800 dark:bg-teal-800 text-base font-bold text-white">
                           {initials}
                         </div>
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-gray-900 dark:text-gray-100">{displayName}</p>
                           <p className="truncate text-sm text-gray-500 dark:text-gray-400">{isStaffAuth ? staffUser?.email : user?.email}</p>
                           {isStaffAuth && (
-                            <span className="mt-1 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                            <span className="mt-1 inline-block rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                               {staffRole?.replace(/_/g, ' ')}
                             </span>
                           )}
@@ -360,19 +360,19 @@ const Navbar = () => {
                       </div>
 
                       {isStaffAuth && staffHospital ? (
-                        <div className="mt-4 rounded-md border border-blue-100 bg-red-50 p-3">
+                        <div className="mt-4 rounded-md border border-blue-100 bg-teal-50 p-3">
                           <p className="text-xs font-semibold text-blue-700">{staffHospital.name}</p>
                           <p className="mt-0.5 text-xs text-red-500">
                             {staffHospital.address?.city || 'City'}, {staffHospital.address?.state || 'State'}
                           </p>
                           {staffHospital.slug && (
-                            <Link to={`/hospitals/${staffHospital.slug}`} onClick={() => setShowProfile(false)} className="mt-2 block text-xs font-semibold text-blue-700 underline">
+                            <Link reloadDocument to={`https://${import.meta.env.VITE_BASE_DOMAIN || "medipulse.live"}/hospitals/${staffHospital.slug}`} onClick={() => setShowProfile(false)} className="mt-2 block text-xs font-semibold text-blue-700 underline">
                               View hospital website
                             </Link>
                           )}
                         </div>
                       ) : (
-                        <div className="mt-4 rounded-md border border-gray-200 dark:border-red-900/40 bg-gray-50 dark:bg-slate-900 p-3">
+                        <div className="mt-4 rounded-md border border-gray-200 dark:border-slate-700/40 bg-gray-50 dark:bg-slate-900 p-3">
                           <p className="text-xs text-gray-500">Wallet Balance</p>
                           <p className="mt-1 text-xl font-bold text-gray-900 dark:text-slate-100">
                             {walletBalance === null ? 'Loading...' : `INR ${walletBalance.toFixed(2)}`}
@@ -381,7 +381,7 @@ const Navbar = () => {
                       )}
                     </div>
                     <Link to="/profile/edit" onClick={() => setShowProfile(false)} className="flex w-full items-center border-t border-gray-100 px-4 py-3 text-left text-gray-700 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-slate-900">
-                      <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
                       Edit Profile
                     </Link>
                     <button onClick={handleLogout} className="flex w-full items-center border-t border-gray-100 px-4 py-3 text-left text-red-500 hover:bg-gray-100">
@@ -393,13 +393,13 @@ const Navbar = () => {
               </div>
             ) : (
               <div className="flex items-center gap-3 text-sm">
-                <Link to="/login" className="whitespace-nowrap px-1 font-medium text-gray-700 hover:text-red-600 dark:text-red-500">
+                <Link to={inStaffWorkspace ? "/hospital/login" : "/login"} className="whitespace-nowrap px-1 font-medium text-gray-700 hover:text-teal-800 dark:text-teal-300">
                   Login
                 </Link>
-                <Link to="/signup" className="whitespace-nowrap rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2.5 font-semibold text-white hover:bg-blue-700">
+                <Link to={inStaffWorkspace ? "/hospital/signup" : "/signup"} className="whitespace-nowrap rounded-lg bg-teal-800 dark:bg-teal-800 px-4 py-2.5 font-semibold text-white hover:bg-teal-900">
                   Sign Up
                 </Link>
-                <Link to="/signup/hospital-admin" className="hidden whitespace-nowrap rounded-lg border border-red-600 px-4 py-2.5 font-semibold text-red-600 dark:text-red-500 hover:bg-red-50 xl:inline-flex">
+                <Link to="/signup/hospital-admin" className="hidden whitespace-nowrap rounded-lg border border-teal-800 px-4 py-2.5 font-semibold text-teal-800 dark:text-teal-300 hover:bg-teal-50 xl:inline-flex">
                   Register Hospital
                 </Link>
               </div>
@@ -409,7 +409,7 @@ const Navbar = () => {
       </div>
 
       {showMobileMenu && (
-        <div className="border-t border-gray-200 dark:border-red-900 bg-white dark:bg-black md:hidden" ref={mobileMenuRef}>
+        <div className="border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-black xl:hidden" ref={mobileMenuRef} id="care-mobile-navigation">
           <div className="space-y-1 px-2 pb-3 pt-2">
             {(isStaffAuth ? staffNavLinks : userNavLinks).map(({ to, label, icon: Icon, badge }) => (
               <NavLink key={to} to={to} onClick={() => setShowMobileMenu(false)} className={mobileLinkStyle}>
@@ -417,15 +417,15 @@ const Navbar = () => {
               </NavLink>
             ))}
 
-            <div className="mt-3 border-t border-gray-200 dark:border-red-900/40 pt-3">
+            <div className="mt-3 border-t border-gray-200 dark:border-slate-700/40 pt-3">
               {isLoggedIn ? (
                 <>
                   <div className="flex items-center gap-2 px-3 py-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 dark:bg-red-700 text-xs font-bold text-white">{initials}</span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-800 dark:bg-teal-800 text-xs font-bold text-white">{initials}</span>
                     <span className="font-medium text-gray-700">{displayName}</span>
                   </div>
                   <Link to="/profile/edit" onClick={() => setShowMobileMenu(false)} className="flex w-full items-center px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-slate-900">
-                    <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
                     Edit Profile
                   </Link>
                   <button onClick={handleLogout} className="flex w-full items-center px-3 py-2 text-left text-red-500 hover:bg-gray-50 dark:bg-slate-900">
@@ -435,13 +435,13 @@ const Navbar = () => {
                 </>
               ) : (
                 <div className="flex flex-col space-y-2 px-3">
-                  <Link to="/login" onClick={() => setShowMobileMenu(false)} className="w-full rounded-md border border-gray-300 py-2 text-center text-gray-700">
+                  <Link to={inStaffWorkspace ? "/hospital/login" : "/login"} onClick={() => setShowMobileMenu(false)} className="w-full rounded-md border border-gray-300 py-2 text-center text-gray-700">
                     Login
                   </Link>
-                  <Link to="/signup" onClick={() => setShowMobileMenu(false)} className="w-full rounded-md bg-red-600 dark:bg-red-700 py-2 text-center text-white hover:bg-blue-700">
+                  <Link to={inStaffWorkspace ? "/hospital/signup" : "/signup"} onClick={() => setShowMobileMenu(false)} className="w-full rounded-md bg-teal-800 dark:bg-teal-800 py-2 text-center text-white hover:bg-teal-900">
                     Sign Up
                   </Link>
-                  <Link to="/signup/hospital-admin" onClick={() => setShowMobileMenu(false)} className="w-full rounded-md border border-red-600 py-2 text-center text-red-600 dark:text-red-500">
+                  <Link to="/signup/hospital-admin" onClick={() => setShowMobileMenu(false)} className="w-full rounded-md border border-teal-800 py-2 text-center text-teal-800 dark:text-teal-300">
                     Register Hospital
                   </Link>
                 </div>
@@ -458,7 +458,7 @@ const Navbar = () => {
             <button
               type="button"
               onClick={toast.action}
-              className="mt-3 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+              className="mt-3 rounded-md bg-teal-800 dark:bg-teal-800 px-4 py-2 text-sm font-bold text-white hover:bg-teal-900"
             >
               {toast.actionLabel || 'Open'}
             </button>

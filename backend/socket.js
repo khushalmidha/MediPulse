@@ -1,17 +1,19 @@
+import { resolveSession, onSessionRevoked } from "./services/authSessions.js";
+import { canAccessCommunity, createCommunityMessage, broadcastCommunity } from "./services/communityAccess.js";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import cookie from "cookie";
 import { isAllowedOrigin } from "./config/corsOrigins.js";
-import User from "./model/user.js";
-import Doctor from "./model/doctor.js";
 import HospitalStaff from "./model/hospitalStaff.js";
 import StaffMessage from "./model/staffMessage.js";
-import Message from "./model/message.js";
 import Community from "./model/community.js";
 import Appointment from "./model/appointment.js";
+import OpdToken from "./model/opdToken.js";
+import { idOf, isRecordId, staffRoom } from "./services/hospitalAccess.js";
+import { prepareStaffMessage, emitStaffMessage } from "./services/staffMessaging.js";
 
 let ioInstance = null;
-const appointmentPresence = new Map();
+
 
 export function getIO() {
   return ioInstance;
@@ -21,8 +23,19 @@ export function getIO() {
  * Initialize Socket.IO on the given HTTP server.
  * Returns the io instance so it can be used elsewhere if needed.
  */
+const permissionSignature = (principal, kind) => JSON.stringify([kind, principal.role, idOf(principal.hospitalId),
+  (principal.departmentIds || []).map(idOf).sort(), idOf(principal.doctorId)]);
 export function initSocket(server) {
+  if (Number(process.env.API_INSTANCES || 1) !== 1) throw new Error("Multiple API instances require a configured Socket.IO adapter");
+  const appointmentPresence = new Map();
   const io = new Server(server, {
+    allowRequest: (req, callback) => {
+      let requestOrigin = req.headers.origin;
+      if (!requestOrigin && req.headers["sec-fetch-site"] === "same-origin") {
+        try { requestOrigin = new URL(req.headers.referer).origin; } catch {}
+      }
+      callback(null, isAllowedOrigin(requestOrigin) && (Boolean(requestOrigin) || !req.headers.cookie));
+    },
     cors: {
       origin(origin, callback) {
         if (isAllowedOrigin(origin)) {
@@ -39,264 +52,154 @@ export function initSocket(server) {
   // ── Authentication middleware ──────────────────────────────
   io.use(async (socket, next) => {
     try {
-      // Try token from auth option first (cross-origin), then fall back to cookies
-      let token = socket.handshake.auth?.token;
-
-      if (!token) {
-        const rawCookies = socket.handshake.headers.cookie;
-        if (rawCookies) {
-          const cookies = cookie.parse(rawCookies);
-          token = cookies.staffToken || cookies.token;
-        }
-      }
-
+      const scope = socket.handshake.auth?.scope === "staff" ? "staff" : "account";
+      const cookies = cookie.parse(socket.handshake.headers.cookie || "");
+      const token = socket.handshake.auth?.token || cookies[scope === "staff" ? "staffToken" : "token"];
       if (!token) return next(new Error("Authentication error"));
-
-      jwt.verify(token, process.env.TOKEN_KEY, async (err, data) => {
-        if (err) return next(new Error("Authentication error"));
-
-        if (data.type === "staff") {
-          const staff = await HospitalStaff.findOne({ _id: data.id, hospitalId: data.hospitalId, isActive: true });
-          if (!staff) return next(new Error("Authentication error"));
-          socket.user = {
-            _id: staff._id.toString(),
-            firstName: staff.name,
-            role: staff.role,
-            type: "staff",
-            hospitalId: staff.hospitalId.toString(),
-            departmentIds: staff.departmentIds.map((departmentId) => departmentId.toString()),
-            doctorId: staff.doctorId ? staff.doctorId.toString() : null,
-          };
-          return next();
-        }
-
-        const user = await (data.role === "user" ? User : Doctor).findById(data.id);
-        if (!user) return next(new Error("Authentication error"));
-
-        // Attach user info to the socket for later use
-        socket.user = {
-          _id: user._id.toString(),
-          firstName: user.firstName,
-          role: data.role,
-        };
-        next();
-      });
+      // Explicit bearer clients select scope from their signed claim; browser clients supply scope only.
+      const selectedScope = socket.handshake.auth?.token && jwt.decode(token)?.type === "staff" ? "staff" : scope;
+      const { principal, kind, session } = await resolveSession(token, selectedScope);
+      socket.data.sessionToken = token;
+      socket.data.sessionScope = selectedScope;
+      socket.data.sessionId = session._id;
+      socket.data.permissions = permissionSignature(principal, kind);
+      socket.data.communityActor = { id: String(principal._id), role: kind, name: principal.firstName };
+      if (kind === "staff") {
+        socket.user = { _id: idOf(principal), firstName: principal.name, role: principal.role, type: "staff",
+          hospitalId: idOf(principal.hospitalId), departmentIds: (principal.departmentIds || []).map(idOf),
+          doctorId: principal.doctorId ? idOf(principal.doctorId) : null };
+      } else socket.user = { _id: idOf(principal), firstName: principal.firstName, role: kind };
+      next();
     } catch (err) {
       next(new Error("Authentication error"));
     }
   });
 
+  const unsubscribe = onSessionRevoked(sid => {
+    for (const socket of io.sockets.sockets.values()) if (socket.data.sessionId === sid) socket.disconnect(true);
+  });
+  const sessionPoll = setInterval(async () => {
+    for (const socket of io.sockets.sockets.values()) {
+      try { const { principal, kind } = await resolveSession(socket.data.sessionToken, socket.data.sessionScope);
+        if (permissionSignature(principal, kind) !== socket.data.permissions) socket.disconnect(true); }
+      catch { socket.disconnect(true); }
+    }
+  }, 5000);
+  sessionPoll.unref();
+  server.once("close", () => { clearInterval(sessionPoll); unsubscribe(); });
+
   // ── Connection handler ────────────────────────────────────
   io.on("connection", (socket) => {
-    console.log(`⚡ Socket connected: ${socket.user.firstName} (${socket.id})`);
-    socket.join(`${socket.user.role}:${socket.user._id}`);
+    socket.use(async (packet, next) => {
+      try { const { principal, kind } = await resolveSession(socket.data.sessionToken, socket.data.sessionScope);
+        if (permissionSignature(principal, kind) !== socket.data.permissions) { socket.disconnect(true); return; } next(); }
+      catch { const ack = packet.at(-1); if (typeof ack === "function") ack({ ok: false, message: "Session has ended" }); socket.disconnect(true); }
+    });
+    const currentStaff = () => HospitalStaff.findOne({ _id: socket.user._id, hospitalId: socket.user.hospitalId, isActive: true, inviteStatus: "accepted" });
     if (socket.user.type === "staff") {
-      socket.join(`hospital:${socket.user.hospitalId}`);
-      socket.join(`doctor:${socket.user._id}`);
-      socket.user.departmentIds.forEach((departmentId) => socket.join(`dept:${departmentId}`));
-      if (socket.user.role === "LAB_TECH") socket.join(`staff:lab:${socket.user.hospitalId}`);
+      socket.join(staffRoom(socket.user.hospitalId, socket.user._id));
+    } else {
+      socket.join(`${socket.user.role}:${socket.user._id}`);
     }
 
-    socket.on("staff:joinHospital", ({ hospitalId } = {}, callback) => {
-      if (socket.user.type !== "staff" || hospitalId !== socket.user.hospitalId) {
-        if (callback) callback({ ok: false, message: "Invalid hospital staff room" });
-        return;
-      }
-
-      socket.join(`hospital:${hospitalId}`);
-      socket.join(`doctor:${socket.user._id}`);
-      socket.user.departmentIds.forEach((departmentId) => socket.join(`dept:${departmentId}`));
-      if (socket.user.role === "LAB_TECH") socket.join(`staff:lab:${hospitalId}`);
-      if (callback) callback({ ok: true });
+    socket.on("staff:joinHospital", async (payload, callback) => {
+      try {
+        const { hospitalId } = payload || {};
+        if (socket.user.type !== "staff" || hospitalId !== socket.user.hospitalId || !(await currentStaff())) {
+          if (typeof callback === "function") callback({ ok: false, message: "Invalid hospital staff session" });
+          return;
+        }
+        socket.join(staffRoom(hospitalId, socket.user._id));
+        if (typeof callback === "function") callback({ ok: true });
+      } catch { if (typeof callback === "function") callback({ ok: false, message: "Unable to join staff session" }); }
     });
 
     socket.on("staff:sendMessage", async (payload = {}, callback) => {
       try {
-        if (socket.user.type !== "staff") {
-          if (callback) callback({ ok: false, message: "Staff session required" });
+        const staff = socket.user.type === "staff" ? await currentStaff() : null;
+        if (!staff) {
+          if (typeof callback === "function") callback({ ok: false, message: "Active staff session required" });
           return;
         }
-
-        const {
-          hospitalId,
-          conversationType,
-          content,
-          tokenId,
-          patientId,
-          departmentId,
-          recipientStaffId,
-          messageType = "text",
-          metadata,
-        } = payload;
-        const trimmedContent = String(content || "").trim();
-
-        if (hospitalId !== socket.user.hospitalId) {
-          if (callback) callback({ ok: false, message: "Invalid hospital" });
-          return;
-        }
-
-        if (!["direct", "patient_context", "department", "announcement"].includes(conversationType) || !trimmedContent) {
-          if (callback) callback({ ok: false, message: "Message type and content are required" });
-          return;
-        }
-
-        if (conversationType === "department" && !socket.user.departmentIds.includes(departmentId) && socket.user.role !== "HOSPITAL_ADMIN") {
-          if (callback) callback({ ok: false, message: "You cannot post in this department" });
-          return;
-        }
-
-        if (conversationType === "direct" && !recipientStaffId) {
-          if (callback) callback({ ok: false, message: "Recipient is required" });
-          return;
-        }
-
-        const staffMessage = await StaffMessage.create({
-          hospitalId,
-          conversationType,
-          tokenId,
-          patientId,
-          departmentId,
-          recipientStaffId,
-          sender: socket.user._id,
-          senderName: socket.user.firstName,
-          senderRole: socket.user.role,
-          content: trimmedContent,
-          messageType,
-          metadata,
-          readBy: [{ staffId: socket.user._id, readAt: new Date() }],
-        });
-
-        const messagePayload = {
-          _id: staffMessage._id,
-          hospitalId: staffMessage.hospitalId,
-          conversationType: staffMessage.conversationType,
-          tokenId: staffMessage.tokenId,
-          patientId: staffMessage.patientId,
-          departmentId: staffMessage.departmentId,
-          recipientStaffId: staffMessage.recipientStaffId,
-          sender: staffMessage.sender,
-          senderName: staffMessage.senderName,
-          senderRole: staffMessage.senderRole,
-          content: staffMessage.content,
-          messageType: staffMessage.messageType,
-          metadata: staffMessage.metadata,
-          createdAt: staffMessage.createdAt,
-        };
-
-        if (conversationType === "direct") {
-          io.to(`doctor:${recipientStaffId}`).to(`doctor:${socket.user._id}`).emit("staff:newMessage", messagePayload);
-        } else if (conversationType === "department") {
-          io.to(`dept:${departmentId}`).emit("staff:newMessage", messagePayload);
-        } else {
-          io.to(`hospital:${hospitalId}`).emit("staff:newMessage", messagePayload);
-        }
-
-        if (messageType === "lab_alert") {
-          io.to(`staff:lab:${hospitalId}`).emit("lab:order-received", messagePayload);
-        }
-
-        if (callback) callback({ ok: true, message: messagePayload });
-      } catch (err) {
-        console.error("Error sending staff message via socket:", err);
-        if (callback) callback({ ok: false, message: "Could not send staff message" });
+        const message = await StaffMessage.create(await prepareStaffMessage(staff, payload));
+        await emitStaffMessage(io, message);
+        if (typeof callback === "function") callback({ ok: true });
+      } catch (error) {
+        if (typeof callback === "function") callback({ ok: false, message: error.status ? error.message : "Could not send staff message" });
       }
     });
 
+    // Community IDs must be real memberships, never arbitrary Socket.IO room names.
+    const communityAccess = async (communityId) => {
+      if (!isRecordId(communityId)) return false;
+      return canAccessCommunity(await Community.findById(communityId), socket.data.communityActor);
+    };
     // ── Join a community room ─────────────────────────────
-    socket.on("joinCommunity", (communityId) => {
-      socket.join(communityId);
-      console.log(
-        `${socket.user.firstName} joined community room: ${communityId}`
-      );
-    });
-
-    // ── Leave a community room ────────────────────────────
-    socket.on("leaveCommunity", (communityId) => {
-      socket.leave(communityId);
-      console.log(
-        `${socket.user.firstName} left community room: ${communityId}`
-      );
-    });
-
-    // ── Send a message ────────────────────────────────────
-    socket.on("sendMessage", async ({ communityId, content }) => {
+    socket.on("joinCommunity", async (communityId, callback) => {
       try {
-        if (!content || !communityId) return;
+        if (!(await communityAccess(communityId))) {
+          if (typeof callback === "function") callback({ ok: false, message: "Community access required" });
+          return;
+        }
+        socket.join(communityId);
+        if (typeof callback === "function") callback({ ok: true });
+      } catch { if (typeof callback === "function") callback({ ok: false, message: "Unable to join community" }); }
+    });
+    socket.on("leaveCommunity", (communityId) => {
+      if (isRecordId(communityId)) socket.leave(communityId);
+    });
+    socket.on("sendMessage", async (payload, callback) => {
+      try {
+        const { communityId, content } = payload || {};
+        const msg = await createCommunityMessage(communityId, content, socket.data.communityActor);
+        await broadcastCommunity(io, communityId, "newMessage", msg);
+        if (typeof callback === "function") callback({ ok: true, messageId: String(msg._id) });
+      } catch (error) { if (typeof callback === "function") callback({ ok: false, message: error.status ? error.message : "Unable to send message" }); }
+    });
+    for (const [event, outbound] of [["typing", "userTyping"], ["stopTyping", "userStopTyping"]]) {
+      socket.on(event, async (payload) => {
+        try {
+          const { communityId } = payload || {};
+          if (await communityAccess(communityId)) await broadcastCommunity(io, communityId, outbound,
+            { userId: socket.user._id, userName: socket.user.firstName }, socket.id);
+        } catch { /* Do not disclose room existence. */ }
+      });
+    }
 
-        const community = await Community.findById(communityId);
-        if (!community) return;
-
-        // Persist message in the database
-        const msg = await Message.create({
-          author: socket.user._id,
-          author_name: socket.user.firstName,
-          content: content.trim(),
-          community: communityId,
-        });
-
-        const messagePayload = {
-          _id: msg._id,
-          author: msg.author,
-          author_name: msg.author_name,
-          content: msg.content,
-          community: msg.community,
-          createdAt: msg.createdAt,
-          updatedAt: msg.updatedAt,
-        };
-
-        // Broadcast to every client in the room (including sender)
-        io.to(communityId).emit("newMessage", messagePayload);
-      } catch (err) {
-        console.error("Error sending message via socket:", err);
+    const appointmentAccess = async (appointment) => {
+      if (socket.user.type === "staff") {
+        const staff = await currentStaff();
+        return staff?.role === "DOCTOR" && idOf(staff.doctorId) === idOf(appointment.doctor)
+          && Boolean(await OpdToken.exists({ appointmentId: appointment._id, hospitalId: staff.hospitalId, doctorId: staff._id, patientId: appointment.user }));
       }
-    });
-
-    // ── Typing indicators (optional enhancement) ──────────
-    socket.on("typing", ({ communityId }) => {
-      socket.to(communityId).emit("userTyping", {
-        userId: socket.user._id,
-        userName: socket.user.firstName,
-      });
-    });
-
-    socket.on("stopTyping", ({ communityId }) => {
-      socket.to(communityId).emit("userStopTyping", {
-        userId: socket.user._id,
-      });
-    });
-
-    socket.on("joinAppointmentRoom", async ({ appointmentId }, callback) => {
-      if (!appointmentId) {
-        if (callback) callback({ ok: false, message: "Appointment id is required" });
+      return (socket.user.role === "doctor" && idOf(appointment.doctor) === socket.user._id)
+        || (socket.user.role === "user" && idOf(appointment.user) === socket.user._id);
+    };
+    socket.on("joinAppointmentRoom", async (payload, callback) => {
+      try {
+      const { appointmentId } = payload || {};
+      if (!isRecordId(appointmentId)) {
+        if (typeof callback === "function") callback({ ok: false, message: "Appointment id is required" });
         return;
       }
 
       const appointment = await Appointment.findById(appointmentId);
       if (!appointment) {
-        if (callback) callback({ ok: false, message: "Appointment not found" });
+        if (typeof callback === "function") callback({ ok: false, message: "Appointment not found" });
         return;
       }
 
-      const appointmentDoctorId = appointment.doctor.toString();
-      const platformDoctorAccess =
-        socket.user.role === "doctor" &&
-        appointmentDoctorId === socket.user._id.toString();
-      const staffDoctorAccess =
-        socket.user.role === "DOCTOR" &&
-        socket.user.doctorId &&
-        appointmentDoctorId === socket.user.doctorId;
-      const doctorAccess = platformDoctorAccess || staffDoctorAccess;
-      const userAccess =
-        socket.user.role === "user" &&
-        appointment.user.toString() === socket.user._id.toString();
-
-      if (!doctorAccess && !userAccess) {
-        if (callback) callback({ ok: false, message: "Forbidden appointment access" });
+      if (!(await appointmentAccess(appointment))) {
+        if (typeof callback === "function") callback({ ok: false, message: "Forbidden appointment access" });
         return;
       }
 
+      if (appointment.visitMode === "in_person") {
+        if (typeof callback === "function") callback({ ok: false, message: "This is an in-person visit" });
+        return;
+      }
       if (!["queued", "active"].includes(appointment.status)) {
-        if (callback) callback({ ok: false, message: "Appointment has already ended" });
+        if (typeof callback === "function") callback({ ok: false, message: "Appointment has already ended" });
         return;
       }
 
@@ -323,11 +226,13 @@ export function initSocket(server) {
         ready,
       });
 
-      if (callback) callback({ ok: true, doctorJoined: presence.doctorJoined, patientJoined: presence.patientJoined, ready });
+      if (typeof callback === "function") callback({ ok: true, status: appointment.status, revision: appointment.revision, doctorJoined: presence.doctorJoined, patientJoined: presence.patientJoined, ready });
+      } catch { if (typeof callback === "function") callback({ ok: false, message: "Unable to join appointment" }); }
     });
 
-    socket.on("leaveAppointmentRoom", ({ appointmentId }) => {
-      if (!appointmentId) return;
+    socket.on("leaveAppointmentRoom", (payload) => {
+      const { appointmentId } = payload || {};
+      if (!isRecordId(appointmentId) || !socket.rooms.has(`appointment:${appointmentId}`)) return;
       const roomName = `appointment:${appointmentId}`;
       socket.leave(roomName);
       const presence = appointmentPresence.get(String(appointmentId));
@@ -348,43 +253,34 @@ export function initSocket(server) {
       });
     });
 
-    socket.on("appointment:offer", ({ appointmentId, sdp }) => {
-      if (!appointmentId || !sdp) return;
-      socket.to(`appointment:${appointmentId}`).emit("appointment:offer", {
-        appointmentId,
-        sdp,
+    const authorizedMember = async (appointmentId) => {
+      if (!isRecordId(appointmentId) || !socket.rooms.has(`appointment:${appointmentId}`)) return false;
+      const appointment = await Appointment.findById(appointmentId);
+      return appointment && ["queued", "active"].includes(appointment.status) && await appointmentAccess(appointment);
+    };
+    for (const [event, field] of [["appointment:offer", "sdp"], ["appointment:answer", "sdp"], ["appointment:ice-candidate", "candidate"]]) {
+      socket.on(event, async (payload = {}) => {
+        try {
+          if (payload[field] && await authorizedMember(payload.appointmentId)) socket.to(`appointment:${payload.appointmentId}`).emit(event, { appointmentId: payload.appointmentId, [field]: payload[field] });
+        } catch { /* Invalid sessions cannot relay signaling. */ }
       });
+    }
+    socket.on("appointment:chat-message", async (message = {}) => {
+      try {
+        if (await authorizedMember(message.appointmentId)) socket.to(`appointment:${message.appointmentId}`).emit("appointment:chat-message", {
+          appointmentId: message.appointmentId, text: message.text, message: message.message, content: message.content,
+          senderId: socket.user._id, senderRole: socket.user.role, timestamp: new Date().toISOString(),
+        });
+      } catch { /* Unauthorized senders cannot inject call messages. */ }
     });
-
-    socket.on("appointment:answer", ({ appointmentId, sdp }) => {
-      if (!appointmentId || !sdp) return;
-      socket.to(`appointment:${appointmentId}`).emit("appointment:answer", {
-        appointmentId,
-        sdp,
-      });
+    socket.on("appointment:renegotiate", async (payload = {}) => {
+      try { if (await authorizedMember(payload.appointmentId)) socket.to(`appointment:${payload.appointmentId}`).emit("appointment:renegotiate", { appointmentId: payload.appointmentId }); }
+      catch { /* Session refresh and visit authorization apply to reconnects too. */ }
     });
-
-    socket.on("appointment:ice-candidate", ({ appointmentId, candidate }) => {
-      if (!appointmentId || !candidate) return;
-      socket.to(`appointment:${appointmentId}`).emit("appointment:ice-candidate", {
-        appointmentId,
-        candidate,
-      });
+    // An End button must commit the authorized REST transition. Signaling cannot end a visit.
+    socket.on("appointment:end", (_payload, callback) => {
+      if (typeof callback === "function") callback({ ok: false, message: "Use the appointment end API" });
     });
-
-    socket.on("appointment:chat-message", (msg) => {
-      if (!msg || !msg.appointmentId) return;
-      socket.to(`appointment:${msg.appointmentId}`).emit("appointment:chat-message", msg);
-    });
-
-    socket.on("appointment:end", ({ appointmentId }) => {
-      if (!appointmentId) return;
-      // FIXED: socket.to() excludes the sender, so only the other side was told the call ended.
-      // Use io.to() so both participants terminate together instead of one being left behind.
-      appointmentPresence.delete(String(appointmentId));
-      io.to(`appointment:${appointmentId}`).emit("appointment:ended", { appointmentId });
-    });
-
 
     // ── Disconnect ────────────────────────────────────────
     socket.on("disconnect", () => {
@@ -404,9 +300,7 @@ export function initSocket(server) {
           });
         }
       }
-      console.log(
-        `🔌 Socket disconnected: ${socket.user.firstName} (${socket.id})`
-      );
+
     });
   });
 

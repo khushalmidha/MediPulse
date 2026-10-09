@@ -1,10 +1,6 @@
 import { Kafka } from "kafkajs";
 import VirtualAnalyticsEvent from "../model/virtualAnalyticsEvent.js";
 import { TOPICS } from "./virtualEvents.js";
-import User from "../model/user.js";
-import Doctor from "../model/doctor.js";
-import { sendAppointmentBookedMail, sendAppointmentRefundMail, sendPasswordResetOtpMail } from "../util/mailer.js";
-
 const createKafka = () =>
   new Kafka({
     clientId: process.env.KAFKA_CLIENT_ID || "medipulse-vpay-consumer",
@@ -36,105 +32,53 @@ const parseEvent = (message) => {
   }
 };
 
+export const sanitizeAnalyticsPayload = payload => Object.fromEntries([
+  "transactionId", "referenceId", "amountMinor", "currency", "status", "type", "demo",
+].filter(key => ["string", "number", "boolean"].includes(typeof payload?.[key])).map(key => [key, payload[key]]));
+
 const storeAnalyticsEvent = async ({ topic, event }) => {
   await VirtualAnalyticsEvent.create({
     topic,
     eventType: event.eventType || "unknown",
-    payload: event.payload || {},
+    payload: sanitizeAnalyticsPayload(event.payload),
     occurredAt: event.occurredAt ? new Date(event.occurredAt) : new Date(),
   });
 };
 
-const runVirtualConsumers = async () => {
+export const consumerTopics = () => [...new Set([...Object.values(TOPICS), process.env.KAFKA_APPOINTMENT_TOPIC || "medipulse.appointments"])];
+
+const runVirtualConsumers = async ({ kafka = createKafka(), onReady = () => {}, onCrash = () => {} } = {}) => {
   if (!process.env.KAFKA_BROKERS) {
     throw new Error("KAFKA_BROKERS is required for virtual gateway consumers");
   }
 
-  const kafka = createKafka();
   const consumer = kafka.consumer({
     groupId: process.env.KAFKA_VPAY_CONSUMER_GROUP || "medipulse-vpay-consumers",
   });
-
+  consumer.on(consumer.events.GROUP_JOIN, onReady);
+  consumer.on(consumer.events.CRASH, onCrash);
+  try {
+  if (process.env.KAFKA_CREATE_TOPICS === "true") {
+    const admin = kafka.admin();
+    try {
+      await admin.connect();
+      await admin.createTopics({ waitForLeaders: true, topics: consumerTopics().map((topic) => ({ topic, numPartitions: 1, replicationFactor: 1 })) });
+    } finally { await admin.disconnect(); }
+  }
   await consumer.connect();
-  for (const topic of Object.values(TOPICS)) {
+  for (const topic of consumerTopics()) {
     await consumer.subscribe({ topic, fromBeginning: false });
   }
   
   const APPOINTMENTS_TOPIC = process.env.KAFKA_APPOINTMENT_TOPIC || "medipulse.appointments";
-  await consumer.subscribe({ topic: APPOINTMENTS_TOPIC, fromBeginning: false });
 
   await consumer.run({
     eachMessage: async ({ topic, message }) => {
       const event = parseEvent(message);
       
-      // Async Email processing for appointments
-      if (topic === APPOINTMENTS_TOPIC && event.type === "appointment.booked") {
-        try {
-          const { userId, doctorId, appointmentId } = event.payload || {};
-          if (userId && doctorId) {
-            const user = await User.findById(userId);
-            const doctor = await Doctor.findById(doctorId);
-            const patientName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Patient" : "Patient";
-            const doctorName = doctor ? `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "Doctor" : "Doctor";
-            
-            if (user && user.email) {
-              await sendAppointmentBookedMail({
-                to: user.email,
-                doctorName,
-                patientName,
-                appointmentId
-              });
-              console.log(`Async email sent for appointment ${appointmentId}`);
-            }
-          }
-        } catch (error) {
-          console.error("Async email failed:", error.message);
-        }
-      }
-      
-      // Async Refund Email processing
-      if (topic === APPOINTMENTS_TOPIC && event.type === "appointment.refunded") {
-        try {
-          const { userId, doctorId, appointmentId, amount } = event.payload || {};
-          if (userId && doctorId) {
-            const user = await User.findById(userId);
-            const doctor = await Doctor.findById(doctorId);
-            const patientName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Patient" : "Patient";
-            const doctorName = doctor ? `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "Doctor" : "Doctor";
-            
-            if (user && user.email) {
-              await sendAppointmentRefundMail({
-                to: user.email,
-                doctorName,
-                patientName,
-                appointmentId,
-                amount,
-                currency: "INR"
-              });
-              console.log(`Async refund email sent for appointment ${appointmentId}`);
-            }
-          }
-        } catch(error) {
-          console.error("Async refund email failed:", error.message);
-        }
-      }
-
-      // Async OTP Email processing
-      if (topic === TOPICS.notificationsCreated && event.eventType === "auth.otp_requested") {
-        try {
-          const { email, accountName, otp } = event.payload || {};
-          if (email && otp) {
-            await sendPasswordResetOtpMail({
-              to: email,
-              accountName,
-              otp
-            });
-            console.log(`Async OTP email sent to ${email}`);
-          }
-        } catch(error) {
-          console.error("Async OTP email failed:", error.message);
-        }
-      }
+      // Durable clinical mail/OTP delivery belongs exclusively to the Mongo outbox.
+      // Old secret-bearing OTP broker messages are discarded without analytics storage.
+      if (String(event.eventType || event.type || "").includes("otp")) return;
 
       // Store in analytics if it's from the analytics TOPICS list
       if (Object.values(TOPICS).includes(topic)) {
@@ -144,6 +88,7 @@ const runVirtualConsumers = async () => {
   });
 
   return consumer;
+  } catch (error) { await consumer.disconnect().catch(() => {}); throw error; }
 };
 
 export { runVirtualConsumers, storeAnalyticsEvent };

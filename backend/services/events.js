@@ -9,7 +9,8 @@ const getKafkaProducer = async () => {
     const kafka = new Kafka({
       clientId: process.env.KAFKA_CLIENT_ID || "medipulse-api",
       brokers: process.env.KAFKA_BROKERS.split(",").map((broker) => broker.trim()),
-      ssl: process.env.KAFKA_SSL === "true" ? { rejectUnauthorized: false } : false,
+      ssl: process.env.KAFKA_SSL === "true",
+      connectionTimeout: 3000, requestTimeout: 5000, retry: { retries: 1 },
       sasl:
         process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD
           ? {
@@ -21,10 +22,18 @@ const getKafkaProducer = async () => {
     });
 
     const producer = kafka.producer();
-    producerPromise = producer.connect().then(() => producer);
+    producerPromise = producer.connect().then(() => producer).catch(async error => { producerPromise = null; await producer.disconnect().catch(() => {}); throw error; });
   }
 
   return producerPromise;
+};
+
+export const deliverBrokerEvent = async (type, payload, id) => {
+  const producer = await getKafkaProducer();
+  if (!producer) throw new Error("Broker delivery unavailable");
+  try { await producer.send({ topic: process.env.KAFKA_APPOINTMENT_TOPIC || "medipulse.appointments",
+    messages: [{ key: id, value: JSON.stringify({ type, payload, id, deliveryOwner: "outbox", occurredAt: new Date().toISOString() }) }] }); }
+  catch (error) { producerPromise = null; await producer.disconnect().catch(() => {}); throw error; }
 };
 
 const publishEvent = async (type, payload = {}) => {
@@ -46,7 +55,7 @@ const publishEvent = async (type, payload = {}) => {
       ],
     });
   } catch (error) {
-    console.error("Kafka publish failed:", error.message);
+    console.error("Optional Kafka telemetry delivery failed");
   }
 };
 

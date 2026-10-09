@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
+import { amountToMinor } from "../util/money.js";
 
 const virtualTransactionSchema = new mongoose.Schema(
   {
+    amountMinor: { type: Number, default() { return amountToMinor(this.amount); } },
+    refundedMinor: { type: Number, default: 0 }, fingerprint: String,
     transactionId: {
       type: String,
       required: true,
@@ -33,7 +36,7 @@ const virtualTransactionSchema = new mongoose.Schema(
     amount: {
       type: Number,
       required: true,
-      min: 1,
+      min: 0.01,
     },
     type: {
       type: String,
@@ -65,10 +68,11 @@ const virtualTransactionSchema = new mongoose.Schema(
       default: {},
     },
   },
-  { timestamps: true },
+  { timestamps: true, autoIndex: false },
 );
 
 virtualTransactionSchema.index({ referenceId: 1, type: 1, senderId: 1, receiverId: 1 });
+virtualTransactionSchema.index({ senderRole: 1, senderId: 1, referenceId: 1 }, { unique: true, name: "ledger_reference_p04", partialFilterExpression: { referenceId: { $type: "string" } } });
 
 const VirtualTransaction = mongoose.model("virtualTransaction", virtualTransactionSchema);
 

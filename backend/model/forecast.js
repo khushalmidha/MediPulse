@@ -13,6 +13,9 @@ const forecastSchema = new mongoose.Schema(
       enum: ["beds", "blood"],
       required: true,
     },
+    reviewStatus: { type: String, enum: ["unreviewed"], default: "unreviewed" },
+    generatedAt: Date,
+    observedOpdVisits: Number,
     forecasts: {
       type: mongoose.Schema.Types.Mixed,
       required: true,

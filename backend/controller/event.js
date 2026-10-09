@@ -1,3 +1,4 @@
+import { isCommunityOrganizer } from "../services/communityAccess.js";
 import Community from "../model/community.js";
 import Event from "../model/event.js";
 
@@ -20,7 +21,8 @@ const getEvents = async (req, res) => {
 	try {
 		const { status = "all" } = req.query;
 		const now = new Date();
-		const events = await Event.find({}).sort({ time: 1 });
+		const communities = await Community.find({ $or: [{ members: req.auth.id }, ...(req.auth.role === "doctor" ? [{ author: req.auth.id }] : [])] });
+		const events = await Event.find({ community: { $in: communities.map(item => item._id) } }).sort({ time: 1 });
 
 		const filteredEvents = events.filter((event) => {
 			const eventDate = new Date(event.time);
@@ -45,24 +47,25 @@ const createEvent = async (req, res, next) => {
 	try {
 		const { title, bio, location, community_name, kind, time, reminders } =
 			req.body;
-		if (!title || !bio || !kind || !time || !reminders || !community_name) {
-			return res.json({
+		if (!title || !bio || !kind || !time || !Array.isArray(reminders) || (!community_name && !req.body.communityId) || !["online", "offline"].includes(kind) || !Number.isFinite(new Date(time).getTime())) {
+			return res.status(400).json({
 				message: "Title, Bio, Location, Kind, Time and Reminders are required",
 			});
 		}
 
-		const community = await Community.findOne({ title: community_name });
+		const community = req.body.communityId ? await Community.findById(req.body.communityId) : await Community.findOne({ title: community_name });
 		if (!community) {
 			return res.status(404).json({ message: "Community not found" });
 		}
 
+		if (!isCommunityOrganizer(community, req.auth)) return res.status(403).json({ message: "Community organizer required" });
 		const result = await Event.create({
 			title: title,
 			bio: bio,
 			location: location,
 			community: community._id,
 			kind: kind,
-			time: time,
+			time: new Date(time).toISOString(),
 			reminders: reminders,
 			author: req.auth.id,
 			author_name: req.auth.name || "MediPulse member",

@@ -22,7 +22,9 @@ const userSchema = new mongoose.Schema(
     password: {
       type:String,
       required:true,
+      select: false,
     },
+    authVersion: { type: Number, default: 0 },
 		gender: {
 			type: String,
 			enum: ["male", "female", "other"],
@@ -70,8 +72,15 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+  if (!this.isNew) this.authVersion = (this.authVersion || 0) + 1;
   this.password = await bcrypt.hash(this.password, 12);
 });
+
+userSchema.set("toJSON", { transform: (_doc, value) => {
+  for (const key of ["password", "inviteToken", "inviteExpiresAt", "authVersion"]) delete value[key];
+  return value;
+} });
 
 const User = mongoose.model("user", userSchema);
 

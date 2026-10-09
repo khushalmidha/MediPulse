@@ -17,7 +17,9 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { clearSessionState } from "../utils/sessionHttp";
+import { useAuth } from "../context/AuthContext";
 import { BACKEND_URL } from "../utils";
 
 const defaultSlides = [
@@ -37,6 +39,8 @@ const statusBadge = (status) => {
 };
 
 const HospitalAdminDashboard = () => {
+  const navigate = useNavigate();
+  const { clearLocalSession } = useAuth();
   const saved = useMemo(() => {
     try {
       return JSON.parse(sessionStorage.getItem("medipulse.hospitalAdmin") || "null");
@@ -138,7 +142,7 @@ const HospitalAdminDashboard = () => {
         axios.post(`${BACKEND_URL}/api/forecast/blood/${hospitalId}/generate`, {}, { withCredentials: true }),
       ]);
       setForecasts({ beds: bedRes.data, blood: bloodRes.data });
-      setMessage("AI planning forecast refreshed");
+      setMessage("AI planning draft refreshed");
     } catch (error) {
       setMessage(error.response?.data?.message || "Could not refresh forecasts");
     } finally {
@@ -315,6 +319,9 @@ const HospitalAdminDashboard = () => {
       const response = await axios.patch(`${BACKEND_URL}/api/auth/staff/password`, passwordForm, { withCredentials: true });
       setPasswordMessage(response.data.message || "Password changed successfully");
       setPasswordForm({ currentPassword: "", newPassword: "" });
+      clearSessionState();
+      clearLocalSession();
+      navigate("/hospital/login");
     } catch (error) {
       setPasswordMessage(error.response?.data?.message || "Could not change password");
     }
@@ -396,7 +403,7 @@ const HospitalAdminDashboard = () => {
                 <p className="mt-2 max-w-2xl text-white/80">{hospital.branding?.tagline || "Smart hospital workspace for OPD, staff, doctors, and public patient access."}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button onClick={loadPortal} className="rounded-lg bg-white dark:bg-slate-950 px-4 py-2 text-sm font-bold text-slate-950">Refresh portal</button>
-                  {websiteUrl && <Link to={websiteUrl} className="rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Open hospital website</Link>}
+                  {websiteUrl && <Link reloadDocument to={`${["localhost", "127.0.0.1"].includes(window.location.hostname) ? "" : "https://" + (import.meta.env.VITE_BASE_DOMAIN || "medipulse.live")}${websiteUrl}`} className="rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Open hospital website</Link>}
                 </div>
               </div>
             </div>
@@ -435,7 +442,7 @@ const HospitalAdminDashboard = () => {
                     {!analytics?.topDoctors?.length && <p className="py-6 text-sm text-slate-500">Doctor performance appears after OPD tokens are completed.</p>}
                   </div>
                 </div>
-                <Link to={websiteUrl || "#"} className="rounded-2xl border border-blue-100 bg-red-600 dark:bg-red-700 p-6 text-white shadow-sm">
+                <Link reloadDocument to={`${["localhost", "127.0.0.1"].includes(window.location.hostname) ? "" : "https://" + (import.meta.env.VITE_BASE_DOMAIN || "medipulse.live")}${websiteUrl || "/hospitals"}`} className="rounded-2xl border border-blue-100 bg-red-600 dark:bg-red-700 p-6 text-white shadow-sm">
                   <Globe2 size={30} />
                   <h2 className="mt-4 text-2xl font-black">Public Hospital Website</h2>
                   <p className="mt-2 text-sm text-red-50">Patients can browse departments, doctors, reviews, and OPD status from here.</p>
@@ -572,7 +579,8 @@ const HospitalAdminDashboard = () => {
             <section className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
                 <div>
-                  <h2 className="text-xl font-black text-slate-950">AI Capacity Forecast</h2>
+                  <h2 className="text-xl font-black text-slate-950">AI Capacity Planning Draft</h2>
+                  <p className="text-sm text-slate-600">Unvalidated AI draft using OPD volume only. Review admissions, occupancy and inventory before use.</p>
                   <p className="mt-1 text-sm text-slate-500">Monthly bed and blood demand estimates based on OPD history, emergency signals, and department type.</p>
                 </div>
                 <button onClick={regenerateForecasts} disabled={forecastLoading} className="rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-slate-400">
@@ -599,7 +607,7 @@ const HospitalAdminDashboard = () => {
                         </div>
                       </div>
                     ))}
-                    {!forecasts.beds?.forecasts?.length && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">Add departments and OPD tokens to generate bed demand signals.</p>}
+                    {!forecasts.beds?.forecasts?.length && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">Add departments and OPD visits to request a planning draft.</p>}
                   </div>
                 </div>
 
@@ -632,13 +640,13 @@ const HospitalAdminDashboard = () => {
                 <h2 className="mt-4 text-xl font-black text-slate-950">Hospital Website</h2>
                 <p className="mt-2 text-sm text-slate-500">Your public path-based website works without wildcard DNS.</p>
                 {websiteUrl && (
-                  <Link to={websiteUrl} className="mt-5 flex items-center justify-between rounded-xl border border-blue-100 bg-red-50 p-4 text-sm font-bold text-blue-700">
-                    medipulse.com{websiteUrl}
+                  <Link reloadDocument to={`${["localhost", "127.0.0.1"].includes(window.location.hostname) ? "" : "https://" + (import.meta.env.VITE_BASE_DOMAIN || "medipulse.live")}${websiteUrl}`} className="mt-5 flex items-center justify-between rounded-xl border border-blue-100 bg-red-50 p-4 text-sm font-bold text-blue-700">
+                    medipulse.live{websiteUrl}
                     <ExternalLink size={16} />
                   </Link>
                 )}
                 <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-                  Subdomain option: {hospital.slug}.medipulse.com requires DNS setup.
+                  Subdomain option: {hospital.slug}.medipulse.live requires DNS setup.
                 </p>
                 <form onSubmit={changePassword} className="mt-6 border-t border-slate-100 pt-6">
                   <h3 className="flex items-center gap-2 font-black text-slate-950"><Lock size={17} /> Change Admin Password</h3>

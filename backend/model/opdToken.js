@@ -4,6 +4,12 @@ const objectId = mongoose.Schema.Types.ObjectId;
 
 const opdTokenSchema = new mongoose.Schema(
   {
+    practiceType: { type: String, enum: ["hospital", "independent"] },
+    queueKey: String, practiceKey: String, serviceDate: String, sessionId: String, timezone: String,
+    personKey: String, revision: { type: Number, default: 0 },
+    refundPreviousStatus: String,
+    bookingOperationId: mongoose.Schema.Types.ObjectId,
+    visitMode: { type: String, enum: ["in_person", "online"], default: "in_person" },
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     departmentId: { type: objectId, ref: "Department", required: true },
     doctorId: { type: objectId, ref: "HospitalStaff", required: true },
@@ -33,7 +39,7 @@ const opdTokenSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["waiting", "vitals_done", "in_consultation", "completed", "no_show", "cancelled"],
+      enum: ["booking", "reserved", "waiting", "vitals_done", "in_consultation", "completed", "no_show", "cancelled", "refund_pending"],
       default: "waiting",
     },
     arrivedAt: Date,
@@ -84,23 +90,25 @@ const opdTokenSchema = new mongoose.Schema(
       updatedAt: Date,
     },
   },
-  { timestamps: true },
+  { timestamps: true, autoIndex: false },
 );
 
 opdTokenSchema.index(
-  { hospitalId: 1, departmentId: 1, doctorId: 1, date: 1, tokenNumber: 1 },
-  { unique: true },
+  { queueKey: 1, tokenNumber: 1 },
+  { unique: true, name: "queue_token_number_p03", partialFilterExpression: { queueKey: { $type: "string" } } },
 );
 opdTokenSchema.index({ patientId: 1, date: -1 });
 opdTokenSchema.index({ status: 1, doctorId: 1, date: 1 });
 opdTokenSchema.index(
-  { patientId: 1, doctorId: 1 },
+  { queueKey: 1, personKey: 1 },
   {
     unique: true,
-    partialFilterExpression: { status: { $in: ["waiting", "vitals_done", "in_consultation"] } },
+    name: "queue_live_patient_p03",
+    partialFilterExpression: { queueKey: { $type: "string" }, status: { $in: ["booking", "reserved", "waiting", "vitals_done", "in_consultation", "refund_pending"] } },
   }
 );
 
+opdTokenSchema.index({ queueKey: 1 }, { unique: true, name: "queue_active_token_p03", partialFilterExpression: { queueKey: { $type: "string" }, status: "in_consultation" } });
 const OpdToken = mongoose.model("OpdToken", opdTokenSchema);
 
 export default OpdToken;

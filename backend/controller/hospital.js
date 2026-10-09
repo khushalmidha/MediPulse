@@ -1,5 +1,7 @@
+import { hospitalSlugFromPublicKey } from "../services/productHosts.js";
+import { issueSession } from "../services/authSessions.js";
+import { localServiceDate } from "../services/queueContext.js";
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Hospital from "../model/hospital.js";
 import Department from "../model/department.js";
@@ -8,6 +10,9 @@ import HospitalStaff from "../model/hospitalStaff.js";
 import OpdToken from "../model/opdToken.js";
 import Review from "../model/review.js";
 import { getRedis } from "../services/redis.js";
+import { publicHospital, publicHospitalProfile, publicDoctor } from "../services/publicViews.js";
+import { invalidatePublicHospitalCache } from "../services/publicHospitalCache.js";
+import { requireRecordId, validateDepartmentIds, validateDepartmentReferences, accessError } from "../services/hospitalAccess.js";
 import {
   sendHospitalAdminAlertMail,
   sendHospitalApprovedMail,
@@ -56,40 +61,13 @@ const signHospitalAction = ({ hospitalId, action }) =>
     .update(`${hospitalId}:${action}`)
     .digest("base64url");
 
-const publicHospitalCacheKey = (slug) => `hospital:public:${slug}`;
-const hospitalSearchCacheKey = (query) => `hospitals:search:${hashValue(JSON.stringify(query))}`;
+const publicHospitalCacheKey = (slug) => `hospital:public:v2:${slug}`;
+const hospitalSearchCacheKey = (query) => `hospitals:search:v2:${hashValue(JSON.stringify(query))}`;
 const hospitalQueueCacheKey = (hospitalId) => `hospital:queue-status:${hospitalId}`;
 const hospitalAnalyticsCacheKey = (hospitalId, date = new Date()) =>
   `hospital:analytics:${hospitalId}:${date.toISOString().slice(0, 10)}`;
 
 const cleanString = (value) => String(value || "").trim();
-
-const staffCookieOptions = () => {
-  const isProduction = process.env.NODE_ENV === "production";
-  return {
-    httpOnly: false,
-    path: "/",
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-  };
-};
-
-const setStaffCookies = (res, staff) => {
-  const token = jwt.sign(
-    {
-      id: staff._id.toString(),
-      role: staff.role,
-      adminAccess: Boolean(staff.adminAccess),
-      hospitalId: staff.hospitalId.toString(),
-      type: "staff",
-    },
-    process.env.TOKEN_KEY,
-    { expiresIn: 60 * 60 * 24 * 3 },
-  );
-
-  res.cookie("staffToken", token, staffCookieOptions());
-  res.cookie("staffId", staff._id.toString(), staffCookieOptions());
-};
 
 const slugify = (value) =>
   cleanString(value)
@@ -169,9 +147,9 @@ const cacheJson = async (key, ttlSeconds, loader) => {
 
 const invalidateHospitalCache = async (hospital) => {
   const redis = getRedis();
+  await invalidatePublicHospitalCache(hospital);
   // Cache invalidation: public profile, realtime queue, and analytics may include updated hospital data.
   await redis.del(
-    publicHospitalCacheKey(hospital.slug),
     hospitalQueueCacheKey(hospital._id.toString()),
     hospitalAnalyticsCacheKey(hospital._id.toString()),
   );
@@ -184,10 +162,15 @@ const getHospitals = async (req, res) => {
     name: req.query.name || "",
     medicineSystem: req.query.medicineSystem || "",
     rating_min: req.query.rating_min || "",
-    plan: req.query.plan || "",
     page: req.query.page || "1",
     limit: req.query.limit || "20",
   };
+  const legacyQuerySnapshot = {
+    city: querySnapshot.city, specialty: querySnapshot.specialty, name: querySnapshot.name,
+    medicineSystem: querySnapshot.medicineSystem, rating_min: querySnapshot.rating_min,
+    plan: req.query.plan || "", page: querySnapshot.page, limit: querySnapshot.limit,
+  };
+  await getRedis().del(`hospitals:search:${hashValue(JSON.stringify(legacyQuerySnapshot))}`);
 
   const result = await cacheJson(hospitalSearchCacheKey(querySnapshot), 300, async () => {
     const { limit, skip } = parsePagination(req);
@@ -206,16 +189,13 @@ const getHospitals = async (req, res) => {
       // FIXED: Public hospital search ignored Ayurveda, Yoga, Homeopathy, and integrative care filters.
       filter.medicineSystem = cleanString(querySnapshot.medicineSystem);
     }
-    if (querySnapshot.plan) {
-      filter["subscription.plan"] = cleanString(querySnapshot.plan);
-    }
     if (querySnapshot.rating_min) {
       filter["stats.avgRating"] = { $gte: Number(querySnapshot.rating_min) || 0 };
     }
 
     const [items, total] = await Promise.all([
       Hospital.find(filter)
-        .select("name slug address stats branding.logo branding.tagline subscription.plan medicineSystem type")
+        .select("name slug address stats branding.logo branding.tagline medicineSystem type")
         .sort({ "stats.avgRating": -1, name: 1 })
         .skip(skip)
         .limit(limit)
@@ -223,17 +203,19 @@ const getHospitals = async (req, res) => {
       Hospital.countDocuments(filter),
     ]);
 
-    return { items, total, page: Number(querySnapshot.page) || 1, limit };
+    return { items: items.map(publicHospital), total, page: Number(querySnapshot.page) || 1, limit };
   });
 
-  return res.status(200).json(result);
+  return res.status(200).json({ ...result, items: (result.items || []).map(publicHospital) });
 };
 
 const getHospitalProfile = async (req, res) => {
-  const { slug } = req.params;
+  const slug = await hospitalSlugFromPublicKey(req.params.slug);
+  if (!slug) return res.status(404).json({ message: "Hospital not found" });
+  await getRedis().del(`hospital:public:${slug}`);
   const result = await cacheJson(publicHospitalCacheKey(slug), 120, async () => {
     const hospital = await Hospital.findOne({
-      $or: [{ slug }, { "websiteConfig.customDomain": slug }],
+      slug,
       status: "active",
     }).lean();
 
@@ -252,14 +234,14 @@ const getHospitalProfile = async (req, res) => {
         .lean(),
     ]);
 
-    return { hospital, departments, doctors };
+    return publicHospitalProfile({ hospital, departments, doctors });
   });
 
   if (!result) {
     return res.status(404).json({ message: "Hospital not found" });
   }
 
-  return res.status(200).json(result);
+  return res.status(200).json(publicHospitalProfile(result));
 };
 
 const getHospitalDoctors = async (req, res) => {
@@ -284,7 +266,7 @@ const getHospitalDoctors = async (req, res) => {
     .populate("departmentIds", "name")
     .lean();
 
-  return res.status(200).json({ doctors });
+  return res.status(200).json({ doctors: doctors.map(publicDoctor) });
 };
 
 const getHospitalQueueStatus = async (req, res) => {
@@ -293,19 +275,16 @@ const getHospitalQueueStatus = async (req, res) => {
     return res.status(404).json({ message: "Hospital not found" });
   }
 
-  const result = await cacheJson(hospitalQueueCacheKey(hospital._id.toString()), 30, async () => {
+  const serviceDate = localServiceDate(new Date(), hospital.settings?.timezone);
+  const result = await cacheJson(`${hospitalQueueCacheKey(hospital._id.toString())}:p03:${serviceDate}`, 30, async () => {
     const departments = await Department.find({ hospitalId: hospital._id, status: "active" }).lean();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
 
     const departmentStatuses = await Promise.all(
       departments.map(async (department) => {
         const tokens = await OpdToken.find({
           hospitalId: hospital._id,
           departmentId: department._id,
-          date: { $gte: todayStart, $lt: todayEnd },
+          serviceDate,
         }).lean();
 
         const active = tokens.find((token) => token.status === "in_consultation");
@@ -408,13 +387,14 @@ const registerHospital = async (req, res) => {
     }),
   ]);
 
-  setStaffCookies(res, admin);
+  const csrfToken = await issueSession(req, res, admin, "staff");
 
   const hospitalPayload = hospital.toObject();
   delete hospitalPayload.onboarding;
 
   return res.status(201).json({
     message: "Hospital registration submitted for verification",
+    csrfToken,
     hospital: hospitalPayload,
     staff: {
       _id: admin._id,
@@ -429,13 +409,18 @@ const updateHospitalProfile = async (req, res) => {
   const { id } = req.params;
   if (!requireHospitalAdminAccess(req, res, id)) return;
 
-  const allowed = ["name", "phone", "website", "address", "branding", "websiteConfig", "settings"];
+  const allowed = ["name", "phone", "website", "address", "branding", "settings"];
   const update = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) update[key] = req.body[key];
   }
+  if (req.body.websiteConfig) {
+    for (const key of ["subdomainEnabled", "seoTitle", "seoDescription", "showRatings", "showDoctorList", "showFees", "theme"]) {
+      if (req.body.websiteConfig[key] !== undefined) update[`websiteConfig.${key}`] = req.body.websiteConfig[key];
+    }
+  }
 
-  const hospital = await Hospital.findOneAndUpdate({ _id: id }, update, { new: true });
+  const hospital = await Hospital.findOneAndUpdate({ _id: id }, { $set: update }, { new: true, runValidators: true });
   if (!hospital) return res.status(404).json({ message: "Hospital not found" });
 
   await invalidateHospitalCache(hospital);
@@ -445,6 +430,10 @@ const updateHospitalProfile = async (req, res) => {
 const addDepartment = async (req, res) => {
   const { id } = req.params;
   if (!requireHospitalAdminAccess(req, res, id)) return;
+  try {
+    requireRecordId(id, "hospital");
+    await validateDepartmentReferences(id, req.body);
+  } catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
 
   let department;
   try {
@@ -479,11 +468,19 @@ const addDepartment = async (req, res) => {
 const updateDepartment = async (req, res) => {
   const { id, deptId } = req.params;
   if (!requireHospitalAdminAccess(req, res, id)) return;
+  let update;
+  try {
+    requireRecordId(deptId, "department");
+    if (req.body.hospitalId !== undefined && String(req.body.hospitalId) !== String(id)) throw accessError(403, "Department hospital cannot be changed");
+    update = Object.fromEntries(["name", "code", "description", "headDoctorId", "icon", "color", "opd", "status"]
+      .filter((key) => req.body[key] !== undefined).map((key) => [key, req.body[key]]));
+    await validateDepartmentReferences(id, update, deptId);
+  } catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
 
   const department = await Department.findOneAndUpdate(
     { _id: deptId, hospitalId: id },
-    req.body,
-    { new: true },
+    { $set: update },
+    { new: true, runValidators: true },
   );
 
   if (!department) return res.status(404).json({ message: "Department not found" });
@@ -503,6 +500,9 @@ const inviteStaff = async (req, res) => {
 
   const hospital = await Hospital.findById(id);
   if (!hospital) return res.status(404).json({ message: "Hospital not found" });
+
+  try { await validateDepartmentIds(id, departmentIds); }
+  catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
 
   const rawToken = crypto.randomBytes(32).toString("hex");
   const staff = await HospitalStaff.create({
@@ -609,7 +609,7 @@ const acceptStaffInvite = async (req, res) => {
     isActive: true,
   }).select("-password");
 
-  if (!staff || (staff.inviteExpiresAt && staff.inviteExpiresAt <= new Date())) {
+  if (!staff || !staff.inviteExpiresAt || staff.inviteExpiresAt <= new Date()) {
     return res.status(410).json({ message: "Invite is invalid or expired" });
   }
 
@@ -752,17 +752,15 @@ const getAnalytics = async (req, res) => {
   if (!requireHospitalAdminAccess(req, res, id)) return;
 
   const result = await cacheJson(hospitalAnalyticsCacheKey(id), 300, async () => {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(todayStart);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const hospital = await Hospital.findById(id);
+    const serviceDate = localServiceDate(new Date(), hospital?.settings?.timezone);
 
     const [tokens, reviews, doctors, departmentBreakdown] = await Promise.all([
-      OpdToken.find({ hospitalId: id, date: { $gte: todayStart, $lt: tomorrow } }).lean(),
+      OpdToken.find({ hospitalId: id, serviceDate }).lean(),
       Review.find({ hospitalId: id, status: "published" }).lean(),
       HospitalStaff.find({ hospitalId: id, role: "DOCTOR" }).select("name doctorProfile.rating").lean(),
       OpdToken.aggregate([
-        { $match: { hospitalId: new mongoose.Types.ObjectId(id), date: { $gte: todayStart, $lt: tomorrow } } },
+        { $match: { hospitalId: new mongoose.Types.ObjectId(id), serviceDate } },
         { $group: { _id: "$departmentId", patients: { $sum: 1 }, revenue: { $sum: { $ifNull: ["$paymentAmount", 0] } } } },
       ]),
     ]);

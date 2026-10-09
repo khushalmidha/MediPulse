@@ -47,4 +47,5 @@ echo 'vm.swappiness=10' | tee -a /etc/sysctl.conf
 # --- Deployment ---
 # Note: You should SSH into your machine, git clone your private repository,
 # setup your .env files, and run the following command manually to start the server:
-# docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# See docs/DEVELOPMENT.md before any approved production launch.
+# docker compose --env-file backend/.env.production -f docker-compose.yml -f docker-compose.prod.yml up -d --build
