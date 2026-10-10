@@ -8,6 +8,12 @@ export const loadRuntimeEnv = () => {
 
 export const assertRuntimeConfig = (env = process.env) => {
   requireDatabaseUrl(env);
+  let tokenKey = env.TOKEN_KEY || env.JWT_SECRET;
+  if (typeof tokenKey === "string") {
+    tokenKey = tokenKey.trim().replace(/^["']|["']$/g, "");
+    if (tokenKey.startsWith("TOKEN_KEY=")) tokenKey = tokenKey.slice("TOKEN_KEY=".length).trim().replace(/^["']|["']$/g, "");
+    env.TOKEN_KEY = tokenKey;
+  }
   if (!env.TOKEN_KEY || env.TOKEN_KEY.length < 16) throw new Error("TOKEN_KEY must contain at least 16 characters");
   const port = Number(env.PORT || 8080);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("PORT must be between 1 and 65535");
