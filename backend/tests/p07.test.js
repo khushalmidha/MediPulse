@@ -57,3 +57,13 @@ test("queue authorization failures from prior requests cannot reset a new contex
   guard.begin("hospital-two"); assert.equal(guard.isCurrent(next), false);
   guard.reset(); assert.equal(guard.isCurrent(old), false);
 });
+
+test("confirmed Vercel company alias is exact, product-aware and unavailable for tenant claims", () => {
+  const alias = "medi-pulse-gamma.vercel.app";
+  assert.equal(classifyHostname(alias).kind, "company");
+  assert.equal(resolveProductLocation({ hostname: alias, pathname: "/connect/doctors" }).basename, "/connect");
+  assert.equal(resolveProductLocation({ hostname: alias, pathname: "/hospital/login" }).kind, "staff");
+  assert.equal(canClaimCustomDomain(alias), false);
+  assert.equal(classifyHostname(alias, { baseDomain: "other.test" }).kind, "unknown");
+  for (const host of ["evil." + alias, alias + ".evil.test", "other.vercel.app"]) assert.equal(classifyHostname(host).kind, "unknown");
+});

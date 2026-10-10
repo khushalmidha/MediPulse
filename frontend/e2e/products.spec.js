@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 const api = "http://127.0.0.1:19080";
-const hosts = ["medipulse.live", "connect.medipulse.live", "app.medipulse.live", "fixture.medipulse.live", "missing.medipulse.live", "api.medipulse.live", "care.example.test", "unclaimed.example.test"];
+const hosts = ["medipulse.live", "medi-pulse-gamma.vercel.app", "connect.medipulse.live", "app.medipulse.live", "fixture.medipulse.live", "missing.medipulse.live", "api.medipulse.live", "care.example.test", "unclaimed.example.test"];
 test.beforeEach(async ({ page, request }) => {
   await request.post(`${api}/__fixture/reset`, { data: { guest: true } });
   // Serve the real application under synthetic host URLs without outbound DNS/HTTP.
@@ -16,11 +16,18 @@ test.beforeEach(async ({ page, request }) => {
   });
 });
 const open = (page, host, path = "/") => page.goto(`http://${host}:15173${path}`, { waitUntil: "domcontentloaded" });
+test("confirmed Vercel alias renders the company and retains Connect navigation", async ({ page }) => {
+  await open(page, "medi-pulse-gamma.vercel.app");
+  await expect(page.getByRole("heading", { name: /Better care\.\s*A clearer journey\./ })).toBeVisible();
+  await page.getByRole("link", { name: "Explore Connect", exact: true }).click();
+  await expect(page).toHaveURL(/medi-pulse-gamma\.vercel\.app:15173\/connect$/);
+  await expect(page.getByRole("heading", { name: /Find your doctor\.\s*Stay connected\./ })).toBeVisible();
+});
 test("company routes into Connect using keyboard and retains the fallback basename", async ({ page }) => {
   await open(page, "medipulse.live");
   const connect = page.getByRole("link", { name: "Explore Connect", exact: true }); await connect.focus(); await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/connect$/);
-  await expect(page.getByRole("heading", { name: "MediPulse Connect", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Find your doctor\.\s*Stay connected\./ })).toBeVisible();
   await page.getByRole("link", { name: "Find independent doctors", exact: true }).click(); await expect(page).toHaveURL(/\/connect\/doctors$/);
   await page.reload({ waitUntil: "domcontentloaded" }); await expect(page.getByRole("heading", { name: "Connect Doctor", exact: true })).toBeVisible(); await expect(page.getByRole("heading", { name: "Page not found" })).toHaveCount(0);
 });
@@ -55,7 +62,7 @@ test("unknown, reserved and unclaimed hosts fail closed", async ({ page }) => {
 });
 test("staff fallback remains available without subdomain DNS", async ({ page }) => {
   await page.goto("/hospital", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Hospital workspace" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /A calmer OPD\.\s*A connected hospital\./ })).toBeVisible();
   await page.getByRole("link", { name: "Staff sign in", exact: true }).click(); await expect(page).toHaveURL(/\/hospital\/login$/);
   await page.reload({ waitUntil: "domcontentloaded" }); await expect(page.getByRole("heading", { name: "Sign in as Hospital Staff", exact: true })).toBeVisible();
 });
@@ -63,7 +70,7 @@ test("staff fallback remains available without subdomain DNS", async ({ page }) 
 test("Connect does not hydrate a staff workspace from a shared-origin staff session", async ({ page, request }) => {
   await request.post(`${api}/__fixture/reset`, { data: { nurse: true } });
   await page.goto("/connect", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "MediPulse Connect", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Find your doctor\.\s*Stay connected\./ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Nursing Station", exact: true })).toHaveCount(0);
   await page.goto("/connect/hospital/admin", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Page not found", exact: true })).toBeVisible();

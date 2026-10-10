@@ -1,0 +1,149 @@
+/* Public product pages use a distinct editorial layout; clinical controls retain P08 tokens. */
+.mp-marketing { --mk-ink: #163c3b; --mk-muted: #526c6b; --mk-mint: #e6f1e9; color: var(--mp-text); }
+.mp-marketing-container { width: min(100%, 1240px); margin-inline: auto; padding-inline: 28px; }
+.mp-marketing-hero { display: grid; grid-template-columns: 1.04fr 1fr; gap: 52px; align-items: center; padding-block: 72px 76px; }
+.mp-marketing-copy { min-width: 0; }
+.mp-marketing-kicker { display: flex; align-items: center; gap: 9px; font-size: .76rem; font-weight: 650; letter-spacing: .035em; color: var(--mp-accent-ink); margin-bottom: 24px; }
+.mp-marketing-kicker > span { width: 7px; height: 7px; background: currentColor; border-radius: 50%; }
+.mp-marketing h1 { font-size: clamp(2.65rem, 4.8vw, 4.65rem); font-weight: 750; line-height: 1.055; letter-spacing: -.06em; }
+.mp-marketing h1 > span { color: var(--mp-accent-ink); }
+.mp-marketing-intro { font-size: 1.065rem; line-height: 1.75; max-width: 45ch; color: var(--mp-muted); margin-top: 25px; }
+.mp-marketing .mp-actions { margin-top: 28px; gap: 12px; }
+.mp-marketing .mp-button { min-height: 48px; padding: 13px 20px; border-radius: 9px; }
+.mp-marketing-note { font-size: .76rem; color: var(--mp-muted); margin-top: 22px; }
+.mp-care-preview { position: relative; min-width: 0; padding: 34px 10px 54px 22px; isolation: isolate; }
+.mp-preview-orbit { position: absolute; inset: 0 28px 16px 32px; background: #dbe9df; border-radius: 46% 44% 42% 38%; transform: rotate(-9deg); z-index: -1; }
+.mp-preview-window { background: #fff; color: #163c3b; border: 1px solid #cbdcd4; border-radius: 15px; box-shadow: 0 22px 54px -26px #173d3b55; overflow: hidden; }
+.mp-preview-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 15px 18px; border-bottom: 1px solid #e0e9e3; }
+.mp-preview-brand { display: flex; align-items: center; gap: 7px; font-size: .74rem; font-weight: 750; }
+.mp-preview-label { font-size: .64rem; color: #526c6b; border: 1px solid #dae5de; border-radius: 5px; padding: 3px 6px; }
+.mp-preview-body { display: flex; min-height: 335px; }
+.mp-preview-sidebar { width: 55px; flex-shrink: 0; background: #173f3d; color: #bfdbd0; padding: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 27px; }
+.mp-preview-sidebar > span { padding: 7px; background: #315853; border-radius: 8px; }
+.mp-preview-content { flex: 1; padding: 23px; min-width: 0; }
+.mp-preview-heading > span { display: block; color: #526c6b; font-size: .69rem; margin-bottom: 4px; }
+.mp-preview-heading > strong { font-size: 1.1rem; font-weight: 700; letter-spacing: -.025em; }
+.mp-preview-visit { display: flex; align-items: center; gap: 12px; border: 1px solid #dce8df; background: #f3f7f3; border-radius: 9px; padding: 14px 12px; margin: 18px 0; }
+.mp-preview-icon { color: #115e59; background: #e0ede4; border-radius: 10px; padding: 9px; display: inline-flex; }
+.mp-preview-visit strong, .mp-preview-stages strong { font-size: .74rem; font-weight: 700; }
+.mp-preview-visit p, .mp-preview-stages p { font-size: .65rem; color: #526c6b; margin-top: 3px; }
+.mp-preview-stages { display: grid; gap: 15px; }
+.mp-preview-stages > li { display: flex; gap: 11px; align-items: center; }
+.mp-preview-stages > li > span:first-child { border: 1px solid #d5e2d9; color: #526c6b; padding: 7px; border-radius: 50%; display: inline-flex; flex-shrink: 0; }
+.mp-preview-stages > li > span.mp-preview-stage-active { background: #115e59; border-color: #115e59; color: #fff; }
+.mp-preview-stage-tag { margin-left: auto; flex-shrink: 0; font-size: .58rem; border-radius: 5px; padding: 4px 6px; background: #e7f0e8; color: #235c43; }
+.mp-preview-floating { position: absolute; bottom: 30px; left: 0; display: flex; align-items: center; gap: 11px; padding: 15px 22px 15px 15px; border-radius: 12px; border: 1px solid #d4e2d9; background: #fff; color: #173f3d; box-shadow: 0 12px 24px -16px #173f3d66; }
+.mp-preview-floating > span { display: inline-flex; background: #e6f1e9; border-radius: 9px; padding: 10px; color: #115e59; }
+.mp-preview-floating strong { font-size: .8rem; font-weight: 700; }
+.mp-preview-floating p { font-size: .68rem; color: #526c6b; }
+.mp-care-preview figcaption { position: absolute; bottom: 0; width: 100%; left: 0; text-align: center; font-size: .64rem; color: var(--mp-muted); }
+.mp-capability-strip { border-block: 1px solid var(--mp-border); background: var(--mp-surface); }
+.mp-capability-strip > div { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding-block: 23px; }
+.mp-capability-strip span { display: flex; align-items: center; gap: 12px; font-size: .84rem; color: var(--mp-muted); font-weight: 600; }
+.mp-capability-strip svg { color: var(--mp-accent-ink); }
+.mp-marketing-section { padding-block: 76px; }
+.mp-marketing-heading { display: flex; justify-content: space-between; align-items: end; gap: 32px; margin-bottom: 34px; }
+.mp-marketing h2 { font-size: clamp(1.8rem, 3vw, 2.6rem); letter-spacing: -.045em; font-weight: 700; line-height: 1.15; }
+.mp-marketing-heading > p { max-width: 33ch; color: var(--mp-muted); font-size: .9rem; }
+.mp-marketing-products { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+.mp-marketing-product { position: relative; padding: 35px; border-radius: 18px; border: 1px solid #d2e2d8; overflow: hidden; }
+.mp-marketing-product--connect { background: #e7f0e8; color: #173f3d; }
+.mp-marketing-product--hospital { background: #173f3d; color: #fff; border-color: #173f3d; }
+.mp-marketing-product-brand { display: flex; align-items: center; gap: 10px; font-size: .85rem; font-weight: 650; }
+.mp-marketing-product h3 { font-size: clamp(1.6rem, 2.4vw, 2rem); line-height: 1.2; letter-spacing: -.045em; font-weight: 650; margin-top: 30px; }
+.mp-marketing-product > p { max-width: 45ch; font-size: .9rem; margin-top: 18px; color: #46605a; }
+.mp-marketing-product--hospital > p { color: #c7dbd3; }
+.mp-marketing-product ul { display: grid; gap: 13px; margin: 26px 0 30px; font-size: .79rem; }
+.mp-marketing-product li { display: flex; align-items: start; gap: 10px; }
+.mp-marketing-product li svg { flex-shrink: 0; margin-top: 1px; }
+.mp-marketing-product .mp-button { position: relative; z-index: 1; background: #fff; color: #173f3d; border-color: #cfdfd5; }
+.mp-product-art { position: absolute; right: -13px; bottom: -22px; opacity: .14; transform: rotate(-15deg); }
+.mp-journey-section { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 70px; padding-block: 36px 72px; }
+.mp-journey-section > div > p:last-child { color: var(--mp-muted); margin-top: 21px; max-width: 42ch; font-size: .94rem; }
+.mp-journey-list { border-left: 1px solid var(--mp-border); padding-left: 30px; }
+.mp-journey-list li { display: flex; align-items: start; gap: 20px; padding-block: 17px; }
+.mp-journey-list li > span { color: var(--mp-accent-ink); font-size: .8rem; padding-top: 3px; font-weight: 650; }
+.mp-journey-list h3 { font-weight: 650; font-size: 1.05rem; }
+.mp-journey-list p { color: var(--mp-muted); font-size: .85rem; margin-top: 4px; }
+.mp-marketing-cta { display: flex; gap: 24px; justify-content: space-between; align-items: center; padding-block: 38px; border-top: 1px solid var(--mp-border); }
+.mp-marketing-cta .mp-actions { margin: 0; }
+.mp-marketing-cta .mp-eyebrow { margin-bottom: 9px; }
+.mp-marketing-cta h2 { font-size: 1.9rem; }
+.mp-care-search { margin-top: 28px; }
+.mp-care-search > label { display: block; font-size: .8rem; font-weight: 650; margin-bottom: 10px; }
+.mp-care-search > div { display: flex; gap: 10px; align-items: center; padding: 7px 7px 7px 15px; border: 1px solid var(--mp-border); border-radius: 11px; background: var(--mp-surface); box-shadow: var(--mp-shadow); }
+.mp-care-search input { min-width: 0; flex: 1; padding-block: 8px; font-size: .85rem; background: transparent; color: var(--mp-text); }
+.mp-care-search input::placeholder { color: var(--mp-muted); }
+.mp-care-search svg { flex-shrink: 0; color: var(--mp-accent-ink); }
+.mp-care-search .mp-button { font-size: .78rem; flex-shrink: 0; padding: 12px; }
+.mp-care-search .mp-button svg { color: inherit; }
+.mp-connect-home .mp-marketing-hero { grid-template-columns: 1.1fr 1fr; }
+.mp-connect-home .mp-actions .mp-button { padding: 7px 0; font-size: .83rem; }
+.mp-specialties { padding-block: 30px 60px; }
+.mp-specialty-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.mp-specialty-grid a { display: flex; flex-direction: column; align-items: start; gap: 19px; border: 1px solid var(--mp-border); padding: 23px 20px; border-radius: 12px; background: var(--mp-surface); text-decoration: none; color: var(--mp-text); position: relative; }
+.mp-specialty-grid a > span { display: inline-flex; border-radius: 50%; padding: 13px; background: var(--mp-accent-soft); color: var(--mp-accent-ink); }
+.mp-specialty-grid strong { font-size: .84rem; font-weight: 650; }
+.mp-specialty-grid a > svg { position: absolute; top: 19px; right: 15px; color: var(--mp-muted); }
+.mp-specialty-grid a:hover { border-color: var(--mp-accent-ink); }
+.mp-connect-community { display: grid; grid-template-columns: .8fr 1fr; gap: 80px; align-items: center; padding-block: 38px 62px; }
+.mp-connect-community p:not(.mp-eyebrow) { color: var(--mp-muted); max-width: 48ch; font-size: .94rem; margin: 23px 0; }
+.mp-community-art { position: relative; min-height: 245px; border-radius: 120px 120px 35px 35px; background: #e5efe7; display: grid; place-items: center; color: #115e59; }
+.mp-community-art > div { padding: 33px; border: 1px solid #c0d8c8; border-radius: 50%; background: #f8fbf7; outline: 20px solid #d9e8dd; }
+.mp-community-art > span { position: absolute; top: 35px; left: 17%; display: inline-flex; background: #fff; padding: 17px; border-radius: 17px; box-shadow: 0 10px 20px -15px #173f3d88; }
+.mp-community-art > span:last-child { top: auto; left: auto; right: 12%; bottom: 27px; }
+.mp-doctor-invitation { display: flex; align-items: center; gap: 25px; padding-block: 33px; border-block: 1px solid var(--mp-border); }
+.mp-doctor-invitation > svg { color: var(--mp-accent-ink); flex-shrink: 0; }
+.mp-doctor-invitation h2 { font-size: 1.55rem; }
+.mp-doctor-invitation p:not(.mp-eyebrow) { margin-top: 9px; color: var(--mp-muted); font-size: .86rem; }
+.mp-doctor-invitation .mp-eyebrow { margin-bottom: 7px; }
+.mp-doctor-invitation .mp-button { margin-left: auto; flex-shrink: 0; }
+.mp-hospital-feature-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 25px; }
+.mp-hospital-feature-grid article { border-top: 1px solid var(--mp-border); padding-top: 24px; }
+.mp-hospital-feature-grid article > span { display: inline-flex; padding: 13px; border-radius: 12px; background: var(--mp-accent-soft); color: var(--mp-accent-ink); }
+.mp-hospital-feature-grid h3 { font-size: 1.075rem; font-weight: 650; letter-spacing: -.025em; margin-top: 23px; }
+.mp-hospital-feature-grid p { color: var(--mp-muted); font-size: .86rem; margin-top: 12px; }
+.mp-hospital-roadmap { display: grid; grid-template-columns: 1fr 1fr; gap: 65px; padding-block: 20px 72px; }
+.mp-hospital-roadmap > div > p:last-child { max-width: 42ch; margin-top: 18px; color: var(--mp-muted); font-size: .9rem; }
+.mp-hospital-roadmap ul { display: grid; gap: 0; }
+.mp-hospital-roadmap li { display: flex; flex-direction: column; justify-content: center; gap: 9px; border-bottom: 1px solid var(--mp-border); padding: 17px 0; }
+.mp-hospital-roadmap li > span { font-size: .68rem; letter-spacing: .07em; text-transform: uppercase; color: var(--mp-muted); }
+.mp-hospital-roadmap li:first-child > span { color: var(--mp-accent-ink); font-weight: 650; }
+.mp-hospital-roadmap strong { font-size: .9rem; font-weight: 600; }
+@media (max-width: 1100px) {
+  .mp-marketing-hero, .mp-connect-home .mp-marketing-hero { gap: 28px; grid-template-columns: 1fr 1fr; }
+  .mp-preview-content { padding: 18px; } .mp-preview-stage-tag { display: none; }
+  .mp-preview-sidebar { width: 42px; } .mp-marketing h1 { font-size: clamp(2.7rem, 4.8vw, 4rem); }
+  .mp-hospital-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mp-care-search > div { flex-wrap: wrap; } .mp-care-search .mp-button { width: 100%; }
+  .mp-specialty-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .mp-marketing-container { padding-inline: 20px; }
+  .mp-marketing-hero, .mp-connect-home .mp-marketing-hero { grid-template-columns: 1fr; padding-block: 38px 45px; gap: 30px; }
+  .mp-marketing h1 { font-size: clamp(2.45rem, 8vw, 3.4rem); } .mp-marketing-intro { font-size: .97rem; margin-top: 20px; }
+  .mp-marketing-kicker { font-size: .7rem; margin-bottom: 20px; }
+  .mp-capability-strip > div { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 16px; } .mp-capability-strip span { font-size: .73rem; align-items: start; }
+  .mp-capability-strip svg { flex-shrink: 0; width: 17px; }
+  .mp-marketing-products, .mp-journey-section, .mp-connect-community, .mp-hospital-roadmap { grid-template-columns: 1fr; gap: 26px; }
+  .mp-marketing-heading, .mp-marketing-cta { flex-direction: column; align-items: start; gap: 20px; }
+  .mp-marketing-heading > p { max-width: 100%; } .mp-marketing-section { padding-block: 46px; }
+  .mp-marketing-product { padding: 27px; } .mp-marketing-product h3 { font-size: 1.65rem; }
+  .mp-marketing-product ul { font-size: .76rem; } .mp-product-art { opacity: .08; }
+  .mp-journey-section { padding-block: 8px 44px; } .mp-journey-list { padding-left: 18px; }
+  .mp-marketing-cta h2 { font-size: 1.6rem; } .mp-marketing .mp-button { font-size: .82rem; }
+  .mp-preview-content { padding: 17px; } .mp-preview-body { min-height: 315px; }
+  .mp-preview-bar { padding: 12px; gap: 7px; } .mp-preview-label { font-size: .55rem; }
+  .mp-preview-brand { font-size: .67rem; } .mp-preview-heading > strong { font-size: .96rem; }
+  .mp-preview-visit { padding: 12px 10px; gap: 9px; } .mp-preview-visit p { font-size: .6rem; }
+  .mp-preview-stages p { font-size: .61rem; } .mp-preview-floating { padding: 12px; }
+  .mp-care-preview { padding-left: 14px; } .mp-care-preview figcaption { font-size: .58rem; }
+  .mp-care-search .mp-button { font-size: .8rem; }
+  .mp-specialties { padding-block: 0 35px; } .mp-specialty-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .mp-specialty-grid a { padding: 20px 16px; } .mp-specialty-grid strong { font-size: .78rem; }
+  .mp-connect-community { padding-block: 20px 38px; } .mp-community-art { min-height: 210px; }
+  .mp-doctor-invitation { flex-wrap: wrap; gap: 15px; } .mp-doctor-invitation > div { flex: 1; min-width: 220px; }
+  .mp-doctor-invitation .mp-button { margin-left: 0; } .mp-doctor-invitation h2 { font-size: 1.35rem; }
+  .mp-hospital-feature-grid { gap: 20px 16px; } .mp-hospital-feature-grid h3 { font-size: .97rem; }
+  .mp-hospital-feature-grid p { font-size: .79rem; } .mp-hospital-roadmap { padding-block: 0 40px; }
+}

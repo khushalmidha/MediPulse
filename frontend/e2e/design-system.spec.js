@@ -11,7 +11,7 @@ test("shells render at 360px, tablet and desktop without page overflow", async (
   test.skip(testInfo.project.name !== "desktop", "One project checks all responsive widths.");
   for (const width of [360, 768, 1440]) {
     await page.setViewportSize({ width, height: 960 });
-    for (const [name, path, state, heading] of [["company", "/", { guest: true }, "MediPulse"], ["connect", "/connect", { guest: true }, "MediPulse Connect"], ["patient", "/hospitals/fixture/visits", {}, "My hospital visits"], ["staff", "/hospital/nursing-station", { nurse: true }, "Nursing Station"]]) {
+    for (const [name, path, state, heading] of [["company", "/", { guest: true }, /Better care\.\s*A clearer journey\./], ["connect", "/connect", { guest: true }, /Find your doctor\.\s*Stay connected\./], ["patient", "/hospitals/fixture/visits", {}, "My hospital visits"], ["staff", "/hospital/nursing-station", { nurse: true }, "Nursing Station"]]) {
       await request.post(api + "/__fixture/reset", { data: state });
       await page.goto(path, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: heading, exact: true }).first()).toBeVisible();
@@ -24,7 +24,7 @@ test("shells render at 360px, tablet and desktop without page overflow", async (
 });
 test("marketing navigation has keyboard skip and a responsive menu", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 844 }); await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "MediPulse", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Better care\.\s*A clearer journey\./ })).toBeVisible();
   await page.keyboard.press("Tab"); await expect(page.getByRole("link", { name: "Skip to content", exact: true })).toBeFocused();
   await page.keyboard.press("Enter"); await expect(page.locator("#main-content")).toBeFocused();
   const toggle = page.getByRole("button", { name: "Toggle mobile menu", exact: true }); await toggle.focus(); await page.keyboard.press("Enter");

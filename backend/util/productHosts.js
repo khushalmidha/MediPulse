@@ -1,4 +1,6 @@
 export const RESERVED_HOST_LABELS = ["www", "connect", "app", "api", "admin", "auth", "login", "signup", "hospital", "hospitals", "backend", "mail", "smtp", "status", "support", "docs", "assets", "cdn", "dev", "staging"];
+// Owner-confirmed production project alias, verified against the public domain bundle.
+export const COMPANY_HOST_ALIASES = ["medi-pulse-gamma.vercel.app"];
 export const normalizeHostname = value => {
   if (typeof value !== "string" || !value.trim() || value.length > 260 || /[\s/\\?#@]/.test(value.trim())) return null;
   try {
@@ -13,6 +15,7 @@ export const classifyHostname = (value, { baseDomain = "medipulse.live", appDoma
   const host = normalizeHostname(value), base = normalizeHostname(baseDomain);
   if (!host || !base) return { kind: "unknown", host };
   if (host === base || host === `www.${base}` || ["localhost", "127.0.0.1", "[::1]"].includes(host)) return { kind: "company", host };
+  if (base === "medipulse.live" && COMPANY_HOST_ALIASES.includes(host)) return { kind: "company", host };
   if (host === `connect.${base}`) return { kind: "connect", host };
   if (host === `app.${base}`) return { kind: "staff", host };
   if (host.endsWith(`.${base}`)) {

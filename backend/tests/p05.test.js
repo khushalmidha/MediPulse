@@ -10,6 +10,8 @@ import HospitalStaff from "../model/hospitalStaff.js";
 
 test("origins require explicit ownership/configuration, including hosted previews", () => {
   assert.equal(isAllowedOrigin("https://medipulse.live"), true);
+  assert.equal(isAllowedOrigin("https://medi-pulse-gamma.vercel.app"), true);
+  for (const origin of ["https://evil.medi-pulse-gamma.vercel.app", "https://medi-pulse-gamma.vercel.app.evil.test", "http://medi-pulse-gamma.vercel.app"]) assert.equal(isAllowedOrigin(origin), false);
   for (const origin of ["https://evil.vercel.app", "https://evil.onrender.com", "https://medipulse.live.evil.invalid", "http://localhost:9999", "null", "*"]) assert.equal(isAllowedOrigin(origin), false);
 });
 test("cookies are host-only HttpOnly and CSRF is required for ambient credentials", () => {
