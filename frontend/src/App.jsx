@@ -110,7 +110,7 @@ function App() {
         <Route path="/cookiepolicy" element={<DataUsagePolicy />}/>
         <Route path="*" element={<RouteNotFound />} />
       </Routes>
-      {(product.kind !== "company" || location.pathname !== "/") && !/^\/(?:appointment\/book|appointments\/reservations|my-appointments|doctors(?:Profile)?)(?:\/|$)/.test(location.pathname) && <AiBot />}
+      {(product.kind !== "company" || location.pathname !== "/") && !/^\/(?:appointment\/book|appointments\/reservations|my-appointments|doctors(?:Profile)?|login|signup|profile\/edit)(?:\/|$)/.test(location.pathname) && <AiBot />}
     </ProductShell>
   );
 }

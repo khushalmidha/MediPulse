@@ -206,3 +206,33 @@ textarea.mp-input { min-height: 100px; resize: vertical; }
 @media (max-width: 900px) { .mp-booking-layout { grid-template-columns: 1fr; } }
 @media (max-width: 650px) { .mp-doctor-grid, .mp-discovery-filters { grid-template-columns: 1fr; } .mp-doctor-summary { gap: 14px; } .mp-doctor-avatar { width: 52px; height: 52px; } }
 @media (max-width: 400px) { .mp-slot-grid { grid-template-columns: 1fr; } }
+
+/* P11 A: account access and profile forms. */
+.mp-account-page { max-width: 520px; }
+.mp-account-page--wide { max-width: 920px; }
+.mp-account-heading { margin-bottom: 28px; }
+.mp-account-heading > p:last-child { color: var(--mp-muted); margin-top: 10px; }
+.mp-account-mark { display: inline-flex; padding: 12px; border-radius: 16px; color: var(--mp-accent-ink); background: var(--mp-accent-soft); margin-bottom: 20px; }
+.mp-account-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.mp-account-choices .mp-card { display: flex; flex-direction: column; align-items: start; gap: 14px; min-width: 0; }
+.mp-account-choices svg { color: var(--mp-accent-ink); }
+.mp-account-choices h2 { font-size: 1.2rem; }
+.mp-account-choices p { color: var(--mp-muted); font-size: .9rem; flex: 1; }
+.mp-account-choices .mp-button { width: 100%; }
+.mp-account-footnote { margin-top: 20px; text-align: center; color: var(--mp-muted); }
+.mp-password-field { position: relative; min-width: 0; }
+.mp-password-field .mp-input { padding-right: 54px; }
+.mp-password-field > .mp-button { position: absolute; top: 25px; right: 3px; min-width: 44px; padding: 8px; }
+.mp-checkbox { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: .9rem; }
+.mp-checkbox input { width: 19px; height: 19px; accent-color: var(--mp-accent); }
+.mp-account-details { border: 1px solid var(--mp-border); border-radius: 12px; padding: 16px; }
+.mp-account-details summary { cursor: pointer; font-weight: 600; min-height: 32px; }
+.mp-account-details[open] summary { margin-bottom: 20px; }
+.mp-google-button { min-height: 44px; }
+.mp-google-button--disabled { opacity: .6; pointer-events: none; }
+@media (max-width: 750px) { .mp-account-choices { grid-template-columns: 1fr; } }
+
+.mp-account-heading h1 { font-size: clamp(1.65rem, 2.3vw, 2.2rem); font-weight: 750; letter-spacing: -.035em; line-height: 1.2; margin: 8px 0 12px; color: var(--mp-text); }
+.dark .mp-navigation button[aria-label="Profile menu"] > span:last-child, .dark .mp-navigation #care-mobile-navigation .text-gray-700 { color: var(--mp-text); }
+
+.mp-account-page .mp-form-row { align-items: start; }

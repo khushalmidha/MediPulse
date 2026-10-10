@@ -430,3 +430,42 @@ All browser records are synthetic local fixtures with external requests blocked;
 - Credential URI/private-key/provider-token pattern scan: **27 candidate files / 0 matches**; no matched credential text was printed.
 
 Prepared as the next phase on **codex/p09-scheduling-20261009**, following P09 **1f209796**. Commit/push are authorized by the user’s earlier instruction; the phase hash is reported in the completion response. Main is not merged and no deployment is initiated. Next task is **P11**, one remaining UI batch per run.
+
+## P11 A — Account access, profiles and staff invitations (10 October 2026)
+
+### Implemented and verified findings
+
+Selected the earliest unfinished P11 batch, A, after P10; later batches remain separate runs. Verified the current auth/signup/invite/profile controller contracts before rebuilding the five route bodies.
+
+- Replaced repeated forms with P08 cards/fields/buttons/feedback and shared account layout, role chooser, password visibility and Google controls. Preserved patient/doctor/staff choices, locked hospital patient/staff identity, existing signup aliases and safe booking return after sign-in/signup. Signup omits blank optional fields while retaining explicit zero experience.
+- Added native required/phone/password/experience validation, inline focused failure/success feedback, offline controls, synchronous duplicate-submit guards and disposed-request cancellation. Recoverable errors retain input on the page. Account forms do not persist passwords, invitation tokens or medical input. OTP delivery failures never advance to the code form; queued/reset/wrong-code states use actual responses.
+- Fixed signed-out profile loading with an actionable sign-in state. Owner-keyed forms dispose old operations on account changes. Doctor payloads preserve unedited qualifications and clinic metadata; blank optional experience/fee/phone does not manufacture zero. Save feedback stays on the page; dirty cancellation uses the native dialog and restores focus on dismissal. Demo fee guidance distinguishes immediate bookings from frozen scheduled reservations.
+- Staff invitations expose missing/failed/expired/consumed states, retry, actual role/email and professional fields. Acceptance uses the real returned staff role and existing session/CSRF synchronization; nurse/reception staff open the nursing workspace. Preserved an explicit zero experience through the existing invite endpoint’s truthy fallback by submitting a supplied string value. Hospital registration keeps its real address/admin/license contract and verification status guidance.
+- Shared Google callbacks are disposed on role/page change, blocked during another submission, and have SDK load retry. Unconfigured Google shows an email alternative without implementation details. Real Google or email provider delivery was not tested locally.
+
+Main files: Login, SignUp, EditProfile, HospitalAdminSignup, StaffAcceptInvite; shared account UI/Google button, form-task hook, pure account payload/routing helpers; scoped styles, chatbot exclusion on account pages and synthetic unit/browser fixtures. The full route/batch checklist is [P11_UI_COVERAGE.md](P11_UI_COVERAGE.md).
+
+### Checks and corrections
+
+- Initial utility run: **21 passed / 0 failed**, before adding the explicit invite-zero regression.
+- Initial corrected production build: **passed**; main bundle **729.25 kB**, gzip **206.66 kB**. The existing large-chunk warning remains.
+- Affected ESLint: **0 diagnostics** across **10 source files**, against **81 baseline findings**; no new diagnostics.
+- Focused account browser run: **33 passed / 0 failed / 1 intentionally skipped duplicate viewport sweep** across desktop/mobile, before the strengthened invitation experience regression.
+
+The first build found a slash escaping error in the account-route chatbot exclusion; fixed before browser checks. The first browser run was stopped after required-label selector timeouts: the shared Field’s visible required marker is part of its label text. Updated the helper to match the exact plain label or exact label with its required marker; validation/payment/role assertions were retained. No error was swallowed and no outcome assertion was relaxed. Subsequent source review corrected zero experience serialization using the verified existing controller behavior and added unit/browser regressions.
+
+Browser data and provider contracts are synthetic local fixtures; external requests are blocked and calls use fake Chromium devices/local signaling. No backend code, dependency, schema, existing database migration, DNS/provider activation, deployment or Docker image rebuild changed in this batch. Backend integration was not rerun for this frontend batch. Remaining UI batches B–H, broad accessibility/provider checks and later startup workflows remain tracked. Next is **P11 B — patient health/family records and hospital discovery**.
+
+### Final verification and publication
+
+- Complete browser suite after account/Google-container/heading/contrast refinements: **141 passed / 0 failed / 3 intentionally skipped duplicate viewport sweeps** (33 active account cases plus 108 earlier cases). Appointment payment/replay/privacy, real browser media with synthetic signaling, product routing and existing design checks remain covered. Ran separately from production build work.
+- After the final account-only field alignment CSS change, repeated the strengthened responsive check: **1 passed / 0 failed / 1 intentionally skipped duplicate sweep**. Rendered seven account screens at **360px, 768px and 1440px**, checked page overflow, heading weight, aligned hospital email/phone inputs and dark account-name color, and captured **22 screenshots** including dark profile. Final layout artifacts are in local temporary `medipulse-p11a-layout-final`; the complete suite artifacts are in `medipulse-p11a-browser-verified`. Visually inspected patient signup/staff login/invitation mobile, hospital registration desktop and dark profile, including the final aligned form.
+- Final production build: **passed**; main bundle **729.29 kB**, gzip **206.68 kB**; existing large-chunk warning remains. Final utility rerun: **22 passed / 0 failed** (13 prior plus nine account cases).
+- Final affected lint: **0 errors / 0 warnings** across **10 source files**, down from 81 snapshot findings. Preserved original unchanged lines/endings in **seven frontend files** and verified normalized contents stayed identical; documentation formatting is preserved before staging.
+- Credential URI/private-key/provider-token pattern scan: **19 candidate files / 0 matches**; no matched secrets printed. Targeted staged whitespace is checked before commit.
+
+Screenshot review corrected initially weak account heading typography, dark account-name color and stretched grid fields with unequal help text. The Google container remains mounted during load retry so an already available SDK cannot lose its render target. Configured Google SDK/provider delivery was not exercised: local checks use the email paths and unconfigured-provider state. No live-service result is claimed.
+
+Separate existing backend follow-up: password-based doctor signup assigns clinicPhone to clinic.phone, while the Doctor schema declares clinic.phoneNumber. This contact persistence mismatch is verified in backend/controller/auth.js and backend/model/doctor.js and remains for the independent-doctor/profile backend work; it is not counted as fixed by the UI migration.
+
+Prepared as a separate **P11 A** commit on **codex/p09-scheduling-20261009**, following P10 **1ea980aa**. Commit/push are authorized by the earlier user instruction; the phase hash is reported in the completion response. Main is not merged and no deployment is initiated. Batch A UI migration is complete; **P11 B** is the next run.

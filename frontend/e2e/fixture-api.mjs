@@ -1,3 +1,4 @@
+import { handleAccounts } from "./accounts-fixture.mjs";
 import { handleScheduling } from "./scheduling-fixture.mjs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
@@ -37,8 +38,8 @@ const server = createServer(async (req, res) => {
   if (state.callMode && path === `/appointment/${appointmentId}`) return reply({ _id: appointmentId, status: state.callEnded ? "completed" : "active", visitMode: "online", revision: state.callEnded ? 3 : 2 });
   const hospitalId = "000000000000000000000004", departmentId = "000000000000000000000006";
   const staff = { _id: "000000000000000000000005", name: "Fixture Nurse", role: "NURSE", hospitalId, departmentIds: [departmentId] };
-  if (path === "/verify/staff") return state.nurse ? reply({ csrfToken: "fixture-staff-csrf", data: staff, role: "NURSE", hospital: { _id: hospitalId, name: "Fixture Hospital" } }) : reply({ message: "Synthetic patient session" }, 401);
-  if (path === "/verify") return state.guest || state.nurse ? reply({}, 401) : callDoctor ? reply({csrfToken:"fixture-account-csrf",role:"doctor",data:doctor}) : reply({ csrfToken: "fixture-account-csrf", role: "user", data: { _id: "000000000000000000000002", firstName: "Fixture", lastName: "Patient", communities: state.communitySummary ? [community._id] : [] } });
+  if (path === "/verify/staff") return state.nurse ? reply({ csrfToken: "fixture-staff-csrf", data: { ...staff, role: state.staffRole || "NURSE" }, role: state.staffRole || "NURSE", hospital: { _id: hospitalId, name: "Fixture Hospital" } }) : reply({ message: "Synthetic patient session" }, 401);
+  if (path === "/verify") return state.guest || state.nurse ? reply({}, 401) : callDoctor ? reply({csrfToken:"fixture-account-csrf",role:"doctor",data:{...doctor,...state.doctorProfile}}) : reply({ csrfToken: "fixture-account-csrf", role: "user", data: { _id: "000000000000000000000002", firstName: "Fixture", lastName: "Patient", ...state.patientProfile, communities: state.communitySummary ? [community._id] : [] } });
   if (["/user/logout", "/user/staff/logout"].includes(path) && req.method === "POST") {
     const expected = path.includes("staff") ? "fixture-staff-csrf" : "fixture-account-csrf";
     if (req.headers["x-csrf-token"] !== expected) return reply({ message: "Invalid synthetic CSRF" }, 403);
@@ -46,6 +47,7 @@ const server = createServer(async (req, res) => {
     state.guest = true; state.nurse = false; state.logouts = (state.logouts || 0) + 1;
     return reply({ message: "Signed out" });
   }
+  if (await handleAccounts({ req, state, reply, doctor, staff, hospitalId })) return;
   if (path === "/user/login" && req.method === "POST") {
     state.guest = false; state.nurse = false;
     res.setHeader("Set-Cookie", ["staffToken=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0", "token=fixture-opaque-session; Path=/; HttpOnly; SameSite=Lax"]);

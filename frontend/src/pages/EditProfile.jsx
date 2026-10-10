@@ -1,190 +1,32 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
-import axios from "axios";
-import { BACKEND_URL } from "../utils";
+/* eslint-disable react/prop-types */
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const EditProfile = () => {
-  const { user, role, setUser } = useAuth();
-  const navigate = useNavigate();
-  
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    bio: "",
-    gender: "",
-    phoneNumber: "",
-    expertise: "",
-    years: "",
-    clinicName: "",
-    clinicLocation: "",
-    // Doctors set their own consultation fee; this is what patients actually get charged.
-    consultationFee: ""
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    
-    // Pre-fill existing data
-    setFormData({
-      firstName: user.firstName || "",
-      lastName: user.lastName || "",
-      bio: user.bio || "",
-      gender: user.gender || "",
-      phoneNumber: user.phone || user.phoneNumber || "",
-      expertise: user.experience?.expertise || "",
-      years: user.experience?.years || "",
-      clinicName: user.clinic?.name || "",
-      clinicLocation: user.clinic?.location || "",
-      consultationFee:
-        user.consultationFee === undefined || user.consultationFee === null
-          ? ""
-          : String(user.consultationFee)
+import axios from "axios";
+import { useAuth } from "../context/AuthContext";
+import { Banner, Button, Card, Dialog, EmptyState, Field, LoadingState } from "../components/ui";
+import { AccountPage, Feedback, GenderField } from "../components/account/AccountUI";
+import useFormTask from "../hooks/useFormTask";
+import { profileDraft, profilePayload } from "../utils/accountForms";
+import { BACKEND_URL } from "../utils";
+export default function EditProfile() {
+  const auth = useAuth();
+  if (auth.loader) return <main className="mp-page"><LoadingState>Loading your profile...</LoadingState></main>;
+  if (!auth.isAuth || !auth.user || !["user", "doctor"].includes(auth.role)) return <main className="mp-page"><EmptyState title="Sign in to edit your profile" action={<Button to="/login?returnTo=%2Fprofile%2Fedit">Sign in</Button>}>Profile details are available to your account.</EmptyState></main>;
+  return <ProfileForm key={auth.role + ":" + auth.user._id} user={auth.user} role={auth.role} setUser={auth.setUser} />;
+}
+function ProfileForm({ user, role, setUser }) {
+  const [form, setForm] = useState(() => profileDraft(user)), [dirty, setDirty] = useState(false), [discard, setDiscard] = useState(false), task = useFormTask(), navigate = useNavigate();
+  const update = key => event => { setForm(previous => ({ ...previous, [key]: event.target.value })); setDirty(true); };
+  const field = (key, label, props = {}) => <Field key={key} label={label} name={key} value={form[key]} onChange={update(key)} disabled={task.busy} {...props} />;
+  const submit = event => {
+    event.preventDefault(); let body;
+    try { body = profilePayload(form, user, role); } catch (error) { task.setFeedback({ message: error.message, tone: "error" }); return; }
+    void task.run(signal => axios.put(BACKEND_URL + "/" + (role === "doctor" ? "doctor" : "user"), body, { signal }), response => {
+      if (response.data?._id !== user._id) throw new Error("Profile response is incomplete.");
+      setUser(response.data); setForm(profileDraft(response.data)); setDirty(false); task.setFeedback({ message: "Profile updated successfully.", tone: "info" });
     });
-    setLoading(false);
-  }, [user]);
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (role === "doctor" && (!formData.expertise || formData.expertise.trim() === "")) {
-      alert("Expertise (Specialty) is required for doctors.");
-      return;
-    }
-
-    if (role === "doctor" && formData.consultationFee !== "") {
-      const fee = Number(formData.consultationFee);
-      if (!Number.isFinite(fee) || fee < 0) {
-        alert("Consultation fee must be a valid non-negative amount.");
-        return;
-      }
-    }
-
-    setSaving(true);
-    try {
-      const payload = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        bio: formData.bio,
-        gender: formData.gender,
-      };
-
-      if (role === "doctor") {
-        payload.phone = formData.phoneNumber;
-        payload.experience = {
-          expertise: formData.expertise,
-          years: Number(formData.years)
-        };
-        payload.clinic = {
-          name: formData.clinicName,
-          location: formData.clinicLocation
-        };
-        if (formData.consultationFee !== "") {
-          payload.consultationFee = Number(formData.consultationFee);
-        }
-      } else {
-        payload.phoneNumber = formData.phoneNumber;
-      }
-
-      const endpoint = role === "doctor" ? `${BACKEND_URL}/doctor` : `${BACKEND_URL}/user`;
-      
-      const res = await axios.put(endpoint, payload, { withCredentials: true });
-      if (res.data) setUser(res.data);
-      alert("Profile updated successfully");
-      
-      navigate(-1);
-    } catch (error) {
-      alert(error.response?.data?.message || "Failed to update profile");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 dark:bg-slate-900">
-      <div className="max-w-md mx-auto bg-white dark:bg-slate-800 rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Edit Profile</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
-              <input type="text" name="firstName" required value={formData.firstName} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Name</label>
-              <input type="text" name="lastName" required value={formData.lastName} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Gender</label>
-            <select name="gender" required value={formData.gender} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border">
-              <option value="">Select Gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number</label>
-            <input type="number" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
-          </div>
-
-          {role === "doctor" && (
-                          <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Clinic / Hospital Name</label>
-                  <input type="text" name="clinicName" value={formData.clinicName} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
-                  <input type="text" name="clinicLocation" value={formData.clinicLocation} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
-                </div>
-                <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Expertise / Specialty <span className="text-red-500">*</span></label>
-                <input type="text" name="expertise" required value={formData.expertise} onChange={handleChange} placeholder="E.g., Cardiologist" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
-                <p className="mt-1 text-xs text-red-500">Specialty is strictly required for doctors.</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Years of Experience</label>
-                <input type="number" name="years" value={formData.years} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Consultation Fee (INR)</label>
-                <input type="number" name="consultationFee" min="0" step="1" value={formData.consultationFee} onChange={handleChange} placeholder="E.g., 500" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border" />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">This exact amount is charged to the patient when they book you.</p>
-              </div>
-            </>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Bio</label>
-            <textarea name="bio" rows="3" value={formData.bio} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm dark:bg-slate-700 dark:border-gray-600 dark:text-white px-3 py-2 border"></textarea>
-          </div>
-
-          <div className="pt-4">
-            <button type="submit" disabled={saving} className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50">
-              {saving ? "Saving..." : "Save Profile"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-export default EditProfile;
-
-
-
+  return <AccountPage wide title="Edit Profile" description="Keep your account information up to date."><Feedback feedback={task.feedback} />{!task.online && <Banner>You are offline. Your edits are kept on this page until you reconnect.</Banner>}<Card as="form" onSubmit={submit} className="mp-stack" aria-busy={task.busy}><h2>Personal details</h2><div className="mp-form-row">{field("firstName", "First name", { required: true, pattern: ".*[^ ].*", autoComplete: "given-name" })}{field("lastName", "Last name", { autoComplete: "family-name" })}</div><div className="mp-form-row"><GenderField value={form.gender} disabled={task.busy} onChange={update("gender")} />{field("phoneNumber", "Phone number", { type: "tel", pattern: "[1-9][0-9]{9}", hint: "10 digits. Leave blank to keep the recorded number." })}</div>{field("bio", "About you", { as: "textarea", rows: 4 })}
+    {role === "doctor" && <><h2>Independent practice</h2><div className="mp-form-row">{field("expertise", "Specialty", { required: true, pattern: ".*[^ ].*" })}{field("years", "Years of experience", { type: "number", min: 0, step: 1, hint: "Leave blank to keep recorded experience." })}</div>{field("clinicName", "Clinic name")}{field("clinicLocation", "Clinic location")}{field("consultationFee", "Consultation fee (INR)", { type: "number", min: 0, step: "0.01", hint: "Independent immediate bookings use this amount in demo credits. Existing scheduled bookings retain their confirmed fee." })}<p className="mp-field-hint">Other professional details and hospital memberships are preserved.</p></>}
+    {dirty && <p role="status" className="mp-field-hint">You have unsaved changes.</p>}<div className="mp-actions"><Button type="submit" disabled={task.busy || !task.online}>{task.busy ? "Saving..." : "Save Profile"}</Button><Button variant="secondary" disabled={task.busy} onClick={() => dirty ? setDiscard(true) : navigate("/dashboard")}>Cancel editing</Button></div></Card><Dialog open={discard} title="Discard your profile changes?" onClose={() => setDiscard(false)}><div className="mp-stack"><p>Your unsaved edits will be lost.</p><Button variant="danger" onClick={() => navigate("/dashboard")}>Discard changes</Button><Button variant="secondary" onClick={() => setDiscard(false)}>Keep editing</Button></div></Dialog></AccountPage>;
+}

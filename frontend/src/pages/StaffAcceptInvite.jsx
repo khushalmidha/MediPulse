@@ -1,108 +1,39 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Building2, Lock, UserRound } from "lucide-react";
+import axios from "axios";
+import { Banner, Button, Card, EmptyState, Field, LoadingState } from "../components/ui";
+import { AccountPage, Feedback, PasswordField } from "../components/account/AccountUI";
+import useFormTask from "../hooks/useFormTask";
+import { invitationDoctorProfile, staffDestination } from "../utils/accountForms";
 import { BACKEND_URL } from "../utils";
-
-const StaffAcceptInvite = () => {
-  const [params] = useSearchParams();
-  const navigate = useNavigate();
-  const hospitalId = params.get("hospital") || "";
-  const token = params.get("token") || "";
-  const [invite, setInvite] = useState(null);
-  const [form, setForm] = useState({ name: "", password: "", profilePhoto: "", specialization: "", qualification: "", experience: "" });
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-
+export default function StaffAcceptInvite() {
+  const [params] = useSearchParams(), hospitalId = params.get("hospital") || "", token = params.get("token") || "", scope = hospitalId + ":" + token;
+  return <InviteForm key={scope} hospitalId={hospitalId} token={token} />;
+}
+/* eslint-disable react/prop-types */
+function InviteForm({ hospitalId, token }) {
+  const [invite, setInvite] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState(""), [attempt, setAttempt] = useState(0), [expired, setExpired] = useState(false);
+  const [form, setForm] = useState({ name: "", password: "", profilePhoto: "", specialization: "", qualification: "", experience: "" }), task = useFormTask(), navigate = useNavigate();
   useEffect(() => {
-    if (!hospitalId || !token) {
-      setMessage("Invite link is missing required details");
-      return;
-    }
-    axios
-      .get(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/invite/accept?token=${encodeURIComponent(token)}`)
-      .then((response) => {
-        setInvite(response.data.staff);
-        setForm((current) => ({ ...current, name: response.data.staff?.name || "" }));
-      })
-      .catch((error) => setMessage(error.response?.data?.message || "Invite is invalid or expired"));
-  }, [hospitalId, token]);
-
-  const submit = async (event) => {
+    if (!hospitalId || !token) { setLoading(false); setError("Invite link is missing required details."); return undefined; }
+    const controller = new AbortController(); setLoading(true); setError("");
+    axios.get(`${BACKEND_URL}/api/hospitals/${encodeURIComponent(hospitalId)}/staff/invite/accept?token=${encodeURIComponent(token)}`, { signal: controller.signal }).then(response => {
+      if (controller.signal.aborted) return;
+      if (!response.data.staff) throw new Error("Invite details are unavailable.");
+      setInvite(response.data.staff); setForm(current => ({ ...current, name: current.name || response.data.staff.name || "", specialization: current.specialization || response.data.staff.doctorProfile?.specialization || "", qualification: current.qualification || response.data.staff.doctorProfile?.qualification || "", experience: current.experience || String(response.data.staff.doctorProfile?.experience ?? "") })); setLoading(false);
+    }).catch(failure => { if (!controller.signal.aborted) { setError(failure.response?.data?.message || "Unable to check this invitation. Please retry."); if ([403, 404, 410].includes(failure.response?.status)) { setInvite(null); setExpired(true); } setLoading(false); } });
+    return () => controller.abort();
+  }, [hospitalId, token, attempt]);
+  const update = key => event => setForm(previous => ({ ...previous, [key]: event.target.value }));
+  const field = (key, label, props = {}) => <Field key={key} label={label} value={form[key]} onChange={update(key)} disabled={task.busy} {...props} />;
+  const submit = event => {
     event.preventDefault();
-    setLoading(true);
-    setMessage("");
-    try {
-      const response = await axios.post(
-        `${BACKEND_URL}/api/auth/staff/set-password`,
-        {
-          hospitalId,
-          token,
-          password: form.password,
-          name: form.name,
-          profilePhoto: form.profilePhoto,
-          doctorProfile: invite?.role === "DOCTOR"
-            ? {
-                specialization: form.specialization,
-                qualification: form.qualification,
-                experience: Number(form.experience || 0),
-              }
-            : undefined,
-        },
-        { withCredentials: true },
-      );
-      sessionStorage.setItem("medipulse.hospitalAdmin", JSON.stringify({ staff: response.data.result, hospital: response.data.hospital || { _id: hospitalId } }));
-      navigate(invite?.role === "DOCTOR" ? "/hospital/doctor-opd" : "/hospital/staff-communication");
-    } catch (error) {
-      setMessage(error.response?.data?.message || "Could not complete staff setup");
-    } finally {
-      setLoading(false);
-    }
+    void task.run(async signal => {
+      try { return await axios.post(`${BACKEND_URL}/api/auth/staff/set-password`, { hospitalId, token, password: form.password, name: form.name.trim(), ...(form.profilePhoto ? { profilePhoto: form.profilePhoto } : {}), ...(invite.role === "DOCTOR" ? { doctorProfile: invitationDoctorProfile(form) } : {}) }, { signal }); }
+      catch (failure) { if ([403, 404, 410].includes(failure.response?.status)) { setExpired(true); setInvite(null); setForm(previous => ({ ...previous, password: "" })); } throw failure; }
+    }, response => { if (!response.data.result) throw new Error("Staff setup response is incomplete."); navigate(staffDestination(response.data.result), { replace: true }); });
   };
-
-  return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10">
-      <section className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:text-red-500"><Building2 /></div>
-          <div>
-            <p className="text-sm font-bold uppercase text-red-600 dark:text-red-500">Hospital Staff Invite</p>
-            <h1 className="text-2xl font-black text-slate-950">{invite ? `Join as ${invite.role.replace("_", " ")}` : "Complete staff setup"}</h1>
-          </div>
-        </div>
-        {message && <p className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">{message}</p>}
-        {invite && (
-          <form onSubmit={submit} className="mt-6 grid gap-4">
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">Name</span>
-              <div className="relative mt-1">
-                <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full rounded-lg border border-slate-300 px-3 py-2.5 pl-10 text-sm outline-none focus:border-red-500" />
-              </div>
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">Password</span>
-              <div className="relative mt-1">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 pl-10 text-sm outline-none focus:border-red-500" />
-              </div>
-            </label>
-            <input value={form.profilePhoto} onChange={(e) => setForm({ ...form, profilePhoto: e.target.value })} placeholder="Profile photo URL (optional)" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-            {invite.role === "DOCTOR" && (
-              <div className="grid gap-3 sm:grid-cols-3">
-                <input value={form.specialization} onChange={(e) => setForm({ ...form, specialization: e.target.value })} placeholder="Specialization" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                <input value={form.qualification} onChange={(e) => setForm({ ...form, qualification: e.target.value })} placeholder="Qualification" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                <input value={form.experience} onChange={(e) => setForm({ ...form, experience: e.target.value })} type="number" placeholder="Experience" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-              </div>
-            )}
-            <button disabled={loading} className="rounded-lg bg-red-600 dark:bg-red-700 px-4 py-3 text-sm font-bold text-white disabled:bg-slate-400">
-              {loading ? "Joining..." : "Complete setup"}
-            </button>
-          </form>
-        )}
-      </section>
-    </main>
-  );
-};
-
-export default StaffAcceptInvite;
+  return <AccountPage wide title={invite ? "Join as " + invite.role.replaceAll("_", " ") : "Complete staff setup"} eyebrow="Hospital staff invitation" description="Review your invitation and create the password for your hospital workspace."><Feedback feedback={task.feedback} />{loading ? <LoadingState>Checking your invitation...</LoadingState> : error ? <Banner action={!expired && hospitalId && token ? <Button onClick={() => setAttempt(value => value + 1)}>Retry invitation</Button> : undefined}>{error}</Banner> : null}{expired && <Card><EmptyState title="Request a new invitation">Ask your hospital administrator for a new link. An expired or accepted link cannot be used again.</EmptyState><Button to="/hospital/login" variant="secondary">Staff sign in</Button></Card>}
+    {invite && !expired && <Card as="form" className="mp-stack" onSubmit={submit} aria-busy={task.busy}><dl className="mp-details"><div><dt>Invited email</dt><dd>{invite.email}</dd></div><div><dt>Role</dt><dd>{invite.role.replaceAll("_", " ")}</dd></div></dl>{!task.online && <Banner>You are offline. Reconnect to accept your invitation.</Banner>}{field("name", "Name", { required: true, pattern: ".*[^ ].*", autoComplete: "name" })}<PasswordField required minLength={8} hint="At least 8 characters." autoComplete="new-password" value={form.password} disabled={task.busy} onChange={update("password")} />{field("profilePhoto", "Profile photo URL", { type: "url", pattern: "https?://.*", hint: "Optional · use an HTTPS image URL." })}{invite.role === "DOCTOR" && <><h2>Professional details</h2>{field("specialization", "Specialty")}{field("qualification", "Qualification")}{field("experience", "Years of experience", { type: "number", min: 0, step: 1 })}</>}<Button type="submit" disabled={task.busy || !task.online}>{task.busy ? "Joining..." : "Complete setup"}</Button></Card>}
+  </AccountPage>;
+}
