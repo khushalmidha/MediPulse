@@ -22,7 +22,7 @@ Read-only schema and migration inspection found:
 | Invalid refund link | 1 record marked COMPLETED |
 | Invalid appointment payment | 1 completed appointment |
 
-Counts can overlap across checks. Missing references are not replaced with invented patients, doctors, tokens or transfers. The owner initially selected real history/preservation, then clarified that the records are **synthetic but realistic, for pitches**, with no earlier source available. Preservation remains the default. No production archive, deletion, status correction, balance adjustment or migration has been performed.
+Counts can overlap across checks. Missing references are not replaced with invented patients, doctors, tokens or transfers. The owner initially selected real history/preservation, then clarified that the records are **synthetic but realistic, for pitches**, with no earlier source available. Initial inspection and rehearsal performed no production mutations. The subsequent approved execution is recorded below; full originals remain preserved.
 
 ## Code recovery
 
@@ -34,7 +34,7 @@ Startup checks schemas through read-only inspections. Mongo connection autoIndex
 
 Use Render's Environment tab to set DATABASE_URL (or MONGODB_URI) privately with an explicit **/medipulse** path before the query options; retain the existing credentials, host and authentication source. No secret values belong in render.yaml or a commit. Existing explicit /test configuration is preserved by code, so the operator must change that explicit path to complete the cutover. Render account/environment access is not available in this workspace. [Render's environment-variable documentation](https://render.com/docs/configure-environment-variables) describes Save and deploy versus Save, rebuild, and deploy. [MongoDB authentication options](https://www.mongodb.com/docs/manual/reference/connection-string-options/#authentication-options) explain authSource independently of the application database.
 
-The current safety gate intentionally does not claim the imported database is operationally migrated. Complete the reviewed legacy repair, then P03/P04 migrations, followed by product context initialization and schema/readiness verification. Existing recovery procedures and writer-pausing requirements remain in P03_MIGRATION.md, P04_MIGRATION.md and P07_PRODUCTS.md. Do not rerun an import over a migrated database: the unchanged test copy is historical source evidence, not an ongoing synchronization target.
+The initial safety gate did not claim the imported database was operationally migrated. Approved preservation and P03/P04/P07 execution now pass database readiness; live deployment verification follows below. Existing recovery procedures and writer-pausing requirements remain in P03_MIGRATION.md, P04_MIGRATION.md and P07_PRODUCTS.md. Do not rerun an import over a migrated database: the unchanged test copy is historical source evidence, not an ongoing synchronization target.
 
 ### Individual repair evidence if real records are introduced
 
@@ -62,8 +62,23 @@ All **49** original moved records match their BSON-aware canonical hashes. The s
 
 ### Execution and recovery boundary
 
-The prompt pack's **Common instructions require separate authorization for production data execution**. Classification as synthetic does not alone apply this plan. Confirm the exact 49-record preservation plan before execution. Verify paused API/consumer/other writers, the unchanged full backup, the explicit medipulse target and no unresolved dry-run issues. The live API maintenance gate demonstrates that this API's care requests/workers are stopped; it does not prove unrelated scripts or external consumers are stopped.
+The prompt pack's **Common instructions require separate authorization for production data execution**. The owner explicitly approved this exact plan and confirmed no separate consumers or scripts were writing. The live API maintenance gate was also verified before execution. Future operations still require an unchanged private backup, reviewed plan and paused writers; do not treat this completed execution as approval to change additional records.
 
 Using privately supplied explicit DATABASE_URL, apply requires DEMO_RECOVERY_APPROVED=true and `node scripts/recoverDemoData.js --apply --synthetic-data --writers-paused --backup <private-full-backup>`. Then apply P03 and P04 with their reviewed migration/writer flags and private recovery IDs; inspect/apply P07 with its private backup and paused-writer flag. Verify schema readiness before restarting Render. If Render is still explicitly targeting test, change its environment to medipulse before restart; do not migrate the historical test source to make a misconfigured service ready.
 
 For recovery, stop writers; roll back P07, P04 and P03 in that order using their recorded private plans/run IDs. Then `node scripts/recoverDemoData.js --restore <preservation-run-id> --synthetic-data --writers-paused` with DEMO_RECOVERY_APPROVED=true restores originals transactionally. Changed collection fingerprints or damaged/incomplete originals refuse restoration. Recovery archives remain available after restoration. Keep full private backup evidence; do not restore over subsequent clinical or financial activity.
+
+## Approved production execution — 10 October 2026
+
+Revalidated the explicit **medipulse** target, unchanged full private backup and exact previously reviewed 49-record plan. API readiness was 503 with failed queue/ledger schemas; the owner confirmed no other writers. The guarded CLI preserved all 49 originals transactionally and verified every archived record's BSON-aware fingerprint. P03 and P04 then completed from zero-issue dry runs. P07 inspection found zero changes/issues/warnings; its private plan was saved and its schema initialization completed. No DNS, domain ownership or provider configuration was changed.
+
+Final production database checks pass:
+
+- Queue, ledger, auth, durable-job and scheduling assertions: **all ready**.
+- Queue dry run: **6 tokens / 28 appointments / zero issues**.
+- Ledger dry run: **80 wallets / 68 transfers / 14 refunds / 28 appointments / zero issues**.
+- All original archived records match their saved fingerprints.
+- All wallet owners/roles and original balance, total-sent and total-received amounts match the approved snapshot after exact minor-unit conversion; transfer IDs, actors, roles, amounts, types and related/reference identities are preserved.
+- The historical **test** database's complete document/index/options fingerprint is unchanged across execution. The original private backup was read only.
+
+Private production checkpoints include preservation and P03/P04 recovery IDs plus the P07 rollback plan, outside Git/OneDrive in the restricted backup folder. No credentials, record identifiers or patient/payment contents are included here. Publication of this result triggers the authorized main-branch deployment so startup can recheck the migrated database; live readiness is checked separately rather than inferred from database success.
