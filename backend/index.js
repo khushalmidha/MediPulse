@@ -1,20 +1,16 @@
 import schedulingRouter from "./routes/scheduling.js";
-import { assertSchedulingSchema } from "./services/schedulingSchema.js";
 import { startScheduleExpiryWorker } from "./services/scheduling.js";
-import { assertDurableSchema } from "./services/durableSchema.js";
 import { startOutboxWorker } from "./services/outbox.js";
 import { deliverOutboxJob } from "./services/outboxDelivery.js";
 import { consultationDurationMs } from "./services/consultationPolicy.js";
-import { assertAuthSchema } from "./services/authSchema.js";
 import asyncHandler from "./middleware/asyncHandler.js";
 import { originGuard } from "./services/authSessions.js";
-import { assertMoneyReady } from "./services/moneyMigration.js";
 import { startPaymentRecoveryWorker } from "./services/paymentRecovery.js";
 import { assertRuntimeConfig } from "./util/runtimeEnv.js";
 import mongoose from "mongoose";
 import { closeRedis } from "./services/redis.js";
-import { assertQueueIndexes } from "./services/queueMigration.js";
-import { attachHealthRoutes, checkDependencies } from "./services/readiness.js";
+import { attachHealthRoutes } from "./services/readiness.js";
+import { inspectStartupReadiness, requireStartupReady } from "./services/startupReadiness.js";
 import express from 'express'
 import cookieParser from 'cookie-parser'
 import connectMongo from './connection.js'
@@ -56,41 +52,15 @@ const start = async () => {
   const PORT = process.env.PORT || 8080
   try { await connectMongo(process.env.DATABASE_URL); }
   catch { throw Object.assign(new Error('MongoDB is unavailable or lacks transaction support'), { dependency: 'mongodb' }); }
-  try { await assertQueueIndexes(); }
-  catch (error) {
-    console.warn("Queue migration warning (non-blocking):", error.message);
-    try { const { queueModels } = await import("./services/queueMigration.js"); await Promise.allSettled(queueModels.map(m => m.createIndexes())); } catch {}
-  }
-  try { await assertMoneyReady(); }
-  catch (error) {
-    console.warn("Ledger migration warning (non-blocking):", error.message);
-    try { const { moneyModels } = await import("./services/moneyMigration.js"); await Promise.allSettled(moneyModels.map(m => m.createIndexes())); } catch {}
-  }
-  try { await assertAuthSchema(); }
-  catch (error) {
-    console.warn("Auth schema warning (non-blocking):", error.message);
-    try { const { applyAuthSchema } = await import("./services/authSchema.js"); await applyAuthSchema(); } catch {}
-  }
-  try { await assertDurableSchema(); }
-  catch (error) {
-    console.warn("Durable schema warning (non-blocking):", error.message);
-    try { const { applyDurableSchema } = await import("./services/durableSchema.js"); await applyDurableSchema(); } catch {}
-  }
-  try { await assertSchedulingSchema(); }
-  catch (error) {
-    console.warn("Scheduling schema warning (non-blocking):", error.message);
-    try { const { applySchedulingSchema } = await import("./services/schedulingSchema.js"); await applySchedulingSchema(); } catch {}
-  }
+  const startup = await inspectStartupReadiness();
+  const readiness = startup.initial;
   consultationDurationMs();
-  const readiness = await checkDependencies();
-  if (!readiness.ready) {
-    console.warn('Dependency readiness warning (server starting):', readiness.dependencies);
-  }
-  verifyMailTransport().catch(() => console.error('Mail transport verification failed'));
-  attachHealthRoutes(app)
+  if (!readiness.ready) console.warn("Care services blocked pending readiness:", readiness.schemas, readiness.dependencies);
+  else verifyMailTransport().catch(() => console.error("Mail transport verification failed"));
+  attachHealthRoutes(app, startup.probe);
 
   // Initialize Socket.IO
-  const io = initSocket(server)
+  const io = readiness.ready ? initSocket(server) : null
 
   app.use(
     cors({
@@ -106,6 +76,7 @@ const start = async () => {
   )
   app.use(cookieParser())
   app.use(express.json())
+  app.use(requireStartupReady(readiness))
   app.use(originGuard)
   app.use('/user', userRouter)
   app.use('/api/auth', userRouter)
@@ -146,11 +117,11 @@ const start = async () => {
     console.log(`Server running on port ${PORT}`)
   })
 
-  const stopRecovery = startPaymentRecoveryWorker()
-  const stopRefunds = startAutoRefundWorker()
-  const stopScheduleExpiry = startScheduleExpiryWorker()
-  const stopReviews = startReviewRequestWorker()
-  const stopOutbox = startOutboxWorker(job => deliverOutboxJob(job, io))
+  const stopRecovery = readiness.ready ? startPaymentRecoveryWorker() : null
+  const stopRefunds = readiness.ready ? startAutoRefundWorker() : null
+  const stopScheduleExpiry = readiness.ready ? startScheduleExpiryWorker() : null
+  const stopReviews = readiness.ready ? startReviewRequestWorker() : null
+  const stopOutbox = readiness.ready ? startOutboxWorker(job => deliverOutboxJob(job, io)) : null
   let closing = false
   const shutdown = async (code = 0) => {
     if (closing) return
@@ -158,8 +129,9 @@ const start = async () => {
     stopRefunds?.(); stopReviews?.(); stopRecovery?.(); stopScheduleExpiry?.()
     const deadline = setTimeout(() => process.exit(code || 1), 10000)
     deadline.unref()
-    await stopOutbox();
-    await new Promise((resolve) => io.close(resolve))
+    await stopOutbox?.();
+    if (io) await new Promise((resolve) => io.close(resolve))
+    else await new Promise((resolve) => server.close(resolve))
     await mongoose.disconnect()
     await closeRedis()
     process.exit(code)

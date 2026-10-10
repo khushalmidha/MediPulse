@@ -7,7 +7,9 @@ export const loadRuntimeEnv = () => {
 };
 
 export const assertRuntimeConfig = (env = process.env) => {
-  requireDatabaseUrl(env);
+  // The owner explicitly selected medipulse after verifying the test -> medipulse import.
+  // Maintenance/migration utilities still require their own explicit database target.
+  requireDatabaseUrl(env, { defaultDatabaseName: "medipulse" });
   let tokenKey = env.TOKEN_KEY || env.JWT_SECRET;
   if (typeof tokenKey === "string") {
     tokenKey = tokenKey.trim().replace(/^["']|["']$/g, "");

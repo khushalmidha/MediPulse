@@ -8,6 +8,8 @@ const connectMongo = async (url) => {
 
 	await mongoose.connect(url, {
 		serverSelectionTimeoutMS: 10000,
+		autoIndex: false,
+		autoCreate: false,
 	});
 	await assertMongoTransactions(mongoose.connection);
 	console.log("Connected to mongoDB");
