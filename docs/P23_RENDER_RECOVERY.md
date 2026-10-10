@@ -22,7 +22,7 @@ Read-only schema and migration inspection found:
 | Invalid refund link | 1 record marked COMPLETED |
 | Invalid appointment payment | 1 completed appointment |
 
-Counts can overlap across checks. Missing references are not replaced with invented patients, doctors, tokens or transfers. No balance, consultation status or record has been changed by this inspection. **The owner confirmed this is real patient/payment history and instructed preservation for reviewed repair.** No archive, deletion, status correction, balance adjustment or production migration was performed.
+Counts can overlap across checks. Missing references are not replaced with invented patients, doctors, tokens or transfers. The owner initially selected real history/preservation, then clarified that the records are **synthetic but realistic, for pitches**, with no earlier source available. Preservation remains the default. No production archive, deletion, status correction, balance adjustment or migration has been performed.
 
 ## Code recovery
 
@@ -36,8 +36,34 @@ Use Render's Environment tab to set DATABASE_URL (or MONGODB_URI) privately with
 
 The current safety gate intentionally does not claim the imported database is operationally migrated. Complete the reviewed legacy repair, then P03/P04 migrations, followed by product context initialization and schema/readiness verification. Existing recovery procedures and writer-pausing requirements remain in P03_MIGRATION.md, P04_MIGRATION.md and P07_PRODUCTS.md. Do not rerun an import over a migrated database: the unchanged test copy is historical source evidence, not an ongoing synchronization target.
 
-### Required individual repair evidence
+### Individual repair evidence if real records are introduced
 
 Use original hospital records, prior backups and payment-ledger evidence to recover the missing patient/doctor/family identities and original links. Review cancelled appointments linked to waiting tokens with the responsible operator; do not infer that a cancellation should be reversed. Reconcile the completed refund with its actual committed transfer, and the completed appointment with its original payment. Record each proposed correction and its source privately, with before/after fingerprints and clinician/operator review where applicable. Do not put identifiers or clinical/payment details in Git. The verified import does not contain the missing references, so repeating the same import cannot repair them. Run the migration dry runs again after reviewed corrections; apply only when they report no unresolved issues and all writers are demonstrably paused.
 
 The competitor-informed UI is published separately as 76ee0658 and was rendered on both www.medipulse.live and medi-pulse-gamma.vercel.app, with the expected build-revision meta tag. UI publication does not prove database migration readiness.
+
+## Published recovery and rehearsed synthetic-data plan
+
+Recovery commit **ac55d1b0**, authored and committed by Khushal Midha directly on main, is deployed. Both frontend domains report that revision. The direct Render API and company backend proxy return liveness 200; readiness 503 reports queue/ledger migration-required and auth/durable/scheduling ready. A read-only care request returns SERVICE_NOT_READY, no-store and Retry-After 60. These are observed live responses, not inferred deployment success. The current Render database name cannot be confirmed from public health responses or changed without provider access.
+
+The maintenance utility `backend/scripts/recoverDemoData.js` defaults to an aggregate-only dry run. Its plan preserves full BSON originals with fingerprints in `p23_preserved_demo_records`, with a transactional run manifest in `p23_demo_recovery_runs`. It moves connected broken visits together rather than inventing identities or reversing cancellations. Unrecognized issue types, changed data, an unmatched backup or missing approval stop the operation. Archives have no application API route; keep database access restricted.
+
+The isolated rehearsal of the private 781-document snapshot produced this bounded plan:
+
+| Collection | Originals preserved outside active collections | Valid records retained |
+|---|---:|---:|
+| OPD tokens | 12 | 6 |
+| Appointments | 36 | 28 |
+| Refund records | 1 | 14 |
+| Wallets | 0 | 80 |
+| Transfers | 0 | 68 |
+
+All **49** original moved records match their BSON-aware canonical hashes. The source test database and private full backup remain untouched. Queue/ledger dry runs then report zero issues; P03/P04/P07 succeed and all five schema checks become ready. Rollback of P07, P04 and P03 followed by original-record restoration reproduces every source document across all 46 collections. No provider clients, mail delivery or production-connected API workers are started by rehearsal.
+
+### Execution and recovery boundary
+
+The prompt pack's **Common instructions require separate authorization for production data execution**. Classification as synthetic does not alone apply this plan. Confirm the exact 49-record preservation plan before execution. Verify paused API/consumer/other writers, the unchanged full backup, the explicit medipulse target and no unresolved dry-run issues. The live API maintenance gate demonstrates that this API's care requests/workers are stopped; it does not prove unrelated scripts or external consumers are stopped.
+
+Using privately supplied explicit DATABASE_URL, apply requires DEMO_RECOVERY_APPROVED=true and `node scripts/recoverDemoData.js --apply --synthetic-data --writers-paused --backup <private-full-backup>`. Then apply P03 and P04 with their reviewed migration/writer flags and private recovery IDs; inspect/apply P07 with its private backup and paused-writer flag. Verify schema readiness before restarting Render. If Render is still explicitly targeting test, change its environment to medipulse before restart; do not migrate the historical test source to make a misconfigured service ready.
+
+For recovery, stop writers; roll back P07, P04 and P03 in that order using their recorded private plans/run IDs. Then `node scripts/recoverDemoData.js --restore <preservation-run-id> --synthetic-data --writers-paused` with DEMO_RECOVERY_APPROVED=true restores originals transactionally. Changed collection fingerprints or damaged/incomplete originals refuse restoration. Recovery archives remain available after restoration. Keep full private backup evidence; do not restore over subsequent clinical or financial activity.
