@@ -81,4 +81,16 @@ Final production database checks pass:
 - All wallet owners/roles and original balance, total-sent and total-received amounts match the approved snapshot after exact minor-unit conversion; transfer IDs, actors, roles, amounts, types and related/reference identities are preserved.
 - The historical **test** database's complete document/index/options fingerprint is unchanged across execution. The original private backup was read only.
 
-Private production checkpoints include preservation and P03/P04 recovery IDs plus the P07 rollback plan, outside Git/OneDrive in the restricted backup folder. No credentials, record identifiers or patient/payment contents are included here. Publication of this result triggers the authorized main-branch deployment so startup can recheck the migrated database; live readiness is checked separately rather than inferred from database success.
+Private production checkpoints include preservation and P03/P04 recovery IDs plus the P07 rollback plan, outside Git/OneDrive in the restricted backup folder. No credentials, record identifiers or patient/payment contents are included here.
+
+### Live activation verified
+
+The docs-only result commit 3ed03cbf updated the frontend but did not restart the backend: the repository configures Render's root as backend, and [Render skips changes outside that root](https://render.com/docs/monorepo-support). Published backend deployment notes and the boot-time-readiness comment in **0d969397**, directly to main as Khushal Midha. After activation:
+
+- Both frontend domains return 200 and identify revision 0d969397b0664f8b9ca3127fc5f5cab5e4e97d5f.
+- Direct Render liveness and readiness return **200**; readiness reports **all five schemas ready**, MongoDB ready and Redis ready.
+- The company website's backend proxy also returns readiness **200**.
+- Public doctor discovery returns **200**, 63 profiles; public hospital discovery returns **200**, four active hospitals.
+- Fresh Edge rendering passes **seven checks**, with zero uncaught page errors: both company domains, Connect home, hospital-product home, doctor discovery at 1440px and 390px (12 rendered cards each), and mobile hospital discovery (four links). All state-changing browser requests were blocked; no login, booking, payment, mail or private-record mutation was exercised.
+
+Optional Kafka remains unavailable/degraded; it does not gate the critical API. Mail is reported configured, not delivery-verified. This completes the approved database preservation/migration and API activation. It does not mark remaining P11 page redesigns, published appointment availability, future clinical modules or provider delivery verification complete. No further permission is pending for this completed operation.
