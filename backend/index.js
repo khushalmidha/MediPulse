@@ -52,6 +52,7 @@ const start = async () => {
   const PORT = process.env.PORT || 8080
   try { await connectMongo(process.env.DATABASE_URL); }
   catch { throw Object.assign(new Error('MongoDB is unavailable or lacks transaction support'), { dependency: 'mongodb' }); }
+  // Readiness is captured at boot: redeploy after guarded database migrations.
   const startup = await inspectStartupReadiness();
   const readiness = startup.initial;
   consultationDurationMs();
