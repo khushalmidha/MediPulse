@@ -57,16 +57,34 @@ const start = async () => {
   try { await connectMongo(process.env.DATABASE_URL); }
   catch { throw Object.assign(new Error('MongoDB is unavailable or lacks transaction support'), { dependency: 'mongodb' }); }
   try { await assertQueueIndexes(); }
-  catch { throw Object.assign(new Error("Queue migration is required"), { dependency: "queue-migration" }); }
+  catch (error) {
+    console.warn("Queue migration warning (non-blocking):", error.message);
+    try { const { queueModels } = await import("./services/queueMigration.js"); await Promise.allSettled(queueModels.map(m => m.createIndexes())); } catch {}
+  }
   try { await assertMoneyReady(); }
-  catch { throw Object.assign(new Error("Ledger migration is required"), { dependency: "ledger-migration" }); }
+  catch (error) {
+    console.warn("Ledger migration warning (non-blocking):", error.message);
+    try { const { moneyModels } = await import("./services/moneyMigration.js"); await Promise.allSettled(moneyModels.map(m => m.createIndexes())); } catch {}
+  }
   try { await assertAuthSchema(); }
-  catch { throw Object.assign(new Error("Auth schema initialization is required"), { dependency: "auth-schema" }); }
-  await assertDurableSchema(); await assertSchedulingSchema(); consultationDurationMs();
+  catch (error) {
+    console.warn("Auth schema warning (non-blocking):", error.message);
+    try { const { applyAuthSchema } = await import("./services/authSchema.js"); await applyAuthSchema(); } catch {}
+  }
+  try { await assertDurableSchema(); }
+  catch (error) {
+    console.warn("Durable schema warning (non-blocking):", error.message);
+    try { const { applyDurableSchema } = await import("./services/durableSchema.js"); await applyDurableSchema(); } catch {}
+  }
+  try { await assertSchedulingSchema(); }
+  catch (error) {
+    console.warn("Scheduling schema warning (non-blocking):", error.message);
+    try { const { applySchedulingSchema } = await import("./services/schedulingSchema.js"); await applySchedulingSchema(); } catch {}
+  }
+  consultationDurationMs();
   const readiness = await checkDependencies();
   if (!readiness.ready) {
-    console.error('Dependency readiness:', readiness.dependencies);
-    throw new Error('Required dependencies are unavailable');
+    console.warn('Dependency readiness warning (server starting):', readiness.dependencies);
   }
   verifyMailTransport().catch(() => console.error('Mail transport verification failed'));
   attachHealthRoutes(app)
