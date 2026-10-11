@@ -33,6 +33,7 @@ import HospitalKiosk from "./pages/hospital-website/HospitalKiosk";
 import HospitalsListPage from "./pages/HospitalsListPage";
 import HospitalAdminSignup from "./pages/HospitalAdminSignup";
 import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
+import SaaSOperationsConsole from "./pages/hospital-admin/SaaSOperationsConsole";
 import DoctorOpdConsole from "./pages/hospital-staff/DoctorOpdConsole";
 import NursingStation from "./pages/hospital-staff/NursingStation";
 import StaffCommunication from "./pages/hospital-staff/StaffCommunication";
@@ -71,6 +72,8 @@ function App() {
     <Route path="/hospital/signup" element={<HospitalAdminSignup />} />
     <Route path="/signup/hospital-admin" element={<HospitalAdminSignup />} />
     <Route path="/hospital/admin" element={<HospitalAdminDashboard />} />
+    <Route path="/hospital/operations" element={<SaaSOperationsConsole />} />
+    <Route path="/hospital/saas" element={<SaaSOperationsConsole />} />
     <Route path="/hospital/doctor-opd" element={<DoctorOpdConsole />} />
     <Route path="/hospital/nursing-station" element={<NursingStation />} />
     <Route path="/hospital/reception" element={<NursingStation />} />

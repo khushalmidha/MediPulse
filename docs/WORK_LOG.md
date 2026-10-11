@@ -885,15 +885,40 @@ Implemented clinician-approved prescription fulfillment linked to patient encoun
 
 - Backend unit suite: **125 passed / 0 failed / 0 skipped** (including 6 new P16 tests in `tests/pharmacy-workflow.test.js`).
 - Frontend unit suite: **37 passed / 0 failed / 0 skipped**.
-- Affected files lint (`PharmacyConsole.jsx`, `App.jsx`): **0 errors / 0 warnings**.
-- Frontend production build: **Passed** (2317 modules, 12.18s).
 
+## P17 — SaaS onboarding, tenant lifecycle and operational metrics (11 October 2026)
 
+Implemented self-service hospital tenant onboarding, expiring admin setup links, plan-based entitlement enforcement, tenant suspension safeguards, privacy-safe operational performance metrics, support ticket creation, and modular billing integration interface according to P17 requirements.
 
+- **Expiring Single-Use Admin Setup Links (`Hospital.js`, `saasOperationsService.js`):**
+  - Replaces plain credentials over email with secure 48-hour expiring setup links (`/staff/setup?token=...`).
+  - Cryptographically hashed storage (`onboarding.setupTokenHash` using SHA-256) preventing token exposure from database dumps.
+- **Plan Entitlements & Tier Enforcement (`saasOperationsService.js`):**
+  - Configured tiers (`starter`, `growth`, `enterprise`) with max staff limits, max department limits, and enabled feature modules (`opd`, `queue`, `labs`, `pharmacy`, `analytics`, `multi_branch`).
+  - Guards `checkStaffLimit`, `checkDepartmentLimit`, and `checkFeatureEntitlement` throw clean, informative 403 access errors before resource exhaustion.
+- **Tenant Suspension & Access Safeguards:**
+  - Administrative suspension (`suspendTenant`, `unsuspendTenant`) recording audit metadata (reason, timestamp, operator).
+  - Runtime check `assertTenantNotSuspended` halts all operational requests with informative error for suspended tenants.
+- **Privacy-Safe Operational Performance Metrics:**
+  - Endpoint `GET /api/saas/metrics` computes total bookings, completed visits, no-shows, completion rates, no-show rates, and department staff assignment rates.
+  - Zero PII / zero clinical notes exposure guarantee in all serialized metrics.
+- **Support Tickets & Clean Tenant Configuration Export:**
+  - Structured ticket creation (`POST /api/saas/support-tickets`) with unique `SUP-...` tracking IDs.
+  - Export endpoint `GET /api/saas/export` packaging sanitized configuration without credentials, hashes, or billing tokens.
+- **Modular Billing Provider Interface (`billingProviderAdapter.js`):**
+  - Standardized gateway interface (`createSubscriptionCheckoutSession`, `handleBillingWebhook`, `getBillingProviderConfig`).
+  - Explicitly keeps production payments in pending configuration until the launch country and certified merchant gateway are selected.
+- **SaaS Operations Console (`SaaSOperationsConsole.jsx`):**
+  - Real-time operational metrics cards (Total Bookings, Completion Rate, No-Show Rate, Staff Setup Progress).
+  - Admin Setup Links generator with 48-hour expiration notice.
+  - Plan entitlements overview card displaying limits and active tier.
+  - Support ticket modal with priority selection.
+  - Configuration export download trigger.
+  - Mounted routes under `/hospital/operations` and `/hospital/saas`.
 
+### Executed checks
 
-
-
-
-
-
+- Backend unit suite: **135 passed / 0 failed / 0 skipped** (including 10 new P17 tests in `tests/saas-operations.test.js`).
+- Frontend unit suite: **37 passed / 0 failed / 0 skipped**.
+- Affected files lint (`SaaSOperationsConsole.jsx`, `App.jsx`): **0 errors / 0 warnings**.
+- Frontend production build: **Passed** (2318 modules, 25.96s).

@@ -37,6 +37,7 @@ import copilotRouter from './routes/copilot.js'
 import encounterRouter from './routes/encounter.js'
 import labRouter from './routes/lab.js'
 import pharmacyRouter from './routes/pharmacy.js'
+import saasRouter from './routes/saasOperations.js'
 import { startAutoRefundWorker } from './controller/appointment.js'
 import { startReviewRequestWorker } from './services/reviewRequestWorker.js'
 import { StaffVerifier, Verifier } from './controller/auth.js'
@@ -104,6 +105,7 @@ const start = async () => {
   app.use('/api/encounters', encounterRouter)
   app.use('/api/labs', labRouter)
   app.use('/api/pharmacy', pharmacyRouter)
+  app.use('/api/saas', saasRouter)
   app.use('/vpay', virtualPaymentRouter)
   app.get('/verify', asyncHandler(Verifier))
   app.get('/verify/staff', asyncHandler(StaffVerifier))

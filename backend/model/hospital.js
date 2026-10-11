@@ -70,9 +70,20 @@ const hospitalSchema = new mongoose.Schema(
     rejectionReason: String,
     subscription: {
       plan: { type: String, enum: ["starter", "growth", "enterprise"], default: "starter" },
-      status: { type: String, enum: ["trial", "active", "expired", "cancelled"], default: "trial" },
+      status: { type: String, enum: ["trial", "active", "expired", "cancelled", "suspended"], default: "trial" },
       trialEndsAt: Date,
       currentPeriodEnd: Date,
+      entitlements: {
+        maxStaff: { type: Number, default: 10 },
+        maxDepartments: { type: Number, default: 3 },
+        features: { type: [String], default: ["opd", "queue"] },
+      },
+    },
+    suspension: {
+      isSuspended: { type: Boolean, default: false },
+      suspendedAt: Date,
+      reason: String,
+      suspendedBy: String,
     },
     stats: {
       totalDoctors: { type: Number, default: 0 },
@@ -91,11 +102,26 @@ const hospitalSchema = new mongoose.Schema(
       emergencyContact: String,
     },
     onboarding: {
+      setupTokenHash: String,
+      setupExpiresAt: Date,
+      isCompleted: { type: Boolean, default: false },
+      completedAt: Date,
       initialAdminPasswordEncrypted: String,
       initialAdminPasswordIv: String,
       initialAdminPasswordTag: String,
       approvalCredentialsSentAt: Date,
     },
+    supportTickets: [
+      {
+        ticketId: { type: String, required: true },
+        subject: { type: String, required: true },
+        description: { type: String, required: true },
+        priority: { type: String, enum: ["low", "medium", "high", "urgent"], default: "medium" },
+        status: { type: String, enum: ["open", "investigating", "resolved", "closed"], default: "open" },
+        createdAt: { type: Date, default: Date.now },
+        resolvedAt: Date,
+      },
+    ],
   },
   { timestamps: true },
 );

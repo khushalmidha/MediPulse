@@ -1,0 +1,160 @@
+import asyncHandler from "../middleware/asyncHandler.js";
+import Hospital from "../model/hospital.js";
+import {
+  getPlanEntitlements,
+  createAdminSetupLink,
+  verifyAdminSetupLink,
+  suspendTenant,
+  unsuspendTenant,
+  calculateOperationalMetrics,
+  createSupportTicket,
+  exportTenantConfiguration,
+} from "../services/saasOperationsService.js";
+import {
+  getBillingProviderConfig,
+  createSubscriptionCheckoutSession,
+} from "../services/billingProviderAdapter.js";
+
+export const listTenants = asyncHandler(async (req, res) => {
+  const filter = {};
+  if (req.query.status) {
+    filter.status = req.query.status;
+  }
+  if (req.query.plan) {
+    filter["subscription.plan"] = req.query.plan;
+  }
+
+  const tenants = await Hospital.find(filter)
+    .select("name slug type status subscription suspension createdAt stats branding.logo")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return res.json({ tenants });
+});
+
+export const getTenantDetails = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const hospital = await Hospital.findById(id).select("-onboarding.initialAdminPasswordEncrypted -onboarding.initialAdminPasswordIv -onboarding.initialAdminPasswordTag");
+  if (!hospital) return res.status(404).json({ message: "Hospital not found" });
+
+  const entitlements = getPlanEntitlements(hospital.subscription?.plan);
+  return res.json({ hospital, entitlements });
+});
+
+export const updateTenantSubscription = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { plan, status, trialEndsAt } = req.body;
+
+  const hospital = await Hospital.findById(id);
+  if (!hospital) return res.status(404).json({ message: "Hospital not found" });
+
+  if (plan && ["starter", "growth", "enterprise"].includes(plan)) {
+    hospital.subscription.plan = plan;
+    const ent = getPlanEntitlements(plan);
+    hospital.subscription.entitlements = {
+      maxStaff: ent.maxStaff,
+      maxDepartments: ent.maxDepartments,
+      features: ent.features,
+    };
+  }
+
+  if (status && ["trial", "active", "expired", "cancelled", "suspended"].includes(status)) {
+    hospital.subscription.status = status;
+  }
+
+  if (trialEndsAt) {
+    hospital.subscription.trialEndsAt = new Date(trialEndsAt);
+  }
+
+  await hospital.save();
+  return res.json({ message: "Subscription updated", subscription: hospital.subscription });
+});
+
+export const patchSuspendTenant = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({ message: "Suspension reason is required" });
+  }
+
+  const hospital = await suspendTenant({
+    hospitalId: id,
+    reason: reason.trim(),
+    actor: { name: req.auth?.name || "Platform Operator" },
+  });
+
+  return res.json({ message: "Tenant suspended", hospital });
+});
+
+export const patchUnsuspendTenant = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const hospital = await unsuspendTenant({
+    hospitalId: id,
+    actor: { name: req.auth?.name || "Platform Operator" },
+  });
+
+  return res.json({ message: "Tenant restored to active status", hospital });
+});
+
+export const postGenerateSetupLink = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const baseOrigin = req.protocol + "://" + req.get("host");
+  const link = await createAdminSetupLink(id, baseOrigin);
+
+  return res.json({
+    message: "Expiring setup link generated",
+    setupUrl: link.setupUrl,
+    expiresAt: link.expiresAt,
+  });
+});
+
+export const getVerifySetupLink = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  const verification = await verifyAdminSetupLink(token);
+  return res.json({ message: "Setup link is valid", hospital: verification.hospital });
+});
+
+export const getTenantMetrics = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { startDate, endDate } = req.query;
+
+  const metrics = await calculateOperationalMetrics({
+    hospitalId: id,
+    startDate,
+    endDate,
+  });
+
+  return res.json({ metrics });
+});
+
+export const postCreateSupportTicket = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { subject, description, priority } = req.body;
+
+  const ticket = await createSupportTicket({
+    hospitalId: id,
+    subject,
+    description,
+    priority,
+    actor: { name: req.auth?.name || "Staff" },
+  });
+
+  return res.status(201).json({ message: "Support ticket submitted", ticket });
+});
+
+export const getExportTenant = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const exported = await exportTenantConfiguration({ hospitalId: id });
+  return res.json(exported);
+});
+
+export const getBillingStatus = asyncHandler(async (req, res) => {
+  const config = getBillingProviderConfig();
+  return res.json(config);
+});
+
+export const postCreateCheckout = asyncHandler(async (req, res) => {
+  const { hospitalId, plan, billingCycle } = req.body;
+  const session = await createSubscriptionCheckoutSession({ hospitalId, plan, billingCycle });
+  return res.json(session);
+});
