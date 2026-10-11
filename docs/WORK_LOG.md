@@ -605,3 +605,29 @@ Verified private appointment queue DTOs substituted the account owner for a fami
 - Visually inspected synthetic 1440px Connect, 360px hospital and dark hospital screenshots. Layouts stay within the page width; clinical form text/assistant output are absent from browser storage. All screenshots/traces/logs are outside Git/OneDrive; no live authenticated clinical/provider/payment mutation is part of verification.
 
 P11_UI_COVERAGE marks C migrated and D next; BUG_BACKLOG and MEDIPULSE_REVIEW distinguish implemented repairs from remaining modules. Full-roadmap execution continues. Main publication and read-only live readiness/guest verification follow.
+
+
+## P11 D — Receptionist, nurse, and staff communication workspace (11 October 2026)
+
+Migrated `/hospital/nursing-station` (with alias `/hospital/reception`) and `/hospital/staff-communication` to the P08 design system. Workspaces use `useAuth()` session state, scoped CSS styles, identity-keyed disposal, accessible dialogs, and real-time Socket.IO event lifecycles.
+
+- **Nursing Station & Reception Desk (`NursingStation.jsx`):**
+  - Added role awareness distinguishing `RECEPTIONIST` (arrival check-in, walk-in token issuance, queue overview) from `NURSE` / `HOSPITAL_ADMIN` (vitals recording, clinical triage). Receptions see a clear "Reception Desk" badge and informative hints instead of attempting 403-restricted vitals operations.
+  - Added instant queue search/filtering by token number, patient name, and phone number across waiting, vitals done, and reservation lists.
+  - Added safe confirmation modal for marking tokens as no-show with focus trap, cancel button, and clear explanation of queue cancellation.
+  - Retained exact test contracts: `<h1>Nursing Station</h1>`, `aria-label="Reserved visits awaiting arrival"` with `Confirm arrival`, `Issue Walk-in Token` form with validation error focus, and `Record Vitals` modal with autofocus on blood pressure and Esc key handling.
+  - Added identity-keyed session disposal: switching staff or hospital accounts clears queues, directories, and drafts.
+
+- **Staff Communication Hub (`StaffCommunication.jsx`):**
+  - Replaced legacy unmigrated tailwind styles with P08 teal surfaces, tokens, cards, buttons, badges, and empty states via `frontend/src/components/staff/staffCommunication.css`.
+  - Multi-channel support: Department channels (`# Cardiology`, `# General Medicine`), Direct staff messaging (searchable directory of colleagues), Patient context threads (token ID linked), and Laboratory alerts.
+  - Realtime messaging with socket listeners for `staff:newMessage` and `lab:order-received`, clean auto-scrolling on new messages, and automatic read-receipt delivery via `PATCH /api/staff-messages/read`.
+  - Session and hospital auth gates with clear sign-in prompts and zero memory leakage across account switches.
+
+### Executed checks
+
+- Backend unit suite: **96 passed / 0 failed / 0 skipped**; zero regressions across auth, queue, money, and staff messaging.
+- Frontend unit suite: **32 passed / 0 failed / 0 skipped**; added `frontend/e2e/staff-workspaces.unit.mjs` verifying walk-in bounds, staff role destinations, and multi-channel conversation matchers.
+- Affected files lint (`NursingStation.jsx`, `StaffCommunication.jsx`, `App.jsx`): **0 errors / 0 warnings**.
+- Frontend production build: **Passed** (2318 modules, 28.28s).
+

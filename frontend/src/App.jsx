@@ -69,6 +69,7 @@ function App() {
     <Route path="/hospital/admin" element={<HospitalAdminDashboard />} />
     <Route path="/hospital/doctor-opd" element={<DoctorOpdConsole />} />
     <Route path="/hospital/nursing-station" element={<NursingStation />} />
+    <Route path="/hospital/reception" element={<NursingStation />} />
     <Route path="/hospital/staff-communication" element={<StaffCommunication />} />
     <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
     <Route path="*" element={<RouteNotFound />} />

@@ -49,6 +49,17 @@ Current consultations retain unsaved notes through polling, detect observed remo
 
 Private doctor queue/active DTOs now include only the visited family ID/name, without exposing other family profiles. No write/schema migration belongs to this read fix. Notes/receipt APIs still need server conditional saves, validation and reviewed corrections (MP17/P18); UI conflict detection is not a server concurrency guarantee. P14 supplies availability/publication/practice history. WORK_LOG records the executed checks and publication.
 
+## Batch D — reception, nursing and staff communication
+
+Both `/hospital/nursing-station` (with alias `/hospital/reception`) and `/hospital/staff-communication` use shared P08 design tokens, responsive cards, verified staff auth gates and identity-keyed session disposal.
+
+| Route / context | Coverage |
+|---|---|
+| `/hospital/nursing-station`, `/hospital/reception` | Role-aware badges and controls (reception check-in & walk-ins vs nurse vitals & clinical preparation), queue search/filter by token/name/phone, walk-in token issuance with full validation, arrival check-in with revision guard, accessible vitals entry dialog with focus trap, and safe no-show confirmation dialog |
+| `/hospital/staff-communication` | Realtime multi-channel communication (Department channels, Direct staff messages with directory search, Patient context token threads, Laboratory alerts), P08 teal message bubbles, automatic read-receipt recording via `/api/staff-messages/read`, socket event lifecycle management (`staff:newMessage`, `lab:order-received`), and auto-scroll behavior |
+
+Staff workspaces are keyed by staff session identity; disposed reads and drafts cannot leak to another user. Clean empty states, loading indicators and error banners provide clear feedback during offline or failed requests.
+
 ## Remaining batches
 
 | Batch | Status | Routes / remaining scope |
@@ -56,8 +67,8 @@ Private doctor queue/active DTOs now include only the visited family ID/name, wi
 | A | Migrated; see work log for verification | Account routes above; organization operating/onboarding tools remain E/P17 |
 | B | Migrated; see work log for verification | Patient routes above |
 | C | Migrated; see work log for verification | `/doctor/appointments`, `/hospital/doctor-opd`; P10 call/booking compatibility remains |
-| D | Next | Reception/nurse workflows and `/hospital/staff-communication`; P08 nursing controls are partial coverage |
-| E | Pending | `/hospital/admin`, website/editor configuration and hospital website body; P10 booking modal is complete |
+| D | Migrated; see work log for verification | `/hospital/nursing-station`, `/hospital/reception`, `/hospital/staff-communication` |
+| E | Next | `/hospital/admin`, website/editor configuration and hospital website body; P10 booking modal is complete |
 | F | Pending | `/communities`, `/chat`, `/events`, `/events/past` |
 | G | Pending | `/wallet/transactions`, `/wallet/refunds`, `/wallet/notifications`, `/admin/virtual-payments` |
 | H | Pending | `/about`, `/privacy`, `/terms`, `/cookiepolicy`, remaining public/utility page bodies |

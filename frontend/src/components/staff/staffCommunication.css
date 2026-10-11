@@ -1,0 +1,294 @@
+/* Scoped styles for hospital staff communication hub using P08 tokens */
+.mp-staff-comm {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.mp-staff-comm-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.mp-staff-comm-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mp-staff-comm-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mp-staff-channel-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mp-text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.mp-staff-channel-btn:hover {
+  background: var(--mp-surface-muted);
+}
+
+.mp-staff-channel-btn[aria-selected="true"] {
+  background: var(--mp-accent-soft);
+  color: var(--mp-accent-ink);
+  border-color: var(--mp-border);
+  font-weight: 700;
+}
+
+.mp-staff-channel-btn svg {
+  flex-shrink: 0;
+  color: var(--mp-accent-ink);
+}
+
+.mp-staff-channel-sub {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--mp-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mp-staff-directory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.mp-staff-member-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mp-staff-member-btn:hover {
+  background: var(--mp-surface-muted);
+}
+
+.mp-staff-member-btn[aria-selected="true"] {
+  background: var(--mp-accent-soft);
+  border-color: var(--mp-border);
+}
+
+.mp-staff-member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--mp-surface-muted);
+  color: var(--mp-accent-ink);
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.mp-staff-member-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mp-staff-member-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.mp-staff-member-name {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mp-staff-member-role {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--mp-muted);
+  text-transform: capitalize;
+}
+
+.mp-staff-chat-window {
+  display: flex;
+  flex-direction: column;
+  min-height: 580px;
+  height: calc(100dvh - 240px);
+  max-height: 720px;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.mp-staff-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--mp-border);
+  background: var(--mp-surface);
+}
+
+.mp-staff-chat-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mp-staff-chat-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--mp-accent-soft);
+  color: var(--mp-accent-ink);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.mp-staff-chat-title-group h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.mp-staff-chat-title-group p {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--mp-muted);
+}
+
+.mp-staff-messages-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--mp-surface-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mp-staff-bubble-row {
+  display: flex;
+  width: 100%;
+}
+
+.mp-staff-bubble-row--mine {
+  justify-content: flex-end;
+}
+
+.mp-staff-bubble-row--theirs {
+  justify-content: flex-start;
+}
+
+.mp-staff-bubble {
+  max-width: min(80%, 540px);
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.mp-staff-bubble--mine {
+  background: var(--mp-accent);
+  color: var(--mp-on-accent);
+  border-bottom-right-radius: 4px;
+}
+
+.mp-staff-bubble--theirs {
+  background: var(--mp-surface);
+  color: var(--mp-text);
+  border: 1px solid var(--mp-border);
+  border-bottom-left-radius: 4px;
+}
+
+.mp-staff-bubble-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  margin-bottom: 4px;
+}
+
+.mp-staff-bubble--mine .mp-staff-bubble-meta {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.mp-staff-bubble--theirs .mp-staff-bubble-meta {
+  color: var(--mp-muted);
+}
+
+.mp-staff-bubble-content {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mp-staff-compose-form {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--mp-border);
+  background: var(--mp-surface);
+  align-items: flex-end;
+}
+
+.mp-staff-compose-input {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 10px 14px;
+  border: 1px solid var(--mp-border);
+  border-radius: 10px;
+  background: var(--mp-surface);
+  color: var(--mp-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.mp-staff-compose-input:focus {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .mp-staff-comm-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mp-staff-chat-window {
+    height: 520px;
+  }
+}
