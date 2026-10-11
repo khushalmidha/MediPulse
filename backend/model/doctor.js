@@ -94,6 +94,27 @@ const doctorSchema = new mongoose.Schema(
         joinedAt: { type: Date, default: Date.now },
       },
     ],
+    credentialVerification: {
+      status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'verified' },
+      councilRegistrationNumber: { type: String, default: '' },
+      stateMedicalCouncil: { type: String, default: '' },
+      verifiedAt: { type: Date, default: Date.now },
+      reviewNotes: { type: String, default: '' },
+    },
+    isPublished: { type: Boolean, default: true },
+    independentPractice: {
+      enabled: { type: Boolean, default: true },
+      consultationFee: { type: Number, default: 500, min: 0 },
+      slotDurationMinutes: { type: Number, default: 15 },
+      availability: [
+        {
+          day: { type: String },
+          startTime: { type: String },
+          endTime: { type: String },
+          active: { type: Boolean, default: true },
+        },
+      ],
+    },
   },
   {
     timestamps: true,

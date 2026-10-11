@@ -29,6 +29,21 @@ const communitySchema = new mongoose.Schema(
 	  type: [mongoose.Schema.Types.ObjectId],
 	  required: false,
 	},
+    announcements: [
+      {
+        title: { type: String, required: true },
+        content: { type: String, required: true },
+        author: { type: mongoose.Schema.Types.ObjectId, ref: 'doctor' },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    memberPreferences: [
+      {
+        memberId: { type: mongoose.Schema.Types.ObjectId },
+        emailNotifications: { type: Boolean, default: true },
+        inAppNotifications: { type: Boolean, default: true },
+      },
+    ],
   },
   {
     timestamps: true,

@@ -58,6 +58,19 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    draftNotes: {
+      type: String,
+      default: "",
+    },
+    followUp: {
+      scheduledDate: Date,
+      notes: { type: String, default: "" },
+      status: {
+        type: String,
+        enum: ["none", "recommended", "scheduled", "completed"],
+        default: "none",
+      },
+    },
     receiptText: {
       type: String,
       default: "",

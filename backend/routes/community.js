@@ -8,7 +8,12 @@ import {
 	getAllMessages,
   getAllUserCommunities,
   joinCommunity,
-  leaveCommunity
+  leaveCommunity,
+  postAnnouncement,
+  getAnnouncements,
+  reportMessage,
+  moderateMessage,
+  updatePreferences,
 } from "../controller/community.js";
 
 const communityRouter = Router();
@@ -19,6 +24,12 @@ communityRouter.post("/create", userValidation, asyncHandler(createCommunity));
 communityRouter.get("/user", userValidation, asyncHandler(getAllUserCommunities));
 communityRouter.post("/join", userValidation, asyncHandler(joinCommunity));
 communityRouter.post("/leave", userValidation, asyncHandler(leaveCommunity));
+
+communityRouter.post("/:id/announcements", userValidation, asyncHandler(postAnnouncement));
+communityRouter.get("/:id/announcements", userValidation, asyncHandler(getAnnouncements));
+communityRouter.post("/:id/messages/:messageId/report", userValidation, asyncHandler(reportMessage));
+communityRouter.delete("/:id/messages/:messageId", userValidation, asyncHandler(moderateMessage));
+communityRouter.put("/:id/preferences", userValidation, asyncHandler(updatePreferences));
 communityRouter.get("/:id", userValidation, asyncHandler(getAllMessages));
 
 export default communityRouter;

@@ -8,7 +8,34 @@ import Doctor from "../model/doctor.js";
 
 const getAllMessages = async (req, res) => {
 	const community = await requireCommunityAccess(req.params.id, req.auth);
-	const messages = await Message.find({ community: community._id });
+	const isOrganizer = isCommunityOrganizer(community, req.auth);
+	const query = { community: community._id };
+	if (!isOrganizer) {
+		query.isRemoved = { $ne: true };
+	}
+	const page = req.query.page ? Math.max(1, Number(req.query.page) || 1) : null;
+	const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+
+	if (page) {
+		const [totalMessages, messages] = await Promise.all([
+			Message.countDocuments(query),
+			Message.find(query)
+				.sort({ createdAt: 1 })
+				.skip((page - 1) * limit)
+				.limit(limit)
+		]);
+		return res.json({
+			messages,
+			pagination: {
+				page,
+				limit,
+				totalMessages,
+				totalPages: Math.ceil(totalMessages / limit) || 1,
+			}
+		});
+	}
+
+	const messages = await Message.find(query).sort({ createdAt: 1 });
 	return res.json(messages);
 };
 
@@ -89,6 +116,107 @@ const leaveCommunity = async (req, res) => {
 	return res.json({ message: "Successfully left community", user: await Model.findById(req.auth.id), community: communitySummary(await Community.findById(id)) });
 };
 
+const postAnnouncement = async (req, res) => {
+	const community = await requireCommunityAccess(req.params.id, req.auth);
+	if (!isCommunityOrganizer(community, req.auth)) {
+		return res.status(403).json({ message: "Only the doctor organizer can post announcements" });
+	}
+	const { title, content } = req.body;
+	if (typeof title !== "string" || !title.trim() || typeof content !== "string" || !content.trim()) {
+		return res.status(400).json({ message: "Announcement title and content are required" });
+	}
+	const session = await mongoose.startSession();
+	let announcementDoc;
+	try {
+		await session.withTransaction(async () => {
+			announcementDoc = {
+				title: title.trim(),
+				content: content.trim(),
+				author: req.auth.id,
+				createdAt: new Date(),
+			};
+			await Community.updateOne(
+				{ _id: community._id },
+				{ $push: { announcements: announcementDoc }, $inc: { activityRevision: 1 } },
+				{ session }
+			);
+			await Message.create([{
+				community: community._id,
+				author: req.auth.id,
+				author_name: `Dr. Announcement: ${title.trim()}`,
+				content: content.trim(),
+				isAnnouncement: true,
+			}], { session });
+		});
+	} finally {
+		await session.endSession();
+	}
+	return res.status(201).json({ message: "Announcement published", announcement: announcementDoc });
+};
+
+const getAnnouncements = async (req, res) => {
+	const community = await requireCommunityAccess(req.params.id, req.auth);
+	return res.json(community.announcements || []);
+};
+
+const reportMessage = async (req, res) => {
+	const community = await requireCommunityAccess(req.params.id, req.auth);
+	const { messageId } = req.params;
+	const { reason } = req.body;
+	if (typeof reason !== "string" || !reason.trim()) {
+		return res.status(400).json({ message: "A valid reporting reason is required" });
+	}
+	const message = await Message.findOne({ _id: messageId, community: community._id });
+	if (!message) return res.status(404).json({ message: "Message not found" });
+
+	await Message.updateOne(
+		{ _id: messageId },
+		{ $push: { reports: { reportedBy: req.auth.id, reason: reason.trim(), reportedAt: new Date() } } }
+	);
+	return res.json({ message: "Message reported for doctor review" });
+};
+
+const moderateMessage = async (req, res) => {
+	const community = await requireCommunityAccess(req.params.id, req.auth);
+	if (!isCommunityOrganizer(community, req.auth)) {
+		return res.status(403).json({ message: "Only the doctor organizer can moderate messages" });
+	}
+	const { messageId } = req.params;
+	const message = await Message.findOne({ _id: messageId, community: community._id });
+	if (!message) return res.status(404).json({ message: "Message not found" });
+
+	await Message.updateOne(
+		{ _id: messageId },
+		{ $set: { isRemoved: true, content: "[This message was removed by the doctor moderator]" } }
+	);
+	return res.json({ message: "Message removed by moderator" });
+};
+
+const updatePreferences = async (req, res) => {
+	const community = await requireCommunityAccess(req.params.id, req.auth);
+	const { emailNotifications, inAppNotifications } = req.body;
+
+	await Community.updateOne(
+		{ _id: community._id },
+		{
+			$pull: { memberPreferences: { memberId: req.auth.id } }
+		}
+	);
+	await Community.updateOne(
+		{ _id: community._id },
+		{
+			$push: {
+				memberPreferences: {
+					memberId: req.auth.id,
+					emailNotifications: Boolean(emailNotifications),
+					inAppNotifications: Boolean(inAppNotifications),
+				}
+			}
+		}
+	);
+	return res.json({ message: "Notification preferences updated" });
+};
+
 export {
 	getAllMessages,
 	getAllCommunities,
@@ -96,5 +224,10 @@ export {
 	getAllUserCommunities,
 	joinCommunity,
 	leaveCommunity,
-	getAllDoctorCommunities
+	getAllDoctorCommunities,
+	postAnnouncement,
+	getAnnouncements,
+	reportMessage,
+	moderateMessage,
+	updatePreferences,
 };

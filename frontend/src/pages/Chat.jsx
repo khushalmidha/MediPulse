@@ -99,7 +99,8 @@ function Chat() {
           `${BACKEND_URL}/community/${activeCommunityId}`,
           { withCredentials: true }
         )
-        const formattedMessages = response.data.map((msg) => ({
+        const rawList = Array.isArray(response.data) ? response.data : (response.data?.messages || []);
+        const formattedMessages = rawList.map((msg) => ({
           ...msg,
           isUser: msg.author === user?._id,
         }))
@@ -194,7 +195,8 @@ function Chat() {
       )
 
       // Transform message objects to include isUser property
-      const formattedMessages = response.data.map((msg) => ({
+      const rawList = Array.isArray(response.data) ? response.data : (response.data?.messages || []);
+      const formattedMessages = rawList.map((msg) => ({
         ...msg,
         isUser: msg.author === user?._id,
       }))

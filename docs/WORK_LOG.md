@@ -789,6 +789,39 @@ Implemented dynamic live queue tracking, bounded wait time estimations, doctor p
 - Frontend production build: **Passed** (2315 modules, 31.77s).
 
 
+## P14 — Independent doctors and communities (11 October 2026)
+
+Implemented independent doctor practice capabilities, credential verification status, practice availability scheduling, strict zero-leakage queue separation from hospital employment, clinician draft notes, follow-up management, and doctor-owned community moderation, announcements, and pagination according to P14 requirements.
+
+- **Independent Doctor Onboarding & Practice Management (`Doctor.js`, `doctor.js`):**
+  - Added `credentialVerification` (council registration number, state medical council, status: `pending`/`verified`/`rejected`).
+  - Added `independentPractice` configuration (`enabled`, `consultationFee`, `slotDurationMinutes`, weekly availability schedule).
+  - Endpoints `GET/PUT /api/doctor/practice-settings` for independent practitioners to manage their fees, schedule, and publication status.
+  - Linked hospital affiliation is strictly optional and does NOT merge clinical records or sessions.
+- **Queue & Record Isolation Invariant:**
+  - Independent practice queue (`GET /api/doctor/independent-queue`) only serves unlinked/independent appointments.
+  - Dual-role doctors (employed by a hospital while maintaining independent practice) have completely isolated queues: hospital OPD tokens never appear in the independent workspace, and online independent appointments never appear in the hospital OPD console.
+- **Clinician Documentation (`Appointment.js`, `doctor.js`):**
+  - Added `draftNotes` support to allow physicians to work on interim consultation drafts before finalization.
+  - Added structured `followUp` tracking (`scheduledDate`, `notes`, status: `none`, `recommended`, `scheduled`, `completed`).
+  - Endpoint `PUT /api/doctor/appointments/:appointmentId/consultation-records` enforces practitioner authorization.
+- **Doctor-Owned Communities & Moderation (`Community.js`, `Message.js`, `community.js`):**
+  - Organizer announcements (`POST /api/communities/:id/announcements`, `GET /api/communities/:id/announcements`) with broadcast tagging (`isAnnouncement: true`).
+  - Member message pagination (`GET /api/communities/:id?page=1&limit=50`) returning structured pagination metadata and omitting removed messages for non-organizers.
+  - Abusive message reporting (`POST /api/communities/:id/messages/:messageId/report`) recording reporter ID, reason, and timestamp.
+  - Doctor moderation action (`DELETE /api/communities/:id/messages/:messageId`) allowing the organizer to remove reported messages.
+  - Per-member notification preferences (`PUT /api/communities/:id/preferences`).
+- **Frontend Chat Resilience (`Chat.jsx`):**
+  - Enhanced message polling and initial loading to seamlessly parse both paginated object responses and legacy array payloads.
+
+### Executed checks
+
+- Backend unit suite: **112 passed / 0 failed / 0 skipped** (including 5 new P14 tests in `tests/independent-doctor-community.test.js`).
+- Frontend unit suite: **37 passed / 0 failed / 0 skipped**.
+- Frontend production build: **Passed** (2315 modules, 21.82s).
+
+
+
 
 
 

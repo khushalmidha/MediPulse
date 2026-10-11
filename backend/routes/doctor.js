@@ -8,7 +8,17 @@ import {
   resetPasswordWithOtp,
   sendPasswordResetOtp,
 } from "../controller/auth.js";
-import { getDoctorById, getAllDoctors, deleteDoctorById, getDoctorHospitals, updateDoctorData } from "../controller/doctor.js";
+import {
+  getDoctorById,
+  getAllDoctors,
+  deleteDoctorById,
+  getDoctorHospitals,
+  updateDoctorData,
+  getPracticeSettings,
+  updatePracticeSettings,
+  getIndependentQueue,
+  saveConsultationRecord,
+} from "../controller/doctor.js";
 import userValidation from "../middleware/validateUser.js";
 
 const doctorRouter = Router();
@@ -19,6 +29,11 @@ doctorRouter.post("/login", asyncHandler(doctorLogin));
 doctorRouter.post("/google-auth", asyncHandler(googleAuth));
 doctorRouter.post("/forgot-password/send-otp", asyncHandler(sendPasswordResetOtp));
 doctorRouter.post("/forgot-password/reset", asyncHandler(resetPasswordWithOtp));
+
+doctorRouter.get("/practice-settings", userValidation, asyncHandler(getPracticeSettings));
+doctorRouter.put("/practice-settings", userValidation, asyncHandler(updatePracticeSettings));
+doctorRouter.get("/independent-queue", userValidation, asyncHandler(getIndependentQueue));
+doctorRouter.put("/appointments/:appointmentId/consultation-records", userValidation, asyncHandler(saveConsultationRecord));
 
 doctorRouter.get("/:id/hospitals", asyncHandler(getDoctorHospitals));
 doctorRouter.get("/:id", asyncHandler(getDoctorById));

@@ -42,6 +42,14 @@ const mapPlatformDoctor = (doctor, communities = []) => ({
 	bio: doctor.bio || "",
 	rating: doctor.rating || 0,
 	consultationFee: resolveConsultationFee(doctor),
+	credentialVerification: doctor.credentialVerification || { status: "verified" },
+	isPublished: doctor.isPublished ?? true,
+	independentPractice: doctor.independentPractice || {
+		enabled: true,
+		consultationFee: resolveConsultationFee(doctor),
+		slotDurationMinutes: 15,
+		availability: [],
+	},
 	experience: {
 		years: doctor.experience?.years || 0,
 		expertise: doctor.experience?.expertise || "",
@@ -406,8 +414,6 @@ const getDoctorHospitals = async (req, res) => {
 	}
 };
 
-export { getDoctorById, getAllDoctors, deleteDoctorById, getDoctorHospitals, updateDoctorData };
-
 
 const updateDoctorData = async (req, res) => {
   if (!req.auth || req.auth.role !== "doctor") return res.status(401).json({ message: "Unauthorized" });
@@ -450,4 +456,134 @@ const updateDoctorData = async (req, res) => {
     return res.status(500).json({ message: "Failed to update profile", error: error.message });
   }
 };
+
+const getPracticeSettings = async (req, res) => {
+	if (!req.auth || req.auth.role !== "doctor") return res.status(401).json({ message: "Unauthorized" });
+	const doctor = await Doctor.findById(req.auth.id);
+	if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+
+	return res.json({
+		credentialVerification: doctor.credentialVerification || { status: "verified" },
+		isPublished: doctor.isPublished ?? true,
+		independentPractice: doctor.independentPractice || {
+			enabled: true,
+			consultationFee: doctor.consultationFee || 500,
+			slotDurationMinutes: 15,
+			availability: [],
+		},
+		consultationFee: doctor.consultationFee || 500,
+	});
+};
+
+const updatePracticeSettings = async (req, res) => {
+	if (!req.auth || req.auth.role !== "doctor") return res.status(401).json({ message: "Unauthorized" });
+	const { independentPractice, credentialVerification, isPublished, consultationFee } = req.body;
+	const updates = {};
+
+	if (independentPractice && typeof independentPractice === "object") {
+		if (independentPractice.enabled !== undefined) {
+			updates["independentPractice.enabled"] = Boolean(independentPractice.enabled);
+		}
+		if (Number.isFinite(Number(independentPractice.consultationFee))) {
+			const fee = Math.max(0, Math.min(MAX_CONSULTATION_FEE_INR, Number(independentPractice.consultationFee)));
+			updates["independentPractice.consultationFee"] = fee;
+			updates["consultationFee"] = fee;
+		}
+		if (Number.isFinite(Number(independentPractice.slotDurationMinutes))) {
+			updates["independentPractice.slotDurationMinutes"] = Math.max(5, Math.min(120, Number(independentPractice.slotDurationMinutes)));
+		}
+		if (Array.isArray(independentPractice.availability)) {
+			updates["independentPractice.availability"] = independentPractice.availability;
+		}
+	}
+
+	if (consultationFee !== undefined && Number.isFinite(Number(consultationFee))) {
+		const fee = Math.max(0, Math.min(MAX_CONSULTATION_FEE_INR, Number(consultationFee)));
+		updates["consultationFee"] = fee;
+		updates["independentPractice.consultationFee"] = fee;
+	}
+
+	if (isPublished !== undefined) {
+		updates["isPublished"] = Boolean(isPublished);
+	}
+
+	if (credentialVerification && typeof credentialVerification === "object") {
+		if (credentialVerification.councilRegistrationNumber !== undefined) {
+			updates["credentialVerification.councilRegistrationNumber"] = String(credentialVerification.councilRegistrationNumber).trim();
+		}
+		if (credentialVerification.stateMedicalCouncil !== undefined) {
+			updates["credentialVerification.stateMedicalCouncil"] = String(credentialVerification.stateMedicalCouncil).trim();
+		}
+		if (credentialVerification.status && ["pending", "verified", "rejected"].includes(credentialVerification.status)) {
+			updates["credentialVerification.status"] = credentialVerification.status;
+		}
+	}
+
+	const updated = await Doctor.findByIdAndUpdate(req.auth.id, { $set: updates }, { new: true });
+	return res.json({
+		message: "Practice settings updated",
+		settings: {
+			credentialVerification: updated.credentialVerification,
+			isPublished: updated.isPublished,
+			independentPractice: updated.independentPractice,
+			consultationFee: updated.consultationFee,
+		}
+	});
+};
+
+const getIndependentQueue = async (req, res) => {
+	if (!req.auth || req.auth.role !== "doctor") return res.status(401).json({ message: "Unauthorized" });
+	const appointments = await Appointment.find({
+		doctor: req.auth.id,
+		hospitalId: null,
+		status: { $in: ["queued", "active"] },
+	})
+		.populate("user", "firstName lastName name phone email")
+		.sort({ createdAt: 1 })
+		.lean();
+
+	return res.json({
+		queue: appointments,
+		count: appointments.length,
+	});
+};
+
+const saveConsultationRecord = async (req, res) => {
+	if (!req.auth || req.auth.role !== "doctor") return res.status(401).json({ message: "Unauthorized" });
+	const { appointmentId } = req.params;
+	const { doctorNotes, draftNotes, followUp } = req.body;
+
+	const appointment = await Appointment.findOne({ _id: appointmentId, doctor: req.auth.id });
+	if (!appointment) return res.status(404).json({ message: "Appointment not found for this practitioner" });
+
+	const updates = {};
+	if (doctorNotes !== undefined) updates.doctorNotes = String(doctorNotes);
+	if (draftNotes !== undefined) updates.draftNotes = String(draftNotes);
+	if (followUp && typeof followUp === "object") {
+		updates.followUp = {
+			scheduledDate: followUp.scheduledDate ? new Date(followUp.scheduledDate) : null,
+			notes: String(followUp.notes || ""),
+			status: ["none", "recommended", "scheduled", "completed"].includes(followUp.status) ? followUp.status : "none",
+		};
+	}
+
+	const updated = await Appointment.findByIdAndUpdate(appointmentId, { $set: updates }, { new: true });
+	return res.json({
+		message: "Consultation records saved",
+		appointment: updated,
+	});
+};
+
+export {
+	getDoctorById,
+	getAllDoctors,
+	deleteDoctorById,
+	getDoctorHospitals,
+	updateDoctorData,
+	getPracticeSettings,
+	updatePracticeSettings,
+	getIndependentQueue,
+	saveConsultationRecord,
+};
+
 

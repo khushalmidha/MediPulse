@@ -16,7 +16,22 @@ const messageSchema = new mongoose.Schema(
 		},
     community: {
       type: mongoose.Schema.Types.ObjectId
-    }
+    },
+    isAnnouncement: {
+      type: Boolean,
+      default: false,
+    },
+    isRemoved: {
+      type: Boolean,
+      default: false,
+    },
+    reports: [
+      {
+        reportedBy: { type: mongoose.Schema.Types.ObjectId },
+        reason: { type: String, required: true },
+        reportedAt: { type: Date, default: Date.now },
+      },
+    ],
 	},
 	{
 		timestamps: true,
