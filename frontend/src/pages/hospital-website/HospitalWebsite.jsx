@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import BookingFlow from "../../components/appointments/BookingFlow";
 import { Dialog } from "../../components/ui";
 import { hospitalPalette } from "../../utils/visualSystem";
@@ -81,7 +82,7 @@ const HospitalWebsite = ({ slug }) => {
           setReviews(reviewsPayload.items || []);
           hasLoadedProfileRef.current = true;
         }
-      } catch (err) {
+      } catch {
         if (active) {
           setError(
             hasLoadedProfileRef.current
@@ -105,7 +106,7 @@ const HospitalWebsite = ({ slug }) => {
 
   const hospital = profile?.hospital;
   const departments = profile?.departments || [];
-  const doctors = profile?.doctors || [];
+  const doctors = useMemo(() => profile?.doctors || [], [profile?.doctors]);
   const brand = hospitalPalette(hospital?.branding?.primaryColor);
   const primaryColor = brand.accent;
   const queueByDepartment = useMemo(() => {

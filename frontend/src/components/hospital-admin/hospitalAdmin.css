@@ -1,0 +1,146 @@
+/* Scoped styles for Hospital Admin Dashboard using P08 design tokens */
+.mp-admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.mp-admin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.mp-admin-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 16px;
+  border-bottom: 1px solid var(--mp-border);
+}
+
+.mp-admin-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mp-muted);
+  font-size: 0.88rem;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.mp-admin-tab-btn:hover {
+  background: var(--mp-surface-muted);
+  color: var(--mp-text);
+}
+
+.mp-admin-tab-btn[aria-selected="true"] {
+  background: var(--mp-accent-soft);
+  color: var(--mp-accent-ink);
+  border-color: var(--mp-border);
+  font-weight: 750;
+}
+
+.mp-admin-tab-btn svg {
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.mp-admin-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.mp-admin-metric-card {
+  padding: 20px;
+  border-radius: var(--mp-radius);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mp-admin-metric-card span {
+  font-size: 0.82rem;
+  color: var(--mp-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mp-admin-metric-card strong {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--mp-text);
+  line-height: 1.1;
+}
+
+.mp-admin-quick-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.mp-admin-quick-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--mp-border);
+  background: var(--mp-surface);
+  color: var(--mp-text);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 650;
+  transition: all 0.15s ease;
+}
+
+.mp-admin-quick-link:hover {
+  background: var(--mp-accent-soft);
+  border-color: var(--mp-accent-ink);
+  color: var(--mp-accent-ink);
+}
+
+.mp-admin-color-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--mp-border);
+  background: var(--mp-surface-muted);
+  margin-top: 12px;
+}
+
+.mp-admin-color-swatch {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.mp-admin-forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .mp-admin-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

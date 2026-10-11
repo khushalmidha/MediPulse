@@ -631,3 +631,30 @@ Migrated `/hospital/nursing-station` (with alias `/hospital/reception`) and `/ho
 - Affected files lint (`NursingStation.jsx`, `StaffCommunication.jsx`, `App.jsx`): **0 errors / 0 warnings**.
 - Frontend production build: **Passed** (2318 modules, 28.28s).
 
+
+## P11 E — Hospital administration, website editor and public hospital portal (11 October 2026)
+
+Migrated `/hospital/admin` (`HospitalAdminDashboard.jsx`) and `/hospitals/:slug` (`HospitalWebsite.jsx`) to the P08 design system.
+
+- **Hospital Admin Dashboard (`HospitalAdminDashboard.jsx`):**
+  - Replaced legacy unmigrated tailwind styles with P08 tokens and components via `frontend/src/components/hospital-admin/hospitalAdmin.css`.
+  - Used `useAuth()` session state (`staffUser`, `staffHospital`, `isStaffAuth`) with clean session-identity disposal on account switch.
+  - Redesigned overview metrics: Bookings, Completed Consultations, Active Care Staff, Active Departments, Patient Satisfaction Rating, and Demo OPD Volume.
+  - Quick operational jumps to Nursing Station, Doctor OPD Console, and Staff Chat.
+  - Department management: Add department modal dialog (Name, Code, OPD Fee, Description), clean DataTable with status badges.
+  - Staff management & invitations: Filterable directory by role, staff invite modal dialog with doctor profile fields, resend invite, grant admin privileges, and two-step OTP staff removal dialog.
+  - Website & branding editor: Tagline, about narrative, primary color with live accessible contrast preview using `hospitalPalette`, logo URL, cover hero banner.
+  - Demand forecasting: AI planning draft cards for inpatient bed occupancy and blood bank reserves with explicit draft disclaimer and regenerate action.
+  - Admin settings: In-workspace password change with session invalidation.
+
+- **Hospital Public Website (`HospitalWebsite.jsx`):**
+  - Cleaned up memoization and prop types, preserving full compatibility with `BookingFlow` embedded booking modal, live department queues, doctor directory search, and patient reviews.
+
+### Executed checks
+
+- Backend unit suite: **96 passed / 0 failed / 0 skipped**.
+- Frontend unit suite: **32 passed / 0 failed / 0 skipped**.
+- Affected files lint (`HospitalAdminDashboard.jsx`, `HospitalWebsite.jsx`): **0 errors / 0 warnings**.
+- Frontend production build: **Passed** (2319 modules, 18.39s).
+
+

@@ -1,55 +1,40 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import axios from "axios";
 import {
-  Building2,
   ClipboardList,
-  Droplets,
   ExternalLink,
   Globe2,
   LayoutDashboard,
-  Lock,
   MessageSquare,
-  Palette,
   Plus,
+  RefreshCcw,
   Send,
+  Shield,
   Stethoscope,
   TrendingUp,
   Users,
-  X,
+  ArrowRight,
+  Droplets,
+  Bed,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { clearSessionState } from "../utils/sessionHttp";
 import { useAuth } from "../context/AuthContext";
 import { BACKEND_URL } from "../utils";
-
-const defaultSlides = [
-  "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=1200&q=80",
-  "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200&q=80",
-  "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1200&q=80",
-];
+import { Banner, Button, Card, DataTable, Dialog, EmptyState, Field, LoadingState, StatusBadge } from "../components/ui";
+import { hospitalPalette } from "../utils/visualSystem";
+import "../components/hospital-admin/hospitalAdmin.css";
 
 const roles = ["DOCTOR", "NURSE", "LAB_TECH", "RECEPTIONIST", "PHARMACIST", "DEPARTMENT_HEAD", "HOSPITAL_ADMIN"];
 
-const currency = (value) => `INR ${Number(value || 0).toLocaleString("en-IN")}`;
-
-const statusBadge = (status) => {
-  if (status === "accepted") return "bg-green-50 text-green-700 border-green-200";
-  if (status === "expired") return "bg-red-50 text-red-700 border-red-200";
-  return "bg-amber-50 text-amber-700 border-amber-200";
-};
+const formatCurrency = (value) => `INR ${Number(value || 0).toLocaleString("en-IN")}`;
 
 const HospitalAdminDashboard = () => {
   const navigate = useNavigate();
-  const { clearLocalSession } = useAuth();
-  const saved = useMemo(() => {
-    try {
-      return JSON.parse(sessionStorage.getItem("medipulse.hospitalAdmin") || "null");
-    } catch {
-      return null;
-    }
-  }, []);
+  const { staffUser, staffHospital, isStaffAuth, loader, clearLocalSession } = useAuth();
+  const hospitalId = staffUser?.hospitalId || staffHospital?._id;
 
-  const [hospital, setHospital] = useState(saved?.hospital || null);
+  const [hospital, setHospital] = useState(staffHospital || null);
   const [analytics, setAnalytics] = useState(null);
   const [staff, setStaff] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -57,80 +42,116 @@ const HospitalAdminDashboard = () => {
   const [forecasts, setForecasts] = useState({ beds: null, blood: null });
   const [forecastLoading, setForecastLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  const [openPanel, setOpenPanel] = useState("");
-  const [slide, setSlide] = useState(0);
+  const [openModal, setOpenModal] = useState(""); // "department", "invite", "otp", "password"
   const [message, setMessage] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState("");
+  const [messageTone, setMessageTone] = useState("info");
+  const showError = (text) => { setMessage(text); setMessageTone("error"); };
+  const showSuccess = (text) => { setMessage(text); setMessageTone("info"); };
+
   const [department, setDepartment] = useState({ name: "", code: "", description: "", consultationFee: "" });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [brandingForm, setBrandingForm] = useState({
-    tagline: saved?.hospital?.branding?.tagline || "",
-    about: saved?.hospital?.branding?.about || "",
-    primaryColor: saved?.hospital?.branding?.primaryColor || "#2563eb",
-    logo: saved?.hospital?.branding?.logo || "",
-    coverImage: saved?.hospital?.branding?.coverImage || "",
+    tagline: staffHospital?.branding?.tagline || "",
+    about: staffHospital?.branding?.about || "",
+    primaryColor: staffHospital?.branding?.primaryColor || "#115e59",
+    logo: staffHospital?.branding?.logo || "",
+    coverImage: staffHospital?.branding?.coverImage || "",
   });
+  const [savingBranding, setSavingBranding] = useState(false);
+
   const [invite, setInvite] = useState({
     name: "",
     email: "",
     role: "DOCTOR",
-    profilePhoto: "",
     specialization: "",
     qualification: "",
     experience: "",
     consultationFee: "",
     bio: "",
   });
-  // OTP removal modal state
-  const [otpModal, setOtpModal] = useState(null); // { member } or null
+  const [inviting, setInviting] = useState(false);
+
+  // Staff removal with OTP state
+  const [otpMember, setOtpMember] = useState(null);
   const [otpValue, setOtpValue] = useState("");
   const [otpSending, setOtpSending] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpError, setOtpError] = useState("");
 
-  const hospitalId = hospital?._id;
-  const websiteUrl = hospital?.slug ? `/hospitals/${hospital.slug}` : "";
-  const slides = hospital?.branding?.galleryImages?.length ? hospital.branding.galleryImages : defaultSlides;
+  // Role filter on staff table
+  const [staffRoleFilter, setStaffRoleFilter] = useState("ALL");
 
-  const loadPortal = async () => {
-    if (!hospitalId) return;
-    const [analyticsRes, staffRes, profileRes] = await Promise.all([
-      axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/analytics`, { withCredentials: true }),
-      axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff`, { withCredentials: true }),
-      axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/admin-profile`, { withCredentials: true }),
-    ]);
-
-    const freshHospital = profileRes.data.hospital;
-    let publicProfile = null;
-    if (freshHospital?.slug && freshHospital.status === "active") {
-      const publicRes = await axios.get(`${BACKEND_URL}/api/hospitals/${freshHospital.slug}`).catch(() => null);
-      publicProfile = publicRes?.data || null;
+  // Account-switch disposal
+  const currentIdentity = `${hospitalId || ""}:${staffUser?._id || ""}`;
+  const prevIdentityRef = useRef(currentIdentity);
+  useEffect(() => {
+    if (prevIdentityRef.current !== currentIdentity) {
+      prevIdentityRef.current = currentIdentity;
+      setHospital(staffHospital || null);
+      setAnalytics(null);
+      setStaff([]);
+      setDepartments([]);
+      setDoctors([]);
+      setForecasts({ beds: null, blood: null });
+      setMessage("");
+      setOpenModal("");
     }
+  }, [currentIdentity, staffHospital]);
 
-    setHospital(freshHospital);
-    setAnalytics(analyticsRes.data);
-    setStaff(staffRes.data.items || []);
-    setDepartments(publicProfile?.departments || []);
-    setDoctors(publicProfile?.doctors || []);
-    setBrandingForm({
-      tagline: freshHospital.branding?.tagline || "",
-      about: freshHospital.branding?.about || "",
-      primaryColor: freshHospital.branding?.primaryColor || "#2563eb",
-      logo: freshHospital.branding?.logo || "",
-      coverImage: freshHospital.branding?.coverImage || "",
-    });
-    sessionStorage.setItem("medipulse.hospitalAdmin", JSON.stringify({ ...saved, hospital: freshHospital }));
-    loadForecasts(freshHospital._id).catch(() => {});
-  };
+  const loadForecasts = useCallback(async (targetId = hospitalId) => {
+    if (!targetId) return;
+    try {
+      const [bedRes, bloodRes] = await Promise.all([
+        axios.get(`${BACKEND_URL}/api/forecast/beds/${targetId}`, { withCredentials: true }),
+        axios.get(`${BACKEND_URL}/api/forecast/blood/${targetId}`, { withCredentials: true }),
+      ]);
+      setForecasts({ beds: bedRes.data, blood: bloodRes.data });
+    } catch {
+      // Forecasts are optional planning tools
+    }
+  }, [hospitalId]);
 
-  const loadForecasts = async (targetHospitalId = hospitalId) => {
-    if (!targetHospitalId) return;
-    const [bedRes, bloodRes] = await Promise.all([
-      axios.get(`${BACKEND_URL}/api/forecast/beds/${targetHospitalId}`, { withCredentials: true }),
-      axios.get(`${BACKEND_URL}/api/forecast/blood/${targetHospitalId}`, { withCredentials: true }),
-    ]);
-    setForecasts({ beds: bedRes.data, blood: bloodRes.data });
-  };
+  const loadPortal = useCallback(async () => {
+    if (!hospitalId || !isStaffAuth) return;
+    try {
+      const [analyticsRes, staffRes, profileRes] = await Promise.all([
+        axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/analytics`, { withCredentials: true }),
+        axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff`, { withCredentials: true }),
+        axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/admin-profile`, { withCredentials: true }),
+      ]);
+
+      const freshHospital = profileRes.data.hospital;
+      let publicProfile = null;
+      if (freshHospital?.slug && freshHospital.status === "active") {
+        const publicRes = await axios.get(`${BACKEND_URL}/api/hospitals/${freshHospital.slug}`).catch(() => null);
+        publicProfile = publicRes?.data || null;
+      }
+
+      setHospital(freshHospital);
+      setAnalytics(analyticsRes.data);
+      setStaff(staffRes.data.items || []);
+      setDepartments(publicProfile?.departments || []);
+      setDoctors(publicProfile?.doctors || []);
+      setBrandingForm({
+        tagline: freshHospital.branding?.tagline || "",
+        about: freshHospital.branding?.about || "",
+        primaryColor: freshHospital.branding?.primaryColor || "#115e59",
+        logo: freshHospital.branding?.logo || "",
+        coverImage: freshHospital.branding?.coverImage || "",
+      });
+
+      loadForecasts(freshHospital._id);
+    } catch (error) {
+      showError(error.response?.data?.message || "Unable to load hospital admin portal");
+    }
+  }, [hospitalId, isStaffAuth, loadForecasts]);
+
+  useEffect(() => {
+    loadPortal();
+    const interval = window.setInterval(loadPortal, 20000);
+    return () => window.clearInterval(interval);
+  }, [loadPortal]);
 
   const regenerateForecasts = async () => {
     if (!hospitalId) return;
@@ -142,161 +163,157 @@ const HospitalAdminDashboard = () => {
         axios.post(`${BACKEND_URL}/api/forecast/blood/${hospitalId}/generate`, {}, { withCredentials: true }),
       ]);
       setForecasts({ beds: bedRes.data, blood: bloodRes.data });
-      setMessage("AI planning draft refreshed");
+      showSuccess("AI planning forecasts refreshed");
     } catch (error) {
-      setMessage(error.response?.data?.message || "Could not refresh forecasts");
+      showError(error.response?.data?.message || "Could not refresh planning forecasts");
     } finally {
       setForecastLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadPortal().catch((error) => setMessage(error.response?.data?.message || "Unable to load hospital portal"));
-    const interval = window.setInterval(() => {
-      loadPortal().catch(() => {});
-    }, 15000);
-    return () => window.clearInterval(interval);
-  }, [hospitalId]);
-
-  useEffect(() => {
-    if (!slides.length) return undefined;
-    const timer = window.setInterval(() => setSlide((current) => (current + 1) % slides.length), 4000);
-    return () => window.clearInterval(timer);
-  }, [slides.length]);
-
-  const departmentStats = useMemo(() => {
-    const map = new Map();
-    (analytics?.departmentBreakdown || []).forEach((item) => map.set(String(item._id), item));
-    return map;
-  }, [analytics]);
-
-  const staffByRole = useMemo(
-    () =>
-      roles.reduce((grouped, role) => {
-        grouped[role] = staff.filter((member) => member.role === role);
-        return grouped;
-      }, {}),
-    [staff],
-  );
-
   const addDepartment = async (event) => {
     event.preventDefault();
+    if (!department.name.trim() || !department.code.trim()) {
+      showError("Department name and short code are required.");
+      return;
+    }
     setMessage("");
     try {
       await axios.post(
         `${BACKEND_URL}/api/hospitals/${hospitalId}/departments`,
         {
-          name: department.name,
-          code: department.code,
-          description: department.description,
+          name: department.name.trim(),
+          code: department.code.trim().toUpperCase(),
+          description: department.description.trim(),
           opd: { consultationFee: Number(department.consultationFee || 0), isActive: true },
         },
         { withCredentials: true },
       );
       setDepartment({ name: "", code: "", description: "", consultationFee: "" });
-      setOpenPanel("");
-      setMessage("Department added successfully");
+      setOpenModal("");
+      showSuccess("Department added successfully.");
       await loadPortal();
     } catch (error) {
       const duplicate = error.response?.data?.message?.includes("duplicate") || error.response?.status === 409;
-      setMessage(duplicate ? "Department already exists for this hospital" : error.response?.data?.message || "Could not add department");
+      showError(duplicate ? "Department code already exists for this hospital." : error.response?.data?.message || "Could not add department.");
     }
   };
 
-  const inviteStaff = async (event) => {
+  const inviteStaffMember = async (event) => {
     event.preventDefault();
+    if (!invite.name.trim() || !invite.email.trim()) {
+      showError("Staff name and email address are required.");
+      return;
+    }
+    setInviting(true);
     setMessage("");
     try {
       await axios.post(
         `${BACKEND_URL}/api/hospitals/${hospitalId}/staff/invite`,
         {
           ...invite,
-          doctorProfile: {
+          doctorProfile: invite.role === "DOCTOR" ? {
             specialization: invite.specialization,
             qualification: invite.qualification,
             experience: Number(invite.experience || 0),
             consultationFee: Number(invite.consultationFee || 0),
             bio: invite.bio,
-          },
+          } : undefined,
         },
         { withCredentials: true },
       );
-      setInvite({ name: "", email: "", role: "DOCTOR", profilePhoto: "", specialization: "", qualification: "", experience: "", consultationFee: "", bio: "" });
-      setOpenPanel("");
-      setMessage("Staff invite sent");
+      setInvite({
+        name: "",
+        email: "",
+        role: "DOCTOR",
+        specialization: "",
+        qualification: "",
+        experience: "",
+        consultationFee: "",
+        bio: "",
+      });
+      setOpenModal("");
+      showSuccess("Staff invitation sent successfully.");
       await loadPortal();
     } catch (error) {
-      setMessage(error.response?.data?.message || "Could not invite staff");
+      showError(error.response?.data?.message || "Could not invite staff member.");
+    } finally {
+      setInviting(false);
     }
   };
 
-  const resendInvite = async (staffId) => {
+  const resendInvite = async (staffMemberId) => {
     setMessage("");
     try {
-      await axios.post(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${staffId}/invite/resend`, {}, { withCredentials: true });
-      setMessage("Invite resent");
+      await axios.post(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${staffMemberId}/invite/resend`, {}, { withCredentials: true });
+      showSuccess("Invitation resent.");
       await loadPortal();
     } catch (error) {
-      setMessage(error.response?.data?.message || "Could not resend invite");
+      showError(error.response?.data?.message || "Could not resend invitation.");
     }
   };
 
-  const removeStaff = (member) => {
-    setOtpModal({ member });
+  const openRemovalModal = (member) => {
+    setOtpMember(member);
     setOtpValue("");
     setOtpSent(false);
     setOtpError("");
     setOtpSending(false);
+    setOpenModal("otp");
   };
 
   const sendRemovalOtp = async () => {
-    if (!otpModal) return;
+    if (!otpMember) return;
     setOtpSending(true);
     setOtpError("");
     try {
-      await axios.post(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${otpModal.member._id}/remove/request-otp`, {}, { withCredentials: true });
+      await axios.post(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${otpMember._id}/remove/request-otp`, {}, { withCredentials: true });
       setOtpSent(true);
     } catch (error) {
-      setOtpError(error.response?.data?.message || "Could not send OTP");
+      setOtpError(error.response?.data?.message || "Could not dispatch verification OTP.");
     } finally {
       setOtpSending(false);
     }
   };
 
   const confirmRemovalWithOtp = async () => {
-    if (!otpModal || !otpValue) return;
+    if (!otpMember || !otpValue.trim()) {
+      setOtpError("Enter the 6-digit confirmation OTP.");
+      return;
+    }
     setOtpSending(true);
     setOtpError("");
     try {
-      await axios.delete(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${otpModal.member._id}`, { data: { otp: otpValue }, withCredentials: true });
-      setOtpModal(null);
-      setMessage("Staff member removed successfully");
+      await axios.delete(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff/${otpMember._id}`, { data: { otp: otpValue.trim() }, withCredentials: true });
+      setOpenModal("");
+      setOtpMember(null);
+      showSuccess("Staff member removed successfully.");
       await loadPortal();
     } catch (error) {
-      setOtpError(error.response?.data?.message || "Invalid OTP. Please try again.");
+      setOtpError(error.response?.data?.message || "Invalid or expired OTP. Please try again.");
     } finally {
       setOtpSending(false);
     }
   };
 
   const grantAdminAccess = async (member) => {
-    setMessage("");
-    if (!window.confirm(`Grant HOSPITAL_ADMIN access to ${member.name}? They will have full admin privileges.`)) return;
+    if (!window.confirm(`Grant HOSPITAL_ADMIN privileges to ${member.name}? They will have full administrative access.`)) return;
     try {
       await axios.post(
         `${BACKEND_URL}/api/hospitals/${hospitalId}/staff/invite`,
         { email: member.email, name: member.name, role: "HOSPITAL_ADMIN" },
-        { withCredentials: true }
+        { withCredentials: true },
       );
-      setMessage(`Admin access invite sent to ${member.name}`);
+      showSuccess(`Hospital admin access granted to ${member.name}.`);
       await loadPortal();
     } catch (error) {
-      setMessage(error.response?.data?.message || "Could not grant admin access");
+      showError(error.response?.data?.message || "Could not grant admin access.");
     }
   };
 
   const saveBranding = async (event) => {
     event.preventDefault();
+    setSavingBranding(true);
     setMessage("");
     try {
       const response = await axios.patch(
@@ -305,465 +322,703 @@ const HospitalAdminDashboard = () => {
         { withCredentials: true },
       );
       setHospital(response.data.hospital);
-      setMessage("Hospital website branding updated");
+      showSuccess("Hospital branding and website appearance updated.");
       await loadPortal();
     } catch (error) {
-      setMessage(error.response?.data?.message || "Could not update branding");
+      showError(error.response?.data?.message || "Could not update hospital branding.");
+    } finally {
+      setSavingBranding(false);
     }
   };
 
   const changePassword = async (event) => {
     event.preventDefault();
-    setPasswordMessage("");
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      showError("Current and new passwords are required.");
+      return;
+    }
+    setPasswordLoading(true);
+    setMessage("");
     try {
-      const response = await axios.patch(`${BACKEND_URL}/api/auth/staff/password`, passwordForm, { withCredentials: true });
-      setPasswordMessage(response.data.message || "Password changed successfully");
+      await axios.patch(`${BACKEND_URL}/api/auth/staff/password`, passwordForm, { withCredentials: true });
       setPasswordForm({ currentPassword: "", newPassword: "" });
+      setOpenModal("");
       clearSessionState();
       clearLocalSession();
       navigate("/hospital/login");
     } catch (error) {
-      setPasswordMessage(error.response?.data?.message || "Could not change password");
+      showError(error.response?.data?.message || "Could not change password.");
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
-  if (!hospitalId) {
+  const filteredStaff = useMemo(() => {
+    if (staffRoleFilter === "ALL") return staff;
+    return staff.filter((member) => member.role === staffRoleFilter);
+  }, [staff, staffRoleFilter]);
+
+  const brandPalette = useMemo(() => hospitalPalette(brandingForm.primaryColor), [brandingForm.primaryColor]);
+
+  if (loader) {
     return (
-      <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-10">
-        <div className="mx-auto max-w-xl rounded-xl bg-white dark:bg-slate-950 p-6 text-center shadow-sm">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100">Hospital portal not found</h1>
-          <p className="mt-2 text-gray-600">Create a hospital admin account first.</p>
-        </div>
+      <main className="mp-page">
+        <LoadingState>Loading hospital administrator workspace...</LoadingState>
+      </main>
+    );
+  }
+
+  if (!hospitalId || !isStaffAuth) {
+    return (
+      <main className="mp-page">
+        <Card>
+          <EmptyState
+            title="Hospital Admin workspace unavailable"
+            action={
+              <Button to="/hospital/login">
+                Sign in as Hospital Admin <ArrowRight size={16} />
+              </Button>
+            }
+          >
+            Access requires an authorized hospital administrative account.
+          </EmptyState>
+        </Card>
       </main>
     );
   }
 
   const tabs = [
-    ["overview", "Dashboard", LayoutDashboard],
+    ["overview", "Overview", LayoutDashboard],
     ["departments", "Departments", ClipboardList],
-    ["staff", "Staff", Users],
-    ["forecast", "Forecast", TrendingUp],
-    ["website", "Website", Globe2],
+    ["staff", "Staff & Invites", Users],
+    ["website", "Website & Branding", Globe2],
+    ["forecast", "Demand Forecasting", TrendingUp],
+    ["security", "Security & Settings", Shield],
   ];
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 lg:flex-row">
-        <aside className="lg:sticky lg:top-24 lg:h-fit lg:w-64">
-          <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-3 shadow-sm">
-            <div className="p-3">
-              <p className="text-xs font-semibold uppercase text-red-600 dark:text-red-500">Hospital Admin</p>
-              <h1 className="mt-1 text-xl font-black text-slate-950">{hospital.name}</h1>
-              <p className="mt-1 text-sm text-slate-500">{hospital.address?.city || "City"}, {hospital.address?.state || "State"}</p>
-            </div>
-            <div className="mt-2 grid gap-1">
-              {tabs.map(([key, label, Icon]) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key)}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold ${activeTab === key ? "bg-red-600 dark:bg-red-700 text-white" : "text-slate-700 hover:bg-slate-100"}`}>
-                  <Icon size={17} />
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="mt-4 border-t border-slate-100 pt-4">
-              {[
-                ["/hospital/nursing-station", "Nursing Station", ClipboardList],
-                ["/hospital/doctor-opd", "OPD Console", Stethoscope],
-                ["/hospital/staff-communication", "Staff Chat", MessageSquare],
-              ].map(([to, label, Icon]) => (
-                <Link key={to} to={to} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-red-50">
-                  <Icon size={16} />
-                  {label}
-                  <ExternalLink className="ml-auto" size={14} />
-                </Link>
-              ))}
-            </div>
+    <main className="mp-page mp-admin-page">
+      {/* Header */}
+      <div className="mp-admin-header">
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <p className="mp-eyebrow" style={{ margin: 0 }}>Hospital Administration</p>
+            <StatusBadge tone={hospital?.status === "active" ? "positive" : "warning"}>
+              {hospital?.status === "active" ? "Operational" : "Verification Pending"}
+            </StatusBadge>
           </div>
-        </aside>
-
-        <section className="min-w-0 flex-1 space-y-6">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white dark:bg-slate-950 shadow-sm">
-            <div className="relative h-64">
-              {slides.map((src, index) => (
-                <img
-                  key={src}
-                  src={src}
-                  alt={`${hospital.name} slide ${index + 1}`}
-                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${slide === index ? "opacity-100" : "opacity-0"}`}
-                />
-              ))}
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/35 to-transparent" />
-              <div className="absolute inset-0 flex flex-col justify-end p-6 text-white">
-                <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${hospital.status === "active" ? "bg-green-500" : "bg-amber-500"}`}>
-                  {hospital.status === "active" ? "Workspace approved" : "Verification pending"}
-                </span>
-                <h2 className="mt-3 text-3xl font-black md:text-4xl">{hospital.name}</h2>
-                <p className="mt-2 max-w-2xl text-white/80">{hospital.branding?.tagline || "Smart hospital workspace for OPD, staff, doctors, and public patient access."}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button onClick={loadPortal} className="rounded-lg bg-white dark:bg-slate-950 px-4 py-2 text-sm font-bold text-slate-950">Refresh portal</button>
-                  {websiteUrl && <Link reloadDocument to={`${["localhost", "127.0.0.1"].includes(window.location.hostname) ? "" : "https://" + (import.meta.env.VITE_BASE_DOMAIN || "medipulse.live")}${websiteUrl}`} className="rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Open hospital website</Link>}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {message && <p className="rounded-xl border border-blue-100 bg-red-50 p-3 text-sm font-medium text-blue-700">{message}</p>}
-
-          {activeTab === "overview" && (
-            <>
-              <section className="grid gap-4 md:grid-cols-4">
-                {[
-                  ["Tokens Today", analytics?.today?.tokensIssued || 0, ClipboardList],
-                  ["Completed", analytics?.today?.completed || 0, Stethoscope],
-                  ["No Shows", analytics?.today?.noShows || 0, Users],
-                  ["Revenue", currency(analytics?.today?.revenue), Building2],
-                ].map(([label, value, Icon]) => (
-                  <div key={label} className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
-                    <Icon className="text-red-600 dark:text-red-500" size={22} />
-                    <p className="mt-3 text-sm text-slate-500">{label}</p>
-                    <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
-                  </div>
-                ))}
-              </section>
-
-              <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
-                  <h2 className="text-lg font-black text-slate-950">Today's Top Doctors</h2>
-                  <div className="mt-4 divide-y divide-slate-100">
-                    {(analytics?.topDoctors || []).map((doctor) => (
-                      <div key={doctor.name} className="grid grid-cols-[1fr_auto_auto] gap-3 py-3 text-sm">
-                        <span className="font-semibold text-slate-900 dark:text-slate-100">{doctor.name}</span>
-                        <span className="text-slate-500">{doctor.patientsToday} patients</span>
-                        <span className="font-semibold text-amber-600">{Number(doctor.rating || 0).toFixed(1)}</span>
-                      </div>
-                    ))}
-                    {!analytics?.topDoctors?.length && <p className="py-6 text-sm text-slate-500">Doctor performance appears after OPD tokens are completed.</p>}
-                  </div>
-                </div>
-                <Link reloadDocument to={`${["localhost", "127.0.0.1"].includes(window.location.hostname) ? "" : "https://" + (import.meta.env.VITE_BASE_DOMAIN || "medipulse.live")}${websiteUrl || "/hospitals"}`} className="rounded-2xl border border-blue-100 bg-red-600 dark:bg-red-700 p-6 text-white shadow-sm">
-                  <Globe2 size={30} />
-                  <h2 className="mt-4 text-2xl font-black">Public Hospital Website</h2>
-                  <p className="mt-2 text-sm text-red-50">Patients can browse departments, doctors, reviews, and OPD status from here.</p>
-                  <span className="mt-6 inline-flex rounded-lg bg-white dark:bg-slate-950 px-4 py-2 text-sm font-bold text-blue-700">Open website</span>
-                </Link>
-              </section>
-            </>
+          <h1 style={{ fontSize: "2rem", margin: "6px 0 4px", fontWeight: 800 }}>{hospital?.name || "Hospital Workspace"}</h1>
+          <p style={{ color: "var(--mp-muted)", margin: 0 }}>
+            {hospital?.address?.city ? `${hospital.address.city}, ${hospital.address.state || ""}` : "Hospital Operating Headquarters"}
+            {hospital?.slug && (
+              <>
+                {" · "}
+                <a
+                  href={`/hospitals/${hospital.slug}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "var(--mp-accent-ink)", fontWeight: 650, display: "inline-flex", alignItems: "center", gap: 4 }}
+                >
+                  View Public Website <ExternalLink size={13} />
+                </a>
+              </>
+            )}
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Button variant="secondary" onClick={loadPortal}>
+            <RefreshCcw size={15} /> Refresh Data
+          </Button>
+          {hospital?.slug && (
+            <Button to={`/hospitals/${hospital.slug}`} variant="secondary">
+              <Globe2 size={15} /> Patient Portal
+            </Button>
           )}
-
-          {activeTab === "departments" && (
-            <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-black text-slate-950">Departments</h2>
-                  <p className="mt-1 text-sm text-slate-500">Manage public OPD departments and patient fees.</p>
-                </div>
-                <button onClick={() => setOpenPanel("department")} className="inline-flex items-center gap-2 rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
-                  <Plus size={16} />
-                  Add Department
-                </button>
-              </div>
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {departments.map((item) => {
-                  const stats = departmentStats.get(String(item._id));
-                  return (
-                    <div key={item._id} className="rounded-2xl border border-slate-200 p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-lg font-black text-slate-950">{item.name}</h3>
-                          <p className="mt-2 text-sm text-slate-500">{item.description || "OPD consultation available."}</p>
-                        </div>
-                        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">{item.status || "active"}</span>
-                      </div>
-                      <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <p className="text-slate-500">OPD Fee</p>
-                          <p className="mt-1 font-black text-slate-950">{currency(item.opd?.consultationFee)}</p>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 p-3">
-                          <p className="text-slate-500">Tokens Today</p>
-                          <p className="mt-1 font-black text-slate-950">{stats?.patients || 0}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {!departments.length && (
-                  <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
-                    No departments yet. Add your first department to start accepting OPD patients.
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {activeTab === "staff" && (
-            <section className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-black text-slate-950">Staff</h2>
-                  <p className="mt-1 text-sm text-slate-500">Invite doctors, nurses, reception, lab, and department teams.</p>
-                </div>
-                <button onClick={() => setOpenPanel("staff")} className="inline-flex items-center gap-2 rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
-                  <Plus size={16} />
-                  Invite Staff
-                </button>
-              </div>
-              <div className="mt-6 space-y-6">
-                {!!staff.filter((member) => member.inviteStatus === "pending").length && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                    <h3 className="font-black text-amber-950">Pending invites</h3>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      {staff.filter((member) => member.inviteStatus === "pending").map((member) => (
-                        <div key={member._id} className="flex items-center justify-between gap-3 rounded-xl bg-white dark:bg-slate-950 p-3">
-                          <div className="min-w-0">
-                            <p className="truncate font-bold text-slate-950">{member.email}</p>
-                            <p className="text-xs text-slate-500">{member.role.replace(/_/g, " ")}</p>
-                          </div>
-                          <button onClick={() => resendInvite(member._id)} className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-bold text-amber-700">Resend</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {roles.map((roleName) => (
-                  <div key={roleName}>
-                    <h3 className="text-sm font-black uppercase tracking-wide text-slate-500">{roleName.replace(/_/g, " ")}</h3>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      {(staffByRole[roleName] || []).map((member) => (
-                        <div key={member._id} className="rounded-2xl border border-slate-200 p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 font-black text-blue-700">
-                              {member.profilePhoto ? <img src={member.profilePhoto} alt={member.name} className="h-full w-full object-cover" /> : member.name?.slice(0, 2)}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-black text-slate-950">{member.name}</p>
-                                <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${statusBadge(member.inviteStatus)}`}>{member.inviteStatus}</span>
-                              </div>
-                              <p className="truncate text-sm text-slate-500">{member.email}</p>
-                              {member.role === "DOCTOR" && (
-                                <p className="mt-1 text-sm text-slate-600">{member.doctorProfile?.specialization || "General Medicine"}</p>
-                              )}
-                              {member.doctorId && (
-                                <Link to={`/doctorsProfile/${member.doctorId}`} className="mt-2 inline-block text-xs font-bold text-red-600 dark:text-red-500">
-                                  View on platform
-                                </Link>
-                              )}
-                              {member.inviteStatus === "accepted" && member._id !== (saved?.staff?._id || saved?.staff?.id) && (
-                                <div className="mt-2 flex gap-3">
-                                  <button onClick={() => removeStaff(member)} className="text-xs font-bold text-red-600 hover:underline">
-                                    Remove (OTP)
-                                  </button>
-                                  {member.role !== "HOSPITAL_ADMIN" && (
-                                    <button onClick={() => grantAdminAccess(member)} className="text-xs font-bold text-red-600 dark:text-red-500 hover:underline">
-                                      Grant Admin
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      {!staffByRole[roleName]?.length && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No {roleName.replace(/_/g, " ").toLowerCase()} added yet.</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {activeTab === "forecast" && (
-            <section className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
-                <div>
-                  <h2 className="text-xl font-black text-slate-950">AI Capacity Planning Draft</h2>
-                  <p className="text-sm text-slate-600">Unvalidated AI draft using OPD volume only. Review admissions, occupancy and inventory before use.</p>
-                  <p className="mt-1 text-sm text-slate-500">Monthly bed and blood demand estimates based on OPD history, emergency signals, and department type.</p>
-                </div>
-                <button onClick={regenerateForecasts} disabled={forecastLoading} className="rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:bg-slate-400">
-                  {forecastLoading ? "Refreshing..." : "Refresh forecast"}
-                </button>
-              </div>
-
-              <div className="grid gap-6 xl:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
-                  <h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><TrendingUp size={20} className="text-red-600 dark:text-red-500" /> Bed Demand</h3>
-                  <div className="mt-4 space-y-3">
-                    {(forecasts.beds?.forecasts || []).map((item) => (
-                      <div key={`${item.departmentId?._id || item.departmentId}-${item.bedType}`} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-black text-slate-950">{item.departmentId?.name || "Department"} · {item.bedType}</p>
-                            <p className="mt-1 text-sm text-slate-500">{item.explanation}</p>
-                          </div>
-                          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-blue-700">{item.confidence}</span>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                          <div className="rounded-lg bg-white dark:bg-slate-950 p-3"><p className="text-slate-500">Predicted</p><p className="font-black">{item.predictedDemand} beds</p></div>
-                          <div className="rounded-lg bg-white dark:bg-slate-950 p-3"><p className="text-slate-500">Reserve</p><p className="font-black">{item.recommendedReserve} beds</p></div>
-                        </div>
-                      </div>
-                    ))}
-                    {!forecasts.beds?.forecasts?.length && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">Add departments and OPD visits to request a planning draft.</p>}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
-                  <h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><Droplets size={20} className="text-red-500" /> Blood Bank Demand</h3>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {(forecasts.blood?.forecasts || []).map((item) => (
-                      <div key={item.bloodGroup} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xl font-black text-slate-950">{item.bloodGroup}</p>
-                          <span className={`rounded-full px-2 py-1 text-xs font-bold ${item.shortageRisk === "high" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                            {item.shortageRisk} risk
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm text-slate-500">{item.predictedUnits} units predicted · reserve {item.recommendedReserve}</p>
-                        <p className="mt-2 text-xs text-slate-500">{item.explanation}</p>
-                      </div>
-                    ))}
-                    {!forecasts.blood?.forecasts?.length && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500 sm:col-span-2">Blood demand appears after forecast generation.</p>}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {activeTab === "website" && (
-            <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
-                <Globe2 className="text-red-600 dark:text-red-500" size={28} />
-                <h2 className="mt-4 text-xl font-black text-slate-950">Hospital Website</h2>
-                <p className="mt-2 text-sm text-slate-500">Your public path-based website works without wildcard DNS.</p>
-                {websiteUrl && (
-                  <Link reloadDocument to={`${["localhost", "127.0.0.1"].includes(window.location.hostname) ? "" : "https://" + (import.meta.env.VITE_BASE_DOMAIN || "medipulse.live")}${websiteUrl}`} className="mt-5 flex items-center justify-between rounded-xl border border-blue-100 bg-red-50 p-4 text-sm font-bold text-blue-700">
-                    medipulse.live{websiteUrl}
-                    <ExternalLink size={16} />
-                  </Link>
-                )}
-                <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-                  Subdomain option: {hospital.slug}.medipulse.live requires DNS setup.
-                </p>
-                <form onSubmit={changePassword} className="mt-6 border-t border-slate-100 pt-6">
-                  <h3 className="flex items-center gap-2 font-black text-slate-950"><Lock size={17} /> Change Admin Password</h3>
-                  <input value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} type="password" required placeholder="Current password" className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                  <input value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} type="password" required minLength={8} placeholder="New password" className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                  <button className="mt-3 rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Update password</button>
-                  {passwordMessage && <p className="mt-3 text-sm text-blue-700">{passwordMessage}</p>}
-                </form>
-              </div>
-              <form onSubmit={saveBranding} className="rounded-2xl border border-slate-200 bg-white dark:bg-slate-950 p-6 shadow-sm">
-                <h2 className="flex items-center gap-2 text-xl font-black text-slate-950"><Palette size={20} className="text-red-600 dark:text-red-500" /> Branding</h2>
-                <div className="mt-5 grid gap-4">
-                  <input value={brandingForm.tagline} onChange={(e) => setBrandingForm({ ...brandingForm, tagline: e.target.value })} placeholder="Tagline" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                  <textarea value={brandingForm.about} onChange={(e) => setBrandingForm({ ...brandingForm, about: e.target.value })} placeholder="About hospital" className="min-h-24 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                  <div className="grid gap-4 sm:grid-cols-[120px_1fr]">
-                    <input value={brandingForm.primaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })} type="color" className="h-11 w-full rounded-lg border border-slate-300 p-1" />
-                    <input value={brandingForm.logo} onChange={(e) => setBrandingForm({ ...brandingForm, logo: e.target.value })} placeholder="Logo URL" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                  </div>
-                  <input value={brandingForm.coverImage} onChange={(e) => setBrandingForm({ ...brandingForm, coverImage: e.target.value })} placeholder="Cover image URL" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                </div>
-                <button className="mt-5 rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Save website branding</button>
-              </form>
-            </section>
-          )}
-        </section>
+        </div>
       </div>
 
-      {/* OTP Removal Modal */}
-      {otpModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-950 p-6 shadow-2xl">
-            <h2 className="text-xl font-black text-slate-950">Remove Staff Member</h2>
-            <p className="mt-2 text-sm text-slate-600">You are about to remove <strong>{otpModal.member.name}</strong> ({otpModal.member.role.replace(/_/g, " ")}) from the hospital.</p>
-            {otpError && <p className="mt-3 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{otpError}</p>}
-            {!otpSent ? (
-              <div className="mt-5 flex gap-3">
-                <button
-                  onClick={sendRemovalOtp}
-                  disabled={otpSending}
-                  className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-400"
-                >
-                  {otpSending ? "Sending OTP..." : "Send OTP to My Email"}
-                </button>
-                <button onClick={() => setOtpModal(null)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700">
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div className="mt-5 space-y-4">
-                <p className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-800">OTP sent to your admin email. Enter it below to confirm removal.</p>
-                <input
-                  value={otpValue}
-                  onChange={(e) => setOtpValue(e.target.value)}
-                  maxLength={6}
-                  placeholder="Enter 6-digit OTP"
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-2xl font-bold tracking-widest outline-none focus:border-red-500"
-                />
-                <div className="flex gap-3">
-                  <button
-                    onClick={confirmRemovalWithOtp}
-                    disabled={otpSending || otpValue.length !== 6}
-                    className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-400"
-                  >
-                    {otpSending ? "Removing..." : "Confirm Removal"}
-                  </button>
-                  <button onClick={() => setOtpModal(null)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
+      {message && <Banner tone={messageTone}>{message}</Banner>}
+
+      {/* Quick operational navigation */}
+      <Card aria-label="Operational tools">
+        <p className="mp-field-hint" style={{ fontWeight: 700, marginBottom: 12 }}>OPERATIONAL WORKSPACES</p>
+        <div className="mp-admin-quick-links">
+          <Link to="/hospital/nursing-station" className="mp-admin-quick-link">
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <ClipboardList size={18} /> Nursing & Reception Station
+            </span>
+            <ArrowRight size={16} />
+          </Link>
+          <Link to="/hospital/doctor-opd" className="mp-admin-quick-link">
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Stethoscope size={18} /> Doctor OPD Console
+            </span>
+            <ArrowRight size={16} />
+          </Link>
+          <Link to="/hospital/staff-communication" className="mp-admin-quick-link">
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <MessageSquare size={18} /> Internal Staff Communication
+            </span>
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+      </Card>
+
+      {/* Navigation tabs */}
+      <nav className="mp-admin-nav-tabs" aria-label="Dashboard sections">
+        {tabs.map(([key, label, Icon]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === key}
+            onClick={() => {
+              setActiveTab(key);
+              setMessage("");
+            }}
+            className="mp-admin-tab-btn"
+          >
+            <Icon size={17} />
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Overview Tab */}
+      {activeTab === "overview" && (
+        <div className="mp-stack">
+          <div className="mp-admin-metrics-grid">
+            <div className="mp-admin-metric-card">
+              <span>Total OPD Bookings</span>
+              <strong>{analytics?.totalBookings ?? "—"}</strong>
+            </div>
+            <div className="mp-admin-metric-card">
+              <span>Completed Consultations</span>
+              <strong>{analytics?.completedVisits ?? "—"}</strong>
+            </div>
+            <div className="mp-admin-metric-card">
+              <span>Active Care Staff</span>
+              <strong>{staff.length}</strong>
+            </div>
+            <div className="mp-admin-metric-card">
+              <span>Active Departments</span>
+              <strong>{departments.length}</strong>
+            </div>
+            <div className="mp-admin-metric-card">
+              <span>Patient Satisfaction</span>
+              <strong>{analytics?.avgRating ? `${Number(analytics.avgRating).toFixed(1)} / 5` : "5.0 / 5"}</strong>
+            </div>
+            <div className="mp-admin-metric-card">
+              <span>Demo OPD Volume</span>
+              <strong>{analytics?.revenue ? formatCurrency(analytics.revenue) : "Active"}</strong>
+            </div>
           </div>
+
+          <Card>
+            <div className="mp-card-heading">
+              <h2>Department Overview & Volume</h2>
+              <Button size="small" onClick={() => setOpenModal("department")}>
+                <Plus size={15} /> Add Department
+              </Button>
+            </div>
+            {!departments.length ? (
+              <EmptyState title="No departments configured yet." action={<Button size="small" onClick={() => setOpenModal("department")}>Add your first department</Button>}>
+                Configure hospital departments to organize doctor sessions and patient OPD queues.
+              </EmptyState>
+            ) : (
+              <DataTable
+                caption="Hospital departments"
+                rows={departments}
+                columns={[
+                  { key: "code", label: "Code", render: (d) => <strong>{d.code}</strong> },
+                  { key: "name", label: "Department Name" },
+                  {
+                    key: "fee",
+                    label: "Consultation Fee",
+                    render: (d) => (d.opd?.consultationFee ? `${d.opd.consultationFee} demo credits` : "Standard"),
+                  },
+                  {
+                    key: "doctors",
+                    label: "Associated Doctors",
+                    render: (d) => doctors.filter((doc) => doc.departmentIds?.some((id) => String(id) === String(d._id))).length,
+                  },
+                  {
+                    key: "status",
+                    label: "Status",
+                    render: (d) => <StatusBadge tone={d.status === "active" ? "positive" : "neutral"}>{d.status || "active"}</StatusBadge>,
+                  },
+                ]}
+              />
+            )}
+          </Card>
         </div>
       )}
 
-      {openPanel && (
-        <div className="fixed inset-0 z-[60] bg-slate-950/40">
-          <div className="ml-auto h-full w-full max-w-xl overflow-y-auto bg-white dark:bg-slate-950 p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black text-slate-950">{openPanel === "department" ? "Add Department" : "Invite Staff"}</h2>
-              <button onClick={() => setOpenPanel("")} className="rounded-full p-2 hover:bg-slate-100"><X size={20} /></button>
+      {/* Departments Tab */}
+      {activeTab === "departments" && (
+        <Card>
+          <div className="mp-card-heading">
+            <div>
+              <h2>Department Catalog</h2>
+              <p className="mp-field-hint" style={{ margin: 0 }}>Manage clinical departments, codes, and OPD fee structures.</p>
+            </div>
+            <Button onClick={() => setOpenModal("department")}>
+              <Plus size={16} /> Add Department
+            </Button>
+          </div>
+          {!departments.length ? (
+            <EmptyState title="No departments created yet." action={<Button onClick={() => setOpenModal("department")}>Add Department</Button>}>
+              Add clinical departments such as General Medicine, Cardiology, or Pediatrics.
+            </EmptyState>
+          ) : (
+            <DataTable
+              caption="Clinical departments"
+              rows={departments}
+              columns={[
+                { key: "code", label: "Code", render: (d) => <code>{d.code}</code> },
+                { key: "name", label: "Name", render: (d) => <strong>{d.name}</strong> },
+                { key: "description", label: "Description", render: (d) => d.description || "—" },
+                {
+                  key: "opdFee",
+                  label: "OPD Consultation Fee",
+                  render: (d) => (d.opd?.consultationFee ? `${d.opd.consultationFee} demo credits` : "Standard"),
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  render: (d) => <StatusBadge tone="positive">{d.status || "Active"}</StatusBadge>,
+                },
+              ]}
+            />
+          )}
+        </Card>
+      )}
+
+      {/* Staff Tab */}
+      {activeTab === "staff" && (
+        <Card>
+          <div className="mp-admin-header" style={{ marginBottom: 16 }}>
+            <div>
+              <h2>Hospital Staff Directory & Invites</h2>
+              <p className="mp-field-hint" style={{ margin: 0 }}>Authorize doctors, nurses, receptionists, and administrative personnel.</p>
+            </div>
+            <Button onClick={() => setOpenModal("invite")}>
+              <Plus size={16} /> Invite Staff Member
+            </Button>
+          </div>
+
+          <div style={{ marginBottom: 16, display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+            {["ALL", ...roles].map((role) => (
+              <Button
+                key={role}
+                size="small"
+                variant={staffRoleFilter === role ? "primary" : "secondary"}
+                onClick={() => setStaffRoleFilter(role)}
+              >
+                {role === "ALL" ? "All Roles" : role.replace("_", " ")}
+              </Button>
+            ))}
+          </div>
+
+          {!filteredStaff.length ? (
+            <EmptyState title="No staff members found for this filter." action={<Button size="small" onClick={() => setOpenModal("invite")}>Send an invite</Button>} />
+          ) : (
+            <DataTable
+              caption="Authorized hospital personnel"
+              rows={filteredStaff}
+              columns={[
+                {
+                  key: "name",
+                  label: "Staff Name",
+                  render: (m) => (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span className="mp-avatar" aria-hidden="true" style={{ width: 32, height: 32, fontSize: "0.75rem" }}>
+                        {m.name?.slice(0, 2).toUpperCase() || "ST"}
+                      </span>
+                      <div>
+                        <strong>{m.name}</strong>
+                        <p className="mp-field-hint" style={{ margin: 0 }}>{m.email}</p>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  key: "role",
+                  label: "Operational Role",
+                  render: (m) => <StatusBadge tone="info">{m.role?.replace("_", " ")}</StatusBadge>,
+                },
+                {
+                  key: "status",
+                  label: "Invite Status",
+                  render: (m) => (
+                    <StatusBadge tone={m.inviteStatus === "accepted" ? "positive" : m.inviteStatus === "expired" ? "danger" : "warning"}>
+                      {m.inviteStatus || "accepted"}
+                    </StatusBadge>
+                  ),
+                },
+                {
+                  key: "actions",
+                  label: "Actions",
+                  render: (m) => (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {m.inviteStatus === "pending" && (
+                        <Button size="small" variant="secondary" onClick={() => resendInvite(m._id)}>
+                          Resend
+                        </Button>
+                      )}
+                      {m.role !== "HOSPITAL_ADMIN" && (
+                        <Button size="small" variant="secondary" onClick={() => grantAdminAccess(m)}>
+                          Grant Admin
+                        </Button>
+                      )}
+                      <Button size="small" variant="danger" onClick={() => openRemovalModal(m)}>
+                        Remove
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          )}
+        </Card>
+      )}
+
+      {/* Website & Branding Tab */}
+      {activeTab === "website" && (
+        <Card as="form" onSubmit={saveBranding} noValidate>
+          <div className="mp-card-heading">
+            <div>
+              <h2>Hospital Website & Brand Customization</h2>
+              <p className="mp-field-hint" style={{ margin: 0 }}>Customize public appearance, color palette, logo, and hospital story.</p>
+            </div>
+            <Button type="submit" disabled={savingBranding}>
+              {savingBranding ? "Saving..." : "Save Branding"}
+            </Button>
+          </div>
+
+          <div className="mp-form-grid">
+            <Field
+              label="Hospital Tagline"
+              placeholder="e.g. Compassionate care with modern clinical precision"
+              value={brandingForm.tagline}
+              onChange={(e) => setBrandingForm({ ...brandingForm, tagline: e.target.value })}
+              hint="Displayed in hero section on public hospital portal"
+            />
+
+            <Field
+              as="textarea"
+              label="About the Hospital"
+              placeholder="Describe your hospital facilities, values, and clinical excellence..."
+              value={brandingForm.about}
+              onChange={(e) => setBrandingForm({ ...brandingForm, about: e.target.value })}
+            />
+
+            <div className="mp-form-row">
+              <Field
+                label="Primary Brand Color (Hex)"
+                type="text"
+                placeholder="#115e59"
+                value={brandingForm.primaryColor}
+                onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
+                hint="Used for buttons, badges, and primary accents across patient portal"
+              />
+              <Field
+                label="Hospital Logo URL"
+                placeholder="https://example.com/logo.png"
+                value={brandingForm.logo}
+                onChange={(e) => setBrandingForm({ ...brandingForm, logo: e.target.value })}
+              />
             </div>
 
-            {openPanel === "department" ? (
-              <form onSubmit={addDepartment} className="mt-6 grid gap-4">
-                <input value={department.name} onChange={(e) => setDepartment({ ...department, name: e.target.value })} required placeholder="Department name" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                <input value={department.code} onChange={(e) => setDepartment({ ...department, code: e.target.value.toUpperCase() })} placeholder="Code" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                <input value={department.consultationFee} onChange={(e) => setDepartment({ ...department, consultationFee: e.target.value })} required type="number" placeholder="Consultation fee" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                <textarea value={department.description} onChange={(e) => setDepartment({ ...department, description: e.target.value })} placeholder="Description" className="min-h-24 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                <button className="rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">Add Department</button>
-              </form>
-            ) : (
-              <form onSubmit={inviteStaff} className="mt-6 grid gap-4">
-                <input value={invite.name} onChange={(e) => setInvite({ ...invite, name: e.target.value })} placeholder="Staff name (optional)" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                <input value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} required type="email" placeholder="staff@hospital.com" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                <input value={invite.profilePhoto} onChange={(e) => setInvite({ ...invite, profilePhoto: e.target.value })} type="url" placeholder="Profile photo URL" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500">
-                  {roles.map((role) => <option key={role} value={role}>{role}</option>)}
-                </select>
-                {invite.role === "DOCTOR" && (
-                  <>
-                    <input value={invite.specialization} onChange={(e) => setInvite({ ...invite, specialization: e.target.value })} placeholder="Specialization" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                    <input value={invite.qualification} onChange={(e) => setInvite({ ...invite, qualification: e.target.value })} placeholder="Qualification" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                    <input value={invite.experience} onChange={(e) => setInvite({ ...invite, experience: e.target.value })} type="number" placeholder="Experience years" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                    <input value={invite.consultationFee} onChange={(e) => setInvite({ ...invite, consultationFee: e.target.value })} type="number" placeholder="Consultation fee" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                    <textarea value={invite.bio} onChange={(e) => setInvite({ ...invite, bio: e.target.value })} placeholder="Doctor bio" className="min-h-24 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500" />
-                  </>
-                )}
-                <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
-                  <Send size={16} />
-                  Send Invite
-                </button>
-              </form>
-            )}
+            <Field
+              label="Cover Hero Image URL"
+              placeholder="https://example.com/hero-banner.jpg"
+              value={brandingForm.coverImage}
+              onChange={(e) => setBrandingForm({ ...brandingForm, coverImage: e.target.value })}
+            />
+
+            {/* Brand Color Preview */}
+            <div className="mp-admin-color-preview">
+              <div className="mp-admin-color-swatch" style={{ backgroundColor: brandPalette.accent }} />
+              <div>
+                <strong>Brand Palette Preview</strong>
+                <p className="mp-field-hint" style={{ margin: "2px 0 0" }}>
+                  Primary Accent: <code>{brandPalette.accent}</code> · Accessible Text: <code>{brandPalette.onAccent}</code>
+                </p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <Button type="submit" disabled={savingBranding}>
+                {savingBranding ? "Saving..." : "Save Website Branding"}
+              </Button>
+            </div>
           </div>
+        </Card>
+      )}
+
+      {/* Demand Forecast Tab */}
+      {activeTab === "forecast" && (
+        <div className="mp-stack">
+          <Card>
+            <div className="mp-card-heading">
+              <div>
+                <h2>AI Clinical Demand Forecasts</h2>
+                <p className="mp-field-hint" style={{ margin: 0 }}>
+                  Predictive planning drafts for inpatient bed occupancy and blood bank reserves.
+                </p>
+              </div>
+              <Button variant="secondary" onClick={regenerateForecasts} disabled={forecastLoading}>
+                <RefreshCcw size={16} className={forecastLoading ? "mp-spin" : ""} />
+                {forecastLoading ? "Generating draft..." : "Regenerate Forecast"}
+              </Button>
+            </div>
+            <Banner tone="info">
+              AI planning drafts are experimental operational forecasts. Unreviewed planning drafts are not validated clinical predictions or regulatory statements.
+            </Banner>
+
+            <div className="mp-admin-forecast-grid" style={{ marginTop: 20 }}>
+              {/* Bed Demand Forecast */}
+              <div className="mp-card" style={{ padding: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <Bed size={22} style={{ color: "var(--mp-accent-ink)" }} />
+                  <h3 style={{ margin: 0 }}>Inpatient Bed Demand</h3>
+                </div>
+                {forecasts.beds ? (
+                  <dl className="mp-details">
+                    <div>
+                      <dt>Projected Admissions</dt>
+                      <dd>{forecasts.beds.projectedAdmissions ?? "Calculating"}</dd>
+                    </div>
+                    <div>
+                      <dt>Occupancy Rate</dt>
+                      <dd>{forecasts.beds.projectedOccupancy ? `${Math.round(forecasts.beds.projectedOccupancy * 100)}%` : "Normal"}</dd>
+                    </div>
+                    <div>
+                      <dt>Confidence Rating</dt>
+                      <dd><StatusBadge tone="neutral">{forecasts.beds.confidence || "Draft"}</StatusBadge></dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="mp-field-hint">No bed forecast draft available. Click regenerate to create a draft.</p>
+                )}
+              </div>
+
+              {/* Blood Bank Demand Forecast */}
+              <div className="mp-card" style={{ padding: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <Droplets size={22} style={{ color: "var(--mp-accent-ink)" }} />
+                  <h3 style={{ margin: 0 }}>Blood Bank Reserves</h3>
+                </div>
+                {forecasts.blood ? (
+                  <dl className="mp-details">
+                    <div>
+                      <dt>Projected Demand</dt>
+                      <dd>{forecasts.blood.projectedUnits ?? "Normal"} units</dd>
+                    </div>
+                    <div>
+                      <dt>Critical Group Alert</dt>
+                      <dd>{forecasts.blood.criticalGroups?.join(", ") || "Adequate reserves"}</dd>
+                    </div>
+                    <div>
+                      <dt>Confidence Rating</dt>
+                      <dd><StatusBadge tone="neutral">{forecasts.blood.confidence || "Draft"}</StatusBadge></dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="mp-field-hint">No blood bank forecast draft available. Click regenerate to create a draft.</p>
+                )}
+              </div>
+            </div>
+          </Card>
         </div>
       )}
+
+      {/* Security & Settings Tab */}
+      {activeTab === "security" && (
+        <Card as="form" onSubmit={changePassword} noValidate>
+          <div className="mp-card-heading">
+            <div>
+              <h2>Administrator Password & Security</h2>
+              <p className="mp-field-hint" style={{ margin: 0 }}>Update your staff credentials and manage administrative access.</p>
+            </div>
+          </div>
+
+          <div className="mp-form-grid" style={{ maxWidth: 480 }}>
+            <Field
+              label="Current Password"
+              type="password"
+              required
+              value={passwordForm.currentPassword}
+              onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+            />
+            <Field
+              label="New Password"
+              type="password"
+              required
+              value={passwordForm.newPassword}
+              onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+              hint="Requires at least 8 characters with numbers and symbols"
+            />
+            <div style={{ marginTop: 12 }}>
+              <Button type="submit" disabled={passwordLoading}>
+                {passwordLoading ? "Updating..." : "Update Password"}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Add Department Dialog */}
+      <Dialog open={openModal === "department"} onClose={() => setOpenModal("")} title="Add Clinical Department">
+        <form onSubmit={addDepartment} noValidate>
+          <div className="mp-form-grid">
+            <Field
+              label="Department Name"
+              required
+              placeholder="e.g. Cardiology"
+              value={department.name}
+              onChange={(e) => setDepartment({ ...department, name: e.target.value })}
+            />
+            <Field
+              label="Short Code"
+              required
+              placeholder="e.g. CARD"
+              value={department.code}
+              onChange={(e) => setDepartment({ ...department, code: e.target.value })}
+            />
+            <Field
+              label="Consultation Fee (demo credits)"
+              type="number"
+              placeholder="e.g. 500"
+              value={department.consultationFee}
+              onChange={(e) => setDepartment({ ...department, consultationFee: e.target.value })}
+            />
+            <Field
+              as="textarea"
+              label="Description"
+              placeholder="Brief description of specialized clinical services provided..."
+              value={department.description}
+              onChange={(e) => setDepartment({ ...department, description: e.target.value })}
+            />
+          </div>
+          <div className="mp-actions">
+            <Button variant="secondary" onClick={() => setOpenModal("")}>Cancel</Button>
+            <Button type="submit">Create Department</Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Invite Staff Dialog */}
+      <Dialog open={openModal === "invite"} onClose={() => setOpenModal("")} title="Invite Staff Member">
+        <form onSubmit={inviteStaffMember} noValidate>
+          <div className="mp-form-grid">
+            <Field as="select" label="Operational Role" value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })}>
+              {roles.map((r) => <option key={r} value={r}>{r.replace("_", " ")}</option>)}
+            </Field>
+            <Field
+              label="Full Name"
+              required
+              placeholder="e.g. Dr. Jane Smith"
+              value={invite.name}
+              onChange={(e) => setInvite({ ...invite, name: e.target.value })}
+            />
+            <Field
+              label="Email Address"
+              type="email"
+              required
+              placeholder="staff@hospital.com"
+              value={invite.email}
+              onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+            />
+
+            {invite.role === "DOCTOR" && (
+              <>
+                <div className="mp-form-row">
+                  <Field
+                    label="Specialization"
+                    placeholder="e.g. Interventional Cardiologist"
+                    value={invite.specialization}
+                    onChange={(e) => setInvite({ ...invite, specialization: e.target.value })}
+                  />
+                  <Field
+                    label="Qualification"
+                    placeholder="e.g. MBBS, MD, DM"
+                    value={invite.qualification}
+                    onChange={(e) => setInvite({ ...invite, qualification: e.target.value })}
+                  />
+                </div>
+                <div className="mp-form-row">
+                  <Field
+                    label="Years of Experience"
+                    type="number"
+                    value={invite.experience}
+                    onChange={(e) => setInvite({ ...invite, experience: e.target.value })}
+                  />
+                  <Field
+                    label="Consultation Fee"
+                    type="number"
+                    value={invite.consultationFee}
+                    onChange={(e) => setInvite({ ...invite, consultationFee: e.target.value })}
+                  />
+                </div>
+                <Field
+                  as="textarea"
+                  label="Doctor Bio"
+                  placeholder="Professional background and clinical expertise..."
+                  value={invite.bio}
+                  onChange={(e) => setInvite({ ...invite, bio: e.target.value })}
+                />
+              </>
+            )}
+          </div>
+          <div className="mp-actions">
+            <Button variant="secondary" onClick={() => setOpenModal("")}>Cancel</Button>
+            <Button type="submit" disabled={inviting}>
+              <Send size={15} /> {inviting ? "Sending invite..." : "Send Invitation"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Staff Removal OTP Dialog */}
+      <Dialog open={openModal === "otp"} onClose={() => setOpenModal("")} title={`Remove Staff: ${otpMember?.name || ""}`}>
+        <div className="mp-stack">
+          <p>
+            Removing <strong>{otpMember?.name}</strong> ({otpMember?.role?.replace("_", " ")}) requires administrator two-step verification.
+          </p>
+          {otpError && <Banner tone="error">{otpError}</Banner>}
+
+          {!otpSent ? (
+            <div style={{ display: "grid", gap: 14 }}>
+              <p className="mp-field-hint">
+                Click below to request an authorization OTP sent to the hospital administrator email on file.
+              </p>
+              <Button onClick={sendRemovalOtp} disabled={otpSending}>
+                {otpSending ? "Sending OTP..." : "Send Verification OTP"}
+              </Button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 14 }}>
+              <Field
+                label="Enter Verification OTP"
+                placeholder="6-digit OTP"
+                value={otpValue}
+                onChange={(e) => setOtpValue(e.target.value.trim())}
+                hint="Check administrator inbox for the single-use OTP"
+              />
+              <div className="mp-actions">
+                <Button variant="secondary" onClick={() => setOpenModal("")} disabled={otpSending}>
+                  Cancel
+                </Button>
+                <Button variant="danger" onClick={confirmRemovalWithOtp} disabled={otpSending || !otpValue.trim()}>
+                  {otpSending ? "Verifying..." : "Confirm Removal"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Dialog>
     </main>
   );
 };

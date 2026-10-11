@@ -60,6 +60,15 @@ Both `/hospital/nursing-station` (with alias `/hospital/reception`) and `/hospit
 
 Staff workspaces are keyed by staff session identity; disposed reads and drafts cannot leak to another user. Clean empty states, loading indicators and error banners provide clear feedback during offline or failed requests.
 
+## Batch E — hospital administration, website editor and public hospital portal
+
+Both `/hospital/admin` (`HospitalAdminDashboard.jsx`) and `/hospitals/:slug` (`HospitalWebsite.jsx`) use shared P08 design tokens, responsive cards, verified staff/guest gates and identity-keyed session disposal.
+
+| Route / context | Coverage |
+|---|---|
+| `/hospital/admin` | Operational analytics overview (Bookings, completed visits, staff count, rating, demo volume), department management (add department with code/OPD fee), staff directory & invitations by role (`DOCTOR`, `NURSE`, `RECEPTIONIST`, `HOSPITAL_ADMIN`, etc.), resend invites, grant admin access, two-step OTP staff removal dialog, AI demand forecasting (beds & blood bank with planning draft disclaimers), website branding editor (tagline, about, logo, primary color with live accessible contrast preview), and administrator password update |
+| `/hospitals/:slug` | Public branded hospital website with sticky navigation, accreditation badge, facility carousel, department cards with live OPD token status & wait time, doctor directory with search and filter, embedded booking modal (`BookingFlow`), patient reviews with 5-star rating breakdown, and hospital contact footer |
+
 ## Remaining batches
 
 | Batch | Status | Routes / remaining scope |
@@ -68,8 +77,8 @@ Staff workspaces are keyed by staff session identity; disposed reads and drafts 
 | B | Migrated; see work log for verification | Patient routes above |
 | C | Migrated; see work log for verification | `/doctor/appointments`, `/hospital/doctor-opd`; P10 call/booking compatibility remains |
 | D | Migrated; see work log for verification | `/hospital/nursing-station`, `/hospital/reception`, `/hospital/staff-communication` |
-| E | Next | `/hospital/admin`, website/editor configuration and hospital website body; P10 booking modal is complete |
-| F | Pending | `/communities`, `/chat`, `/events`, `/events/past` |
+| E | Migrated; see work log for verification | `/hospital/admin`, website/editor configuration and hospital website body |
+| F | Next | `/communities`, `/chat`, `/events`, `/events/past` |
 | G | Pending | `/wallet/transactions`, `/wallet/refunds`, `/wallet/notifications`, `/admin/virtual-payments` |
 | H | Pending | `/about`, `/privacy`, `/terms`, `/cookiepolicy`, remaining public/utility page bodies |
 
