@@ -658,3 +658,25 @@ Migrated `/hospital/admin` (`HospitalAdminDashboard.jsx`) and `/hospitals/:slug`
 - Frontend production build: **Passed** (2319 modules, 18.39s).
 
 
+## P11 F — Communities, member chat, upcoming and past events (11 October 2026)
+
+Migrated `/communities` (`CommunityCard.jsx`), `/chat` (`Chat.jsx`), `/events` (`Events.jsx`), and `/events/past` (`PastEvents.jsx`) to P08 design tokens and components.
+
+- **Upcoming and Past Events (`Events.jsx`, `PastEvents.jsx`):**
+  - Upgraded to P08 teal surfaces, cards, status badges, banners, and empty states.
+  - Doctor-only event publication form with fields for Title, Kind (Online/In-person), Date/Time, Location/Link, Agenda/Bio, and Reminders.
+  - Filterable tabs, past event archive with historical host and date details.
+- **Communities & Member Chat (`CommunityCard.jsx`, `Chat.jsx`):**
+  - Preserved critical e2e test selectors: `"View More"`, `"Close community details"`, `"Create Community"`, `"Browse Communities"`, and `"{n} members"`.
+  - Fixed useEffect exhaustiveness in `Chat.jsx` by extracting `activeCommunityId` for fallback polling.
+  - Retained Socket.IO room lifecycle (`joinCommunity` / `leaveCommunity`), realtime message dispatch, and voice recording integration.
+
+### Executed checks
+
+- Backend unit suite: **96 passed / 0 failed / 0 skipped**.
+- Frontend unit suite: **32 passed / 0 failed / 0 skipped**.
+- Affected files lint (`CommunityCard.jsx`, `Chat.jsx`, `Events.jsx`, `PastEvents.jsx`): **0 errors / 0 warnings**.
+- Frontend production build: **Passed** (2319 modules, 20.46s).
+
+
+

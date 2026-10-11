@@ -32,7 +32,7 @@ function Chat() {
 
   useEffect(() => {
     if (!isAuth) navigate('/login')
-  }, [isAuth])
+  }, [isAuth, navigate])
 
   // ── Connect / disconnect socket on mount ──────────────────
   const socketConnected = useRef(false)
@@ -85,8 +85,10 @@ function Chat() {
   }, [user?._id])
 
   // ── Fallback polling when socket is not connected ─────────
+  const activeCommunityId = selectedCommunity !== null ? communities?.[selectedCommunity]?._id : null
+
   useEffect(() => {
-    if (selectedCommunity === null) return
+    if (!activeCommunityId) return
 
     const interval = setInterval(async () => {
       // Only poll if socket is NOT connected
@@ -94,7 +96,7 @@ function Chat() {
 
       try {
         const response = await axios.get(
-          `${BACKEND_URL}/community/${communities[selectedCommunity]._id}`,
+          `${BACKEND_URL}/community/${activeCommunityId}`,
           { withCredentials: true }
         )
         const formattedMessages = response.data.map((msg) => ({
@@ -108,7 +110,7 @@ function Chat() {
     }, 3000)
 
     return () => clearInterval(interval)
-  }, [selectedCommunity, user?._id])
+  }, [activeCommunityId, user?._id])
 
   // Get user's first name and last initial
   const getUserInitials = (firstName, lastName) => {

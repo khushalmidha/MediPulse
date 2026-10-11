@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Calendar, MapPin, User, Video, ArrowLeft } from "lucide-react";
 import { BACKEND_URL } from "../utils";
+import { Banner, Button, Card, EmptyState, LoadingState, StatusBadge } from "../components/ui";
 
 const formatEventDate = (value) => {
   if (!value) return "Date not set";
@@ -32,42 +33,64 @@ const PastEvents = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Past Events</h1>
-            <p className="mt-2 text-gray-600">A record of completed community and NGO activities.</p>
-          </div>
-          <Link to="/events" className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700">
-            Upcoming events
-          </Link>
+    <main className="mp-page" style={{ maxWidth: 960 }}>
+      <div className="mp-section-heading">
+        <div>
+          <p className="mp-eyebrow">Event Archive</p>
+          <h1>Past Events</h1>
+          <p>A historical record of completed community workshops and awareness programs.</p>
         </div>
-
-        {loading ? (
-          <p className="text-gray-600">Loading events...</p>
-        ) : error ? (
-          <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
-        ) : events.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 p-6 text-gray-600">
-            No past events found.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {events.map((event) => (
-              <div key={event._id} className="rounded-lg border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 p-5 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">{event.title}</h2>
-                  <span className="text-sm text-gray-500">{formatEventDate(event.time)}</span>
-                </div>
-                <p className="mt-2 text-sm text-gray-700">{event.bio}</p>
-                {event.location && <p className="mt-2 text-sm text-gray-500">{event.location}</p>}
-              </div>
-            ))}
-          </div>
-        )}
+        <Button to="/events" variant="secondary">
+          <ArrowLeft size={16} /> Upcoming events
+        </Button>
       </div>
-    </div>
+
+      {error && <Banner tone="error">{error}</Banner>}
+
+      {loading ? (
+        <LoadingState>Loading past events archive...</LoadingState>
+      ) : !events.length ? (
+        <Card>
+          <EmptyState
+            title="No past events found."
+            action={<Button to="/events">View upcoming events</Button>}
+          >
+            Past events will be cataloged here once sessions conclude.
+          </EmptyState>
+        </Card>
+      ) : (
+        <div className="mp-stack" style={{ gap: 16 }}>
+          {events.map((event) => (
+            <Card key={event._id} aria-label={event.title}>
+              <div className="mp-card-heading" style={{ marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ fontSize: "1.15rem", margin: "0 0 4px", fontWeight: 750 }}>{event.title}</h2>
+                  <p className="mp-field-hint" style={{ margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Calendar size={14} /> {formatEventDate(event.time)}
+                  </p>
+                </div>
+                <StatusBadge tone="neutral">Completed</StatusBadge>
+              </div>
+
+              <p style={{ margin: "10px 0", color: "var(--mp-text)", lineHeight: 1.55 }}>{event.bio}</p>
+
+              {event.location && (
+                <p style={{ margin: "6px 0", fontSize: "0.88rem", color: "var(--mp-muted)", display: "flex", alignItems: "center", gap: 6 }}>
+                  {event.kind === "offline" ? <MapPin size={14} /> : <Video size={14} />} {event.location}
+                </p>
+              )}
+
+              {event.author_name && (
+                <p className="mp-field-hint" style={{ margin: "8px 0 0", display: "flex", alignItems: "center", gap: 6 }}>
+                  <User size={13} /> Hosted by <strong>{event.author_name}</strong>
+                  {event.community_name && ` · ${event.community_name}`}
+                </p>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+    </main>
   );
 };
 

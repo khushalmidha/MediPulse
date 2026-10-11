@@ -69,6 +69,19 @@ Both `/hospital/admin` (`HospitalAdminDashboard.jsx`) and `/hospitals/:slug` (`H
 | `/hospital/admin` | Operational analytics overview (Bookings, completed visits, staff count, rating, demo volume), department management (add department with code/OPD fee), staff directory & invitations by role (`DOCTOR`, `NURSE`, `RECEPTIONIST`, `HOSPITAL_ADMIN`, etc.), resend invites, grant admin access, two-step OTP staff removal dialog, AI demand forecasting (beds & blood bank with planning draft disclaimers), website branding editor (tagline, about, logo, primary color with live accessible contrast preview), and administrator password update |
 | `/hospitals/:slug` | Public branded hospital website with sticky navigation, accreditation badge, facility carousel, department cards with live OPD token status & wait time, doctor directory with search and filter, embedded booking modal (`BookingFlow`), patient reviews with 5-star rating breakdown, and hospital contact footer |
 
+## Batch F — communities, member chat, upcoming and past events
+
+Migrated `/communities` (`CommunityCard.jsx`), `/chat` (`Chat.jsx`), `/events` (`Events.jsx`), and `/events/past` (`PastEvents.jsx`) to P08 design tokens and components.
+
+| Route / context | Coverage |
+|---|---|
+| `/communities` | Filterable community cards by category, doctor-only community creation modal with category and bio, detail modal with member count (`{n} members`), join/leave actions, and share link |
+| `/chat` | Real-time community chat via Socket.IO with fallback REST polling, channel selection drawer, message timestamps, voice message support, and responsive mobile sidebar |
+| `/events` | Upcoming health events and workshops, doctor event creation modal with title, date, location/link, agenda, and reminders, empty states and status badges |
+| `/events/past` | Historical completed event archive with dates, locations, hosts, and empty states |
+
+Test contracts (`"View More"`, `"Close community details"`, `"Create Community"`, `"Browse Communities"`, and `"{n} members"`) remain intact.
+
 ## Remaining batches
 
 | Batch | Status | Routes / remaining scope |
@@ -78,8 +91,8 @@ Both `/hospital/admin` (`HospitalAdminDashboard.jsx`) and `/hospitals/:slug` (`H
 | C | Migrated; see work log for verification | `/doctor/appointments`, `/hospital/doctor-opd`; P10 call/booking compatibility remains |
 | D | Migrated; see work log for verification | `/hospital/nursing-station`, `/hospital/reception`, `/hospital/staff-communication` |
 | E | Migrated; see work log for verification | `/hospital/admin`, website/editor configuration and hospital website body |
-| F | Next | `/communities`, `/chat`, `/events`, `/events/past` |
-| G | Pending | `/wallet/transactions`, `/wallet/refunds`, `/wallet/notifications`, `/admin/virtual-payments` |
+| F | Migrated; see work log for verification | `/communities`, `/chat`, `/events`, `/events/past` |
+| G | Next | `/wallet/transactions`, `/wallet/refunds`, `/wallet/notifications`, `/admin/virtual-payments` |
 | H | Pending | `/about`, `/privacy`, `/terms`, `/cookiepolicy`, remaining public/utility page bodies |
 
 P12/P13 room/file/ETA workflows and later product expansion remain separate tasks. No deployment, DNS, provider activation or database migration is included in this UI batch.

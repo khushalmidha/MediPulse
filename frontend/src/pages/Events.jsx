@@ -1,8 +1,10 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Calendar, MapPin, Plus, User, Video } from "lucide-react";
 import { BACKEND_URL } from "../utils";
 import { useAuth } from "../context/AuthContext";
+import { Banner, Button, Card, EmptyState, Field, LoadingState, StatusBadge } from "../components/ui";
 
 const formatEventDate = (value) => {
   if (!value) return "Date not set";
@@ -18,37 +20,47 @@ const formatEventDate = (value) => {
 };
 
 const EventCard = ({ event }) => (
-  <div className="rounded-lg border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 p-5 shadow-sm">
-    <div className="flex flex-wrap items-start justify-between gap-3">
+  <Card key={event._id} aria-label={event.title}>
+    <div className="mp-card-heading" style={{ marginBottom: 12 }}>
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">{event.title}</h2>
-        <p className="mt-1 text-sm text-gray-500">{formatEventDate(event.time)}</p>
+        <h2 style={{ fontSize: "1.2rem", margin: "0 0 4px", fontWeight: 750 }}>{event.title}</h2>
+        <p className="mp-field-hint" style={{ margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+          <Calendar size={14} /> {formatEventDate(event.time)}
+        </p>
       </div>
-      <span
-        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-          event.kind === "offline"
-            ? "bg-green-100 text-green-800"
-            : "bg-red-100 text-blue-800"
-        }`}
-      >
+      <StatusBadge tone={event.kind === "offline" ? "positive" : "info"}>
         {event.kind === "offline" ? "In person" : "Virtual"}
-      </span>
+      </StatusBadge>
     </div>
-    <p className="mt-3 text-sm text-gray-700">{event.bio}</p>
+
+    <p style={{ margin: "12px 0", color: "var(--mp-text)", lineHeight: 1.55 }}>{event.bio}</p>
+
     {event.location && (
-      <a
-        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-3 inline-flex text-sm font-medium text-blue-700 hover:text-blue-800"
-      >
-        {event.location}
-      </a>
+      <p style={{ margin: "8px 0" }}>
+        {event.kind === "offline" ? (
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "var(--mp-accent-ink)", fontWeight: 650, display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.88rem" }}
+          >
+            <MapPin size={15} /> {event.location}
+          </a>
+        ) : (
+          <span style={{ color: "var(--mp-muted)", display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.88rem" }}>
+            <Video size={15} /> {event.location}
+          </span>
+        )}
+      </p>
     )}
+
     {event.author_name && (
-      <p className="mt-3 text-xs text-gray-500">Hosted by {event.author_name}</p>
+      <p className="mp-field-hint" style={{ margin: "10px 0 0", display: "flex", alignItems: "center", gap: 6 }}>
+        <User size={13} /> Hosted by <strong>{event.author_name}</strong>
+        {event.community_name && ` · ${event.community_name}`}
+      </p>
     )}
-  </div>
+  </Card>
 );
 
 const Events = () => {
@@ -57,7 +69,10 @@ const Events = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [formMessage, setFormMessage] = useState("");
+  const [formTone, setFormTone] = useState("info");
   const [creating, setCreating] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
   const [eventForm, setEventForm] = useState({
     title: "",
     bio: "",
@@ -82,8 +97,8 @@ const Events = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleCreateEvent = async (event) => {
-    event.preventDefault();
+  const handleCreateEvent = async (e) => {
+    e.preventDefault();
     setCreating(true);
     setFormMessage("");
     try {
@@ -99,6 +114,7 @@ const Events = () => {
         { withCredentials: true },
       );
       setFormMessage("Event created successfully");
+      setFormTone("info");
       setEventForm({
         title: "",
         bio: "",
@@ -108,111 +124,134 @@ const Events = () => {
         time: "",
         reminders: "",
       });
+      setShowForm(false);
       await loadEvents();
     } catch (err) {
       setFormMessage(err.response?.data?.message || "Unable to create event");
+      setFormTone("error");
     } finally {
       setCreating(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Upcoming Events</h1>
-            <p className="mt-2 text-gray-600">Community activities, awareness sessions, and NGO programs.</p>
-          </div>
-          <Link to="/events/past" className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700">
-            Past events
-          </Link>
+    <main className="mp-page" style={{ maxWidth: 960 }}>
+      <div className="mp-section-heading">
+        <div>
+          <p className="mp-eyebrow">Community Activities</p>
+          <h1>Upcoming Events</h1>
+          <p>Health awareness sessions, doctor webinars, and community meetups.</p>
         </div>
-
-        {role === "doctor" && (
-          <form onSubmit={handleCreateEvent} className="rounded-lg border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Create Community Event</h2>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <input
-                value={eventForm.title}
-                onChange={(event) => setEventForm((form) => ({ ...form, title: event.target.value }))}
-                placeholder="Event title"
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500"
-                required
-              />
-              <input
-                value={eventForm.community_name}
-                onChange={(event) => setEventForm((form) => ({ ...form, community_name: event.target.value }))}
-                placeholder="Community name"
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500"
-                required
-              />
-              <select
-                value={eventForm.kind}
-                onChange={(event) => setEventForm((form) => ({ ...form, kind: event.target.value }))}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500"
-              >
-                <option value="online">Virtual</option>
-                <option value="offline">In person</option>
-              </select>
-              <input
-                type="datetime-local"
-                value={eventForm.time}
-                onChange={(event) => setEventForm((form) => ({ ...form, time: event.target.value }))}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500"
-                required
-              />
-              <input
-                value={eventForm.location}
-                onChange={(event) => setEventForm((form) => ({ ...form, location: event.target.value }))}
-                placeholder="Location or meeting link"
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500 md:col-span-2"
-              />
-              <textarea
-                value={eventForm.bio}
-                onChange={(event) => setEventForm((form) => ({ ...form, bio: event.target.value }))}
-                placeholder="Event details"
-                className="min-h-24 rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500 md:col-span-2"
-                required
-              />
-              <input
-                value={eventForm.reminders}
-                onChange={(event) => setEventForm((form) => ({ ...form, reminders: event.target.value }))}
-                placeholder="Reminders separated by commas"
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500 md:col-span-2"
-                required
-              />
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={creating}
-                className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:bg-gray-400"
-              >
-                {creating ? "Creating..." : "Create Event"}
-              </button>
-              {formMessage && <p className="text-sm text-blue-700">{formMessage}</p>}
-            </div>
-          </form>
-        )}
-
-        {loading ? (
-          <p className="text-gray-600">Loading events...</p>
-        ) : error ? (
-          <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
-        ) : events.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 p-6 text-gray-600">
-            No upcoming events are scheduled yet.
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {events.map((event) => (
-              <EventCard key={event._id} event={event} />
-            ))}
-          </div>
-        )}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {role === "doctor" && (
+            <Button onClick={() => setShowForm(!showForm)}>
+              <Plus size={16} /> {showForm ? "Close Form" : "Host Event"}
+            </Button>
+          )}
+          <Button to="/events/past" variant="secondary">
+            Past events
+          </Button>
+        </div>
       </div>
-    </div>
+
+      {formMessage && <Banner tone={formTone}>{formMessage}</Banner>}
+      {error && <Banner tone="error">{error}</Banner>}
+
+      {role === "doctor" && showForm && (
+        <Card as="form" onSubmit={handleCreateEvent} noValidate style={{ marginBottom: 24 }}>
+          <div className="mp-card-heading">
+            <h2>Create Community Event</h2>
+          </div>
+          <div className="mp-form-grid">
+            <Field
+              label="Event Title"
+              required
+              placeholder="e.g. Heart Health & Hypertension Q&A"
+              value={eventForm.title}
+              onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+            />
+            <Field
+              label="Community Name"
+              required
+              placeholder="Associated care community name"
+              value={eventForm.community_name}
+              onChange={(e) => setEventForm({ ...eventForm, community_name: e.target.value })}
+            />
+            <div className="mp-form-row">
+              <Field
+                as="select"
+                label="Event Format"
+                value={eventForm.kind}
+                onChange={(e) => setEventForm({ ...eventForm, kind: e.target.value })}
+              >
+                <option value="online">Virtual / Online Meeting</option>
+                <option value="offline">In Person</option>
+              </Field>
+              <Field
+                type="datetime-local"
+                label="Date & Time"
+                required
+                value={eventForm.time}
+                onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
+              />
+            </div>
+            <Field
+              label="Location or Meeting Link"
+              placeholder="Physical venue address or secure video URL"
+              value={eventForm.location}
+              onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
+            />
+            <Field
+              as="textarea"
+              label="Event Details & Agenda"
+              required
+              placeholder="Topics covered, speaker background, and what participants will learn..."
+              value={eventForm.bio}
+              onChange={(e) => setEventForm({ ...eventForm, bio: e.target.value })}
+            />
+            <Field
+              label="Reminders (comma separated)"
+              placeholder="e.g. 24h, 1h"
+              value={eventForm.reminders}
+              onChange={(e) => setEventForm({ ...eventForm, reminders: e.target.value })}
+            />
+            <div className="mp-actions" style={{ marginTop: 8 }}>
+              <Button variant="secondary" onClick={() => setShowForm(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creating}>
+                {creating ? "Creating..." : "Publish Event"}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {loading ? (
+        <LoadingState>Loading upcoming events...</LoadingState>
+      ) : !events.length ? (
+        <Card>
+          <EmptyState
+            title="No upcoming events scheduled."
+            action={
+              role === "doctor" ? (
+                <Button onClick={() => setShowForm(true)}>Host the first event</Button>
+              ) : (
+                <Button to="/events/past" variant="secondary">Browse past events</Button>
+              )
+            }
+          >
+            Check back soon for new community wellness workshops and live discussions.
+          </EmptyState>
+        </Card>
+      ) : (
+        <div className="mp-stack" style={{ gap: 16 }}>
+          {events.map((event) => (
+            <EventCard key={event._id} event={event} />
+          ))}
+        </div>
+      )}
+    </main>
   );
 };
 

@@ -1,5 +1,6 @@
+/* eslint-disable react/prop-types */
 import { communityMemberCount } from "../utils/community";
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { Users, Plus, Calendar, Tag, Info, X } from 'lucide-react'
 import { format } from 'date-fns'
@@ -171,7 +172,7 @@ const CommunityCard = () => {
       navigate('/login')
       return
     }
-  }, [loader, isAuth])
+  }, [loader, isAuth, navigate])
 
   useEffect(() => {
     if (showModal || showCreateModal) {
@@ -471,7 +472,7 @@ const CommunityCard = () => {
                 No New Communities Available
               </h3>
               <p className='text-gray-600 mb-6'>
-                You've joined all available communities or there aren't any
+                You&apos;ve joined all available communities or there aren&apos;t any
                 communities yet.
               </p>
               {role === 'doctor' ? (
