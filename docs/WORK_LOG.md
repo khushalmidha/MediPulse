@@ -949,3 +949,21 @@ Audited AI triage, copilot, SOAP notes, forecasting, and external provider integ
 - Backend unit suite: **142 passed / 0 failed / 0 skipped** (including 7 new P18 tests in `tests/ai-reliability.test.js`).
 - Frontend unit suite: **37 passed / 0 failed / 0 skipped**.
 - Frontend production build: **Passed** (2318 modules).
+
+## P19 — Enterprise hospital expansion plan (11 October 2026)
+
+Synthesized findings from shipped pilot workflows, tenant operations, and BUG_BACKLOG into a comprehensive, phased enterprise architectural expansion plan documented in `docs/ENTERPRISE_PLAN.md` according to P19 requirements.
+
+- **Capabilities Audit vs Inpatient Reality:**
+  - Audited current OPD, lab, pharmacy, and scheduling foundations against complex multi-specialty hospital requirements.
+  - Formulated a 6-milestone phased expansion:
+    1. *Milestone 1:* Inpatient Department (IPD), Ward & Bed hierarchy, and atomic Admission/Transfer/Discharge (ADT) engine.
+    2. *Milestone 2:* Inpatient nursing workstation, vital flowsheet (NEWS2 scoring), and eMAR (5-rights bedside medication verification).
+    3. *Milestone 3:* Dynamic tariffs, bed-day auto-accrual, corporate TPA insurance pre-authorization, and discharge billing clearance gates.
+    4. *Milestone 4:* Multi-campus branch hierarchy, branch delegation, and central warehouse stock requisition.
+    5. *Milestone 5:* DICOM/PACS metadata boundary with embedded zero-footprint web viewer and Enterprise Single Sign-On (SAML 2.0 / OIDC / SCIM).
+    6. *Milestone 6:* High-availability disaster recovery (RPO < 15m, RTO < 60m) and Indian ABDM (M1/M2/M3) statutory integration.
+- **Implementation Task Prompts:**
+  - Authored ready-to-execute prompts for Milestone 1 (Ward/Bed models, ADT state machine, and interactive visual bed management console).
+- **Governance & Approval Gates:**
+  - Formulated mandatory clinical and legal sign-off gates for inpatient workflows (narcotic ledgers, consent forms, retention periods).
