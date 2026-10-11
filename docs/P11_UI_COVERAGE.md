@@ -41,14 +41,22 @@ Patient workspaces are keyed by account identity; disposed reads and mutation ca
 
 Pre-visit questions remain optional clinician-review drafts. Explicit start avoids the old automatic conversation reset on page mount. Triage/family creation still lack server request idempotency; local guards cannot guarantee recovery after an interrupted response. The MP02 follow-up replaces family deletion with replay-safe archival, retains historical names and visit records, blocks active visits/holds and rejects new bookings for archived people. History-only identities remain available in record filters and details after reload. Room/file/ETA data, AI validation and hospital staff/body redesign remain their own documented phases.
 
+## Batch C — doctor appointments and hospital OPD
+
+Both /doctor/appointments and /hospital/doctor-opd use shared clinical controls, verified account/staff gates and identity-keyed disposal. Separate queues/sessions, arrived versus held visits, actual family names, ordered search, ready/reservation pagination, actual refresh times, empty/error/stale/denied states and offline blocking are covered. Missing wait/urgency values no longer become invented estimates or routine labels. Staff-doctor no-show buttons were removed because the server reserves that action for reception/nursing/admin roles.
+
+Current consultations retain unsaved notes through polling, detect observed remote edits, require explicit draft discard before switching queues, and dispose drafts when the actor/visit changes. Completion and demo refunds use confirmations and actual revisions; pending refunds remain pending. Generated documents and optional assistant output remain clinician-review drafts. In-person appointments do not mount video. Queue sockets invalidate authorized HTTP snapshots; lower revisions cannot replace current records or enable stale actions.
+
+Private doctor queue/active DTOs now include only the visited family ID/name, without exposing other family profiles. No write/schema migration belongs to this read fix. Notes/receipt APIs still need server conditional saves, validation and reviewed corrections (MP17/P18); UI conflict detection is not a server concurrency guarantee. P14 supplies availability/publication/practice history. WORK_LOG records the executed checks and publication.
+
 ## Remaining batches
 
 | Batch | Status | Routes / remaining scope |
 |---|---|---|
 | A | Migrated; see work log for verification | Account routes above; organization operating/onboarding tools remain E/P17 |
 | B | Migrated; see work log for verification | Patient routes above |
-| C | Next | `/doctor/appointments`, `/hospital/doctor-opd`; P10 call/booking compatibility remains |
-| D | Pending | Reception/nurse workflows and `/hospital/staff-communication`; P08 nursing controls are partial coverage |
+| C | Migrated; see work log for verification | `/doctor/appointments`, `/hospital/doctor-opd`; P10 call/booking compatibility remains |
+| D | Next | Reception/nurse workflows and `/hospital/staff-communication`; P08 nursing controls are partial coverage |
 | E | Pending | `/hospital/admin`, website/editor configuration and hospital website body; P10 booking modal is complete |
 | F | Pending | `/communities`, `/chat`, `/events`, `/events/past` |
 | G | Pending | `/wallet/transactions`, `/wallet/refunds`, `/wallet/notifications`, `/admin/virtual-payments` |

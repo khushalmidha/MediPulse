@@ -184,6 +184,23 @@ test("refund notifications and visit revisions commit with their transitions", a
   assert.equal((await deliverOutboxJob(readyMail, io)).skipped, true);
   assert.equal((await http("/appointment/doctor/queue", patient)).status, 403);
 });
+test("private doctor queue identifies the family patient without returning other family records", async () => {
+  const family = patient.familyMembers[0], context = queueContext({ doctorId: doctor._id, doctor });
+  await Appointment.updateMany({ status: { $in: ["queued", "active", "refund_pending"] } }, { $set: { status: "completed" } });
+  const visit = await createQueueBooking({ request: { actorKey: `patient:${patient._id}`, kind: "appointment", requestKey: key(), fingerprint: key() }, context,
+    personKey: patientKey(patient._id, family._id), fee: 0, payerId: patient._id, receiverId: doctor._id,
+    appointmentData: { user: patient._id, familyMemberId: family._id, doctor: doctor._id, roomId: key(), visitMode: "online" } });
+  const queued = await http("/appointment/doctor/queue", doctor, "doctor");
+  const row = queued.body.queue.find(row => String(row._id) === String(visit.appointment._id));
+  assert.equal(row.patientDisplayName, "Synthetic child"); assert.equal(row.familyMemberId, String(family._id));
+  assert.equal(row.user.familyMembers, undefined);
+  await transitionVisit({ appointmentId: visit.appointment._id, action: "start" });
+  const active = await http("/appointment/doctor/queue", doctor, "doctor");
+  assert.equal(active.body.activeAppointment.patientDisplayName, "Synthetic child");
+  assert.equal(active.body.activeAppointment.user.familyMembers, undefined);
+  assert.equal((await http("/appointment/doctor/queue", patient)).status, 403);
+});
+
 test("persisted consultation/refund deadlines survive reconnect; manual visits remain active", async () => {
   process.env.CONSULTATION_DURATION_MINUTES = "30";
   const visit = await book(); const started = await transitionVisit({ appointmentId: visit.appointment._id, action: "start" });

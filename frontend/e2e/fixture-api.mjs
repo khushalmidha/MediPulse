@@ -1,3 +1,4 @@
+import { handleClinical } from "./clinical-fixture.mjs";
 import { handleAccounts } from "./accounts-fixture.mjs";
 import { handlePatient } from "./patient-fixture.mjs";
 import { handleScheduling } from "./scheduling-fixture.mjs";
@@ -50,6 +51,7 @@ const server = createServer(async (req, res) => {
   }
   if (await handleAccounts({ req, state, reply, doctor, staff, hospitalId })) return;
   if (await handlePatient({ req, state, reply, hospitalId })) return;
+  if (await handleClinical({ req, state, reply, hospitalId, staff })) return;
   if (path === "/user/login" && req.method === "POST") {
     state.guest = false; state.nurse = false;
     res.setHeader("Set-Cookie", ["staffToken=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0", "token=fixture-opaque-session; Path=/; HttpOnly; SameSite=Lax"]);

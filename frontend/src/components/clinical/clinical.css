@@ -1,0 +1,28 @@
+.mp-clinical-page { max-width: 1340px; display: grid; gap: 24px; }
+.mp-clinical-header, .mp-clinical-visit-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+.mp-clinical-header h1 { font-size:clamp(1.6rem, 3vw, 2.3rem); margin:.4rem 0; }
+.mp-clinical-header p:not(.mp-eyebrow), .mp-clinical-visit-heading p { color:var(--mp-muted); max-width:70ch; }
+.mp-clinical-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+.mp-clinical-stats .mp-card { display:flex; align-items:center; gap:12px; padding:16px; }
+.mp-clinical-stats svg { color:var(--mp-accent-ink); flex-shrink:0; }
+.mp-clinical-stats p { color:var(--mp-muted); font-size:.82rem; margin:0; }
+.mp-clinical-stats strong { font-size:1.15rem; }
+.mp-clinical-controls { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:16px; }
+.mp-clinical-columns { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:32px; margin-top:24px; }
+.mp-clinical-columns textarea { min-height:220px; }
+.mp-clinical-copilot textarea { min-height:95px; margin:12px 0; }
+.mp-clinical-copilot summary, .mp-clinical-document summary { min-height:44px; cursor:pointer; font-weight:600; }
+.mp-clinical-suggestion p, .mp-clinical-document pre { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }
+.mp-clinical-video { min-width:0; overflow:hidden; border-radius:var(--mp-radius); }
+.mp-clinical-video > div { min-height:unset; }
+.mp-clinical-vitals { background:var(--mp-surface-muted); border:1px solid var(--mp-border); border-radius:var(--mp-radius); padding:16px; }
+.mp-clinical-vitals dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.mp-clinical-vitals dt { font-size:.82rem; color:var(--mp-muted); }
+.mp-clinical-vitals dd { margin:0; font-weight:600; }
+.mp-clinical-rows { display:grid; gap:12px; }
+.mp-clinical-row { border:1px solid var(--mp-border); border-radius:var(--mp-radius); padding:16px; display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+.mp-clinical-row h3 { margin:0 0 .4rem; font-size:1rem; }
+.mp-clinical-row p { margin:.35rem 0; color:var(--mp-muted); font-size:.9rem; }
+.mp-clinical-row .mp-actions { flex-shrink:0; }
+.mp-clinical-page .mp-card { min-width:0; }
+@media (max-width:760px) { .mp-clinical-header, .mp-clinical-visit-heading, .mp-clinical-row { flex-direction:column; } .mp-clinical-columns, .mp-clinical-controls { grid-template-columns:minmax(0,1fr); } .mp-clinical-row .mp-actions { width:100%; } .mp-clinical-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }

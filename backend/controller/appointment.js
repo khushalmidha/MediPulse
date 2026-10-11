@@ -1,3 +1,4 @@
+import { visitPatientDisplay } from "../services/visitPatientDisplay.js";
 import { appointmentPosition } from "../services/appointmentPosition.js";
 import Hospital from "../model/hospital.js";
 import { mailConfigured } from "../services/outbox.js";
@@ -135,6 +136,7 @@ const ensureBookableAppointment = async (doctorId, userId, familyMemberId, sessi
 
 const mapQueueAppointment = (appointment) => ({
   _id: appointment._id,
+  ...visitPatientDisplay(appointment),
   status: appointment.status,
   ...explicitPractice(appointment), practiceKey: appointment.practiceKey, queueKey: appointment.queueKey, serviceDate: appointment.serviceDate, sessionId: appointment.sessionId, visitMode: appointment.visitMode, revision: appointment.revision,
   appointmentType: appointment.appointmentType || (appointment.visitMode === "in_person" ? "hospital_in_person" : "online_opd"), scheduleReservationId: appointment.scheduleReservationId, scheduledStart: appointment.scheduledStart, scheduledEnd: appointment.scheduledEnd, admissionState: appointment.admissionState, checkedInAt: appointment.checkedInAt, feeSnapshot: appointment.feeSnapshot,
@@ -180,6 +182,7 @@ const mapActiveAppointment = (appointment) => {
   if (!appointment) return null;
   return {
     _id: appointment._id,
+    ...visitPatientDisplay(appointment),
     status: appointment.status,
   ...explicitPractice(appointment), practiceKey: appointment.practiceKey, queueKey: appointment.queueKey, serviceDate: appointment.serviceDate, sessionId: appointment.sessionId, visitMode: appointment.visitMode, revision: appointment.revision,
   appointmentType: appointment.appointmentType || (appointment.visitMode === "in_person" ? "hospital_in_person" : "online_opd"), scheduleReservationId: appointment.scheduleReservationId, scheduledStart: appointment.scheduledStart, scheduledEnd: appointment.scheduledEnd, admissionState: appointment.admissionState, checkedInAt: appointment.checkedInAt, feeSnapshot: appointment.feeSnapshot,
@@ -214,7 +217,7 @@ const buildDoctorQueuePayloadRaw = async (doctorId, selectedQueueKey) => {
   const hospitals = await Hospital.find({ _id: { $in: memberships.map(staff => staff.hospitalId) }, status: "active" }).select("name slug").lean();
   const practiceKeys = [`independent:${rootId}`, ...hospitals.map(hospital => `hospital:${normalizeId(hospital)}`)];
   const rows = await Appointment.find({ doctor: { $in: allIds }, practiceKey: { $in: practiceKeys }, status: { $in: ["queued", "active"] } })
-    .sort({ createdAt: 1, _id: 1 }).populate("user", "firstName lastName email").lean();
+    .sort({ createdAt: 1, _id: 1 }).populate("user", "firstName lastName email familyMembers._id familyMembers.name").lean();
   const tokens = await OpdToken.find({ appointmentId: { $in: rows.map((row) => row._id) } }).select("appointmentId arrivedAt tokenNumber status").lean();
   const tokenFor = (row) => tokens.find((token) => normalizeId(token.appointmentId) === normalizeId(row));
   const queues = [...new Map(rows.map((row) => [row.queueKey, { queueKey: row.queueKey, practiceKey: row.practiceKey,
