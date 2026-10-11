@@ -36,4 +36,37 @@ opdRouter.patch("/tokens/:tokenId/complete", validateStaff, requireRole("DOCTOR"
 opdRouter.patch("/tokens/:tokenId/no-show", validateStaff, asyncRoute(markNoShow));
 opdRouter.get("/:hospitalId/my-token", userValidation, asyncRoute(getMyActiveToken));
 
+opdRouter.get("/tokens/:tokenId/live-timeline", asyncRoute(async (req, res) => {
+  const { getPatientLiveTimeline } = await import("../services/queueTrackingService.js");
+  const timeline = await getPatientLiveTimeline(req.params.tokenId);
+  res.json({ timeline });
+}));
+
+opdRouter.post("/tokens/:tokenId/priority-override", validateStaff, asyncRoute(async (req, res) => {
+  const { recordPriorityOverride } = await import("../services/queueTrackingService.js");
+  const result = await recordPriorityOverride({
+    tokenId: req.params.tokenId,
+    actor: req.staff,
+    reason: req.body.reason,
+    newPriorityIndex: req.body.priorityIndex,
+  });
+  res.json(result);
+}));
+
+opdRouter.post("/queue/pause", validateStaff, asyncRoute(async (req, res) => {
+  const { pauseDoctorQueue } = await import("../services/queueTrackingService.js");
+  const result = pauseDoctorQueue({
+    queueKey: req.body.queueKey,
+    doctorId: req.staff?._id || req.staff?.id,
+    reason: req.body.reason,
+  });
+  res.json({ message: "Queue paused", pause: result });
+}));
+
+opdRouter.post("/queue/resume", validateStaff, asyncRoute(async (req, res) => {
+  const { resumeDoctorQueue } = await import("../services/queueTrackingService.js");
+  const result = resumeDoctorQueue({ queueKey: req.body.queueKey });
+  res.json({ message: "Queue resumed", result });
+}));
+
 export default opdRouter;

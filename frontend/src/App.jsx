@@ -29,6 +29,7 @@ import VirtualRefunds from "./pages/VirtualRefunds";
 import VirtualAdminDashboard from "./pages/VirtualAdminDashboard";
 import VirtualNotifications from "./pages/VirtualNotifications";
 import HospitalWebsite from "./pages/hospital-website/HospitalWebsite";
+import HospitalKiosk from "./pages/hospital-website/HospitalKiosk";
 import HospitalsListPage from "./pages/HospitalsListPage";
 import HospitalAdminSignup from "./pages/HospitalAdminSignup";
 import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
@@ -53,6 +54,7 @@ function App() {
       <Route path="/dashboard" element={<Navigate to="/visits" replace />} />
       <Route path="/visits" element={<PatientVisits slug={product.slug} />} />
       <Route path="/visits/:tokenId" element={<PatientVisits slug={product.slug} />} />
+      <Route path="/kiosk" element={<HospitalKiosk slug={product.slug} />} />
       <Route path="/reservations/:reservationId" element={<ReservationTracking />} />
       <Route path="/profile/edit" element={<EditProfile />} />
       <Route path="/review" element={<ReviewVisit />} />
@@ -87,6 +89,7 @@ function App() {
           <Route path="/smart-booking" element={<SmartBooking />} />
         <Route path="/health-records" element={<PatientHealthPortal />} />
         <Route path="/hospitals" element={<HospitalsListPage />} />
+        <Route path="/kiosk/:slug" element={<HospitalKiosk />} />
         <Route path="/hospitals/:slug/*" element={<HospitalProductRedirect />} />
         <Route path="/login" element={<Login/>} />
         <Route path="/dashboard" element={<Dashboard />} />

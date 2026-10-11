@@ -69,5 +69,10 @@ hospitalRouter.get("/resolve-host", asyncRoute(resolveHospitalHost));
 hospitalRouter.get("/:slug", getHospitalProfile);
 hospitalRouter.get("/:slug/doctors", getHospitalDoctors);
 hospitalRouter.get("/:slug/queue-status", getHospitalQueueStatus);
+hospitalRouter.get("/:id/kiosk-display", asyncRoute(async (req, res) => {
+  const { getHospitalKioskStatus } = await import("../services/queueTrackingService.js");
+  const kiosk = await getHospitalKioskStatus(req.params.id);
+  res.json({ kiosk });
+}));
 
 export default hospitalRouter;

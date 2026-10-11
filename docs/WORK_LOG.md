@@ -761,6 +761,35 @@ Implemented the explicit hospital encounter journey, room/destination guidance, 
 - Frontend production build: **Passed** (2314 modules, 26.37s).
 
 
+## P13 — Live queue, dynamic ETA, timeline and notifications (11 October 2026)
+
+Implemented dynamic live queue tracking, bounded wait time estimations, doctor pause/resume, queue priority overrides, and privacy-safe public kiosk displays according to P13 requirements.
+
+- **Dynamic Queue ETA Calculation (`queueTrackingService.js`):**
+  - Replaced static wait times with calculated ETA ranges (lower and upper bounds) derived from rolling completed visit durations.
+  - Transparent confidence scoring (`"high"` for $\ge 7$ recent department/doctor consultations, `"low"` for sparse history) avoiding false precision.
+  - Paused doctors automatically freeze ETA calculations and display pause status with estimated resumption.
+- **Doctor Pause / Resume Controls (`opd.js`, `queueTrackingService.js`):**
+  - Doctors or authorized clinical staff can pause consultation queue with explicit reasons (`emergency`, `rounds`, `procedure`, `break`).
+  - Resumption restores the queue with updated schedule notifications.
+- **Queue Priority Overrides with Audit (`opd.js`, `queueTrackingService.js`):**
+  - Urgent/triage patients can be bumped in the queue with mandatory clinical justification (`triage_escalation`, `vip`, `clinical_distress`).
+  - Full audit logging of override actor, reason, timestamp, and previous sequence position.
+- **Privacy-Safe Waiting Room Display & Kiosk (`HospitalKiosk.jsx`, `hospital.js`):**
+  - Public display projection endpoint (`GET /api/hospitals/:id/kiosk-display`) strictly strips all patient identifiers (no names, phones, or medical notes).
+  - Shows token numbers, department names, assigned physician, current serving token, and privacy-safe queue counters.
+  - High-visibility fullscreen-ready kiosk interface with live auto-refresh, high-contrast dark mode, and audible/visual call alerts.
+  - Mounted routes under `/kiosk` (patient subdomain) and `/kiosk/:slug` (general routing).
+
+### Executed checks
+
+- Backend unit suite: **107 passed / 0 failed / 0 skipped** (including 5 new P13 queue tracking tests).
+- Frontend unit suite: **37 passed / 0 failed / 0 skipped**.
+- Affected files lint (`HospitalKiosk.jsx`, `App.jsx`): **0 errors / 0 warnings**.
+- Frontend production build: **Passed** (2315 modules, 31.77s).
+
+
+
 
 
 
