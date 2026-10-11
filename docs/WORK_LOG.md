@@ -853,6 +853,43 @@ Implemented the encounter-integrated laboratory diagnostic workflow, tenant-scop
 - Frontend production build: **Passed** (2316 modules, 15.29s).
 
 
+## P16 — Hospital pharmacy, prescription fulfillment and inventory (11 October 2026)
+
+Implemented clinician-approved prescription fulfillment linked to patient encounters, pharmacy inventory catalog with batch tracking and expiration checks, atomic stock decrement, partial dispensing, return reversals with audit justification, and privacy-controlled QR code verification according to P16 requirements.
+
+- **Hospital Pharmacy Inventory & Batch Expiry (`PharmacyInventory.js`):**
+  - Schema tracking medication codes, names, generic formulations, dosage forms, strength, unit prices, and individual batches.
+  - Batches record batch number, expiration date, and available quantity.
+  - Automatic expiration detection: expired batches cannot be selected or consumed during dispensing.
+  - Endpoints `GET/POST /api/pharmacy/inventory` and `POST /api/pharmacy/inventory/:id/batches`.
+- **Prescription State Machine & Encounter Integration (`Prescription.js`, `pharmacyService.js`):**
+  - Clinician-approved prescription ordering linked to encounters: `approved_by_doctor -> partially_dispensed -> dispensed` (or `returned`/`cancelled`).
+  - Automatically advances encounter journey pharmacy steps when fulfillment completes.
+  - Generates secure, unforgeable QR verification token (`RX-...`).
+- **Atomic Dispensing & Stock Decrement (`pharmacyService.js`):**
+  - Validates batch availability and expiration before decrementing stock.
+  - Supports partial dispensing when inventory is limited, with detailed status tracking per item (`pending`, `dispensed`, `out_of_stock`).
+  - Records dispensing actor, timestamp, and audit trail.
+- **Medication Returns & Inventory Restoral:**
+  - Audited return flow restoring returned quantities to the exact inventory batch and total stock.
+  - Mandatory justification required for returns.
+- **Privacy-Controlled Prescription QR Verification:**
+  - Endpoint `GET /api/pharmacy/verify-qr/:token` projects only essential fulfillment verification (patient initials, doctor name, prescribed medications, directions, and dispensing status), strictly withholding phone numbers and confidential diagnosis/notes.
+- **Hospital Pharmacy Console (`PharmacyConsole.jsx`):**
+  - Dual-mode console with Prescription Queue and Medication Stock & Batches views.
+  - Filter tabs (All, Pending Dispense, Partially Dispensed, Fully Dispensed, Returned).
+  - Modal workflows for dispensing with batch assignment, returns with audit reasons, and QR code inspection.
+  - Mounted route under `/hospital/pharmacy`.
+
+### Executed checks
+
+- Backend unit suite: **125 passed / 0 failed / 0 skipped** (including 6 new P16 tests in `tests/pharmacy-workflow.test.js`).
+- Frontend unit suite: **37 passed / 0 failed / 0 skipped**.
+- Affected files lint (`PharmacyConsole.jsx`, `App.jsx`): **0 errors / 0 warnings**.
+- Frontend production build: **Passed** (2317 modules, 12.18s).
+
+
+
 
 
 

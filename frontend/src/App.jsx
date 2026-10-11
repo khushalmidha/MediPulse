@@ -37,6 +37,7 @@ import DoctorOpdConsole from "./pages/hospital-staff/DoctorOpdConsole";
 import NursingStation from "./pages/hospital-staff/NursingStation";
 import StaffCommunication from "./pages/hospital-staff/StaffCommunication";
 import LaboratoryConsole from "./pages/hospital-staff/LaboratoryConsole";
+import PharmacyConsole from "./pages/hospital-staff/PharmacyConsole";
 import StaffAcceptInvite from "./pages/StaffAcceptInvite";
 import ReviewVisit from "./pages/ReviewVisit";
 import OpdTriage from "./pages/OpdTriage";
@@ -76,6 +77,7 @@ function App() {
     <Route path="/hospital/staff-communication" element={<StaffCommunication />} />
     <Route path="/hospital/laboratory" element={<LaboratoryConsole />} />
     <Route path="/hospital/lab" element={<LaboratoryConsole />} />
+    <Route path="/hospital/pharmacy" element={<PharmacyConsole />} />
     <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
     <Route path="*" element={<RouteNotFound />} />
   </Routes></ProductShell>;
