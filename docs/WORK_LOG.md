@@ -922,3 +922,30 @@ Implemented self-service hospital tenant onboarding, expiring admin setup links,
 - Frontend unit suite: **37 passed / 0 failed / 0 skipped**.
 - Affected files lint (`SaaSOperationsConsole.jsx`, `App.jsx`): **0 errors / 0 warnings**.
 - Frontend production build: **Passed** (2318 modules, 25.96s).
+
+## P18 — AI reliability, truthful claims, schema validation, and fallback safeguards (11 October 2026)
+
+Audited AI triage, copilot, SOAP notes, forecasting, and external provider integrations against actual repository source code and available external services. Resolved README/roadmap discrepancies, removed unsupported medical claims, and instituted strict draft state and fallback safeguards according to P18 requirements.
+
+- **Truthful Capabilities Audit & Disclaimers (`aiReliabilityService.js`, `README.md`):**
+  - Audited and reconciled documentation: removed inaccurate claims of a bundled Python FastAPI microservice, PyTorch, LightGBM runtime, or "high accuracy" medical guarantees from `README.md`.
+  - Added verified system audit endpoint (`GET /api/ai/audit`) enumerating active capabilities (Google Gemini, Hugging Face client, rule-based red-flag overrides) and classifying missing external repositories as roadmap milestones.
+  - Added prominent clinical safety disclaimer: all AI outputs are strictly non-diagnostic assistive drafts requiring review and confirmation by a licensed medical practitioner.
+- **Bounded Timeouts & Defensive Degradation (`withBoundedTimeout`):**
+  - Wrapped third-party AI provider calls with bounded timeouts (6–7 seconds max) to guarantee that cloud provider latency or rate limits never stall Node.js request threads.
+  - Ensured hospital appointments, OPD queue check-ins, and consultation documentation function 100% reliably even when AI services are offline or unconfigured.
+- **Data Minimization & Patient Privacy (`minimizePatientContext`):**
+  - Stripped unnecessary patient PII (phone numbers, national IDs, addresses, full legal names) prior to assembling prompts for external LLM inference, retaining only necessary clinical complaints, age, and declared symptoms.
+- **Clinical Draft State & Clinician Approval Workflow (`appointment.js`, `Appointment.js`):**
+  - Schema additions to `Appointment.js`: `soapNote` and `patientBrief` include `isDraft: true`, `clinicianApproved: false`, `disclaimer`, `approvedBy`, and `approvedAt`.
+  - Implemented clinician sign-off route `POST /appointment/:appointmentId/soap-note/approve` enabling doctors to review, finalize, and transition AI-generated drafts into approved medical records.
+- **Deterministic SOAP Note Fallback (`generateDeterministicSoapFallback`):**
+  - Provides a clean, structured SOAP markdown template when Gemini is offline or unconfigured, ensuring physicians are never left with an empty documentation panel.
+- **Clinician Evaluation Fixtures (`CLINICIAN_EVALUATION_FIXTURES`):**
+  - Standardized regression fixtures covering acute cardiac emergencies (red-flag trigger), pediatric fever (routine triage), and general screening to verify deterministic safety rules.
+
+### Executed checks
+
+- Backend unit suite: **142 passed / 0 failed / 0 skipped** (including 7 new P18 tests in `tests/ai-reliability.test.js`).
+- Frontend unit suite: **37 passed / 0 failed / 0 skipped**.
+- Frontend production build: **Passed** (2318 modules).

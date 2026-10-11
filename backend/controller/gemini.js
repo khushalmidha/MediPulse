@@ -1,5 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { loadRuntimeEnv } from "../util/runtimeEnv.js";
+import {
+  withBoundedTimeout,
+  generateDeterministicSoapFallback,
+  CLINICAL_SAFETY_DISCLAIMER,
+} from "../services/aiReliabilityService.js";
 
 loadRuntimeEnv();
 
@@ -8,13 +13,13 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const buildGeminiModel = (type) => {
   let systemInstruction = "";
   if (type === "general") {
-    systemInstruction = `You are MediPulse AI, a healthcare assistant.
+    systemInstruction = `You are MediPulse AI, an assistive healthcare guide.
 Give short, concise answers only not too long.
 Try to be point wise not more than 2-3 points.
 Only respond to health-related queries or questions about MediPulse services.
 If asked about non-health topics, politely redirect the conversation to healthcare.
-Keep responses focused on medical information, health advice, and MediPulse platform features.
-Do not provide specific medical diagnoses but can offer general health information.`;
+Keep responses focused on general medical information, health education, and platform features.
+Do not provide definitive medical diagnoses or autonomous prescriptions. All outputs are educational drafts requiring qualified clinician confirmation.`;
   }
 
   return genAI.getGenerativeModel({
@@ -25,9 +30,18 @@ Do not provide specific medical diagnoses but can offer general health informati
 
 const generateGeminiText = async (prompt, type = "general") => {
   if (!process.env.GEMINI_API_KEY) throw new Error("AI is not configured");
-  const model = buildGeminiModel(type);
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+
+  const runCall = async () => {
+    const model = buildGeminiModel(type);
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  };
+
+  const text = await withBoundedTimeout(runCall(), 7000, null);
+  if (!text) {
+    throw new Error("AI service response timed out or unavailable");
+  }
+  return text;
 };
 
 /**
@@ -43,19 +57,35 @@ const geminiChat = async (req, res) => {
 
     const text = await generateGeminiText(prompt, type);
 
-    return res.status(200).json({ text });
+    return res.status(200).json({
+      text,
+      isDraft: true,
+      disclaimer: "Assistive AI output for information only. Not a medical diagnosis.",
+    });
   } catch (error) {
     console.error("Gemini API error:", error?.message || error);
-    return res.status(500).json({
-      message: "AI service unavailable. Please try again later.",
+    return res.status(503).json({
+      message: "AI service unavailable. Healthcare and booking operations remain fully operational.",
       error: error?.message,
+      fallbackActive: true,
     });
   }
 };
 
 const generateSoapNote = async (roughNotes) => {
-  const prompt = `You are a medical assistant. Please format the following rough notes into a strict SOAP (Subjective, Objective, Assessment, Plan) format. Return only the structured SOAP note in Markdown format without any extra explanation or text.\n\nRough Notes: ${roughNotes}`;
-  return await generateGeminiText(prompt, "soap");
+  if (!process.env.GEMINI_API_KEY) {
+    const fallback = generateDeterministicSoapFallback({ roughNotes });
+    return fallback.markdown;
+  }
+
+  try {
+    const prompt = `You are a clinical documentation assistant. Please format the following rough consultation notes into a structured SOAP (Subjective, Objective, Assessment, Plan) format. Return only the structured SOAP note in Markdown format without any extra explanation or text.\n\nRough Notes: ${roughNotes}`;
+    return await generateGeminiText(prompt, "soap");
+  } catch (err) {
+    console.warn("Gemini SOAP generation failed, applying deterministic clinical fallback:", err.message);
+    const fallback = generateDeterministicSoapFallback({ roughNotes });
+    return fallback.markdown;
+  }
 };
 
 export { geminiChat, generateGeminiText, generateSoapNote };

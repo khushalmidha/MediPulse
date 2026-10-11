@@ -105,6 +105,8 @@ const appointmentSchema = new mongoose.Schema(
       generatedAt: Date,
       conversationTurns: Number,
       predictedDisease: String,
+      isDraft: { type: Boolean, default: true },
+      disclaimer: String,
     },
     soapNote: {
       markdown: String,
@@ -114,6 +116,11 @@ const appointmentSchema = new mongoose.Schema(
       plan: String,
       generatedAt: Date,
       generatedBy: String,
+      isDraft: { type: Boolean, default: true },
+      clinicianApproved: { type: Boolean, default: false },
+      approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Doctor" },
+      approvedAt: Date,
+      disclaimer: String,
     },
     payment: {
       nextRecoveryAt: Date,

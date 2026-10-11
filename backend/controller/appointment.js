@@ -83,6 +83,7 @@ const populateDoctorForAppointments = async (appointments) => {
   });
 };
 import { getIO } from "../socket.js";
+import { CLINICAL_SAFETY_DISCLAIMER } from "../services/aiReliabilityService.js";
 import { generateGeminiText, generateSoapNote as generateSoapNoteGemini } from "./gemini.js";
 import { generateSoapNote } from "../services/copilotTools.js";
 import {
@@ -312,6 +313,9 @@ const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes
         markdown: generatedNote,
         generatedAt: new Date(),
         generatedBy: "ai-copilot",
+        isDraft: true,
+        clinicianApproved: false,
+        disclaimer: CLINICAL_SAFETY_DISCLAIMER,
       };
     } else {
       const redis = getRedis();
@@ -336,6 +340,9 @@ const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes
         ...generated,
         generatedAt: new Date(),
         generatedBy: "ai-copilot",
+        isDraft: true,
+        clinicianApproved: false,
+        disclaimer: CLINICAL_SAFETY_DISCLAIMER,
       };
       
       await redis.del(transcriptKey, suggestionsKey);
@@ -1007,6 +1014,26 @@ const askDoctorAppointmentCopilot = async (req, res) => {
     res.status(500).json({ message: error.message || "Doctor co-pilot unavailable" });
   }
 };
+
+const approveSoapNote = async (req, res) => {
+  const { appointmentId } = req.params;
+  const doctorId = req.doctor?._id || req.user?._id;
+  const appointment = await Appointment.findById(appointmentId);
+  if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+  if (!appointment.soapNote) return res.status(400).json({ message: "No SOAP note exists to approve" });
+
+  appointment.soapNote.isDraft = false;
+  appointment.soapNote.clinicianApproved = true;
+  appointment.soapNote.approvedBy = doctorId;
+  appointment.soapNote.approvedAt = new Date();
+  await appointment.save();
+
+  return res.status(200).json({
+    message: "SOAP note approved by clinician",
+    soapNote: appointment.soapNote,
+  });
+};
+
 export {
   bookAppointment,
   endAppointment,
@@ -1019,9 +1046,10 @@ export {
   sendAppointmentOtp,
   startAppointment,
   startAutoRefundWorker,
-  updateDoctorNotes, askDoctorAppointmentCopilot,
+  updateDoctorNotes,
+  askDoctorAppointmentCopilot,
   verifyAppointmentOtp,
-
+  approveSoapNote,
 };
 
 

@@ -14,8 +14,7 @@ import {
   updateDoctorNotes,
   askDoctorAppointmentCopilot,
   verifyAppointmentOtp,
-
-
+  approveSoapNote,
 } from "../controller/appointment.js";
 import userValidation from "../middleware/validateUser.js";
 
@@ -46,6 +45,7 @@ appointmentRouter.post("/:appointmentId/receipt", userValidation, asyncRoute(gen
 appointmentRouter.post("/:appointmentId/refund", userValidation, asyncRoute(refundAppointmentPayment));
 appointmentRouter.post("/:appointmentId/start", userValidation, asyncRoute(startAppointment));
 appointmentRouter.post("/:appointmentId/end", userValidation, asyncRoute(endAppointment));
+appointmentRouter.post("/:appointmentId/soap-note/approve", userValidation, asyncRoute(approveSoapNote));
 
 appointmentRouter.post("/:appointmentId/copilot", userValidation, asyncRoute(askDoctorAppointmentCopilot));
 export default appointmentRouter;

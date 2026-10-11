@@ -20,8 +20,10 @@
   <img alt="Node" src="https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-16a34a?style=for-the-badge&logo=nodedotjs&logoColor=white" />
   <img alt="MongoDB" src="https://img.shields.io/badge/Data-MongoDB%20%2B%20Redis%20%2B%20Kafka-047857?style=for-the-badge&logo=mongodb&logoColor=white" />
   <img alt="Realtime" src="https://img.shields.io/badge/Realtime-Socket.IO%20%2B%20WebRTC-111827?style=for-the-badge&logo=socketdotio&logoColor=white" />
-  <img alt="AI" src="https://img.shields.io/badge/AI-Gemini%20%2B%20FastAPI%20ML-8b5cf6?style=for-the-badge&logo=google-gemini&logoColor=white" />
+  <img alt="AI" src="https://img.shields.io/badge/AI-Gemini%20%2B%20HF%20Inference-8b5cf6?style=for-the-badge&logo=google-gemini&logoColor=white" />
 </p>
+
+> ⚠️ **Clinical Decision Support Disclaimer:** MediPulse AI features provide non-diagnostic administrative assistance, pre-consultation intake summaries, and draft note formatting. All AI-generated outputs are explicitly marked as preliminary drafts requiring review, verification, and approval by a licensed medical practitioner. MediPulse does not make autonomous clinical diagnoses or automated prescription orders. All OPD, queue, laboratory, and pharmacy operations operate reliably offline without AI dependencies.
 
 <hr>
 
@@ -29,31 +31,30 @@
 
 MediPulse bridges the gap between **hospitals, doctors, and patients** in one unified ecosystem. It serves as:
 - 🧑‍⚕️ **A modern healthcare portal** for patients to find doctors and book appointments.
-- 🏥 **An advanced admin suite** for hospitals to manage staff, queues, and OPDs.
-- 🤖 **An AI Copilot** for doctors to automate clinical documentation and triage.
+- 🏥 **An advanced admin suite** for hospitals to manage staff, queues, laboratories, pharmacy, and OPDs.
+- 🤖 **An AI Copilot** for doctors to draft clinical documentation and assist with pre-consultation intake.
 
-By combining hospital management with cutting-edge AI triage and peer-to-peer WebRTC telemedicine, MediPulse dramatically reduces patient wait times and automates clinical workflows.
+By combining multi-tenant hospital operations, real-time queues, and peer-to-peer WebRTC telemedicine, MediPulse reduces patient wait times and streamlines clinical workflows.
 
 ---
 
 ## ✨ Core Features
 
-### 🤖 AI Pre-Triage & Smart Routing (Powered by BERT)
-- **Smart Assessment Engine** — Patients describe symptoms in natural language. A dedicated Python FastAPI microservice leverages **Hugging Face Transformers** to run state-of-the-art NLP models concurrently.
-- **Severity Prediction (`TriageBERT`)** — Extracts clinical severity (ESI Level 1-5) directly from unstructured symptom text and overrides with deterministic rule-based safety nets for critical emergencies (e.g., "heart attack").
-- **Specialty Routing (`PubMedBERT`)** — Maps symptoms to **13 distinct medical specialties** with calibrated confidence scores and differential alternatives, significantly narrowing the search space for doctors.
-- **Disease Prediction (`DistilBERT`)** — Predicts exact medical conditions (e.g., Dengue, Migraine) from raw symptom text using a fine-tuned Hugging Face DistilBERT model.
-- **Conversational Pre-Consultation** — A Gemini-driven multi-turn triage chat synthesizes conversations into a structured brief: chief complaint, duration, severity, and urgency.
-- **Patient History RAG Pipeline** — Implements Retrieval-Augmented Generation (RAG) by embedding past clinical SOAP notes using `text-embedding-004`. The Node.js backend calculates Cosine Similarity locally to inject highly relevant patient history directly into the AI's contextual prompt, enabling "long-term memory" across appointments.
+### 🤖 AI Pre-Triage & Clinical Safety
+- **Deterministic Emergency Overrides (Primary Safety Layer)** — Immediate rule-based screening for critical red-flag keywords (e.g., chest pain, breathing difficulty, stroke symptoms) that flags immediate high-urgency alerts without waiting for external AI.
+- **Conversational Pre-Intake Assistant** — Optional multi-turn intake chat powered by Google Gemini that synthesizes patient-reported complaints, duration, and severity into structured drafts for clinician review.
+- **Experimental Inference Client** — Direct client integration for Hugging Face inference models (triage and specialty classification) with bounded timeouts.
+- **Doctor Documentation Drafts (SOAP Notes)** — AI-generated consultation drafts requiring clinician review, edits, and recorded sign-off before entering the medical record.
+- **Graceful Offline Fallback** — When external AI models are unreachable or unconfigured, appointments, OPD check-ins, and documentation continue seamlessly via deterministic fallbacks.
 
 ### 🎥 WebRTC Video Consultations & Doctor Copilot
 - **Peer-to-Peer Telemedicine** — Direct WebRTC video/audio with no third-party meeting links. Socket.IO handles signalling (offer/answer/ICE) and presence.
 - **Robust Audio & Video** — Echo cancellation, noise suppression, and auto-gain control. Graceful degradation: video → audio-only → placeholder canvas track.
-- **Live Doctor Copilot** — Streams the consultation transcript in batched chunks, flags drug/symptom red flags against the patient's history, and auto-generates **SOAP notes**.
-- **In-Call Chat & Reports Viewer** — Side panels for messaging and reviewing the patient's uploaded reports without leaving the call.
+- **Live Doctor Copilot** — Streams consultation notes, flags patient allergies against records, and generates draft **SOAP notes** for clinician verification.
+- **In-Call Chat & Reports Viewer** — Side panels for messaging and reviewing patient uploaded reports without leaving the call.
 
 ### 🏥 Multi-Tenant Hospitals & Smart OPD
-- **Role-Based Access Control (RBAC)** — 7 staff roles including `HOSPITAL_ADMIN`, `DEPARTMENT_HEAD`, `DOCTOR`, `NURSE`, `RECEPTIONIST`, and more.
+- **Role-Based Access Control (RBAC)** — 7 staff roles including `HOSPITAL_ADMIN`, `DEPARTMENT_HEAD`, `DOCTOR`, `NURSE`, `RECEPTIONIST`, `LAB_SUPERVISOR`, and `PHARMACIST`.
 - **Live OPD Queues** — Atomic per-hospital token sequences, real-time position updates over Socket.IO, and dedicated consoles for doctors and nursing stations.
 - **Identity Resolution** — Queues and appointments stay in sync across a doctor's independent practice and their linked hospital-staff profile.
 
@@ -67,17 +68,16 @@ By combining hospital management with cutting-edge AI triage and peer-to-peer We
 
 | Metric | Count | Metric | Count |
 |---|---|---|---|
-| 🔌 **REST endpoints** | 125 across 18 modules | 🗄️ **Mongoose models** | 24 |
-| 🎮 **Express controllers** | 20 | ⚙️ **Backend services** | 9 |
-| ⚡ **Socket.IO events** | 15 | ⚛️ **React components** | 46 (35 client routes) |
-| 📨 **Kafka topics** | 8 | 🧠 **Deep Learning Models** | 3 (TriageBERT, PubMedBERT, DistilBERT) |
-| 🛡️ **Staff Roles (RBAC)** | 7 | 🐍 **Python Microservices** | 1 (FastAPI Engine) |
+| 🔌 **REST endpoints** | 135 across 20 modules | 🗄️ **Mongoose models** | 24 |
+| 🎮 **Express controllers** | 22 | ⚙️ **Backend services** | 12 |
+| ⚡ **Socket.IO events** | 15 | ⚛️ **React components** | 48 (38 client routes) |
+| 📨 **Kafka topics** | 8 | 🛡️ **Staff Roles (RBAC)** | 7 |
 
 ---
 
 ## 🧩 Architecture
 
-Heavy ML work is decoupled from the Node event loop into standalone FastAPI services. The backend calls them over HTTP with defensive error handling and Docker-network fallback routing, degrading gracefully when a service is unreachable.
+Core care and operations are decoupled from optional AI services. External cloud AI providers (Gemini, Hugging Face) are accessed over HTTP with defensive bounded timeouts and deterministic offline fallbacks.
 
 ```mermaid
 graph TD
@@ -94,19 +94,17 @@ graph TD
         Worker -->|Write| DB
     end
 
-    subgraph "AI Microservice"
-        API ==>|HTTP POST| FastAPI[🧠 FastAPI Engine]
-        FastAPI --> Triage[TriageBERT]
-        FastAPI --> Specialty[PubMedBERT]
-        FastAPI --> Disease[DistilBERT]
+    subgraph "Optional AI Services (Bounded Timeouts & Fallbacks)"
+        API -.->|REST / TLS| Gemini[☁️ Google Gemini API]
+        API -.->|REST / TLS| HF[☁️ Hugging Face Inference API]
+        API ==>|Always Available| SafetyRules[🛡️ Deterministic Emergency Safety Rules]
     end
 ```
 
 ### 🛡️ Layered Fallback Strategy
-The AI prediction is intentionally layered so one failure never leaves a doctor with an empty panel:
-1. **ML Microservice** (Primary — High accuracy NLP)
-2. **Deterministic Rules** (Flags critical keywords natively in Node/Python for immediate triage overrides)
-3. **Reported Chief Complaint** (Final fallback — surfaces what the patient actually said instead of a bare "Unknown")
+1. **Deterministic Safety Rules** (Immediate red-flag keyword screening natively in Node.js for emergency overrides)
+2. **Optional Cloud AI** (Intake drafts and SOAP note formatting when configured and responsive)
+3. **Deterministic Intake Fallback** (Surfaces verbatim patient complaints with review-required flags when AI is offline)
 
 ---
 
@@ -120,7 +118,7 @@ The AI prediction is intentionally layered so one failure never leaves a doctor 
 | **⚡ Cache & Locks**| Redis (state caching, distributed locks, TTL keys) |
 | **📨 Messaging** | Apache Kafka (KafkaJS) — 8 topics, producer + consumer worker |
 | **📞 Real-time** | Socket.IO (queues, presence, signalling), WebRTC (media) |
-| **🧠 AI / ML** | Google Gemini, Python, FastAPI, Hugging Face Transformers (`TriageBERT`, `PubMedBERT`, `DistilBERT`), PyTorch, LightGBM |
+| **🧠 AI / Decision Support** | Google Gemini 2.5 Flash, Hugging Face Inference Client, Rule-Based Triage Engine *(Roadmap: fine-tuned microservices per [PRODUCTION_ROADMAP.md](PRODUCTION_ROADMAP.md))* |
 | **☁️ DevOps** | Docker, Docker Compose, Render, Vercel |
 
 ---
