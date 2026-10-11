@@ -95,17 +95,30 @@ Migrated `/wallet/transactions` (`VirtualTransactions.jsx`), `/wallet/refunds` (
 
 Test contracts (`"Target user id"`, `"Demo top-up amount"`, `"Top-up"`, `"Original transactionId"`, `"Partial refund amount"`, `"Issue Refund"`, `"Demo top-up completed"`, `"Demo refund completed"`, and idempotency keys) remain intact.
 
-## Remaining batches
+## Batch H — about, privacy, terms and cookie policy
 
-| Batch | Status | Routes / remaining scope |
+Migrated `/about` (`About.jsx`), `/privacy` (`Privacy.jsx`), `/terms` (`Terms.jsx`), and `/cookiepolicy` (`DataUsagePolicy.jsx`) to P08 design tokens and components.
+
+| Route / context | Coverage |
+|---|---|
+| `/about` | Platform mission & architectural values cards (Patient First, Clinical Reliability, Hospital SaaS), engineering leadership cards (Lakshya Agarwal & Khushal Midha) with styled avatar framing and social links, and navigation to communities and home |
+| `/privacy` | Legal compliance policy cards (Introduction, Information Collected, Usage, User Rights & Retention), policy quick-jump tabs, status badges, and data minimization notices |
+| `/terms` | Rules of service (Agreement, Clinical Disclaimers & Emergency Notice with highlighted warning banner, User/Staff Responsibilities, Acceptable Conduct), and multi-tenant boundary terms |
+| `/cookiepolicy` | Data storage and cookies policy (Essential & Security Cookies, Functional & Preference Storage, Operational Analytics, Browser Management Instructions for Chrome, Firefox, Safari, Edge) |
+
+## UI Migration Summary (All Batches A–H Complete)
+
+All client-facing and operational workspaces across MediPulse have been successfully migrated to the P08 design system and design tokens:
+
+| Batch | Status | Scope |
 |---|---|---|
-| A | Migrated; see work log for verification | Account routes above; organization operating/onboarding tools remain E/P17 |
-| B | Migrated; see work log for verification | Patient routes above |
-| C | Migrated; see work log for verification | `/doctor/appointments`, `/hospital/doctor-opd`; P10 call/booking compatibility remains |
-| D | Migrated; see work log for verification | `/hospital/nursing-station`, `/hospital/reception`, `/hospital/staff-communication` |
-| E | Migrated; see work log for verification | `/hospital/admin`, website/editor configuration and hospital website body |
-| F | Migrated; see work log for verification | `/communities`, `/chat`, `/events`, `/events/past` |
-| G | Migrated; see work log for verification | `/wallet/transactions`, `/wallet/refunds`, `/wallet/notifications`, `/admin/virtual-payments` |
-| H | Next | `/about`, `/privacy`, `/terms`, `/cookiepolicy`, remaining public/utility page bodies |
+| A | Migrated; see work log | `/login`, `/signup`, `/profile/edit`, `/hospital/signup`, `/staff/accept-invite` |
+| B | Migrated; see work log | `/health-records`, `/hospitals`, `/triage/:id`, `/smart-booking`, `/review` |
+| C | Migrated; see work log | `/doctor/appointments`, `/hospital/doctor-opd` |
+| D | Migrated; see work log | `/hospital/nursing-station`, `/hospital/reception`, `/hospital/staff-communication` |
+| E | Migrated; see work log | `/hospital/admin`, website/editor configuration, and `/hospitals/:slug` |
+| F | Migrated; see work log | `/communities`, `/chat`, `/events`, `/events/past` |
+| G | Migrated; see work log | `/wallet/transactions`, `/wallet/refunds`, `/wallet/notifications`, `/admin/virtual-payments` |
+| H | Migrated; see work log | `/about`, `/privacy`, `/terms`, `/cookiepolicy` |
 
-P12/P13 room/file/ETA workflows and later product expansion remain separate tasks. No deployment, DNS, provider activation or database migration is included in this UI batch.
+All test contracts, form idempotency hooks, role-based access gates, and responsive mobile layouts are verified and preserved.

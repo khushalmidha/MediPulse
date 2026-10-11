@@ -1,65 +1,87 @@
-import React from 'react';
-import { Lock, Shield, UserCheck, Bell, Mail } from 'lucide-react';
+/* eslint-disable react/prop-types */
+import { Lock, Shield, UserCheck, Bell, ArrowLeft, FileText, Cookie } from 'lucide-react';
+import { Button, Card, StatusBadge } from '../components/ui';
 
 const PrivacySection = ({ title, icon: Icon, children }) => (
-  <section className="bg-white dark:bg-slate-950 p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-    <div className="flex items-center mb-4">
-      <Icon className="w-6 h-6 text-red-600 dark:text-red-500 mr-3" />
-      <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">{title}</h2>
+  <Card as="section" style={{ padding: 24, marginBottom: 16 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+      <div style={{ background: "var(--mp-accent-soft)", color: "var(--mp-primary)", padding: 8, borderRadius: 8, display: "flex" }}>
+        <Icon size={20} />
+      </div>
+      <h2 style={{ fontSize: "1.2rem", fontWeight: 750, margin: 0 }}>{title}</h2>
     </div>
-    <div className="text-gray-700 leading-relaxed">{children}</div>
-  </section>
+    <div style={{ color: "var(--mp-text)", lineHeight: 1.65, fontSize: "0.95rem" }}>{children}</div>
+  </Card>
 );
 
 const Privacy = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-gray-900 dark:text-slate-100 mb-4">
-            Privacy <span className="text-red-600 dark:text-red-500">Policy</span>
-          </h1>
-          <p className="text-gray-600">Last updated: March 17, 2024</p>
+    <main className="mp-page" style={{ maxWidth: 840 }}>
+      <div className="mp-section-heading">
+        <div>
+          <p className="mp-eyebrow">Legal & Compliance</p>
+          <h1>Privacy Policy</h1>
+          <p>How MediPulse collects, protects, and handles personal and health data.</p>
         </div>
-
-        <div className="space-y-6">
-          <PrivacySection title="Introduction" icon={Lock}>
-            <p>
-              At MediPulse, we take your privacy seriously. This Privacy Policy explains how we collect, 
-              use, and protect your personal information when you use our healthcare platform.
-            </p>
-          </PrivacySection>
-
-          <PrivacySection title="Information We Collect" icon={Shield}>
-            <ul className="list-disc list-inside space-y-2">
-              <li>Personal identification information (Name, email address, phone number)</li>
-              <li>Medical history and health records</li>
-              <li>Communication preferences</li>
-              <li>Device and usage information</li>
-            </ul>
-          </PrivacySection>
-
-          <PrivacySection title="How We Use Your Information" icon={Bell}>
-            <ul className="list-disc list-inside space-y-2">
-              <li>To provide and maintain our healthcare services</li>
-              <li>To communicate with you about appointments and updates</li>
-              <li>To improve our platform and user experience</li>
-              <li>To ensure compliance with healthcare regulations</li>
-            </ul>
-          </PrivacySection>
-
-          <PrivacySection title="Your Rights" icon={UserCheck}>
-            <p className="mb-3">You have the right to:</p>
-            <ul className="list-disc list-inside space-y-2">
-              <li>Access your personal information</li>
-              <li>Request correction of your data</li>
-              <li>Request deletion of your data</li>
-              <li>Opt-out of marketing communications</li>
-            </ul>
-          </PrivacySection>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <StatusBadge tone="positive">Effective October 2026</StatusBadge>
+          <Button to="/" variant="secondary">
+            <ArrowLeft size={16} /> Home
+          </Button>
         </div>
       </div>
-    </div>
+
+      {/* Policy Navigation Tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <Button to="/privacy" variant="primary" size="small">
+          <Shield size={14} /> Privacy Policy
+        </Button>
+        <Button to="/terms" variant="secondary" size="small">
+          <FileText size={14} /> Terms of Service
+        </Button>
+        <Button to="/cookiepolicy" variant="secondary" size="small">
+          <Cookie size={14} /> Cookie Policy
+        </Button>
+      </div>
+
+      <PrivacySection title="Introduction" icon={Lock}>
+        <p style={{ margin: "0 0 10px" }}>
+          At MediPulse, we prioritize the privacy and confidentiality of your sensitive health information. 
+          This policy details how data is processed across our patient portals, doctor workspaces, and hospital SaaS modules.
+        </p>
+        <p style={{ margin: 0, color: "var(--mp-muted)", fontSize: "0.9rem" }}>
+          By using MediPulse, you acknowledge the terms described herein and our adherence to applicable data privacy principles.
+        </p>
+      </PrivacySection>
+
+      <PrivacySection title="Information We Collect" icon={Shield}>
+        <p style={{ margin: "0 0 10px" }}>We collect information necessary to fulfill healthcare scheduling and communication:</p>
+        <ul style={{ paddingLeft: 20, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+          <li><strong>Identity & Account Data:</strong> Name, phone number, email address, and family member profiles.</li>
+          <li><strong>Clinical & Visit Data:</strong> Scheduled appointment times, OPD token sequences, clinician consultation notes, and vitals measurements.</li>
+          <li><strong>Operational Records:</strong> Staff shift logs, role invitations, and department assignment manifests.</li>
+          <li><strong>Simulated Ledger:</strong> Virtual wallet balances and demo transaction IDs. Real payment card numbers are never stored or collected.</li>
+        </ul>
+      </PrivacySection>
+
+      <PrivacySection title="How We Use Your Information" icon={Bell}>
+        <ul style={{ paddingLeft: 20, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+          <li>To issue queue tokens and notify patients of live arrival and consultation turns.</li>
+          <li>To securely share clinical context with authorized attending physicians during active visits.</li>
+          <li>To generate anonymized hospital operational forecasts (bed occupancy, blood bank inventory).</li>
+          <li>To enforce session security, prevent unauthorized account takeovers, and maintain strict audit logs.</li>
+        </ul>
+      </PrivacySection>
+
+      <PrivacySection title="Your Rights & Data Retention" icon={UserCheck}>
+        <p style={{ margin: "0 0 10px" }}>You retain control over your health record information:</p>
+        <ul style={{ paddingLeft: 20, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+          <li><strong>Access & Export:</strong> Request or download draft consultation summaries and health history at any time.</li>
+          <li><strong>Rectification:</strong> Correct profile demographics, phone numbers, or doctor credentials.</li>
+          <li><strong>Archival vs Deletion:</strong> Clinical visit logs are preserved under medical record regulations, but personal profiles may be deactivated and archived from active booking queues.</li>
+        </ul>
+      </PrivacySection>
+    </main>
   );
 };
 

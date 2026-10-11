@@ -702,5 +702,33 @@ Migrated `/wallet/transactions` (`VirtualTransactions.jsx`), `/wallet/refunds` (
 - Frontend production build: **Passed** (2319 modules, 22.83s).
 
 
+## P11 H — About, privacy, terms and cookie policy (11 October 2026)
+
+Migrated `/about` (`About.jsx`), `/privacy` (`Privacy.jsx`), `/terms` (`Terms.jsx`), and `/cookiepolicy` (`DataUsagePolicy.jsx`) to P08 design tokens and components.
+
+- **About Platform & Engineering Leadership (`About.jsx`):**
+  - Upgraded to P08 teal surfaces, platform core values cards (Patient First, Clinical Reliability, Hospital SaaS).
+  - Modernized team profiles for Lakshya Agarwal and Khushal Midha with styled avatar frames, bio narratives, and accessible external social links.
+  - Quick action buttons to return home or explore community groups.
+- **Privacy Policy (`Privacy.jsx`):**
+  - Upgraded to modular cards with icons for Introduction, Data Collected, Data Usage, and User Rights & Retention.
+  - Added quick-navigation tabs to effortlessly jump between Privacy Policy, Terms of Service, and Cookie Policy.
+- **Terms of Service (`Terms.jsx`):**
+  - Structured service clauses into readable cards with prominent Emergency Situation warning banner and clinical AI disclaimer.
+  - Multi-tenant data segregation rules and acceptable use standards.
+- **Cookie & Data Storage Policy (`DataUsagePolicy.jsx`):**
+  - Clear breakdown of cookie types (Essential & Security, Functional & Preference, Operational Analytics).
+  - Browser-specific cookie management instructions for Chrome, Firefox, Safari, and Edge.
+
+### Executed checks
+
+- Backend unit suite: **96 passed / 0 failed / 0 skipped**.
+- Frontend unit suite: **32 passed / 0 failed / 0 skipped**.
+- Affected files lint (`About.jsx`, `Privacy.jsx`, `Terms.jsx`, `DataUsagePolicy.jsx`): **0 errors / 0 warnings**.
+- Frontend production build: **Passed** (2314 modules, 27.05s).
+- **Milestone Reached:** P11 UI migration across all Batches A through H is now 100% complete across the entire application codebase!
+
+
+
 
 
