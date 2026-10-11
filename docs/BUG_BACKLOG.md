@@ -1,0 +1,58 @@
+# Remaining module audit — P00, 11 October 2026
+
+This audit follows the completed P01–P10, P11 A and P23 work. The initial MEDIPULSE_REVIEW is historical; fixes in those phases are not reopened without current evidence. This is source tracing, not execution of every route or a claim of clinical validation. No production diagnostic, seed or migration is part of the audit.
+
+## Inspected route modules
+
+| Module | Current permission / data boundary | Remaining scope |
+|---|---|---|
+| `user` | Account session and CSRF; profile uses authenticated ID; passwords excluded by schema/JSON | Unrestricted target deletion; mutable family array; profile validation/retention |
+| `doctor` | Public profile DTOs; authenticated doctor-only profile update | Unrestricted target deletion; publication/verification; independent affiliation discovery |
+| `hospital` | Public profile allowlist/cache; platform admin IDs; tenant staff checks | Recoverable onboarding password, operational setup and entitlements |
+| `opd` | Patient identity resolution; staff roles and visit/department checks; queue revision transitions | Rooms/file journey and continuously updated ETA |
+| `appointment` | Participant/doctor bindings, explicit care context, booking operation/ledger and call credentials | Remaining doctor UI, draft notes and provider review |
+| `scheduling` | Public availability; owned reservations, person/session locks, revisions and explicit practice | Independent/staff schedule-management UI and operational onboarding |
+| `patientPortal` | Controller patient-role/owner bindings; P11 B family timeline DTO | Destructive family removal/replacement; server mutation idempotency |
+| `review` | Owned completed token and signature; publicReview allowlist hides anonymous identity | Moderation/reporting bounds; signed-link expiry policy review |
+| `virtualPayment` | Actor role/identity, stable operation keys, transactions; environment admin allowlist | P11 G presentation, real gateway remains unactivated |
+| `community` | Organizer/member policy; join/leave transactions and safe summary | Pagination, moderation, reporting and notification preferences |
+| `message` | Shared membership policy and serialized send/leave; bounded content | Pagination/history, moderation and delivery UX |
+| `event` | Member-visible events; organizer-only creation | Reminder delivery, bounded listing, event edit/cancel lifecycle |
+| `staffMessage` | Tenant/department/direct/visit predicates shared with socket policy | P11 D communication UI; lab_alert is only a message |
+| `triage` | Account session; appointment ownership; optional provider/fallback drafts | Resetting GET, interrupted mutations, output schemas/consent/timeouts |
+| `opdAi` | Owned patient triage; assigned clinical staff context | AI schema/consent/timeouts and draft provenance |
+| `copilot` | Doctor and appointment binding; draft disclaimer | Provider bounds, explicit consent and human-review lifecycle |
+| `gemini` | Origin/readiness middleware; public chat handler | No account/CSRF guard, no prompt bound/rate limit, caller-selected prompt type |
+| `forecast` | Hospital admin/tenant checks; validated generated data, unvalidated draft label | Observed-input coverage, evaluation and UI; no proven prediction accuracy |
+| `ngos` | Authenticated read-only listing | Utility UI, bounded results and truthful external links |
+
+Cross-cutting tracing includes authSessions/validateUser/validateStaff, hospitalAccess, publicViews/cache invalidation, communityAccess, bookingAuthorization/queueBooking, scheduling, virtualLedger, staffMessaging/socket, outbox delivery, product host/custom-domain claims and runtime readiness. Existing model/index migrations and executed isolated tests are documented in their P03–P09/P23 records. Host/provider settings are not inferred from repository configuration.
+
+## Verified defects and missing workflows
+
+| ID / priority | Evidence and reproducible trigger | Impact / bounded repair | Verification criterion |
+|---|---|---|---|
+| MP01 Critical | `controller/user.js:deleteUserById`, `controller/doctor.js:deleteDoctorById` pass `req.params.id` directly to findByIdAndDelete; route guards accept account roles | A signed-in account can target another identity; hard deletion also leaves clinical/ledger references. Enforce owner/role and preserve referenced records before enabling account removal | Foreign account/role/invalid ID rejected before writes; historical records, wallets and sessions remain coherent |
+| MP02 High | `patientPortal.js:removeFamilyMember` pulls a subdocument; `user.js:updateUserData` accepts an entire familyMembers replacement; booking uses family references | Removing/replacing an identity can orphan past/current visits. Introduce a historical identity policy, validated dedicated operations and serialization with booking | Historical names remain available; archived people cannot receive new bookings; concurrent archive/book is deterministic |
+| MP03 High | `routes/gemini.js` is public; `controller/gemini.js:geminiChat` passes unbounded prompt/type and returns provider error.message | Unauthenticated provider cost/abuse, instruction bypass and error details. Bound and rate-limit supported public informational use; clinical requests need actor/context/consent | Oversized/unsupported input rejected, rate limit enforced, generic provider errors; optional AI outage does not block care |
+| MP04 High | `DoctorOpdConsole.jsx:TokenCard` uses `(index + 1) * 12` when estimated wait is absent; remaining C–H use legacy repeated styles | Fabricated ETA and incomplete UI migration. Finish C–H; render unknown wait as unavailable until P13 supplies a real estimate | No invented wait; all routes responsive, keyboard usable, errors and owner changes covered |
+| MP05 High, missing feature | No encounter destination/file handoff, laboratory order/result or prescription/dispensing route/model exists; staff lab_alert is a message | P12/P15/P16 operational modules are absent. Build bounded tenant workflows with actor/revision/audit, then connect patient status | Two-tenant isolation, valid transitions, duplicate/concurrent writes, release/dispense authorization and audit tests |
+| MP06 High, missing feature | OPD stored estimatedWaitMinutes and current queue snapshot do not establish a continuously updated patient-specific interval/confidence | P13 must calculate from observed durations/session pauses and expose timestamp/confidence/next destination | Estimate reacts to real consultation/absence/missed-turn changes; privacy-safe kiosk; offline stale state |
+| MP07 High | `doctor.js:getAllDoctors` platformPipeline excludes doctors with nonempty hospitals | A doctor employed at a hospital cannot be discovered independently even when an independent practice exists. Publish each practice by explicit context | Independent and hospital contexts remain separately discoverable and never merge queues/records |
+| MP08 High, missing feature | Doctor signup/profile models have no professional credential review/publication lifecycle | Public presence is not credential verification. P14 needs explicit unverified/pending/verified status and operator review without invented accreditation | Unpublished/unverified handling is truthful; independent onboarding reaches a usable session |
+| MP09 High | `hospital.js:registerHospital` encrypts/stores initial admin password; approval path can decrypt it | P17 should replace recoverable credentials with expiring one-use setup links; historical cleanup needs reviewed production execution | No new recoverable password/email; expiry/replay/tenant and complete synthetic onboarding tests |
+| MP10 High, missing feature | Hospital subscription fields exist; care routes lack a shared server entitlement/suspension policy | UI plan labels do not enforce plans. P17 needs trial/usage/tenant lifecycle, operating tools and audit | New hospital reaches first usable booking; suspension rules applied consistently without exposing records in metrics |
+| MP11 Medium, missing feature | Community/message lists are unpaginated; organizer/member access exists but moderation/reporting/preferences do not; event reminders are stored without a corresponding delivery job | P11 F/P14 must complete permissioned community operation, bounded history and reminder lifecycle | Organizer/nonmember/moderator scenarios, page boundaries, rate limits and durable deduplicated delivery |
+| MP12 High | triage/opdAi/copilot call generateContent and parse generated JSON without a shared consent/schema/timeout contract; triage start GET replaces conversation state | P18 needs validated bounded optional AI, provenance and human review; avoid reset on ordinary read and make interrupted operations recoverable | Provider malformed/timeout/unavailable outputs fail safely; no confirmed diagnosis/prescription from unreviewed output |
+| MP13 Medium, configuration unknown | README describes a Python ranking engine absent from this checkout; Hugging Face/Gemini integrations exist | Correct implementation claims, enumerate optional external services and clinician-reviewable fixtures | Docs match shipped routes; missing provider/source shown explicitly; no unsupported medical accuracy claims |
+| MP14 High, deployment boundary | P23 live readiness is healthy; optional Kafka degraded and actual mail/TURN delivery not exercised | P20 needs consumer/job visibility, provider journeys and operator monitoring with separate activation authorization | Restart/outage recovery and actual authorized delivery evidence; failures remain visible without false success |
+| MP15 Medium | Production build reports a ~742 kB main JS chunk and >500 kB warning | Split route/module loading during launch preparation; measure resulting initial assets | Reproducible build and critical-route rendering after splitting; record measured sizes |
+| MP16 High, external action | Earlier leaked credential rotation/history action and current dependency/provider advisories are not established by code | P20 must verify operator rotation status, lockfile advisories and runtime/provider support against official sources | No secrets in reports; exact residual advisories and external operator actions listed |
+
+## Confirmed corrections
+
+Public hospital/review DTOs and anonymous-feedback output use explicit publicViews projections. Current community messaging supports authorized doctor authors; forecasts execute protected controllers with validated drafts. Queue/ledger/context/session migrations and P23 preservation are complete, with separately recorded executed checks. P11 B fixes timeline family identity and combines linked completed encounters while retaining consultation notes and draft text. These are current source findings; broader production/provider journeys are not inferred from synthetic checks.
+
+## Execution order and decisions
+
+Repair MP01 first, then MP02 before broad patient/family use. Finish P11 C–H one reviewable batch at a time, followed by P12/P13, P14, P15/P16, P17/P18 and P19/P20. The owner explicitly requested the full roadmap on 11 October 2026; that supersedes the earlier current-batch-only scope. Preserve the existing domain and stack, demo-credit boundary, real/synthetic record preservation and Khushal-only main commits. Enterprise implementation milestones require operating-hospital requirements; P19 supplies the requested plan rather than inventing a full inpatient system. No provider/DNS purchase or production database mutation is authorized by this audit.
