@@ -26,7 +26,8 @@ const issueToken = async (req, res) => {
   if (req.staff && !sameHospital(req, hospitalId)) throw accessError(403, "Forbidden hospital access");
   const { doctorId, patientInfo = {}, visitType = "new", chiefComplaint = "" } = req.body;
   requireRecordId(hospitalId, "hospital"); requireRecordId(departmentId, "department"); requireRecordId(doctorId, "doctor");
-  const { patientId, familyMemberId } = await resolveBookingIdentity(req, req.body.patientId, req.body.familyMemberId);
+  // Historical ownership permits replay; new writes require an active member in the transaction.
+  const { patientId, familyMemberId } = await resolveBookingIdentity(req, req.body.patientId, req.body.familyMemberId, { includeArchived: true });
   if (req.staff && (!["RECEPTIONIST", "HOSPITAL_ADMIN", "NURSE"].includes(req.staff.role)
     || !canAccessVisit(req.staff, { hospitalId, departmentId, doctorId }))) throw accessError(403, "You cannot book for this department");
   const department = await Department.findOne({ _id: departmentId, hospitalId, status: "active" });

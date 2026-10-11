@@ -39,7 +39,7 @@ Migrated to the shared teal controls, warm surfaces and patient page layout. Exe
 
 Patient workspaces are keyed by account identity; disposed reads and mutation callbacks cannot populate another account. Denied private requests hide details and close record dialogs. Clinical text and signed review details are not persisted by these forms. Linked completed hospital token/appointment entries count once while preserving consultation notes, draft text and available summaries. The read DTO adds family identity and visit mode without changing stored records.
 
-Pre-visit questions remain optional clinician-review drafts. Explicit start avoids the old automatic conversation reset on page mount. The current triage/family APIs do not provide server request idempotency; local guards cannot guarantee recovery after an interrupted response. Family removal retains visit documents but existing backend removal policy needs historical-identity review. Room/file/ETA data, AI validation and hospital staff/body redesign remain their own documented phases.
+Pre-visit questions remain optional clinician-review drafts. Explicit start avoids the old automatic conversation reset on page mount. Triage/family creation still lack server request idempotency; local guards cannot guarantee recovery after an interrupted response. The MP02 follow-up replaces family deletion with replay-safe archival, retains historical names and visit records, blocks active visits/holds and rejects new bookings for archived people. History-only identities remain available in record filters and details after reload. Room/file/ETA data, AI validation and hospital staff/body redesign remain their own documented phases.
 
 ## Remaining batches
 

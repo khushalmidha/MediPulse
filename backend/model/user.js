@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
     authVersion: { type: Number, default: 0 },
+    careIdentityRevision: { type: Number, default: 0 },
 		gender: {
 			type: String,
 			enum: ["male", "female", "other"],
@@ -63,6 +64,7 @@ const userSchema = new mongoose.Schema(
 				dob: Date,
 				gender: String,
 				bloodGroup: String,
+                archivedAt: Date,
 			},
 		],
 	},

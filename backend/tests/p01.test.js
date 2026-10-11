@@ -84,6 +84,7 @@ const matches = (row, filter) => Object.entries(filter).every(([key, expected]) 
       if (operator === "$lte") return values.some((value) => value <= target);
       if (operator === "$lt") return values.some((value) => value < target);
       if (operator === "$exists") return values.some((value) => (value !== undefined) === target);
+      if (operator === "$elemMatch") return values.some(value => matches(value, target));
       throw new Error(`Unhandled synthetic filter operator ${operator}`);
     });
   }

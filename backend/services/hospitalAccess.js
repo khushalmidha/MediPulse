@@ -10,6 +10,7 @@ export const requireRecordId = (value, label = "record") => {
   if (!isRecordId(value)) throw accessError(400, `Invalid ${label} id`);
   return idOf(value);
 };
+export const activeFamilyFilter = id => ({ $elemMatch: { _id: requireRecordId(id, "family member"), archivedAt: null } });
 
 export const staffId = (staff) => idOf(staff?.id ?? staff?._id);
 export const staffRoom = (hospitalId, actorId) => `staff:${idOf(hospitalId)}:${idOf(actorId)}`;
@@ -43,14 +44,17 @@ export const visitForStaff = (token, staff) => {
   return view;
 };
 
-export const resolveBookingIdentity = async (req, patientId, familyMemberId) => {
+export const resolveBookingIdentity = async (req, patientId, familyMemberId, { includeArchived = false } = {}) => {
   if (!req.staff && req.auth?.role !== "user") throw accessError(403, "Patient account required");
   const ownerId = req.staff ? (patientId ? requireRecordId(patientId, "patient") : undefined) : requireRecordId(req.auth.id, "patient");
   if (!req.staff && patientId && idOf(patientId) !== ownerId) throw accessError(403, "You can only book for your own account");
   if (familyMemberId && !ownerId) throw accessError(400, "A family member requires a patient account");
   if (ownerId && (req.staff || familyMemberId)) {
     const filter = { _id: ownerId };
-    if (familyMemberId) filter["familyMembers._id"] = requireRecordId(familyMemberId, "family member");
+    if (familyMemberId) {
+      if (includeArchived) filter["familyMembers._id"] = requireRecordId(familyMemberId, "family member");
+      else filter.familyMembers = activeFamilyFilter(familyMemberId);
+    }
     if (!(await User.exists(filter))) throw accessError(403, "Patient or family member is not available to this booking");
   }
   return { patientId: ownerId, familyMemberId: familyMemberId ? idOf(familyMemberId) : undefined };

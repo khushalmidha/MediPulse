@@ -565,3 +565,21 @@ Verified the timeline omitted family identity and double-counted completed linke
 - Visually inspected synthetic desktop records, 360px hospital directory and dark review screenshots. All five routes were rendered at 360/768/1440 with no page overflow; keyboard selection and modal Escape/focus restoration were exercised. Screenshots/logs are outside OneDrive/Git in the temporary folder.
 
 No production database/provider/DNS writes belong to this UI batch. Main publication/deployment verification follows; authenticated live patient mutations are not used for smoke checks. Full-roadmap execution continues with MP02 and the remaining documented modules.
+
+
+### P11 B main publication and live verification
+
+Published as **0f40e737** directly to main, authored/committed by Khushal Midha. Both www.medipulse.live and the confirmed Vercel alias serve that exact build revision. Direct Render and company-proxy readiness return **200**, all five schemas ready and Mongo/Redis ready. Optional Kafka remains unavailable; configured mail is not delivery-verified.
+
+Fresh Edge live smoke: **7 passed / 0 failed / 0 uncaught page errors**, including desktop/mobile hospital discovery (four actual public cards), the Vercel directory and mobile guest gates for records, symptom guide, triage and reviews. Every state-changing browser request was blocked; private record requests were absent. Captured the mobile directory outside Git/OneDrive. No authenticated patient/provider/payment journey or production data mutation is claimed. This completes B publication verification; full-roadmap work continues with MP02.
+
+
+## MP02 / P01 follow-up — Family identity preservation (11 October 2026)
+
+Replaced physical family removal with transactional archival. The owner, child ID, name and demographics remain available in history-only records and filters after reload. Active appointments, OPD tokens and unexpired held reservations block archival. Generic patient profile PUT rejects whole-family replacement, validates ordinary fields and requires the patient role. Dedicated creation strictly validates names, optional enums and actual birth dates. Archived profiles cannot receive new bookings; completed held/confirmed requests retain owned replay access.
+
+Booking, held reservation creation/confirmation and archival now write a shared account identity revision within their Mongo transaction. Competing writers retry against the authoritative family state, preventing references from disappearing between validation and booking. Failed unpaid archived-family booking operations terminate with the actual 403 rather than remaining pending. Existing debits retain durable reconciliation behavior. Timeline/visit documents, wallets and original family subdocuments are preserved. Patient UI shows separate active profiles and historical identities; disposed saves cannot mutate a different account.
+
+Executed final checks: backend **95 unit tests and 119 isolated integration tests passed**, zero failures/skips; integration includes eight real competing archive/book races, active/held conflicts, retained complete visit BSON, new-booking refusal and completed scheduling replay after archival. Frontend **26 unit tests passed**, affected source/browser lint **0 errors / 0 warnings**, fixture syntax passed, production build passed (**53.09s**, existing large-chunk warning). Edge account/appointment/patient suite: **109 passed / 0 failed / 3 skipped** (**8.2m**); skips are duplicate mobile screenshot sweeps. New cases verify history names/details/filter/reload, conflict recovery and an old pending family response after identity switch. Local replica-set Mongo and Redis DB15 only; no production diagnostics/mutations or patient/provider journeys.
+
+Additive optional archivedAt/careIdentityRevision fields need no new indexes or data backfill. Production rollout uses existing records as active when archivedAt is absent. Do not roll back to the former physical-delete API after archived identities exist; retain an archive-aware backend or use a reviewed forward repair. Full backup restoration would require paused writers and separate approval. Family creation still lacks server request idempotency; reviewed restoration and broader account retention remain P17 follow-ups. Full-roadmap work continues with P11 C.

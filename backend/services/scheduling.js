@@ -1,4 +1,5 @@
 import { appointmentPosition } from "./appointmentPosition.js";
+import { lockPatientIdentity } from "./patientIdentity.js";
 import crypto from "node:crypto";
 import mongoose from "mongoose";
 import { CareSession, CareSlot, CareReservation, ScheduleOperation, DoctorAbsence } from "../model/scheduling.js";
@@ -150,7 +151,7 @@ export const getAvailability = async (input, now = new Date()) => {
   return { ...context, feeMinor: undefined, canonicalDoctorId: undefined, from, to, generatedAt: now, sessions };
 };
 export const holdCareSlot = async (req, now = new Date()) => {
-  const { patientId, familyMemberId } = await resolveBookingIdentity(req, req.body.patientId, req.body.familyMemberId);
+  const { patientId, familyMemberId } = await resolveBookingIdentity(req, req.body.patientId, req.body.familyMemberId, { includeArchived: true });
   const input = { slotId: requireRecordId(req.body.slotId, "slot"), patientId, familyMemberId: familyMemberId || null };
   const identity = requestIdentity(req, "hold", input);
   await expireScheduleHolds(now);
@@ -164,7 +165,7 @@ export const holdCareSlot = async (req, now = new Date()) => {
     const person = patientKey(patientId, familyMemberId); await lockSchedule("person:" + person, session);
     await eligible(care, session); await expireInSession(care, now, session);
     if (!bookingOpen(care, slot, now)) throw accessError(409, "Session booking has closed");
-    if (!(await User.exists({ _id: patientId, ...(familyMemberId ? { "familyMembers._id": familyMemberId } : {}) }).session(session))) throw accessError(403, "Patient identity is not available");
+    await lockPatientIdentity(patientId, familyMemberId, session);
     if (await CareReservation.exists({ personKey: person, state: { $in: ["held", "confirmed"] }, $or: [{ session: care._id }, { startsAt: { $lt: slot.endsAt }, endsAt: { $gt: slot.startsAt } }] }).session(session)) throw accessError(409, "Patient already has a reservation in this session or an overlapping visit");
     const occupied = await CareSlot.findOneAndUpdate({ _id: slot._id, occupied: { $lt: slot.capacity } }, { $inc: { occupied: 1 } }, { session, new: true });
     if (!occupied) throw accessError(409, "Slot is full; refresh availability");
@@ -190,6 +191,7 @@ export const confirmCareReservation = async (req, now = new Date()) => {
     if (!care) throw accessError(409, "Reservation session requires review");
     await lockSchedule("doctor:" + care.canonicalDoctorId, session); await lockSchedule("person:" + reservation.personKey, session); await eligible(care, session);
     if (!bookingOpen(care, reservation, now)) throw accessError(409, "Session booking has closed");
+    await lockPatientIdentity(reservation.user, reservation.familyMemberId, session);
     if (await Appointment.exists({ queueKey: care.queueKey, personKey: reservation.personKey, status: { $in: ["booking", "queued", "active", "refund_pending"] } }).session(session)) throw accessError(409, "This patient already has a booking in the session");
     let payment, financial;
     if (reservation.feeMinor > 0) {

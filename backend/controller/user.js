@@ -13,8 +13,10 @@ const getUserById = async (req, res) => {
 
 const updateUserData = async (req, res) => {
 	if (!req.auth) return res.status(401).json({ message: "Unauthorized" });
+	if (req.auth.role !== "user") return res.status(403).json({ message: "Patient account required" });
+	if (req.body.familyMembers !== undefined) return res.status(400).json({ message: "Use the family-profile operations to preserve visit history" });
 
-	const allowedFields = ["firstName", "lastName", "bio", "gender", "phoneNumber", "medicalHistory", "emergencyContact", "familyMembers"];
+	const allowedFields = ["firstName", "lastName", "bio", "gender", "phoneNumber", "medicalHistory", "emergencyContact"];
 	const updateData = {};
 	for (const key of allowedFields) {
 		if (req.body[key] !== undefined) {
@@ -22,7 +24,7 @@ const updateUserData = async (req, res) => {
 		}
 	}
 
-	const user = await User.findByIdAndUpdate(req.auth.id, updateData, { new: true });
+	const user = await User.findByIdAndUpdate(req.auth.id, updateData, { new: true, runValidators: true });
 	if (!user) {
 		return res.status(401).json({ message: "Unauthorized" });
 	}

@@ -1,4 +1,5 @@
 import { validateRequestedContext, explicitPractice } from "./queueContext.js";
+import { lockPatientIdentity } from "./patientIdentity.js";
 import BookingChallenge from "../model/bookingChallenge.js";
 import { recordVisitEvent } from "./workflowEvents.js";
 import { autoRefundDeadline } from "./consultationPolicy.js";
@@ -137,6 +138,9 @@ export const resumeQueueBooking = async (operationId) => {
     const fee = operation.fee || 0;
     const payerId = intent ? intent.payerId : appointment?.user;
     const receiverId = intent ? intent.receiverId : appointment?.doctor;
+    const identityOwner = intent?.tokenData?.patientId || token?.patientId || intent?.appointmentData?.user || appointment?.user || payerId;
+    const identityFamily = intent?.tokenData?.familyMemberId || token?.familyMemberId || intent?.appointmentData?.familyMemberId || appointment?.familyMemberId;
+    if (identityOwner) await lockPatientIdentity(identityOwner, identityFamily, session);
     let payment;
     if (fee > 0 && payerId) {
       const prior = await VirtualTransaction.findOne({ referenceId: `BOOKING-${operation._id}`, senderId: payerId, senderRole: "user" }).session(session).lean();
@@ -183,7 +187,7 @@ const recoverOrHold = async (operation) => {
     const persisted = await BookingOperation.findById(operation._id);
     if (["completed", "failed"].includes(persisted.state)) return replayOperation(persisted);
     const paid = await VirtualTransaction.findOne({ referenceId: `BOOKING-${operation._id}`, status: { $in: ["SUCCESS", "REFUNDED"] } });
-    if ([400, 401, 402].includes(error.status) && !paid) {
+    if ([400, 401, 402, 403].includes(error.status) && !paid) {
       await moneyTransaction(async (session) => {
         await OpdToken.updateOne({ _id: persisted.tokenId, status: "booking" }, { $set: { status: "cancelled" }, $inc: { revision: 1 } }, { session });
         await Appointment.updateOne({ _id: persisted.appointmentId, status: "booking" }, { $set: { status: "cancelled", endedAt: new Date() }, $inc: { revision: 1 } }, { session });

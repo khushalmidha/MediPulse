@@ -91,6 +91,20 @@ test("records paginate and offline family changes are blocked", async ({ page, r
   await context.setOffline(true); await expect(button(page, "Add family member")).toBeDisabled(); await expect(button(page, "Remove Synthetic Child")).toBeDisabled(); expect((await state(request)).familySaves || 0).toBe(0); await context.setOffline(false);
 });
 
+test("family archival keeps historical identity and active visits prevent removal", async ({ page, request }) => {
+  await patch(request, { activeFamilyVisit: true }); await open(page, "/health-records"); await button(page, "Remove Synthetic Child").click(); await button(page, "Remove profile").click(); await expect(page.getByText("Complete or cancel this person's active visits before removing their booking profile", { exact: true })).toBeVisible();
+  await patch(request, { activeFamilyVisit: false }); await button(page, "Remove profile").click(); await expect(page.getByRole("dialog")).toHaveCount(0); await expect(heading(page, "Profiles kept for visit history")).toBeVisible(); await expect(button(page, "Remove Synthetic Child")).toHaveCount(0);
+  await label(page, "Person").selectOption("000000000000000000000009"); await expect(heading(page, "Synthetic hospital record")).toBeVisible(); await button(page, "Open record: Synthetic hospital record").click(); await expect(page.getByRole("dialog").getByText(/Synthetic Child/)).toBeVisible(); await page.keyboard.press("Escape");
+  await page.reload({ waitUntil: "domcontentloaded" }); await expect(heading(page, "Profiles kept for visit history")).toBeVisible(); await button(page, "Open record: Synthetic hospital record").click(); await expect(page.getByRole("dialog").getByText(/Synthetic Child/)).toBeVisible();
+});
+
+test("a disposed family save cannot update another patient's account or workspace", async ({ page, request }) => {
+  await patch(request, { patientMutationDelay: 700 }); await open(page, "/health-records"); await button(page, "Add family member").click(); await label(page, "Full name").fill("OLD OWNER PROFILE"); await label(page, "Relationship").fill("Parent"); await button(page, "Save family profile").click(); await expect.poll(async () => (await state(request)).familySaves).toBe(1);
+  const next = { _id: "000000000000000000000099", firstName: "Second Synthetic", familyMembers: [] };
+  await patch(request, { patientProfile: next, patientFamily: [], patientArchived: [], patientTitle: "SECOND OWNER RECORD" }); await page.evaluate(result => window.dispatchEvent(new CustomEvent("medipulse:session", { detail: { scope: "account", payload: { role: "user", result } } })), next);
+  await expect(heading(page, "SECOND OWNER RECORD")).toBeVisible(); await expect.poll(async () => (await state(request)).familyResponses).toBe(1); await expect(page.getByRole("dialog")).toHaveCount(0); await expect(page.getByText("OLD OWNER PROFILE", { exact: true })).toHaveCount(0); await expect(heading(page, "No family profiles yet")).toBeVisible();
+});
+
 test("triage keeps failed answers and saves only a clinician-review draft", async ({ page, request }) => {
   await open(page, "/triage/" + visitId); await label(page, "Question language").selectOption("Hindi"); await button(page, "Start questions").click(); await expect(page.getByText("Synthetic first question", { exact: true })).toBeVisible(); expect((await state(request)).triageLanguage).toBe("Hindi");
   await patch(request, { failTriageSend: true }); await label(page, "Your answer").fill("Synthetic answer"); await button(page, "Send answer").click(); await expect(page.getByText("Synthetic reply unavailable", { exact: true })).toBeVisible(); await expect(label(page, "Your answer")).toHaveValue("Synthetic answer");

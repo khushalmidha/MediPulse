@@ -2,6 +2,7 @@ import Appointment from "../model/appointment.js";
 import Hospital from "../model/hospital.js";
 import OpdToken from "../model/opdToken.js";
 import User from "../model/user.js";
+import { familyViews, addPatientFamily, archivePatientFamily } from "../services/familyProfiles.js";
 
 const mapOpdToken = (token) => ({
   id: token._id,
@@ -90,7 +91,8 @@ export const getFamilyMembers = async (req, res) => {
   try {
     if (req.auth.role !== "user") return res.status(403).json({ message: "Patient account required" });
     const user = await User.findById(req.auth.id).select("familyMembers").lean();
-    res.status(200).json({ items: user?.familyMembers || [] });
+    if (!user) return res.status(404).json({ message: "Patient account not found" });
+    res.status(200).json(familyViews(user));
   } catch (error) {
     res.status(500).json({ message: error.message || "Unable to load family members" });
   }
@@ -100,35 +102,17 @@ export const addFamilyMember = async (req, res) => {
   try {
     if (req.auth.role !== "user") return res.status(403).json({ message: "Patient account required" });
 
-    const member = {
-      name: String(req.body.name || "").trim(),
-      relation: String(req.body.relation || "").trim(),
-      dob: req.body.dob ? new Date(req.body.dob) : undefined,
-      gender: req.body.gender,
-      bloodGroup: req.body.bloodGroup,
-    };
-
-    if (!member.name || !member.relation) {
-      return res.status(400).json({ message: "Name and relation are required" });
-    }
-
-    const user = await User.findByIdAndUpdate(req.auth.id, { $push: { familyMembers: member } }, { new: true }).select("familyMembers");
-    res.status(201).json({ message: "Family member added", items: user.familyMembers });
+    res.status(201).json({ message: "Family member added", ...await addPatientFamily(req.auth.id, req.body) });
   } catch (error) {
-    res.status(500).json({ message: error.message || "Unable to add family member" });
+    res.status(error.status || 500).json({ message: error.status ? error.message : "Unable to add family member" });
   }
 };
 
 export const removeFamilyMember = async (req, res) => {
   try {
     if (req.auth.role !== "user") return res.status(403).json({ message: "Patient account required" });
-    const user = await User.findByIdAndUpdate(
-      req.auth.id,
-      { $pull: { familyMembers: { _id: req.params.memberId } } },
-      { new: true },
-    ).select("familyMembers");
-    res.status(200).json({ message: "Family member removed", items: user.familyMembers });
+    res.status(200).json({ message: "Family booking profile removed. Visit history retained.", ...await archivePatientFamily(req.auth.id, req.params.memberId) });
   } catch (error) {
-    res.status(500).json({ message: error.message || "Unable to remove family member" });
+    res.status(error.status || 500).json({ message: error.status ? error.message : "Unable to remove family member" });
   }
 };

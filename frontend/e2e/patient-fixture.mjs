@@ -16,7 +16,7 @@ export async function handlePatient({ req, state, reply, hospitalId }) {
     if (state.denyPatientRecords) return respond({ message: "Synthetic patient access revoked" }, Number(state.denyPatientRecords));
     if (state.failPatientRecords) return respond({ message: "Synthetic private records outage" }, 503);
     if (req.method === "GET") {
-      if (path.endsWith("family")) return respond({ items: family() });
+      if (path.endsWith("family")) return respond({ items: family(), archivedItems: state.patientArchived || [] });
       if (path.endsWith("hospitals")) return state.failVisitedHospitals ? respond({ message: "Synthetic visited hospitals outage" }, 503) : respond({ items: state.emptyPatient ? [] : [hospital] });
       if (path.endsWith("health-timeline")) {
         const rows = [{ id: "000000000000000000000011", type: "opd_token", title: state.patientTitle || "Synthetic hospital record", subtitle: "Fixture OPD · T001", familyMemberId: familyId, status: "completed", visitMode: "in_person", date: "2026-10-10T09:00:00Z", chiefComplaint: "Synthetic recorded concern", vitals: { pulse: 0 }, patientBrief: { agentSummary: "Synthetic assistant draft", predictedDisease: "Synthetic unconfirmed suggestion" } },
@@ -30,16 +30,22 @@ export async function handlePatient({ req, state, reply, hospitalId }) {
     if (req.method === "POST" && path.endsWith("family")) {
       let raw = ""; for await (const chunk of req) raw += chunk; const body = JSON.parse(raw || "{}");
       state.familySaves = (state.familySaves || 0) + 1; state.familyPayload = body;
+      const requestOwner = state.patientProfile?._id || "000000000000000000000002", previous = family(), archived = state.patientArchived || [];
       if (state.patientMutationDelay) await new Promise(resolve => setTimeout(resolve, state.patientMutationDelay));
       if (state.failFamilySave) return respond({ message: "Synthetic family save outage" }, 503);
-      state.patientFamily = [...family(), { ...body, _id: "000000000000000000000010" }];
-      return respond({ message: "Family profile saved", items: state.patientFamily }, 201);
+      const next = [...previous, { ...body, _id: "000000000000000000000010" }];
+      if (requestOwner === (state.patientProfile?._id || "000000000000000000000002")) state.patientFamily = next;
+      state.familyResponses = (state.familyResponses || 0) + 1;
+      return respond({ message: "Family profile saved", items: next, archivedItems: archived }, 201);
     }
     if (req.method === "DELETE") {
       state.familyRemovals = (state.familyRemovals || 0) + 1;
       if (state.failFamilyRemove) return respond({ message: "Synthetic profile removal outage" }, 503);
+      if (state.activeFamilyVisit) return respond({ message: "Complete or cancel this person's active visits before removing their booking profile" }, 409);
+      const removed = family().find(row => row._id === path.split("/").at(-1));
+      if (removed) state.patientArchived = [...(state.patientArchived || []), { ...removed, archivedAt: "2026-10-11T00:00:00Z" }];
       state.patientFamily = family().filter(row => row._id !== path.split("/").at(-1));
-      return respond({ message: "Family profile removed", items: state.patientFamily });
+      return respond({ message: "Family booking profile removed. Visit history retained.", items: state.patientFamily, archivedItems: state.patientArchived || [] });
     }
   }
   if (path.startsWith("/api/triage/")) {
