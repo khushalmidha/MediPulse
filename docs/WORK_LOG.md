@@ -821,6 +821,39 @@ Implemented independent doctor practice capabilities, credential verification st
 - Frontend production build: **Passed** (2315 modules, 21.82s).
 
 
+## P15 — Tenant-scoped laboratories and diagnostics (11 October 2026)
+
+Implemented the encounter-integrated laboratory diagnostic workflow, tenant-scoped test catalog, sample accessioning with unique barcodes, sample rejection handling, technician results entry, critical value alerts, supervisor verification, patient report release, and versioned report corrections according to P15 requirements.
+
+- **Tenant-Scoped Lab Test Catalog (`LabTestCatalog.js`):**
+  - Schema modeling hospital test catalog with categories (`Hematology`, `Biochemistry`, `Microbiology`, `Pathology`, etc.), specimen types, test parameters, units, reference intervals, critical alert thresholds, and turnaround hours.
+  - Endpoints `GET/POST /api/labs/catalog`.
+- **Encounter-Integrated Diagnostic State Machine (`LabOrder.js`, `labService.js`):**
+  - Full lifecycle progression: `ordered -> billing_cleared -> collected -> processing -> result_entered -> verified -> released`.
+  - Rejection path: handles damaged/hemolyzed specimens (`orderStatus: "rejected"`) with mandatory reasons and immediate recollection requests.
+  - Linked to `EncounterJourney` steps: automatically updates encounter diagnostic progress upon order creation, processing, and release.
+- **Specimen Accessioning & Barcode Generation:**
+  - Unique physical accession barcodes (`LAB-<HOSP>-<TIMESTAMP><RANDOM>`) for tube/sample tracking across laboratory equipment.
+- **Technician Entry & Critical Value Safety:**
+  - Parameter findings entry with unit, reference range, and flags (`normal`, `low`, `high`, `critical_low`, `critical_high`).
+  - Automatic `criticalValueAlert` triggers requiring explicit clinician review and recorded acknowledgement.
+- **Supervisor Verification & Versioned Report Amendments:**
+  - Authorized supervisor/pathologist verification gate before reports become visible to patients.
+  - Corrected reports preserve full audit history: previous results archived into `reportCorrections`, reason logged, and `reportVersion` incremented.
+- **Hospital Laboratory Console (`LaboratoryConsole.jsx`):**
+  - Dedicated operational workspace for hospital laboratory teams with worklist tabs (Pending Collection, Accessioned, Awaiting Verification, Released, Rejected).
+  - Dialogs for specimen accessioning, sample rejection, parameter result entry, supervisor verification, report release, and amendments.
+  - Mounted routes under `/hospital/laboratory` and `/hospital/lab`.
+
+### Executed checks
+
+- Backend unit suite: **119 passed / 0 failed / 0 skipped** (including 7 new P15 tests in `tests/lab-workflow.test.js`).
+- Frontend unit suite: **37 passed / 0 failed / 0 skipped**.
+- Affected files lint (`LaboratoryConsole.jsx`, `App.jsx`): **0 errors / 0 warnings**.
+- Frontend production build: **Passed** (2316 modules, 15.29s).
+
+
+
 
 
 

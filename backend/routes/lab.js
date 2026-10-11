@@ -1,0 +1,45 @@
+import { Router } from "express";
+import {
+  getLabCatalog,
+  createLabCatalogItem,
+  postCreateLabOrder,
+  listLabOrders,
+  getLabOrderById,
+  patchClearBilling,
+  patchCollectSample,
+  patchRejectSample,
+  postEnterLabResults,
+  patchVerifyLabResults,
+  patchReleaseLabResults,
+  postCorrectLabReport,
+  postAcknowledgeCritical,
+  getPatientLabResults,
+} from "../controller/lab.js";
+import validateStaff from "../middleware/validateStaff.js";
+import userValidation from "../middleware/validateUser.js";
+import { nosqlGuard } from "../middleware/nosqlGuard.js";
+
+const labRouter = Router();
+labRouter.use(nosqlGuard);
+
+// Catalog
+labRouter.get("/catalog", validateStaff, getLabCatalog);
+labRouter.post("/catalog", validateStaff, createLabCatalogItem);
+
+// Patient access to their released results
+labRouter.get("/patient-results", userValidation, getPatientLabResults);
+
+// Orders workflow
+labRouter.get("/orders", validateStaff, listLabOrders);
+labRouter.post("/orders", validateStaff, postCreateLabOrder);
+labRouter.get("/orders/:id", validateStaff, getLabOrderById);
+labRouter.patch("/orders/:id/billing", validateStaff, patchClearBilling);
+labRouter.patch("/orders/:id/collect", validateStaff, patchCollectSample);
+labRouter.patch("/orders/:id/reject", validateStaff, patchRejectSample);
+labRouter.post("/orders/:id/results", validateStaff, postEnterLabResults);
+labRouter.patch("/orders/:id/verify", validateStaff, patchVerifyLabResults);
+labRouter.patch("/orders/:id/release", validateStaff, patchReleaseLabResults);
+labRouter.post("/orders/:id/correct", validateStaff, postCorrectLabReport);
+labRouter.post("/orders/:id/acknowledge-critical", validateStaff, postAcknowledgeCritical);
+
+export default labRouter;
