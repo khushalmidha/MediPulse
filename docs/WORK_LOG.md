@@ -985,3 +985,65 @@ Completed final launch candidate verification, regression validation, runbook co
   - Formal security sign-off: host-only HttpOnly cookies, memory-resident CSRF tokens, strict draft states for clinical suggestions, data minimization for external AI, and zero credential leakage.
 - **Roadmap Completion Status:**
   - All requested phases P01–P20 are fully implemented, verified, documented in WORK_LOG, and committed/pushed to `origin main`.
+
+## P21 — Post-Astra Review Remediation (11 October 2026)
+
+Systematically resolved architectural security, tenant isolation, fail-closed persistence, bounded stock accounting, encounter journeys, clinician SOAP note approval, doctor verification, queue reliability, design consistency, and community moderation findings documented in `docs/ASTRA_REVIEW.md` and guided by `docs/ASTRA_IMPLEMENTATION_PLAN.md`.
+
+### Implemented Repairs
+
+1. **A01 & A05: Tenant Operating Security & Disconnected DB Fail-Closed (`middleware/saasAuth.js`, `controller/saasOperations.js`, `services/saasOperationsService.js`)**
+   - Protected SaaS operations with `requireSaasRole`: restricted platform-operator actions (`modifyTenantSubscription`, `suspendTenant`, `generateAdminSetupLink`) to platform operators, and tenant-scoped actions to tenant admins or platform operators.
+   - Enforced safe response projections and strict sanitize exports (omitting credentials, hashes, and internal tokens).
+   - Sanitized setup verification responses to a minimal public allowlist.
+   - Implemented fail-closed database handling: when disconnected (`readyState !== 1`) and no explicit test double is present, returns `503 Service Unavailable` instead of fabricated success or sample documents.
+   - Fixed token status query in waiting metrics to query `status: "waiting"`.
+
+2. **A02, A05, A06, A09: Pharmacy & Lab Security, Bounded Stock, and Lab Integrity (`routes/pharmacy.js`, `routes/lab.js`, `services/pharmacyService.js`, `services/labService.js`)**
+   - Added `requireRole` middleware to all pharmacy and lab routes (enforcing DOCTOR, PHARMACIST, LAB_SUPERVISOR, PATHOLOGIST, and RECEPTIONIST privileges).
+   - Bound tenant scoping strictly to `req.staff.hospitalId` and actor attribution to `req.staff`. Detail lookups scope strictly to `{ _id: id, hospitalId }`.
+   - Pharmacy dispensing: enforces positive bounded unit quantities (`Math.min(requestedQty, remainingToDispense)`), explicit batch selection (rejecting specified invalid batches rather than silently substituting), rejects unknown inventory items, evaluates `allDispensed` across all prescription items, and bounds returns to `quantityDispensed`.
+   - Lab workflow: blocks sample rejection once report is already released; marks critical alerts with `requiresAcknowledgement: true`.
+   - Implemented fail-closed 503 behavior when database is disconnected without injected test doubles.
+
+3. **A03: Clinician SOAP Note Approval Authorization (`controller/appointment.js`)**
+   - Enforced `req.auth?.role === "doctor"` and assigned-doctor identity (`getLinkedDoctorIds(req.auth.id)`).
+   - Required note version concurrency validation (`noteVersion`) and sets `approvedBy: req.auth.id`.
+   - Subsequent doctor note updates reset `clinicianApproved: false` and `isDraft: true`.
+
+4. **A04 & A08: Encounter & Queue Privacy, Walk-in Linking (`middleware/patientOrStaffAuth.js`, `routes/encounter.js`, `routes/opd.js`, `services/encounterJourneyService.js`)**
+   - Created `patientOrStaffAuth` middleware guarding encounter guidance and tickets to owning patient or authorized hospital staff.
+   - Guarded `/tokens/:tokenId/live-timeline` and sanitized internal staff notes from patient view.
+   - Reconciled walk-in linking to match either encounter `_id` or `tokenId` (`$or: [{ _id: encounterId }, { tokenId: encounterId }]`), validated phone claim, and linked atomically.
+
+5. **A11 & A12: Doctor Verification Defaults & Honest Queue Controls (`model/doctor.js`, `controller/doctor.js`, `services/queueTrackingService.js`)**
+   - Defaulted `credentialVerification.status` to `'pending'`, `verifiedAt` to `null`, and `isPublished` to `false`.
+   - Prevented doctor self-verification; doctor credential submissions trigger `'pending'`.
+   - Included affiliated doctors with `independentPractice.enabled: true` in independent discovery.
+   - Queue kiosk filters tokens strictly by current service date (`targetDate`).
+   - Priority overrides persist priority state and reason to token document.
+
+6. **A13: Clinical AI Provider Boundary & Minimization (`services/aiReliabilityService.js`, `controller/gemini.js`, `controller/opdAi.js`, `controller/appointment.js`)**
+   - Wrapped provider calls in `withBoundedTimeout` across intake triage, physical OPD copilot, and appointment copilot.
+   - Applied `minimizePatientContext` across all clinical AI endpoints.
+   - Enforced `validateAiBriefSchema` on intake triage output.
+   - Bounded character lengths on user prompts and rough notes. Sanitized 503 error responses in `gemini.js` to prevent internal provider error leakage.
+   - Implemented `evaluateTriageRedFlag` and executed it directly on standardized clinician evaluation fixtures in `ai-reliability.test.js`.
+
+7. **A16: Doctor Name Prefix Normalization & Visual Token Alignment (`src/utils/appointments.js`, `src/index.css`, `src/components/AiBot.jsx`, `src/pages/Dashboard.jsx`)**
+   - Added `cleanDoctorName` and `formatDoctorName` in `src/utils/appointments.js`, stripping duplicate or repeated `Dr.` / `Doctor` prefixes with safe fallbacks.
+   - Defined missing CSS variable aliases (`--mp-primary`, `--mp-surface-subtle`, `--mp-text-muted`, `--mp-bg`, `--mp-warning`) in `:root` and `.dark` in `index.css`.
+   - Refactored `Dashboard.jsx` and `AiBot.jsx` to replace discordant red hero/controls with semantic MediPulse teal branding (`--mp-accent`), reserving red strictly for error and urgent states.
+
+8. **A17: Community Moderation Audit Preservation & Atomic Preferences (`model/message.js`, `controller/community.js`)**
+   - Added `originalContent`, `moderatedBy`, and `moderatedAt` to message schema to preserve moderation evidence.
+   - Sanitized message DTOs for ordinary members in `getAllMessages` (stripping report metadata and audit fields) and bounded default history to 50 messages.
+   - Made message reporting idempotent.
+   - Replaced uncoordinated `$pull`/`$push` sequence in `updatePreferences` with atomic positional updates.
+
+### Executed Verification
+
+- Backend unit suite (`npm test`): **145 passed / 0 failed / 0 skipped** across all test suites.
+- Post-Astra feature test suite (`node --test tests/saas-operations.test.js tests/pharmacy-workflow.test.js tests/lab-workflow.test.js tests/encounter-journey.test.js tests/queue-tracking.test.js tests/ai-reliability.test.js tests/independent-doctor-community.test.js`): **49 passed / 0 failed / 0 skipped**.
+- Frontend UI test suite (`npm run test:ui`): **38 passed / 0 failed / 0 skipped**.
+- Frontend production bundle build (`npm run build`): **Passed** (2318 modules, zero compilation errors).

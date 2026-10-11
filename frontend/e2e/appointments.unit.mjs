@@ -1,11 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { safeReturnPath, dateInZone, visitTime, feeText, canCheckIn, calendarReminder } from "../src/utils/appointments.js";
+import { safeReturnPath, dateInZone, visitTime, feeText, canCheckIn, calendarReminder, formatDoctorName, doctorName } from "../src/utils/appointments.js";
 const visit = { reservation: { _id: "fixture-reservation", state: "confirmed", startsAt: "2026-10-10T09:00:00Z", endsAt: "2026-10-10T09:15:00Z" },
   session: { visitMode: "online", appointmentType: "scheduled_online", policy: { checkInLeadMinutes: 15, checkInGraceMinutes: 30 } }, appointment: { status: "queued", admissionState: "reserved" } };
 test("login returns only to safe internal paths", () => {
   assert.equal(safeReturnPath("/appointment/book/id?type=online_opd"), "/appointment/book/id?type=online_opd");
   for (const value of [null, "https://example.invalid", "//example.invalid", "/\\example.invalid", "/login?returnTo=/login", "/signup", "/bad\npath"]) assert.equal(safeReturnPath(value), "/dashboard");
+});
+test("formatDoctorName normalizes repeated prefixes and provides safe fallback", () => {
+  assert.equal(formatDoctorName("Dr. Jane Doe"), "Dr. Jane Doe");
+  assert.equal(formatDoctorName("Dr. Dr. Jane Doe"), "Dr. Jane Doe");
+  assert.equal(formatDoctorName("Doctor Dr. Jane Doe"), "Dr. Jane Doe");
+  assert.equal(formatDoctorName("Jane Doe"), "Dr. Jane Doe");
+  assert.equal(formatDoctorName({ firstName: "Jane", lastName: "Doe" }), "Dr. Jane Doe");
+  assert.equal(formatDoctorName({ fullName: "Dr. Jane Doe" }), "Dr. Jane Doe");
+  assert.equal(formatDoctorName({ name: "Doctor Dr. Jane Doe" }), "Dr. Jane Doe");
+  assert.equal(formatDoctorName(""), "Doctor");
+  assert.equal(formatDoctorName(null), "Doctor");
+  assert.equal(formatDoctorName("   "), "Doctor");
+  assert.equal(doctorName("Dr. Dr. Jane Doe"), "Jane Doe");
+  assert.equal(doctorName("Jane Doe"), "Jane Doe");
 });
 test("practice dates respect timezone boundaries", () => {
   const instant = new Date("2026-10-09T20:00:00Z");

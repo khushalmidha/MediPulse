@@ -51,11 +51,14 @@ const generateGeminiText = async (prompt, type = "general") => {
 const geminiChat = async (req, res) => {
   try {
     const { prompt, type } = req.body;
-    if (!prompt) {
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       return res.status(400).json({ message: "Prompt is required" });
     }
 
-    const text = await generateGeminiText(prompt, type);
+    const safePrompt = prompt.trim().slice(0, 1000);
+    const safeType = ["general", "doctor", "community"].includes(type) ? type : "general";
+
+    const text = await generateGeminiText(safePrompt, safeType);
 
     return res.status(200).json({
       text,
@@ -66,24 +69,28 @@ const geminiChat = async (req, res) => {
     console.error("Gemini API error:", error?.message || error);
     return res.status(503).json({
       message: "AI service unavailable. Healthcare and booking operations remain fully operational.",
-      error: error?.message,
       fallbackActive: true,
     });
   }
 };
 
 const generateSoapNote = async (roughNotes) => {
+  const safeNotes = typeof roughNotes === "string" ? roughNotes.trim().slice(0, 4000) : "";
+  if (!safeNotes) {
+    return generateDeterministicSoapFallback({ roughNotes: "" }).markdown;
+  }
+
   if (!process.env.GEMINI_API_KEY) {
-    const fallback = generateDeterministicSoapFallback({ roughNotes });
+    const fallback = generateDeterministicSoapFallback({ roughNotes: safeNotes });
     return fallback.markdown;
   }
 
   try {
-    const prompt = `You are a clinical documentation assistant. Please format the following rough consultation notes into a structured SOAP (Subjective, Objective, Assessment, Plan) format. Return only the structured SOAP note in Markdown format without any extra explanation or text.\n\nRough Notes: ${roughNotes}`;
+    const prompt = `You are a clinical documentation assistant. Please format the following rough consultation notes into a structured SOAP (Subjective, Objective, Assessment, Plan) format. Return only the structured SOAP note in Markdown format without any extra explanation or text.\n\nRough Notes: ${safeNotes}`;
     return await generateGeminiText(prompt, "soap");
   } catch (err) {
     console.warn("Gemini SOAP generation failed, applying deterministic clinical fallback:", err.message);
-    const fallback = generateDeterministicSoapFallback({ roughNotes });
+    const fallback = generateDeterministicSoapFallback({ roughNotes: safeNotes });
     return fallback.markdown;
   }
 };

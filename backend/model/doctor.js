@@ -95,13 +95,13 @@ const doctorSchema = new mongoose.Schema(
       },
     ],
     credentialVerification: {
-      status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'verified' },
+      status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
       councilRegistrationNumber: { type: String, default: '' },
       stateMedicalCouncil: { type: String, default: '' },
-      verifiedAt: { type: Date, default: Date.now },
+      verifiedAt: { type: Date, default: null },
       reviewNotes: { type: String, default: '' },
     },
-    isPublished: { type: Boolean, default: true },
+    isPublished: { type: Boolean, default: false },
     independentPractice: {
       enabled: { type: Boolean, default: true },
       consultationFee: { type: Number, default: 500, min: 0 },

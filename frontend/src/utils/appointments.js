@@ -1,5 +1,21 @@
 export const careLabels = { scheduled_online: "Online appointment", online_opd: "Online OPD window", hospital_in_person: "Hospital visit", immediate: "Immediate online queue" };
-export const doctorName = doctor => doctor?.fullName || doctor?.name || [doctor?.firstName, doctor?.lastName].filter(Boolean).join(" ") || "Doctor";
+export const cleanDoctorName = (doctor, fallback = "Doctor") => {
+  const raw = typeof doctor === "string"
+    ? doctor
+    : (doctor?.fullName || doctor?.name || [doctor?.firstName, doctor?.lastName].filter(Boolean).join(" ") || "");
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return fallback;
+  const cleaned = trimmed.replace(/^(?:(?:dr|doctor)\.?\s*)+/i, "").trim();
+  return cleaned || fallback;
+};
+
+export const formatDoctorName = (doctor, fallback = "Doctor") => {
+  const cleaned = cleanDoctorName(doctor, "");
+  if (!cleaned) return fallback;
+  return `Dr. ${cleaned}`;
+};
+
+export const doctorName = (doctor) => cleanDoctorName(doctor, "Doctor");
 export const dateInZone = (date = new Date(), timezone = "Asia/Kolkata") => {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
   return ["year", "month", "day"].map(key => parts.find(part => part.type === key).value).join("-");

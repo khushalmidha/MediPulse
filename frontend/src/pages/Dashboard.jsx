@@ -100,7 +100,7 @@ const Dashboard = () => {
 				<RecommendationCard />
 			</div>
 
-			<div className="bg-red-500 dark:bg-red-600 h-48 pt-12 mt-12 shadow-md border rounded-sm">
+			<div className="bg-teal-800 dark:bg-teal-900 h-48 pt-12 mt-12 shadow-md border border-teal-700 dark:border-teal-800 rounded-xl">
 				<h1 className="flex justify-center font-bold tracking-tighter text-4xl mb-1 text-white">
 					Find Specialized Healthcare Providers
 				</h1>
@@ -114,28 +114,28 @@ const Dashboard = () => {
 				<RecommendationDoctors />
 			</div>
 
-			<div className="mb-10 rounded-lg border border-red-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
+			<div className="mb-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-sm">
 				<h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Your Health Records</h3>
-				<p className="mt-2 text-sm text-gray-600">
+				<p className="mt-2 text-sm text-gray-600 dark:text-slate-400">
 					View OPD visits, completed appointments, AI summaries, and family profiles in one place.
 				</p>
 				<Link
 					to="/health-records"
-					className="mt-4 inline-block rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700"
+					className="mt-4 inline-block rounded-md bg-teal-700 dark:bg-teal-800 px-4 py-2 text-white hover:bg-teal-800 transition-colors"
 				>
 					Open Health Records
 				</Link>
 			</div>
 
-			<div className="mb-10 rounded-lg border border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 p-5 shadow-sm">
+			<div className="mb-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-sm">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div>
 						<h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Events From Your Communities</h3>
-						<p className="mt-1 text-sm text-gray-600">
+						<p className="mt-1 text-sm text-gray-600 dark:text-slate-400">
 							Upcoming events connected to communities you have joined.
 						</p>
 					</div>
-					<Link to="/events" className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700">
+					<Link to="/events" className="rounded-md border border-gray-300 dark:border-slate-700 px-4 py-2 text-sm text-gray-700 dark:text-slate-300">
 						View all events
 					</Link>
 				</div>
@@ -151,18 +151,18 @@ const Dashboard = () => {
 				) : (
 					<div className="mt-4 grid gap-4 md:grid-cols-2">
 						{visibleCommunityEvents.map((event) => (
-							<div key={event._id} className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
+							<div key={event._id} className="rounded-lg border border-slate-200 dark:border-slate-800 p-4">
 								<div className="flex flex-wrap items-start justify-between gap-3">
 									<div>
-										<p className="text-xs font-medium text-red-600 dark:text-red-500">{event.communityName}</p>
+										<p className="text-xs font-medium text-teal-700 dark:text-teal-400">{event.communityName}</p>
 										<h4 className="mt-1 font-semibold text-gray-900 dark:text-slate-100">{event.title}</h4>
 										<p className="mt-1 text-sm text-gray-500">{formatEventDate(event.time)}</p>
 									</div>
-									<span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
+									<span className="rounded-full bg-teal-50 dark:bg-teal-950/40 px-3 py-1 text-xs font-semibold capitalize text-teal-700 dark:text-teal-300">
 										{event.kind}
 									</span>
 								</div>
-								<p className="mt-3 line-clamp-2 text-sm text-gray-700">{event.bio}</p>
+								<p className="mt-3 line-clamp-2 text-sm text-gray-700 dark:text-slate-300">{event.bio}</p>
 							</div>
 						))}
 					</div>
@@ -170,14 +170,14 @@ const Dashboard = () => {
 			</div>
 
 			{role === "doctor" && (
-				<div className="rounded-lg border border-red-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
+				<div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-sm">
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Appointment Queue</h3>
-					<p className="mt-2 text-sm text-gray-600">
+					<p className="mt-2 text-sm text-gray-600 dark:text-slate-400">
 						Start and manage booked appointments one by one from your doctor panel.
 					</p>
 					<Link
 						to="/doctor/appointments"
-						className="mt-4 inline-block rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white hover:bg-blue-700"
+						className="mt-4 inline-block rounded-md bg-teal-700 dark:bg-teal-800 px-4 py-2 text-white hover:bg-teal-800 transition-colors"
 					>
 						Open Doctor Queue
 					</Link>

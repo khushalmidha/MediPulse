@@ -11,7 +11,7 @@ import {
   getVerifyQR,
   getPatientPrescriptions,
 } from "../controller/pharmacy.js";
-import validateStaff from "../middleware/validateStaff.js";
+import validateStaff, { requireRole } from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
 import { nosqlGuard } from "../middleware/nosqlGuard.js";
 
@@ -26,14 +26,14 @@ pharmacyRouter.get("/patient-prescriptions", userValidation, getPatientPrescript
 
 // Inventory
 pharmacyRouter.get("/inventory", validateStaff, listPharmacyInventory);
-pharmacyRouter.post("/inventory", validateStaff, createPharmacyItem);
-pharmacyRouter.post("/inventory/:id/batches", validateStaff, addInventoryBatch);
+pharmacyRouter.post("/inventory", validateStaff, requireRole("PHARMACIST", "HOSPITAL_ADMIN"), createPharmacyItem);
+pharmacyRouter.post("/inventory/:id/batches", validateStaff, requireRole("PHARMACIST", "HOSPITAL_ADMIN"), addInventoryBatch);
 
 // Prescriptions workflow
 pharmacyRouter.get("/prescriptions", validateStaff, listPrescriptions);
-pharmacyRouter.post("/prescriptions", validateStaff, postCreatePrescription);
+pharmacyRouter.post("/prescriptions", validateStaff, requireRole("DOCTOR"), postCreatePrescription);
 pharmacyRouter.get("/prescriptions/:id", validateStaff, getPrescriptionById);
-pharmacyRouter.post("/prescriptions/:id/dispense", validateStaff, postDispensePrescription);
-pharmacyRouter.post("/prescriptions/:id/return", validateStaff, postReturnPrescription);
+pharmacyRouter.post("/prescriptions/:id/dispense", validateStaff, requireRole("PHARMACIST"), postDispensePrescription);
+pharmacyRouter.post("/prescriptions/:id/return", validateStaff, requireRole("PHARMACIST"), postReturnPrescription);
 
 export default pharmacyRouter;

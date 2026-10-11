@@ -146,6 +146,7 @@ const getAllDoctors = async (req, res) => {
 				$or: [
 					{ hospitals: { $exists: false } },
 					{ hospitals: { $size: 0 } },
+					{ "independentPractice.enabled": true },
 				],
 			},
 		},
@@ -510,12 +511,11 @@ const updatePracticeSettings = async (req, res) => {
 	if (credentialVerification && typeof credentialVerification === "object") {
 		if (credentialVerification.councilRegistrationNumber !== undefined) {
 			updates["credentialVerification.councilRegistrationNumber"] = String(credentialVerification.councilRegistrationNumber).trim();
+			updates["credentialVerification.status"] = "pending";
 		}
 		if (credentialVerification.stateMedicalCouncil !== undefined) {
 			updates["credentialVerification.stateMedicalCouncil"] = String(credentialVerification.stateMedicalCouncil).trim();
-		}
-		if (credentialVerification.status && ["pending", "verified", "rejected"].includes(credentialVerification.status)) {
-			updates["credentialVerification.status"] = credentialVerification.status;
+			updates["credentialVerification.status"] = "pending";
 		}
 	}
 

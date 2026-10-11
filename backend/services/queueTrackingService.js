@@ -93,9 +93,15 @@ export const calculateQueueETA = async ({ queueKey, targetTokenNumber }) => {
   };
 };
 
-export const getHospitalKioskStatus = async (hospitalId) => {
+export const getHospitalKioskStatus = async (hospitalId, targetDate = new Date()) => {
+  const startOfDay = new Date(targetDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(targetDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
   const activeTokens = await OpdToken.find({
     hospitalId,
+    createdAt: { $gte: startOfDay, $lte: endOfDay },
     status: { $in: ["waiting", "vitals_done", "in_consultation"] },
   })
     .sort({ tokenNumber: 1 })
@@ -175,6 +181,10 @@ export const recordPriorityOverride = async ({ tokenId, actor, reason, newPriori
 
   const token = await OpdToken.findById(tokenId);
   if (!token) throw accessError(404, "Token not found");
+
+  token.priority = Number(newPriorityIndex) || 1;
+  token.priorityReason = reason.trim();
+  await token.save();
 
   // Track the override in the journey history
   const journey = await EncounterJourney.findOne({ tokenId });

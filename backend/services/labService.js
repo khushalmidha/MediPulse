@@ -11,6 +11,11 @@ export const generateAccessionBarcode = (hospitalId) => {
   return `LAB-${shortHosp}-${time}${rand}`;
 };
 
+let testDouble = null;
+export const setLabTestDouble = (adapter) => {
+  testDouble = adapter;
+};
+
 export const createLabOrder = async ({
   hospitalId,
   encounterJourneyId,
@@ -27,16 +32,23 @@ export const createLabOrder = async ({
   if (!patientInfo || !patientInfo.name) throw accessError(400, "Patient information is required");
   if (!Array.isArray(tests) || tests.length === 0) throw accessError(400, "At least one laboratory test is required");
 
-  if (mongoose.connection?.readyState !== 1) {
-    return {
-      _id: new mongoose.Types.ObjectId(),
+  if (testDouble?.createLabOrder) {
+    return testDouble.createLabOrder({
       hospitalId,
+      encounterJourneyId,
+      tokenId,
+      patientId,
       patientInfo,
+      orderingDoctorId,
+      orderingDoctorName,
       tests,
-      orderStatus: "ordered",
       clinicalNotes,
-      auditHistory: [{ stage: "ordered", actorName: actor?.name || orderingDoctorName, timestamp: new Date() }],
-    };
+      actor,
+    });
+  }
+
+  if (mongoose.connection?.readyState !== 1) {
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const order = new LabOrder({
@@ -86,8 +98,12 @@ export const createLabOrder = async ({
 };
 
 export const clearOrderBilling = async ({ orderId, hospitalId, actor }) => {
+  if (testDouble?.clearOrderBilling) {
+    return testDouble.clearOrderBilling({ orderId, hospitalId, actor });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return { _id: orderId, hospitalId, orderStatus: "billing_cleared" };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const order = await LabOrder.findOne({ _id: orderId, hospitalId });
@@ -111,13 +127,12 @@ export const clearOrderBilling = async ({ orderId, hospitalId, actor }) => {
 };
 
 export const collectSample = async ({ orderId, hospitalId, actor, customBarcode }) => {
+  if (testDouble?.collectSample) {
+    return testDouble.collectSample({ orderId, hospitalId, actor, customBarcode });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      _id: orderId,
-      hospitalId,
-      orderStatus: "collected",
-      accessionBarcode: customBarcode || generateAccessionBarcode(hospitalId),
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const order = await LabOrder.findOne({ _id: orderId, hospitalId });
@@ -150,18 +165,20 @@ export const collectSample = async ({ orderId, hospitalId, actor, customBarcode 
 export const rejectSample = async ({ orderId, hospitalId, actor, reason, requestRecollection = true }) => {
   if (!reason || !reason.trim()) throw accessError(400, "Reason for sample rejection is required");
 
+  if (testDouble?.rejectSample) {
+    return testDouble.rejectSample({ orderId, hospitalId, actor, reason, requestRecollection });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      _id: orderId,
-      hospitalId,
-      orderStatus: "rejected",
-      rejectedReason: reason,
-      recollectionRequested: requestRecollection,
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const order = await LabOrder.findOne({ _id: orderId, hospitalId });
   if (!order) throw accessError(404, "Laboratory order not found in this hospital");
+
+  if (order.orderStatus === "released") {
+    throw accessError(409, "Cannot reject sample for an already released report");
+  }
 
   order.orderStatus = "rejected";
   order.rejectedReason = reason.trim();
@@ -202,14 +219,12 @@ export const enterLabResults = async ({ orderId, hospitalId, actor, results }) =
     };
   });
 
+  if (testDouble?.enterLabResults) {
+    return testDouble.enterLabResults({ orderId, hospitalId, actor, results: sanitizedResults, hasCritical });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      _id: orderId,
-      hospitalId,
-      orderStatus: "result_entered",
-      results: sanitizedResults,
-      criticalValueAlert: { isCritical: hasCritical },
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const order = await LabOrder.findOne({ _id: orderId, hospitalId });
@@ -228,6 +243,7 @@ export const enterLabResults = async ({ orderId, hospitalId, actor, results }) =
   if (hasCritical) {
     order.criticalValueAlert = {
       isCritical: true,
+      requiresAcknowledgement: true,
       notifiedAt: new Date(),
     };
   }
@@ -245,8 +261,12 @@ export const enterLabResults = async ({ orderId, hospitalId, actor, results }) =
 };
 
 export const verifyLabResults = async ({ orderId, hospitalId, actor }) => {
+  if (testDouble?.verifyLabResults) {
+    return testDouble.verifyLabResults({ orderId, hospitalId, actor });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return { _id: orderId, hospitalId, orderStatus: "verified" };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const order = await LabOrder.findOne({ _id: orderId, hospitalId });
@@ -274,8 +294,12 @@ export const verifyLabResults = async ({ orderId, hospitalId, actor }) => {
 };
 
 export const releaseLabResults = async ({ orderId, hospitalId, actor }) => {
+  if (testDouble?.releaseLabResults) {
+    return testDouble.releaseLabResults({ orderId, hospitalId, actor });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return { _id: orderId, hospitalId, orderStatus: "released" };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const order = await LabOrder.findOne({ _id: orderId, hospitalId });
@@ -316,13 +340,12 @@ export const correctLabReport = async ({ orderId, hospitalId, actor, reason, new
     throw accessError(400, "Corrected parameter results are required");
   }
 
+  if (testDouble?.correctLabReport) {
+    return testDouble.correctLabReport({ orderId, hospitalId, actor, reason, newResults });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      _id: orderId,
-      hospitalId,
-      reportVersion: 2,
-      orderStatus: "verified",
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const order = await LabOrder.findOne({ _id: orderId, hospitalId });
@@ -358,12 +381,12 @@ export const correctLabReport = async ({ orderId, hospitalId, actor, reason, new
 };
 
 export const acknowledgeCriticalValue = async ({ orderId, hospitalId, actor }) => {
+  if (testDouble?.acknowledgeCriticalValue) {
+    return testDouble.acknowledgeCriticalValue({ orderId, hospitalId, actor });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      _id: orderId,
-      hospitalId,
-      criticalValueAlert: { isCritical: true, acknowledgedBy: actor?.name || "Clinician" },
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const order = await LabOrder.findOne({ _id: orderId, hospitalId });

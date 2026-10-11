@@ -9,14 +9,7 @@ import {
 } from "../services/pharmacyService.js";
 
 const getHospitalIdFromReq = (req) => {
-  return (
-    req.params.hospitalId ||
-    req.body.hospitalId ||
-    req.query.hospitalId ||
-    req.staffHospital?._id ||
-    req.staffUser?.hospitalId ||
-    req.auth?.hospitalId
-  );
+  return req.staff?.hospitalId;
 };
 
 export const listPharmacyInventory = asyncHandler(async (req, res) => {
@@ -97,13 +90,13 @@ export const postCreatePrescription = asyncHandler(async (req, res) => {
     hospitalId,
     encounterJourneyId: req.body.encounterJourneyId,
     tokenId: req.body.tokenId,
-    patientId: req.body.patientId || req.auth?.id,
+    patientId: req.body.patientId,
     patientInfo: req.body.patientInfo,
-    prescribingDoctorId: req.body.prescribingDoctorId || req.auth?.id,
-    prescribingDoctorName: req.body.prescribingDoctorName || req.auth?.name,
+    prescribingDoctorId: req.staff.id,
+    prescribingDoctorName: req.staff.name || "Attending Physician",
     diagnosis: req.body.diagnosis,
     items: req.body.items,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Doctor" },
+    actor: { id: req.staff.id, name: req.staff.name, role: req.staff.role },
   });
 
   return res.status(201).json({ message: "Prescription approved by clinician", prescription });
@@ -126,7 +119,7 @@ export const getPrescriptionById = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
   const { id } = req.params;
 
-  const prescription = await Prescription.findOne({ _id: id, ...(hospitalId ? { hospitalId } : {}) });
+  const prescription = await Prescription.findOne({ _id: id, hospitalId });
   if (!prescription) return res.status(404).json({ message: "Prescription not found" });
 
   return res.json({ prescription });
@@ -134,10 +127,12 @@ export const getPrescriptionById = asyncHandler(async (req, res) => {
 
 export const postDispensePrescription = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
+
   const prescription = await dispensePrescription({
     prescriptionId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Pharmacist" },
+    actor: { id: req.staff.id, name: req.staff.name, role: req.staff.role },
     dispenseItems: req.body.items,
   });
 
@@ -146,10 +141,12 @@ export const postDispensePrescription = asyncHandler(async (req, res) => {
 
 export const postReturnPrescription = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
+
   const prescription = await returnPrescriptionItems({
     prescriptionId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Pharmacist" },
+    actor: { id: req.staff.id, name: req.staff.name, role: req.staff.role },
     returnItems: req.body.items,
     reason: req.body.reason,
   });

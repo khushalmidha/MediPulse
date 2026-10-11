@@ -159,8 +159,15 @@ test("P14: Independent doctors, queue isolation, consultation records and commun
     assert.equal(reportedMsg.reports.length, 1);
     assert.equal(reportedMsg.reports[0].reason, "Misleading advice");
 
-    // Moderation removal
+    // Moderation removal with preserved audit content
+    reportedMsg.originalContent = reportedMsg.content;
+    reportedMsg.moderatedBy = independentDocId;
+    reportedMsg.moderatedAt = new Date();
+    reportedMsg.content = "[This message was removed by the doctor moderator]";
     reportedMsg.isRemoved = true;
     assert.equal(reportedMsg.isRemoved, true);
+    assert.equal(reportedMsg.originalContent, "Unverified supplement suggestion");
+    assert.equal(reportedMsg.content, "[This message was removed by the doctor moderator]");
+    assert.equal(reportedMsg.moderatedBy, independentDocId);
   });
 });

@@ -14,6 +14,7 @@ import {
   releaseLabResults,
   correctLabReport,
   acknowledgeCriticalValue,
+  setLabTestDouble,
 } from "../services/labService.js";
 
 test("P15: Laboratory workflow, tenant isolation, critical values, and versioned reports", async (t) => {
@@ -21,6 +22,59 @@ test("P15: Laboratory workflow, tenant isolation, critical values, and versioned
   const hospitalB = new mongoose.Types.ObjectId();
   const doctorId = new mongoose.Types.ObjectId();
   const patientId = new mongoose.Types.ObjectId();
+
+  setLabTestDouble({
+    createLabOrder: async (params) => ({
+      _id: new mongoose.Types.ObjectId(),
+      hospitalId: params.hospitalId,
+      patientInfo: params.patientInfo,
+      tests: params.tests,
+      orderStatus: "ordered",
+      clinicalNotes: params.clinicalNotes,
+      auditHistory: [{ stage: "ordered", actorName: params.actor?.name, timestamp: new Date() }],
+    }),
+    collectSample: async (params) => ({
+      _id: params.orderId,
+      hospitalId: params.hospitalId,
+      orderStatus: "collected",
+      accessionBarcode: params.customBarcode || generateAccessionBarcode(params.hospitalId),
+    }),
+    rejectSample: async (params) => ({
+      _id: params.orderId,
+      hospitalId: params.hospitalId,
+      orderStatus: "rejected",
+      rejectedReason: params.reason,
+      recollectionRequested: params.requestRecollection,
+    }),
+    enterLabResults: async (params) => ({
+      _id: params.orderId,
+      hospitalId: params.hospitalId,
+      orderStatus: "result_entered",
+      results: params.results,
+      criticalValueAlert: { isCritical: params.hasCritical },
+    }),
+    verifyLabResults: async (params) => ({
+      _id: params.orderId,
+      hospitalId: params.hospitalId,
+      orderStatus: "verified",
+    }),
+    releaseLabResults: async (params) => ({
+      _id: params.orderId,
+      hospitalId: params.hospitalId,
+      orderStatus: "released",
+    }),
+    correctLabReport: async (params) => ({
+      _id: params.orderId,
+      hospitalId: params.hospitalId,
+      reportVersion: 2,
+      orderStatus: "verified",
+    }),
+    acknowledgeCriticalValue: async (params) => ({
+      _id: params.orderId,
+      hospitalId: params.hospitalId,
+      criticalValueAlert: { isCritical: true, acknowledgedBy: params.actor?.name || "Clinician" },
+    }),
+  });
 
   await t.test("barcode generator produces unique accession codes with hospital prefix", () => {
     const code1 = generateAccessionBarcode(hospitalA);
@@ -192,5 +246,19 @@ test("P15: Laboratory workflow, tenant isolation, critical values, and versioned
 
     assert.equal(corrected.reportVersion, 2);
     assert.equal(corrected.orderStatus, "verified");
+  });
+
+  await t.test("A05: lab service fails closed with 503 when disconnected and no test double is present", async () => {
+    setLabTestDouble(null);
+    await assert.rejects(
+      async () => {
+        await createLabOrder({
+          hospitalId: hospitalA,
+          patientInfo: { name: "Test Patient" },
+          tests: [{ testCode: "CBC", testName: "Complete Blood Count" }],
+        });
+      },
+      (err) => err.status === 503 && /Database service is unavailable/.test(err.message)
+    );
   });
 });

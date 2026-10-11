@@ -11,6 +11,7 @@ import {
 } from "../controller/opdToken.js";
 import validateStaff, { requireRole } from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
+import patientOrStaffAuth from "../middleware/patientOrStaffAuth.js";
 
 const opdRouter = Router();
 
@@ -36,13 +37,47 @@ opdRouter.patch("/tokens/:tokenId/complete", validateStaff, requireRole("DOCTOR"
 opdRouter.patch("/tokens/:tokenId/no-show", validateStaff, asyncRoute(markNoShow));
 opdRouter.get("/:hospitalId/my-token", userValidation, asyncRoute(getMyActiveToken));
 
-opdRouter.get("/tokens/:tokenId/live-timeline", asyncRoute(async (req, res) => {
+opdRouter.get("/tokens/:tokenId/live-timeline", patientOrStaffAuth, asyncRoute(async (req, res) => {
+  const OpdToken = (await import("../model/opdToken.js")).default;
+  const token = await OpdToken.findById(req.params.tokenId).lean();
+  if (!token) return res.status(404).json({ message: "Token not found" });
+
+  if (req.staff) {
+    if (String(req.staff.hospitalId) !== String(token.hospitalId)) {
+      return res.status(403).json({ message: "You cannot view queues for another hospital" });
+    }
+  } else if (req.auth) {
+    if (!token.patientId || String(req.auth.id) !== String(token.patientId)) {
+      return res.status(403).json({ message: "You cannot view another patient's timeline" });
+    }
+  }
+
   const { getPatientLiveTimeline } = await import("../services/queueTrackingService.js");
   const timeline = await getPatientLiveTimeline(req.params.tokenId);
+
+  if (req.auth && !req.staff) {
+    timeline.physicalFile = {
+      hasPhysicalFile: Boolean(timeline.physicalFile?.hasPhysicalFile),
+      locationName: timeline.physicalFile?.locationName || "not recorded",
+    };
+    timeline.timeline = (timeline.timeline || []).map((t) => ({
+      stage: t.stage,
+      timestamp: t.timestamp,
+    }));
+  }
+
   res.json({ timeline });
 }));
 
 opdRouter.post("/tokens/:tokenId/priority-override", validateStaff, asyncRoute(async (req, res) => {
+  const OpdToken = (await import("../model/opdToken.js")).default;
+  const token = await OpdToken.findById(req.params.tokenId);
+  if (!token) return res.status(404).json({ message: "Token not found" });
+
+  if (String(req.staff.hospitalId) !== String(token.hospitalId)) {
+    return res.status(403).json({ message: "You cannot override priority in another hospital" });
+  }
+
   const { recordPriorityOverride } = await import("../services/queueTrackingService.js");
   const result = await recordPriorityOverride({
     tokenId: req.params.tokenId,

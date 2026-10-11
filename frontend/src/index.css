@@ -2,10 +2,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --mp-canvas: #faf9f6; --mp-surface: #fff; --mp-surface-muted: #f0f3f2;
-  --mp-text: #172b32; --mp-muted: #53656e; --mp-border: #d9e2e1;
-  --mp-accent: #115e59; --mp-on-accent: #fff; --mp-accent-ink: var(--mp-brand-ink, #115e59); --mp-accent-soft: var(--mp-brand-soft, #e9f3ef);
-  --mp-blue: #1d4ed8; --mp-danger: #b42335; --mp-radius: 16px;
+  --mp-canvas: #faf9f6; --mp-bg: var(--mp-canvas); --mp-surface: #fff; --mp-surface-muted: #f0f3f2; --mp-surface-subtle: var(--mp-surface-muted);
+  --mp-text: #172b32; --mp-muted: #53656e; --mp-text-muted: var(--mp-muted); --mp-border: #d9e2e1;
+  --mp-accent: #115e59; --mp-primary: var(--mp-accent); --mp-on-accent: #fff; --mp-accent-ink: var(--mp-brand-ink, #115e59); --mp-accent-soft: var(--mp-brand-soft, #e9f3ef);
+  --mp-blue: #1d4ed8; --mp-danger: #b42335; --mp-warning: #b45309; --mp-radius: 16px;
   --mp-shadow: 0 12px 36px -24px rgb(22 43 49 / 28%);
   --mp-focus: #1d4ed8; --mp-page: 1240px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -146,7 +146,7 @@ textarea.mp-input { min-height: 100px; resize: vertical; }
 .mp-nav-link--active { border-bottom: 2px solid var(--mp-accent); font-weight: 650; }
 .mp-nav-mobile-link { display: block; padding: 12px; border-radius: 9px; color: var(--mp-text); }
 .mp-nav-mobile-link--active { background: var(--mp-accent-soft); color: var(--mp-accent-ink); }
-.dark .mp-shell, .dark .mp-dialog { --mp-canvas: #102027; --mp-surface: #172c34; --mp-surface-muted: #223b43; --mp-text: #edf5f4; --mp-muted: #b8cbcd; --mp-border: #36515a; --mp-accent-ink: var(--mp-brand-ink-dark, #8edcd0); --mp-accent-soft: var(--mp-brand-soft-dark, #173e39); --mp-focus: #80afff; }
+.dark .mp-shell, .dark .mp-dialog, .dark { --mp-canvas: #102027; --mp-bg: var(--mp-canvas); --mp-surface: #172c34; --mp-surface-muted: #223b43; --mp-surface-subtle: var(--mp-surface-muted); --mp-text: #edf5f4; --mp-muted: #b8cbcd; --mp-text-muted: var(--mp-muted); --mp-border: #36515a; --mp-accent-ink: var(--mp-brand-ink-dark, #8edcd0); --mp-accent-soft: var(--mp-brand-soft-dark, #173e39); --mp-focus: #80afff; --mp-primary: var(--mp-accent-ink); --mp-warning: #f59e0b; }
 @media (max-width: 1100px) { .mp-hero { gap: 36px; } .mp-workspace-grid { grid-template-columns: 1fr; } }
 @media (max-width: 767px) {
   .mp-page { padding: 32px 20px 48px; } .mp-header-inner { padding: 14px 20px; gap: 12px; }

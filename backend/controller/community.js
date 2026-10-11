@@ -6,6 +6,17 @@ import Message from "../model/message.js";
 import User from "../model/user.js";
 import Doctor from "../model/doctor.js";
 
+const sanitizeMessage = (msg, isOrganizer) => {
+	const doc = msg.toObject ? msg.toObject() : { ...msg };
+	if (!isOrganizer) {
+		delete doc.reports;
+		delete doc.originalContent;
+		delete doc.moderatedBy;
+		delete doc.moderatedAt;
+	}
+	return doc;
+};
+
 const getAllMessages = async (req, res) => {
 	const community = await requireCommunityAccess(req.params.id, req.auth);
 	const isOrganizer = isCommunityOrganizer(community, req.auth);
@@ -25,7 +36,7 @@ const getAllMessages = async (req, res) => {
 				.limit(limit)
 		]);
 		return res.json({
-			messages,
+			messages: messages.map((m) => sanitizeMessage(m, isOrganizer)),
 			pagination: {
 				page,
 				limit,
@@ -35,8 +46,9 @@ const getAllMessages = async (req, res) => {
 		});
 	}
 
-	const messages = await Message.find(query).sort({ createdAt: 1 });
-	return res.json(messages);
+	const defaultLimit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+	const messages = await Message.find(query).sort({ createdAt: 1 }).limit(defaultLimit);
+	return res.json(messages.map((m) => sanitizeMessage(m, isOrganizer)));
 };
 
 const getAllCommunities = async (_, res) => {
@@ -169,6 +181,11 @@ const reportMessage = async (req, res) => {
 	const message = await Message.findOne({ _id: messageId, community: community._id });
 	if (!message) return res.status(404).json({ message: "Message not found" });
 
+	const alreadyReported = message.reports?.some((r) => String(r.reportedBy) === String(req.auth.id));
+	if (alreadyReported) {
+		return res.json({ message: "Message already reported for doctor review" });
+	}
+
 	await Message.updateOne(
 		{ _id: messageId },
 		{ $push: { reports: { reportedBy: req.auth.id, reason: reason.trim(), reportedAt: new Date() } } }
@@ -187,7 +204,15 @@ const moderateMessage = async (req, res) => {
 
 	await Message.updateOne(
 		{ _id: messageId },
-		{ $set: { isRemoved: true, content: "[This message was removed by the doctor moderator]" } }
+		{
+			$set: {
+				isRemoved: true,
+				originalContent: message.content,
+				moderatedBy: req.auth.id,
+				moderatedAt: new Date(),
+				content: "[This message was removed by the doctor moderator]"
+			}
+		}
 	);
 	return res.json({ message: "Message removed by moderator" });
 };
@@ -195,25 +220,37 @@ const moderateMessage = async (req, res) => {
 const updatePreferences = async (req, res) => {
 	const community = await requireCommunityAccess(req.params.id, req.auth);
 	const { emailNotifications, inAppNotifications } = req.body;
+	const memberId = req.auth.id;
 
-	await Community.updateOne(
-		{ _id: community._id },
-		{
-			$pull: { memberPreferences: { memberId: req.auth.id } }
-		}
+	const hasPref = (community.memberPreferences || []).some(
+		(p) => String(p.memberId) === String(memberId)
 	);
-	await Community.updateOne(
-		{ _id: community._id },
-		{
-			$push: {
-				memberPreferences: {
-					memberId: req.auth.id,
-					emailNotifications: Boolean(emailNotifications),
-					inAppNotifications: Boolean(inAppNotifications),
-				}
+
+	if (hasPref) {
+		await Community.updateOne(
+			{ _id: community._id, "memberPreferences.memberId": memberId },
+			{
+				$set: {
+					"memberPreferences.$.emailNotifications": Boolean(emailNotifications),
+					"memberPreferences.$.inAppNotifications": Boolean(inAppNotifications),
+				},
 			}
-		}
-	);
+		);
+	} else {
+		await Community.updateOne(
+			{ _id: community._id },
+			{
+				$push: {
+					memberPreferences: {
+						memberId,
+						emailNotifications: Boolean(emailNotifications),
+						inAppNotifications: Boolean(inAppNotifications),
+					},
+				},
+			}
+		);
+	}
+
 	return res.json({ message: "Notification preferences updated" });
 };
 

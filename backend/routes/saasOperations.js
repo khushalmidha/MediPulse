@@ -7,6 +7,7 @@ import {
   patchUnsuspendTenant,
   postGenerateSetupLink,
   getVerifySetupLink,
+  postConsumeSetupLink,
   getTenantMetrics,
   postCreateSupportTicket,
   getExportTenant,
@@ -14,26 +15,33 @@ import {
   postCreateCheckout,
 } from "../controller/saasOperations.js";
 import { nosqlGuard } from "../middleware/nosqlGuard.js";
+import {
+  requirePlatformOperator,
+  requireTenantAdminOrPlatformOperator,
+} from "../middleware/saasAuth.js";
 
 const saasRouter = Router();
 saasRouter.use(nosqlGuard);
 
-// Public verification for setup links
+// Public verification and consumption for single-use setup links
 saasRouter.get("/setup-link/verify/:token", getVerifySetupLink);
+saasRouter.post("/setup-link/consume", postConsumeSetupLink);
 
-// Billing provider interface
-saasRouter.get("/billing/status", getBillingStatus);
-saasRouter.post("/billing/checkout", postCreateCheckout);
+// Billing provider interface (requires platform operator or tenant admin)
+saasRouter.get("/billing/status", requirePlatformOperator, getBillingStatus);
+saasRouter.post("/billing/checkout", requireTenantAdminOrPlatformOperator, postCreateCheckout);
 
-// Tenants
-saasRouter.get("/tenants", listTenants);
-saasRouter.get("/tenants/:id", getTenantDetails);
-saasRouter.patch("/tenants/:id/subscription", updateTenantSubscription);
-saasRouter.patch("/tenants/:id/suspend", patchSuspendTenant);
-saasRouter.patch("/tenants/:id/unsuspend", patchUnsuspendTenant);
-saasRouter.post("/tenants/:id/setup-link", postGenerateSetupLink);
-saasRouter.get("/tenants/:id/metrics", getTenantMetrics);
-saasRouter.post("/tenants/:id/support-tickets", postCreateSupportTicket);
-saasRouter.get("/tenants/:id/export", getExportTenant);
+// Global Tenants management (requires Platform Operator)
+saasRouter.get("/tenants", requirePlatformOperator, listTenants);
+saasRouter.patch("/tenants/:id/subscription", requirePlatformOperator, updateTenantSubscription);
+saasRouter.patch("/tenants/:id/suspend", requirePlatformOperator, patchSuspendTenant);
+saasRouter.patch("/tenants/:id/unsuspend", requirePlatformOperator, patchUnsuspendTenant);
+saasRouter.post("/tenants/:id/setup-link", requirePlatformOperator, postGenerateSetupLink);
+
+// Tenant-local operations (requires Tenant Admin of this exact hospital OR Platform Operator)
+saasRouter.get("/tenants/:id", requireTenantAdminOrPlatformOperator, getTenantDetails);
+saasRouter.get("/tenants/:id/metrics", requireTenantAdminOrPlatformOperator, getTenantMetrics);
+saasRouter.post("/tenants/:id/support-tickets", requireTenantAdminOrPlatformOperator, postCreateSupportTicket);
+saasRouter.get("/tenants/:id/export", requireTenantAdminOrPlatformOperator, getExportTenant);
 
 export default saasRouter;

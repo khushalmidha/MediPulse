@@ -9,6 +9,7 @@ import {
   dispensePrescription,
   returnPrescriptionItems,
   verifyPrescriptionQR,
+  setPharmacyTestDouble,
 } from "../services/pharmacyService.js";
 
 test("P16: Hospital pharmacy, prescription fulfillment, batch stock, and QR verification", async (t) => {
@@ -16,6 +17,36 @@ test("P16: Hospital pharmacy, prescription fulfillment, batch stock, and QR veri
   const hospitalB = new mongoose.Types.ObjectId();
   const doctorId = new mongoose.Types.ObjectId();
   const patientId = new mongoose.Types.ObjectId();
+
+  setPharmacyTestDouble({
+    createPrescription: async (params) => ({
+      _id: new mongoose.Types.ObjectId(),
+      hospitalId: params.hospitalId,
+      patientInfo: params.patientInfo,
+      items: params.items,
+      diagnosis: params.diagnosis,
+      status: "approved_by_doctor",
+      verificationToken: generatePrescriptionToken(),
+      auditHistory: [{ stage: "approved_by_doctor", actorName: params.actor?.name, timestamp: new Date() }],
+    }),
+    dispensePrescription: async (params) => ({
+      _id: params.prescriptionId,
+      hospitalId: params.hospitalId,
+      status: "dispensed",
+      dispensedByName: params.actor?.name || "Pharmacist",
+    }),
+    returnPrescriptionItems: async (params) => ({
+      _id: params.prescriptionId,
+      hospitalId: params.hospitalId,
+      status: "returned",
+    }),
+    verifyPrescriptionQR: async (params) => ({
+      verified: true,
+      patientInitials: "R. P.",
+      status: "dispensed",
+      itemsCount: 2,
+    }),
+  });
 
   await t.test("prescription token generates formatted RX verification code", () => {
     const token1 = generatePrescriptionToken();
@@ -138,5 +169,19 @@ test("P16: Hospital pharmacy, prescription fulfillment, batch stock, and QR veri
     assert.equal(verified.verified, true);
     assert.equal(verified.patientInitials, "R. P.");
     assert.equal(verified.status, "dispensed");
+  });
+
+  await t.test("A05: pharmacy service fails closed with 503 when disconnected and no test double is present", async () => {
+    setPharmacyTestDouble(null);
+    await assert.rejects(
+      async () => {
+        await createPrescription({
+          hospitalId: hospitalA,
+          patientInfo: { name: "Test Patient" },
+          items: [{ medicationCode: "AMOX-500", quantityPrescribed: 1 }],
+        });
+      },
+      (err) => err.status === 503 && /Database service is unavailable/.test(err.message)
+    );
   });
 });

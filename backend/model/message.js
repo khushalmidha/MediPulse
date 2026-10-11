@@ -32,6 +32,15 @@ const messageSchema = new mongoose.Schema(
         reportedAt: { type: Date, default: Date.now },
       },
     ],
+    originalContent: {
+      type: String,
+    },
+    moderatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+    },
+    moderatedAt: {
+      type: Date,
+    },
 	},
 	{
 		timestamps: true,

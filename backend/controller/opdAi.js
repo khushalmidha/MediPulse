@@ -3,6 +3,7 @@ import OpdToken from "../model/opdToken.js";
 import { emitOpdEvent, loadVisit } from "../services/hospitalAccess.js";
 import { getRedis } from "../services/redis.js";
 import { getIO } from "../socket.js";
+import { withBoundedTimeout, minimizePatientContext, validateAiBriefSchema } from "../services/aiReliabilityService.js";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const TRIAGE_TTL_SECONDS = 45 * 60;
@@ -81,6 +82,14 @@ const buildBrief = async ({ token, messages }) => {
     }, patientText, messages);
   }
 
+  const minimized = minimizePatientContext({
+    chiefComplaint: token.chiefComplaint,
+    symptoms: [],
+    symptomDuration: "Captured in triage conversation",
+    age: token.patientAge,
+    gender: token.patientGender,
+  });
+
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
     systemInstruction:
@@ -88,8 +97,13 @@ const buildBrief = async ({ token, messages }) => {
   });
   let text = "";
   try {
-    const result = await model.generateContent(`OPD token: ${token.displayToken}. Complaint: ${token.chiefComplaint || ""}. Conversation:\n${patientText}`);
-    text = result.response.text();
+    const safePatientText = (patientText || "").slice(0, 3000);
+    const runCall = async () => {
+      const result = await model.generateContent(`OPD token: ${token.displayToken}. Complaint: ${minimized.chiefComplaint || ""}. Conversation:\n${safePatientText}`);
+      return result.response.text();
+    };
+    text = await withBoundedTimeout(runCall(), 6000, null);
+    if (!text) throw new Error("AI response timeout");
   } catch (error) {
     // FIXED: A Gemini outage should not block OPD consultation; doctors still get a structured fallback brief.
     return enrichBrief({
@@ -98,14 +112,14 @@ const buildBrief = async ({ token, messages }) => {
       severity: "Captured in triage conversation",
       relevantHistory: "Captured in triage conversation",
       urgencyLevel: /chest pain|breathless|unconscious|severe bleeding/i.test(patientText) ? "HIGH" : "ROUTINE",
-      agentSummary: patientText || error.message || "Patient triage completed.",
+      agentSummary: patientText ? patientText.slice(0, 500) : "Patient triage completed.",
     }, patientText, messages);
   }
 
   try {
     const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-    // FIXED: The old AI brief was a plain paragraph, so missed-history areas leaked into the consultation.
-    return enrichBrief(parsed, patientText, messages);
+    const validated = validateAiBriefSchema(parsed) || parsed;
+    return enrichBrief(validated, patientText, messages);
   } catch {
     return enrichBrief({
       chiefComplaint: token.chiefComplaint || "Not specified",
@@ -214,22 +228,33 @@ export const askDoctorCopilot = async (req, res) => {
     if (req.staff.role !== "DOCTOR") return res.status(403).json({ message: "Assigned doctor is required to use co-pilot" });
     const token = await loadVisit(req.staff, req.params.tokenId, { clinical: true });
 
-    const prompt = String(req.body.prompt || "Suggest focused consultation questions").trim();
+    const prompt = String(req.body.prompt || "Suggest focused consultation questions").trim().slice(0, 500);
+    const minimized = minimizePatientContext({
+      chiefComplaint: token.chiefComplaint,
+    });
     const context = {
       displayToken: token.displayToken,
-      chiefComplaint: token.chiefComplaint,
-      vitals: token.vitals,
-      patientBrief: token.aiTriage?.patientBrief,
+      chiefComplaint: minimized.chiefComplaint,
+      vitals: token.vitals ? { bp: token.vitals.bp, pulse: token.vitals.pulse, temp: token.vitals.temp } : undefined,
+      patientBrief: token.aiTriage?.patientBrief ? String(token.aiTriage.patientBrief).slice(0, 500) : undefined,
     };
 
     let suggestion = "Review the chief complaint, confirm symptom duration and severity, check vitals, ask red-flag questions, and document follow-up advice.";
     if (process.env.GEMINI_API_KEY) {
-      const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        systemInstruction: "You are a doctor co-pilot. Give concise clinical workflow support. Do not diagnose. Suggest questions, red flags, and documentation points.",
-      });
-      const result = await model.generateContent(`Doctor request: ${prompt}\nOPD context: ${JSON.stringify(context)}`);
-      suggestion = result.response.text();
+      try {
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash",
+          systemInstruction: "You are a doctor co-pilot. Give concise clinical workflow support. Do not diagnose. Suggest questions, red flags, and documentation points.",
+        });
+        const runCall = async () => {
+          const result = await model.generateContent(`Doctor request: ${prompt}\nOPD context: ${JSON.stringify(context)}`);
+          return result.response.text();
+        };
+        const text = await withBoundedTimeout(runCall(), 5000, null);
+        if (text) suggestion = text;
+      } catch {
+        // Safe fallback
+      }
     }
 
     token.doctorCopilot = { lastPrompt: prompt, lastSuggestion: suggestion, updatedAt: new Date() };

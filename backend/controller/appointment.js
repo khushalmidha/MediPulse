@@ -12,6 +12,7 @@ import OpdToken from "../model/opdToken.js";
 import { emitOpdEvent, resolveBookingIdentity } from "../services/hospitalAccess.js";
 import User from "../model/user.js";
 import HospitalStaff from "../model/hospitalStaff.js";
+import { withBoundedTimeout, minimizePatientContext } from "../services/aiReliabilityService.js";
 
 
 // Accepts a raw id, an ObjectId, or a populated document and always returns a plain id string.
@@ -747,6 +748,12 @@ const updateDoctorNotes = async (req, res) => {
   }
 
   appointment.doctorNotes = doctorNotes.trim();
+  if (appointment.soapNote && appointment.soapNote.clinicianApproved) {
+    appointment.soapNote.clinicianApproved = false;
+    appointment.soapNote.isDraft = true;
+    appointment.soapNote.approvedBy = undefined;
+    appointment.soapNote.approvedAt = undefined;
+  }
   await appointment.save();
 
   return res.status(200).json({
@@ -989,22 +996,30 @@ const askDoctorAppointmentCopilot = async (req, res) => {
     }
 
 
-    const prompt = String(req.body.prompt || "Suggest focused consultation questions").trim();
+    const prompt = String(req.body.prompt || "Suggest focused consultation questions").trim().slice(0, 500);
     const context = {
-      patientBrief: appointment.patientBrief,
+      patientBrief: appointment.patientBrief ? String(appointment.patientBrief).slice(0, 500) : undefined,
       status: appointment.status
     };
 
     let suggestion = "Review the chief complaint, ask red-flag questions, and document follow-up advice.";
     if (process.env.GEMINI_API_KEY) {
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        systemInstruction: "You are a doctor co-pilot. Give concise clinical workflow support. Do not diagnose. Suggest questions, red flags, and documentation points.",
-      });
-      const result = await model.generateContent("Doctor request: " + prompt + "\nContext: " + JSON.stringify(context));
-      suggestion = result.response.text();
+      try {
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash",
+          systemInstruction: "You are a doctor co-pilot. Give concise clinical workflow support. Do not diagnose. Suggest questions, red flags, and documentation points.",
+        });
+        const runCall = async () => {
+          const result = await model.generateContent("Doctor request: " + prompt + "\nContext: " + JSON.stringify(context));
+          return result.response.text();
+        };
+        const text = await withBoundedTimeout(runCall(), 5000, null);
+        if (text) suggestion = text;
+      } catch {
+        // Safe fallback
+      }
     }
 
     appointment.doctorCopilot = { lastPrompt: prompt, lastSuggestion: suggestion, updatedAt: new Date() };
@@ -1016,15 +1031,34 @@ const askDoctorAppointmentCopilot = async (req, res) => {
 };
 
 const approveSoapNote = async (req, res) => {
+  if (req.auth?.role !== "doctor") {
+    return res.status(403).json({ message: "Only doctors can approve SOAP notes" });
+  }
+
   const { appointmentId } = req.params;
-  const doctorId = req.doctor?._id || req.user?._id;
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+    return res.status(400).json({ message: "Invalid appointment id" });
+  }
+
   const appointment = await Appointment.findById(appointmentId);
   if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+  const allIds = await getLinkedDoctorIds(req.auth.id);
+  if (!allIds.includes(normalizeId(appointment.doctor))) {
+    return res.status(403).json({ message: "You cannot approve notes for this appointment" });
+  }
+
   if (!appointment.soapNote) return res.status(400).json({ message: "No SOAP note exists to approve" });
+
+  if (req.body?.noteVersion !== undefined && appointment.soapNote.version !== undefined) {
+    if (Number(req.body.noteVersion) !== Number(appointment.soapNote.version)) {
+      return res.status(409).json({ message: "SOAP note version mismatch. The note was updated since last reviewed." });
+    }
+  }
 
   appointment.soapNote.isDraft = false;
   appointment.soapNote.clinicianApproved = true;
-  appointment.soapNote.approvedBy = doctorId;
+  appointment.soapNote.approvedBy = req.auth.id;
   appointment.soapNote.approvedAt = new Date();
   await appointment.save();
 

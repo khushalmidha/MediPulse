@@ -7,6 +7,7 @@ import {
   formatSoapNoteDraft,
   generateDeterministicSoapFallback,
   getAiSystemAudit,
+  evaluateTriageRedFlag,
   CLINICIAN_EVALUATION_FIXTURES,
   CLINICAL_SAFETY_DISCLAIMER,
   FORECAST_PLANNING_DISCLAIMER,
@@ -101,15 +102,25 @@ test("P18: AI reliability, truthful claims, schema validation, and fallback safe
       (f) => f.fixtureId === "EVAL-001-CHEST-PAIN"
     );
     assert.ok(chestPainFixture);
-    assert.equal(chestPainFixture.expectedTriage.minimumUrgency, "EMERGENCY");
-    assert.equal(chestPainFixture.expectedTriage.triggersRedFlag, true);
+    const chestResult = evaluateTriageRedFlag(chestPainFixture.input);
+    assert.equal(chestResult.triggersRedFlag, chestPainFixture.expectedTriage.triggersRedFlag);
+    assert.equal(chestResult.urgencyLevel, chestPainFixture.expectedTriage.minimumUrgency);
 
     const pediatricFixture = CLINICIAN_EVALUATION_FIXTURES.find(
       (f) => f.fixtureId === "EVAL-002-PEDIATRIC-FEVER"
     );
     assert.ok(pediatricFixture);
-    assert.equal(pediatricFixture.expectedTriage.minimumUrgency, "ROUTINE");
-    assert.equal(pediatricFixture.expectedTriage.triggersRedFlag, false);
+    const pediatricResult = evaluateTriageRedFlag(pediatricFixture.input);
+    assert.equal(pediatricResult.triggersRedFlag, pediatricFixture.expectedTriage.triggersRedFlag);
+    assert.equal(pediatricResult.urgencyLevel, pediatricFixture.expectedTriage.minimumUrgency);
+
+    const routineFixture = CLINICIAN_EVALUATION_FIXTURES.find(
+      (f) => f.fixtureId === "EVAL-003-ROUTINE-CHECKUP"
+    );
+    assert.ok(routineFixture);
+    const routineResult = evaluateTriageRedFlag(routineFixture.input);
+    assert.equal(routineResult.triggersRedFlag, routineFixture.expectedTriage.triggersRedFlag);
+    assert.equal(routineResult.urgencyLevel, routineFixture.expectedTriage.minimumUrgency);
   });
 
   await t.test("AI system capabilities audit truthfully exposes active vs missing external services", () => {

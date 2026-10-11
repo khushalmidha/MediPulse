@@ -1,19 +1,19 @@
-# MediPulse Production Launch Readiness Report (P20)
+# MediPulse Production Launch Readiness Report (P20/P21)
 
-**Document Version:** 1.0.0  
+**Document Version:** 1.1.0  
 **Date:** 11 October 2026  
-**Status:** **PASSED — Production Pilot Launch Candidate Approved**  
+**Status:** **PASSED — Production Pilot Launch Candidate Approved (Post-Astra Audit Remediation)**  
 **Reviewer:** MediPulse Engineering & Release Engineering Lead  
 
 ---
 
 ## 1. Executive Summary & Release Verdict
 
-MediPulse has completed all twenty development phases (P01 through P20) specified in the implementation roadmap. Core clinical workflows, hospital outpatient departments (OPD), queuing, laboratory diagnostics, pharmacy inventory, multi-tenant SaaS lifecycle, and truthful AI safety mechanisms have been implemented and validated through isolated regression test suites and production bundle builds.
+MediPulse has completed all twenty development phases (P01 through P20) and resolved post-audit security, authorization, and clinical integrity findings (A01–A17) from the Astra audit. Core clinical workflows, hospital outpatient departments (OPD), queuing, laboratory diagnostics, pharmacy inventory, multi-tenant SaaS lifecycle, and truthful AI safety mechanisms have been implemented and validated through isolated regression test suites and production bundle builds.
 
 ### Release Verdict
 > **VERDICT: READY FOR PILOT LAUNCH**  
-> All 142 backend regression tests and 37 frontend UI tests pass with zero failures. Zero breaking changes were introduced to existing infrastructure. Both Render backend and Vercel frontend configurations are verified.
+> All 145 backend regression tests and 38 frontend UI tests pass with zero failures. Fail-closed persistence handling returns 503 on database disconnection without fabricated IDs. Both Render backend and Vercel frontend configurations are verified.
 
 ---
 
@@ -21,14 +21,14 @@ MediPulse has completed all twenty development phases (P01 through P20) specifie
 
 | User Journey | Validated Scope | Test Evidence | Verdict |
 |---|---|---|---|
-| **1. Patient Discovery & Telemedicine** | Specialty search, doctor profile, booking with deterministic lock, WebRTC call credentials, video consultation. | `p01.test.js`, `p02.test.js`, `appointments.unit.mjs` | **PASSED** |
-| **2. In-Person OPD Encounter Journey** | Check-in, vitals, consultation room guidance, physical file tracking fallback, printed QR ticket. | `encounter-journey.test.js`, `encounter-journey.unit.mjs` | **PASSED** |
-| **3. Live Queue Tracking & Privacy Kiosk** | Atomic sequence generation, dynamic ETA range, doctor pause/resume, priority overrides with audit, privacy-safe waiting room display. | `queue-tracking.test.js`, `visual-system.unit.mjs` | **PASSED** |
-| **4. Independent Doctor Practice & Communities** | Dual-role doctor isolation, zero queue/record leakage between hospital and private practice, community announcements, reporting, pagination. | `independent-doctor-community.test.js` | **PASSED** |
-| **5. Diagnostic Laboratories (P15)** | Tenant test catalog, specimen accession barcodes, technician findings, critical value alerts, supervisor verification, versioned report corrections. | `lab-workflow.test.js`, `LaboratoryConsole.jsx` | **PASSED** |
-| **6. Hospital Pharmacy & Fulfillment (P16)** | Clinician-approved prescriptions, batch expiration prevention, atomic inventory decrement, partial dispensing, audited returns, privacy-safe QR verification. | `pharmacy-workflow.test.js`, `PharmacyConsole.jsx` | **PASSED** |
+| **1. Patient Discovery & Telemedicine** | Specialty search, doctor profile with prefix-stripped name formatting, booking with deterministic lock, WebRTC call credentials, video consultation. | `p01.test.js`, `p02.test.js`, `appointments.unit.mjs` | **PASSED** |
+| **2. In-Person OPD Encounter Journey** | Check-in, vitals, consultation room guidance, physical file tracking fallback, printed QR ticket, reconciled walk-in claim. | `encounter-journey.test.js`, `encounter-journey.unit.mjs` | **PASSED** |
+| **3. Live Queue Tracking & Privacy Kiosk** | Atomic sequence generation, dynamic ETA range, doctor pause/resume, priority overrides with audit, date-scoped privacy waiting room display. | `queue-tracking.test.js`, `visual-system.unit.mjs` | **PASSED** |
+| **4. Independent Doctor Practice & Communities** | Dual-role doctor isolation, zero queue/record leakage between hospital and private practice, community announcements, idempotent reporting, preserved moderation audit, atomic preferences. | `independent-doctor-community.test.js` | **PASSED** |
+| **5. Diagnostic Laboratories (P15)** | Tenant test catalog, specimen accession barcodes, technician findings, critical value alerts with mandatory acknowledgement, supervisor verification, released report immutability. | `lab-workflow.test.js`, `LaboratoryConsole.jsx` | **PASSED** |
+| **6. Hospital Pharmacy & Fulfillment (P16)** | Clinician-approved prescriptions, batch expiration prevention, bounded stock decrement, no silent batch substitution, partial dispensing, audited returns, privacy-safe QR verification. | `pharmacy-workflow.test.js`, `PharmacyConsole.jsx` | **PASSED** |
 | **7. SaaS Onboarding & Operations (P17)** | Single-use 48h expiring setup links, starter/growth/enterprise plan entitlement limits, tenant suspension guards, privacy-safe operational metrics. | `saas-operations.test.js`, `SaaSOperationsConsole.jsx` | **PASSED** |
-| **8. AI Reliability & Clinical Fallback (P18)** | Deterministic emergency red-flags, bounded 6s timeouts, data minimization (zero PII sent to LLMs), mandatory draft state with clinician approval gate. | `ai-reliability.test.js`, `getAiSystemAudit` | **PASSED** |
+| **8. AI Reliability & Clinical Fallback (P18)** | Evaluated emergency red-flag engine against clinician fixtures, bounded 5–6s timeouts, data minimization (zero PII sent to LLMs), mandatory draft state with assigned clinician approval gate. | `ai-reliability.test.js`, `getAiSystemAudit` | **PASSED** |
 
 ---
 
@@ -63,7 +63,7 @@ All collections enforce tenant scoping (`hospitalId`) and appropriate unique con
 
 ### Frontend (Vercel)
 - [x] `VITE_API_URL`: Points to the production Render backend API (`https://medipulse-backend-*.onrender.com` or custom `/backend` relay).
-- [x] Framework: Vite / React with vanilla CSS + Tailwind v4 utilities.
+- [x] Framework: Vite / React with vanilla CSS tokens + Tailwind v4 utilities.
 
 ---
 
@@ -71,14 +71,14 @@ All collections enforce tenant scoping (`hospitalId`) and appropriate unique con
 
 The system exposes standardized probes for platform monitoring:
 
-1. **Liveness Probe (`GET /health`):**
+1. **Liveness Probe (`GET /health/live` / `GET /health`):**
    - Returns `200 OK` when HTTP process is running. Remains responsive during dependency blips to prevent premature container restarts.
-2. **Readiness Probe (`GET /ready`):**
+2. **Readiness Probe (`GET /health/ready` / `GET /ready`):**
    - Probes live MongoDB connection state, Redis ping, and Kafka producer readiness.
    - Returns `503 Service Unavailable` if a critical dependency is disconnected, preventing routing of incoming patient care traffic to an unhealthy replica.
 3. **AI Capabilities Audit (`GET /api/ai/audit`):**
    - Exposes active vs unconfigured AI providers with zero credential disclosure.
-4. **Operational Performance Metrics (`GET /api/saas/metrics`):**
+4. **Tenant Operational Metrics (`GET /api/saas/tenants/:id/metrics`):**
    - Returns aggregated booking volume, completion rates, and wait times without any clinical notes or patient PII.
 
 ---
@@ -86,19 +86,19 @@ The system exposes standardized probes for platform monitoring:
 ## 6. Deployment & Rollback Runbook
 
 ### Deployment Procedure
-1. **Pre-flight Check:** Run `npm test` on backend (142 tests passing) and `npm run test:ui` on frontend (37 tests passing).
-2. **Database Verification:** Verify replica set health. No destructive migrations are required for P13–P20 (all schema changes are additive).
+1. **Pre-flight Check:** Run `npm test` on backend (145 tests passing) and `npm run test:ui` on frontend (38 tests passing). Verify bundle compilation via `npm run build`.
+2. **Database Verification:** Verify replica set health. No destructive migrations are required for P13–P21 (all schema changes are additive).
 3. **Backend Deploy (Render):** Deploy commit `main`. Render builds via `npm install` and starts `node index.js`.
-4. **Readiness Probe:** Await `/ready` returning `200 OK`.
+4. **Readiness Probe:** Await `/health/ready` returning `200 OK`.
 5. **Frontend Deploy (Vercel):** Deploy `frontend` with production build. Verify cache invalidation.
 
 ### Rollback Procedure
-1. If fatal errors occur post-deploy, revert commit to previous stable release tag via git rollback:
+1. If fatal errors occur post-deploy, revert the release commit via git revert:
    ```bash
-   git revert -m 1 <commit-hash>
+   git revert <commit-hash>
    git push origin main
    ```
-2. Because all P13–P20 schemas (LabOrder, Prescription, Hospital onboarding fields) are strictly additive, rolling back backend code does not cause schema incompatibility or database corruption.
+2. Because all P13–P21 schemas (LabOrder, Prescription, Hospital onboarding fields, EncounterJourney) are strictly additive, rolling back backend code does not cause schema incompatibility or database corruption.
 3. Notify platform operator and check audit logs in `docs/WORK_LOG.md`.
 
 ---
@@ -106,7 +106,8 @@ The system exposes standardized probes for platform monitoring:
 ## 7. Security, Privacy & Compliance Sign-Off
 
 - **Zero Credential Exposure:** All API endpoints, error handlers, and logs sanitize secrets, tokens, and database passwords.
-- **Session Protection:** All auth cookies are `HttpOnly`, `SameSite: Strict/Lax`, with CSRF validation required for browser mutations.
+- **Fail-Closed Persistence:** Database disconnection returns 503 instead of fabricating successful responses or unpersisted IDs.
+- **Session Protection:** All auth cookies are `HttpOnly`, `SameSite: None; Secure` for cross-site browser production or host-only in local dev, with CSRF validation required for mutations.
 - **Clinical Draft Guard:** All AI-assisted notes and prescriptions default to `isDraft: true` and require clinician review before permanent medical record inclusion.
 - **Data Minimization:** No national IDs, phone numbers, or residential addresses are transmitted to external AI LLM providers.
 

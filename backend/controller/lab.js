@@ -15,14 +15,7 @@ import {
 } from "../services/labService.js";
 
 const getHospitalIdFromReq = (req) => {
-  return (
-    req.params.hospitalId ||
-    req.body.hospitalId ||
-    req.query.hospitalId ||
-    req.staffHospital?._id ||
-    req.staffUser?.hospitalId ||
-    req.auth?.hospitalId
-  );
+  return req.staff?.hospitalId;
 };
 
 export const getLabCatalog = asyncHandler(async (req, res) => {
@@ -66,13 +59,13 @@ export const postCreateLabOrder = asyncHandler(async (req, res) => {
     hospitalId,
     encounterJourneyId: req.body.encounterJourneyId,
     tokenId: req.body.tokenId,
-    patientId: req.body.patientId || req.auth?.id,
+    patientId: req.body.patientId,
     patientInfo: req.body.patientInfo,
-    orderingDoctorId: req.body.orderingDoctorId || req.auth?.id,
-    orderingDoctorName: req.body.orderingDoctorName || req.auth?.name,
+    orderingDoctorId: req.staff.id,
+    orderingDoctorName: req.staff.name || "Attending Physician",
     tests: req.body.tests,
     clinicalNotes: req.body.clinicalNotes,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Doctor" },
+    actor: { id: req.staff.id, name: req.staff.name, role: req.staff.role },
   });
 
   return res.status(201).json({ message: "Laboratory order placed", order });
@@ -98,7 +91,7 @@ export const getLabOrderById = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
   const { id } = req.params;
 
-  const order = await LabOrder.findOne({ _id: id, ...(hospitalId ? { hospitalId } : {}) });
+  const order = await LabOrder.findOne({ _id: id, hospitalId });
   if (!order) return res.status(404).json({ message: "Laboratory order not found" });
 
   return res.json({ order });
@@ -106,20 +99,22 @@ export const getLabOrderById = asyncHandler(async (req, res) => {
 
 export const patchClearBilling = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
   const order = await clearOrderBilling({
     orderId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Billing Staff" },
+    actor: { id: req.staff.id, name: req.staff.name || "Billing Staff", role: req.staff.role },
   });
   return res.json({ message: "Billing cleared", order });
 });
 
 export const patchCollectSample = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
   const order = await collectSample({
     orderId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Phlebotomist" },
+    actor: { id: req.staff.id, name: req.staff.name || "Phlebotomist", role: req.staff.role },
     customBarcode: req.body.barcode,
   });
   return res.json({ message: "Sample accessioned", order });
@@ -127,10 +122,11 @@ export const patchCollectSample = asyncHandler(async (req, res) => {
 
 export const patchRejectSample = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
   const order = await rejectSample({
     orderId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Lab Staff" },
+    actor: { id: req.staff.id, name: req.staff.name || "Lab Staff", role: req.staff.role },
     reason: req.body.reason,
     requestRecollection: req.body.requestRecollection,
   });
@@ -139,10 +135,11 @@ export const patchRejectSample = asyncHandler(async (req, res) => {
 
 export const postEnterLabResults = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
   const order = await enterLabResults({
     orderId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Technician" },
+    actor: { id: req.staff.id, name: req.staff.name || "Technician", role: req.staff.role },
     results: req.body.results,
   });
   return res.json({ message: "Results entered", order });
@@ -150,30 +147,33 @@ export const postEnterLabResults = asyncHandler(async (req, res) => {
 
 export const patchVerifyLabResults = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
   const order = await verifyLabResults({
     orderId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Pathologist" },
+    actor: { id: req.staff.id, name: req.staff.name || "Pathologist", role: req.staff.role },
   });
   return res.json({ message: "Findings verified", order });
 });
 
 export const patchReleaseLabResults = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
   const order = await releaseLabResults({
     orderId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Supervisor" },
+    actor: { id: req.staff.id, name: req.staff.name || "Supervisor", role: req.staff.role },
   });
   return res.json({ message: "Report released", order });
 });
 
 export const postCorrectLabReport = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
   const order = await correctLabReport({
     orderId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Pathologist" },
+    actor: { id: req.staff.id, name: req.staff.name || "Pathologist", role: req.staff.role },
     reason: req.body.reason,
     newResults: req.body.results,
   });
@@ -182,10 +182,11 @@ export const postCorrectLabReport = asyncHandler(async (req, res) => {
 
 export const postAcknowledgeCritical = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
+  if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
   const order = await acknowledgeCriticalValue({
     orderId: req.params.id,
     hospitalId,
-    actor: { id: req.auth?.id, name: req.auth?.name || "Clinician" },
+    actor: { id: req.staff.id, name: req.staff.name || "Clinician", role: req.staff.role },
   });
   return res.json({ message: "Critical alert acknowledged", order });
 });

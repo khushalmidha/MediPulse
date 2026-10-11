@@ -9,6 +9,11 @@ export const generatePrescriptionToken = () => {
   return "RX-" + crypto.randomBytes(8).toString("hex").toUpperCase();
 };
 
+let testDouble = null;
+export const setPharmacyTestDouble = (adapter) => {
+  testDouble = adapter;
+};
+
 export const createPrescription = async ({
   hospitalId,
   encounterJourneyId,
@@ -25,20 +30,26 @@ export const createPrescription = async ({
   if (!patientInfo || !patientInfo.name) throw accessError(400, "Patient information is required");
   if (!Array.isArray(items) || items.length === 0) throw accessError(400, "At least one medication is required");
 
-  const verificationToken = generatePrescriptionToken();
+  if (testDouble?.createPrescription) {
+    return testDouble.createPrescription({
+      hospitalId,
+      encounterJourneyId,
+      tokenId,
+      patientId,
+      patientInfo,
+      prescribingDoctorId,
+      prescribingDoctorName,
+      diagnosis,
+      items,
+      actor,
+    });
+  }
 
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      _id: new mongoose.Types.ObjectId(),
-      hospitalId,
-      patientInfo,
-      items,
-      diagnosis,
-      status: "approved_by_doctor",
-      verificationToken,
-      auditHistory: [{ stage: "approved_by_doctor", actorName: actor?.name || prescribingDoctorName, timestamp: new Date() }],
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
+
+  const verificationToken = generatePrescriptionToken();
 
   const prescription = new Prescription({
     hospitalId,
@@ -96,13 +107,12 @@ export const dispensePrescription = async ({ prescriptionId, hospitalId, actor, 
     throw accessError(400, "Dispense item details are required");
   }
 
+  if (testDouble?.dispensePrescription) {
+    return testDouble.dispensePrescription({ prescriptionId, hospitalId, actor, dispenseItems });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      _id: prescriptionId,
-      hospitalId,
-      status: "dispensed",
-      dispensedByName: actor?.name || "Pharmacist",
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const prescription = await Prescription.findOne({ _id: prescriptionId, hospitalId });
@@ -114,63 +124,65 @@ export const dispensePrescription = async ({ prescriptionId, hospitalId, actor, 
 
   const now = new Date();
   let anyDispensed = false;
-  let allDispensed = true;
 
   for (const di of dispenseItems) {
     const rxItem = prescription.items.id(di.itemId) || prescription.items.find((i) => i.medicationCode === di.medicationCode);
     if (!rxItem) continue;
 
-    const qtyToDispense = Math.max(0, Number(di.quantityToDispense) || 0);
-    if (qtyToDispense <= 0) {
-      allDispensed = false;
-      continue;
-    }
+    const remainingToDispense = rxItem.quantityPrescribed - (rxItem.quantityDispensed || 0);
+    if (remainingToDispense <= 0) continue;
 
-    // Check inventory stock and batch
+    const requestedQty = Number(di.quantityToDispense);
+    if (isNaN(requestedQty) || requestedQty <= 0) continue;
+
+    const qtyToDispense = Math.min(requestedQty, remainingToDispense);
+
     const inventory = await PharmacyInventory.findOne({
       hospitalId,
       medicationCode: rxItem.medicationCode,
     });
 
-    if (inventory) {
-      // Find eligible non-expired batch
-      const batch = inventory.batches.find(
+    if (!inventory) {
+      throw accessError(404, `Medication '${rxItem.medicationCode}' not found in hospital inventory`);
+    }
+
+    let batch = null;
+    if (di.batchNumber) {
+      batch = inventory.batches.find(
         (b) => b.batchNumber === di.batchNumber && b.expiryDate > now && b.quantityAvailable >= qtyToDispense
-      ) || inventory.batches.find(
-        (b) => b.expiryDate > now && b.quantityAvailable >= qtyToDispense
       );
-
       if (!batch) {
-        rxItem.itemStatus = "out_of_stock";
-        allDispensed = false;
-        continue;
-      }
-
-      // Decrement stock atomically
-      batch.quantityAvailable -= qtyToDispense;
-      inventory.totalStock = inventory.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
-      await inventory.save();
-
-      rxItem.quantityDispensed = (rxItem.quantityDispensed || 0) + qtyToDispense;
-      rxItem.batchNumber = batch.batchNumber;
-      rxItem.itemStatus = rxItem.quantityDispensed >= rxItem.quantityPrescribed ? "dispensed" : "pending";
-      anyDispensed = true;
-
-      if (rxItem.quantityDispensed < rxItem.quantityPrescribed) {
-        allDispensed = false;
+        throw accessError(
+          409,
+          `Requested batch '${di.batchNumber}' is expired, missing, or has insufficient stock (${qtyToDispense} units required)`
+        );
       }
     } else {
-      // Inventory record not managed in catalog, allow dispense record
-      rxItem.quantityDispensed = qtyToDispense;
-      rxItem.itemStatus = "dispensed";
-      anyDispensed = true;
+      batch = inventory.batches.find(
+        (b) => b.expiryDate > now && b.quantityAvailable >= qtyToDispense
+      );
     }
+
+    if (!batch) {
+      rxItem.itemStatus = "out_of_stock";
+      continue;
+    }
+
+    batch.quantityAvailable -= qtyToDispense;
+    inventory.totalStock = inventory.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
+    await inventory.save();
+
+    rxItem.quantityDispensed = (rxItem.quantityDispensed || 0) + qtyToDispense;
+    rxItem.batchNumber = batch.batchNumber;
+    rxItem.itemStatus = rxItem.quantityDispensed >= rxItem.quantityPrescribed ? "dispensed" : "pending";
+    anyDispensed = true;
   }
 
   if (!anyDispensed) {
     throw accessError(409, "No items could be dispensed due to out-of-stock or expired batches");
   }
 
+  const allDispensed = prescription.items.every((i) => (i.quantityDispensed || 0) >= i.quantityPrescribed);
   prescription.status = allDispensed ? "dispensed" : "partially_dispensed";
   prescription.dispensedAt = now;
   prescription.dispensedBy = actor?.id;
@@ -203,12 +215,12 @@ export const returnPrescriptionItems = async ({ prescriptionId, hospitalId, acto
     throw accessError(400, "Return items are required");
   }
 
+  if (testDouble?.returnPrescriptionItems) {
+    return testDouble.returnPrescriptionItems({ prescriptionId, hospitalId, actor, returnItems, reason });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      _id: prescriptionId,
-      hospitalId,
-      status: "returned",
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const prescription = await Prescription.findOne({ _id: prescriptionId, hospitalId });
@@ -216,9 +228,20 @@ export const returnPrescriptionItems = async ({ prescriptionId, hospitalId, acto
 
   for (const ri of returnItems) {
     const rxItem = prescription.items.id(ri.itemId) || prescription.items.find((i) => i.medicationCode === ri.medicationCode);
-    if (!rxItem || rxItem.quantityDispensed <= 0) continue;
+    if (!rxItem || (rxItem.quantityDispensed || 0) <= 0) continue;
 
-    const returnQty = Math.min(rxItem.quantityDispensed, Number(ri.quantity) || rxItem.quantityDispensed);
+    const requestedQty = Number(ri.quantity);
+    if (isNaN(requestedQty) || requestedQty <= 0) {
+      throw accessError(400, "Return quantity must be a positive number");
+    }
+    if (requestedQty > rxItem.quantityDispensed) {
+      throw accessError(
+        400,
+        `Return quantity (${requestedQty}) cannot exceed dispensed quantity (${rxItem.quantityDispensed})`
+      );
+    }
+
+    const returnQty = requestedQty;
 
     // Restore to inventory batch
     const inventory = await PharmacyInventory.findOne({
@@ -257,13 +280,12 @@ export const returnPrescriptionItems = async ({ prescriptionId, hospitalId, acto
 export const verifyPrescriptionQR = async ({ verificationToken }) => {
   if (!verificationToken) throw accessError(400, "Verification token is required");
 
+  if (testDouble?.verifyPrescriptionQR) {
+    return testDouble.verifyPrescriptionQR({ verificationToken });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      verified: true,
-      patientInitials: "R. P.",
-      status: "dispensed",
-      itemsCount: 2,
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const prescription = await Prescription.findOne({ verificationToken })

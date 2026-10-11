@@ -129,6 +129,20 @@ export const minimizePatientContext = (patientData = {}) => {
 };
 
 /**
+ * Deterministic emergency override rule engine.
+ */
+export const RED_FLAG_PATTERN = /chest pain|crushing|breathless|shortness of breath|unconscious|severe bleeding|faint|seizure|sudden weakness|vision loss/i;
+
+export const evaluateTriageRedFlag = (input = {}) => {
+  const text = `${input.chiefComplaint || ""} ${Array.isArray(input.symptoms) ? input.symptoms.join(" ") : ""} ${input.relevantHistory || ""}`;
+  const triggersRedFlag = RED_FLAG_PATTERN.test(text);
+  return {
+    triggersRedFlag,
+    urgencyLevel: triggersRedFlag ? "EMERGENCY" : "ROUTINE",
+  };
+};
+
+/**
  * Schema Validation for AI Intake Output.
  */
 export const validateAiBriefSchema = (brief) => {

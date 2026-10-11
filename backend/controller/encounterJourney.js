@@ -25,6 +25,17 @@ export const getGuidance = async (req, res) => {
     guidance = await getEncounterGuidance({ tokenId: id });
   }
 
+  // Tenant / Patient access guard
+  if (req.staff) {
+    if (guidance.hospitalId && String(req.staff.hospitalId) !== String(guidance.hospitalId)) {
+      return res.status(403).json({ message: "You cannot access encounters from another hospital" });
+    }
+  } else if (req.auth) {
+    if (guidance.patientId && String(req.auth.id) !== String(guidance.patientId)) {
+      return res.status(403).json({ message: "You cannot view guidance for another patient's encounter" });
+    }
+  }
+
   res.json({ guidance });
 };
 
@@ -36,6 +47,7 @@ export const transitionStage = async (req, res) => {
 
   const encounter = await transitionEncounterStage({
     encounterId: id,
+    hospitalId: req.staff?.hospitalId,
     toStage,
     actor: req.staff || req.user,
     locationId,
@@ -54,6 +66,7 @@ export const handoffFile = async (req, res) => {
 
   const encounter = await handoffPhysicalFile({
     encounterId: id,
+    hospitalId: req.staff?.hospitalId,
     fromActor: req.staff,
     toActor: { id: toActorId, name: toActorName, role: toActorRole },
     locationId,
@@ -70,6 +83,7 @@ export const refuseHandoff = async (req, res) => {
 
   const encounter = await refusePhysicalFileHandoff({
     encounterId: id,
+    hospitalId: req.staff?.hospitalId,
     actor: req.staff,
     reason,
   });
@@ -79,13 +93,14 @@ export const refuseHandoff = async (req, res) => {
 
 export const linkWalkIn = async (req, res) => {
   const { id } = req.params;
-  const userId = req.user?._id || req.user?.id;
+  const userId = req.auth?.id || req.user?._id;
 
   if (!userId) throw accessError(401, "Sign in is required to link a visit");
 
   const encounter = await linkWalkInToAccount({
     encounterId: id,
     userId,
+    claimPhone: req.body.phone,
   });
 
   res.json({ message: "Walk-in ticket linked to account successfully", encounter });
@@ -95,6 +110,16 @@ export const getTicket = async (req, res) => {
   const { id } = req.params;
   const encounter = await EncounterJourney.findById(id).lean();
   if (!encounter) throw accessError(404, "Encounter not found");
+
+  if (req.staff) {
+    if (encounter.hospitalId && String(req.staff.hospitalId) !== String(encounter.hospitalId)) {
+      return res.status(403).json({ message: "You cannot access tickets from another hospital" });
+    }
+  } else if (req.auth) {
+    if (encounter.patientId && String(req.auth.id) !== String(encounter.patientId)) {
+      return res.status(403).json({ message: "You cannot view another patient's ticket" });
+    }
+  }
 
   res.json({
     ticket: {
@@ -125,6 +150,10 @@ export const getLocations = async (req, res) => {
 
 export const createLocation = async (req, res) => {
   const { id: hospitalId } = req.params;
+  if (req.staff && String(req.staff.hospitalId) !== String(hospitalId)) {
+    throw accessError(403, "You cannot create locations for another hospital");
+  }
+
   const { name, type, building, floor, roomNumber, departmentId, serviceType, instructions } = req.body;
 
   if (!name) throw accessError(400, "Location name is required");
@@ -138,9 +167,9 @@ export const createLocation = async (req, res) => {
     roomNumber,
     departmentId,
     serviceType: serviceType || "consultation",
-    instructions,
+    instructions: instructions || "",
   });
 
   await location.save();
-  res.status(201).json({ message: "Location created", location });
+  res.status(201).json({ message: "Hospital location registered", location });
 };

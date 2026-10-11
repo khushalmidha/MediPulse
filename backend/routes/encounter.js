@@ -9,6 +9,7 @@ import {
 } from "../controller/encounterJourney.js";
 import validateStaff from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
+import patientOrStaffAuth from "../middleware/patientOrStaffAuth.js";
 
 const encounterRouter = Router();
 
@@ -23,8 +24,8 @@ const asyncRoute = (handler) => async (req, res, next) => {
   }
 };
 
-encounterRouter.get("/:id/guidance", asyncRoute(getGuidance));
-encounterRouter.get("/:id/ticket", asyncRoute(getTicket));
+encounterRouter.get("/:id/guidance", patientOrStaffAuth, asyncRoute(getGuidance));
+encounterRouter.get("/:id/ticket", patientOrStaffAuth, asyncRoute(getTicket));
 encounterRouter.post("/:id/transition", validateStaff, asyncRoute(transitionStage));
 encounterRouter.post("/:id/handoff", validateStaff, asyncRoute(handoffFile));
 encounterRouter.post("/:id/refuse", validateStaff, asyncRoute(refuseHandoff));

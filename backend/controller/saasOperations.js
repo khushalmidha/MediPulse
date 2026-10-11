@@ -4,6 +4,7 @@ import {
   getPlanEntitlements,
   createAdminSetupLink,
   verifyAdminSetupLink,
+  consumeAdminSetupLink,
   suspendTenant,
   unsuspendTenant,
   calculateOperationalMetrics,
@@ -14,6 +15,9 @@ import {
   getBillingProviderConfig,
   createSubscriptionCheckoutSession,
 } from "../services/billingProviderAdapter.js";
+
+const buildFrontendUrl = () =>
+  (process.env.FRONTEND_URL || process.env.CLIENT_URLS || "http://localhost:5173").split(",")[0].trim().replace(/\/$/, "");
 
 export const listTenants = asyncHandler(async (req, res) => {
   const filter = {};
@@ -34,7 +38,11 @@ export const listTenants = asyncHandler(async (req, res) => {
 
 export const getTenantDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const hospital = await Hospital.findById(id).select("-onboarding.initialAdminPasswordEncrypted -onboarding.initialAdminPasswordIv -onboarding.initialAdminPasswordTag");
+  // FIXED A01: Explicit safe allowlist projection
+  const hospital = await Hospital.findById(id)
+    .select("name slug type status subscription suspension createdAt stats branding.logo supportTickets")
+    .lean();
+
   if (!hospital) return res.status(404).json({ message: "Hospital not found" });
 
   const entitlements = getPlanEntitlements(hospital.subscription?.plan);
@@ -80,7 +88,7 @@ export const patchSuspendTenant = asyncHandler(async (req, res) => {
   const hospital = await suspendTenant({
     hospitalId: id,
     reason: reason.trim(),
-    actor: { name: req.auth?.name || "Platform Operator" },
+    actor: { name: req.auth?.name || req.staff?.name || "Platform Operator" },
   });
 
   return res.json({ message: "Tenant suspended", hospital });
@@ -90,7 +98,7 @@ export const patchUnsuspendTenant = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const hospital = await unsuspendTenant({
     hospitalId: id,
-    actor: { name: req.auth?.name || "Platform Operator" },
+    actor: { name: req.auth?.name || req.staff?.name || "Platform Operator" },
   });
 
   return res.json({ message: "Tenant restored to active status", hospital });
@@ -98,8 +106,9 @@ export const patchUnsuspendTenant = asyncHandler(async (req, res) => {
 
 export const postGenerateSetupLink = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const baseOrigin = req.protocol + "://" + req.get("host");
-  const link = await createAdminSetupLink(id, baseOrigin);
+  // FIXED A01: Use approved frontend URL rather than trusting request host headers
+  const frontendUrl = buildFrontendUrl();
+  const link = await createAdminSetupLink(id, frontendUrl);
 
   return res.json({
     message: "Expiring setup link generated",
@@ -111,7 +120,21 @@ export const postGenerateSetupLink = asyncHandler(async (req, res) => {
 export const getVerifySetupLink = asyncHandler(async (req, res) => {
   const { token } = req.params;
   const verification = await verifyAdminSetupLink(token);
-  return res.json({ message: "Setup link is valid", hospital: verification.hospital });
+  // FIXED A01: Return strictly minimal safe allowlist
+  return res.json({
+    message: "Setup link is valid",
+    hospital: verification.hospital,
+  });
+});
+
+export const postConsumeSetupLink = asyncHandler(async (req, res) => {
+  const { token, adminPassword, name } = req.body;
+  if (!token || !adminPassword) {
+    return res.status(400).json({ message: "Token and administrator password are required" });
+  }
+
+  const result = await consumeAdminSetupLink({ token, adminPassword, name });
+  return res.json({ message: "Setup completed successfully", result });
 });
 
 export const getTenantMetrics = asyncHandler(async (req, res) => {
@@ -136,7 +159,7 @@ export const postCreateSupportTicket = asyncHandler(async (req, res) => {
     subject,
     description,
     priority,
-    actor: { name: req.auth?.name || "Staff" },
+    actor: { name: req.auth?.name || req.staff?.name || "Staff" },
   });
 
   return res.status(201).json({ message: "Support ticket submitted", ticket });

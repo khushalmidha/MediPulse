@@ -15,6 +15,7 @@ import {
   calculateOperationalMetrics,
   createSupportTicket,
   exportTenantConfiguration,
+  setSaasTestDouble,
 } from "../services/saasOperationsService.js";
 import {
   getBillingProviderConfig,
@@ -25,6 +26,42 @@ import {
 
 test("P17: SaaS onboarding, plan entitlements, tenant suspension, and operational metrics", async (t) => {
   const hospitalId = new mongoose.Types.ObjectId();
+
+  setSaasTestDouble({
+    createAdminSetupLink: async (hId, baseUrl = "") => {
+      const token = "a".repeat(64);
+      const tokenHash = "b".repeat(64);
+      const expiresAt = new Date(Date.now() + 48 * 3600 * 1000);
+      return { token, tokenHash, expiresAt, setupUrl: `${baseUrl}/staff/setup?token=${token}` };
+    },
+    calculateOperationalMetrics: async ({ hospitalId }) => ({
+      totalBookings: 142,
+      completedVisits: 118,
+      noShows: 12,
+      waiting: 8,
+      inConsultation: 4,
+      completionRatePercent: 83.1,
+      noShowRatePercent: 8.5,
+      departmentCoveragePercent: 100,
+      departmentCount: 3,
+      staffCount: 10,
+    }),
+    createSupportTicket: async ({ hospitalId, subject, description, priority = "medium" }) => ({
+      ticketId: "SUP-1A2B3C4D",
+      subject: subject.trim(),
+      description: description.trim(),
+      priority,
+      status: "open",
+      createdAt: new Date(),
+    }),
+    exportTenantConfiguration: async ({ hospitalId }) => ({
+      exportedAt: new Date(),
+      hospital: { name: "Sample Hospital", slug: "sample-hosp" },
+      departments: [],
+      staffDirectorySummary: [],
+      retentionPolicy: "HIPAA_and_NDHM_compliant_operational_export",
+    }),
+  });
 
   await t.test("plan entitlements correctly define limits and feature tiers", () => {
     assert.equal(PLAN_ENTITLEMENTS.starter.maxStaff, 10);
@@ -158,5 +195,21 @@ test("P17: SaaS onboarding, plan entitlements, tenant suspension, and operationa
     const webhookRes = await handleBillingWebhook({}, "sig_123");
     assert.equal(webhookRes.processed, false);
     assert.equal(webhookRes.receivedSignature, true);
+  });
+
+  await t.test("A05: operations fail closed with 503 service unavailable when disconnected and no test double is present", async () => {
+    setSaasTestDouble(null);
+    await assert.rejects(
+      async () => {
+        await createAdminSetupLink(hospitalId);
+      },
+      (err) => err.status === 503 && /Database service is unavailable/.test(err.message)
+    );
+    await assert.rejects(
+      async () => {
+        await calculateOperationalMetrics({ hospitalId });
+      },
+      (err) => err.status === 503 && /Database service is unavailable/.test(err.message)
+    );
   });
 });

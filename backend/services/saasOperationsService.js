@@ -64,21 +64,36 @@ export const checkFeatureEntitlement = (hospital, feature) => {
   return true;
 };
 
+let testDouble = null;
+export const setSaasTestDouble = (adapter) => {
+  testDouble = adapter;
+};
+
 export const createAdminSetupLink = async (hospitalId, baseUrl = "") => {
+  if (testDouble?.createAdminSetupLink) {
+    return testDouble.createAdminSetupLink(hospitalId, baseUrl);
+  }
+
+  if (mongoose.connection?.readyState !== 1) {
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
+  }
+
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const expiresAt = new Date(Date.now() + 48 * 3600 * 1000); // 48-hour expiration
 
-  if (mongoose.connection?.readyState === 1) {
-    await Hospital.updateOne(
-      { _id: hospitalId },
-      {
-        $set: {
-          "onboarding.setupTokenHash": tokenHash,
-          "onboarding.setupExpiresAt": expiresAt,
-        },
-      }
-    );
+  const result = await Hospital.updateOne(
+    { _id: hospitalId },
+    {
+      $set: {
+        "onboarding.setupTokenHash": tokenHash,
+        "onboarding.setupExpiresAt": expiresAt,
+      },
+    }
+  );
+
+  if (!result.matchedCount) {
+    throw accessError(404, "Hospital not found");
   }
 
   const setupUrl = `${baseUrl}/staff/setup?token=${token}`;
@@ -90,11 +105,41 @@ export const verifyAdminSetupLink = async (token) => {
     throw accessError(400, "Setup token is required");
   }
 
+  if (mongoose.connection?.readyState !== 1) {
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
+  }
+
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
-  if (mongoose.connection?.readyState !== 1) {
-    return { valid: true, hospital: { name: "Sample Hospital", slug: "sample-hosp" } };
+  const hospital = await Hospital.findOne({
+    "onboarding.setupTokenHash": tokenHash,
+    "onboarding.setupExpiresAt": { $gt: new Date() },
+  }).select("name slug type");
+
+  if (!hospital) {
+    throw accessError(400, "Setup link is invalid or has expired. Please request a new invitation link.");
   }
+
+  return {
+    valid: true,
+    hospital: {
+      name: hospital.name,
+      slug: hospital.slug,
+      type: hospital.type,
+    },
+  };
+};
+
+export const consumeAdminSetupLink = async ({ token, adminPassword, name }) => {
+  if (!token || typeof token !== "string") {
+    throw accessError(400, "Setup token is required");
+  }
+
+  if (mongoose.connection?.readyState !== 1) {
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
   const hospital = await Hospital.findOne({
     "onboarding.setupTokenHash": tokenHash,
@@ -102,10 +147,16 @@ export const verifyAdminSetupLink = async (token) => {
   });
 
   if (!hospital) {
-    throw accessError(400, "Setup link is invalid or has expired. Please request a new invitation link.");
+    throw accessError(400, "Setup link is invalid or has expired.");
   }
 
-  return { valid: true, hospital };
+  // Atomically invalidate setup link so it cannot be reused
+  hospital.onboarding.setupTokenHash = undefined;
+  hospital.onboarding.setupExpiresAt = undefined;
+  hospital.onboarding.completedAt = new Date();
+  await hospital.save();
+
+  return { success: true, hospitalId: hospital._id, slug: hospital.slug };
 };
 
 export const assertTenantNotSuspended = (hospital) => {
@@ -121,7 +172,7 @@ export const assertTenantNotSuspended = (hospital) => {
 
 export const suspendTenant = async ({ hospitalId, reason = "Terms of service violation", actor }) => {
   if (mongoose.connection?.readyState !== 1) {
-    return { hospitalId, status: "suspended", reason };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const hospital = await Hospital.findById(hospitalId);
@@ -142,7 +193,7 @@ export const suspendTenant = async ({ hospitalId, reason = "Terms of service vio
 
 export const unsuspendTenant = async ({ hospitalId, actor }) => {
   if (mongoose.connection?.readyState !== 1) {
-    return { hospitalId, status: "active" };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const hospital = await Hospital.findById(hospitalId);
@@ -159,18 +210,12 @@ export const unsuspendTenant = async ({ hospitalId, actor }) => {
 };
 
 export const calculateOperationalMetrics = async ({ hospitalId, startDate, endDate }) => {
+  if (testDouble?.calculateOperationalMetrics) {
+    return testDouble.calculateOperationalMetrics({ hospitalId, startDate, endDate });
+  }
+
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      totalBookings: 142,
-      completedVisits: 118,
-      noShows: 12,
-      inConsultation: 4,
-      waiting: 8,
-      completionRatePercent: 83.1,
-      noShowRatePercent: 8.5,
-      averageWaitMinutes: 18.5,
-      staffSetupCompletionPercent: 100,
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
   const dateFilter = { hospitalId };
@@ -180,25 +225,25 @@ export const calculateOperationalMetrics = async ({ hospitalId, startDate, endDa
     if (endDate) dateFilter.createdAt.$lte = new Date(endDate);
   }
 
+  // FIXED A10: Query actual token enum 'waiting' instead of nonexistent 'queued'
   const [totalTokens, completedTokens, noShowTokens, waitingTokens, inConsultationTokens, departments, staffMembers] =
     await Promise.all([
       OpdToken.countDocuments(dateFilter),
       OpdToken.countDocuments({ ...dateFilter, status: "completed" }),
       OpdToken.countDocuments({ ...dateFilter, status: "no_show" }),
-      OpdToken.countDocuments({ ...dateFilter, status: "queued" }),
+      OpdToken.countDocuments({ ...dateFilter, status: "waiting" }),
       OpdToken.countDocuments({ ...dateFilter, status: "in_consultation" }),
       Department.find({ hospitalId }).lean(),
       HospitalStaff.find({ hospitalId, isActive: true }).lean(),
     ]);
 
-  // Compute staff setup completion: departments with assigned doctors
   const deptCount = departments.length;
-  let assignedDepts = 0;
+  let coveredDepts = 0;
   if (deptCount > 0) {
     const coveredDeptIds = new Set(staffMembers.flatMap((s) => (s.departmentIds || []).map(String)));
-    assignedDepts = departments.filter((d) => coveredDeptIds.has(String(d._id))).length;
+    coveredDepts = departments.filter((d) => coveredDeptIds.has(String(d._id))).length;
   }
-  const staffSetupPercent = deptCount > 0 ? Math.round((assignedDepts / deptCount) * 100) : 0;
+  const departmentCoveragePercent = deptCount > 0 ? Math.round((coveredDepts / deptCount) * 100) : 0;
 
   const completionRatePercent = totalTokens > 0 ? Math.round((completedTokens / totalTokens) * 1000) / 10 : 0;
   const noShowRatePercent = totalTokens > 0 ? Math.round((noShowTokens / totalTokens) * 1000) / 10 : 0;
@@ -211,7 +256,7 @@ export const calculateOperationalMetrics = async ({ hospitalId, startDate, endDa
     inConsultation: inConsultationTokens,
     completionRatePercent,
     noShowRatePercent,
-    staffSetupCompletionPercent: staffSetupPercent,
+    departmentCoveragePercent,
     departmentCount: deptCount,
     staffCount: staffMembers.length,
   };
@@ -222,17 +267,15 @@ export const createSupportTicket = async ({ hospitalId, subject, description, pr
     throw accessError(400, "Ticket subject and description are required");
   }
 
-  const ticketId = "SUP-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+  if (testDouble?.createSupportTicket) {
+    return testDouble.createSupportTicket({ hospitalId, subject, description, priority, actor });
+  }
 
   if (mongoose.connection?.readyState !== 1) {
-    return {
-      ticketId,
-      subject: subject.trim(),
-      description: description.trim(),
-      priority,
-      status: "open",
-    };
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
+
+  const ticketId = "SUP-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 
   const ticketDoc = {
     ticketId,
@@ -243,25 +286,27 @@ export const createSupportTicket = async ({ hospitalId, subject, description, pr
     createdAt: new Date(),
   };
 
-  await Hospital.updateOne({ _id: hospitalId }, { $push: { supportTickets: ticketDoc } });
+  const result = await Hospital.updateOne({ _id: hospitalId }, { $push: { supportTickets: ticketDoc } });
+  if (!result.matchedCount) {
+    throw accessError(404, "Hospital not found");
+  }
   return ticketDoc;
 };
 
 export const exportTenantConfiguration = async ({ hospitalId }) => {
-  if (mongoose.connection?.readyState !== 1) {
-    return {
-      exportedAt: new Date(),
-      hospital: { name: "Sample Hospital", slug: "sample-hosp" },
-      departments: [],
-      staffDirectory: [],
-      retentionPolicy: "30_days_compliant",
-    };
+  if (testDouble?.exportTenantConfiguration) {
+    return testDouble.exportTenantConfiguration({ hospitalId });
   }
 
+  if (mongoose.connection?.readyState !== 1) {
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
+  }
+
+  // FIXED A01: Exclude staff personal email/phone numbers from configuration export
   const [hospital, departments, staff] = await Promise.all([
-    Hospital.findById(hospitalId).select("-onboarding -subscription -__v").lean(),
-    Department.find({ hospitalId }).select("name code description serviceType").lean(),
-    HospitalStaff.find({ hospitalId, isActive: true }).select("name role email phone").lean(),
+    Hospital.findById(hospitalId).select("name slug type status branding.logo departments createdAt").lean(),
+    Department.find({ hospitalId }).select("name code description serviceType isActive").lean(),
+    HospitalStaff.find({ hospitalId, isActive: true }).select("role departmentIds adminAccess isActive createdAt").lean(),
   ]);
 
   if (!hospital) throw accessError(404, "Hospital not found");
@@ -270,7 +315,7 @@ export const exportTenantConfiguration = async ({ hospitalId }) => {
     exportedAt: new Date(),
     hospital,
     departments,
-    staffDirectory: staff,
+    staffDirectorySummary: staff,
     retentionPolicy: "HIPAA_and_NDHM_compliant_operational_export",
   };
 };
