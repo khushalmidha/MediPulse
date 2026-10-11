@@ -20,6 +20,10 @@ test("formatDoctorName normalizes repeated prefixes and provides safe fallback",
   assert.equal(formatDoctorName("   "), "Doctor");
   assert.equal(doctorName("Dr. Dr. Jane Doe"), "Jane Doe");
   assert.equal(doctorName("Jane Doe"), "Jane Doe");
+  for (const name of ["Drew Smith", "Driscoll Jones", "Doctorow Lee"]) assert.equal(formatDoctorName(name), "Dr. " + name);
+  assert.equal(formatDoctorName("  Dr.Dr. Doctor Dr. Naresh Gupta  "), "Dr. Naresh Gupta");
+  assert.equal(formatDoctorName({ firstName: "Dr. Dr. Naresh", lastName: "Gupta" }), "Dr. Naresh Gupta");
+  assert.equal(formatDoctorName("Dr."), "Doctor");
 });
 test("practice dates respect timezone boundaries", () => {
   const instant = new Date("2026-10-09T20:00:00Z");

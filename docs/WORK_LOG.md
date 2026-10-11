@@ -1047,3 +1047,36 @@ Systematically resolved architectural security, tenant isolation, fail-closed pe
 - Post-Astra feature test suite (`node --test tests/saas-operations.test.js tests/pharmacy-workflow.test.js tests/lab-workflow.test.js tests/encounter-journey.test.js tests/queue-tracking.test.js tests/ai-reliability.test.js tests/independent-doctor-community.test.js`): **49 passed / 0 failed / 0 skipped**.
 - Frontend UI test suite (`npm run test:ui`): **38 passed / 0 failed / 0 skipped**.
 - Frontend production bundle build (`npm run build`): **Passed** (2318 modules, zero compilation errors).
+
+## P22 follow-up — Astra/Gemini audit, core regression repair, R1 containment and R8 UI (11 October 2026)
+
+Reviewed Gemini P11–P20 at `c42c3529`, then independently checked its new remediation commit `edd47814`. Astra wrote ASTRA_REVIEW/ASTRA_IMPLEMENTATION_PLAN before its agent reached its usage limit; the parent checked the documents and later implementation. Owner preference is now recorded in the prompt pack: **future Astra runs Medium only**.
+
+### Changes
+
+- Fixed the undeclared `mongoose` reference in shared visit transitions, which aborted care/refund transactions despite a green helper suite.
+- Authorize encounter guidance/tickets against actual encounter/token identity and the existing hospital/department/assigned-clinician policy. Unlinked/contradictory identity fails closed; patient guidance omits custody actor identities. Timeline reads use the same staff visit policy, with limited DTOs for nonclinical readers.
+- Temporarily contain new encounter transition/handoff/refusal/account-link commands with explicit 503 responses. They lack required transactional identity, recipient acknowledgement and revision safeguards. Established OPD commands remain available. This is containment, not R3 completion.
+- Require the proper account kind for allowlisted platform operators. Correct collection/rejection/result-entry routes to the actual LAB_TECH enum and verify persisted collection attribution/foreign-tenant denial.
+- Replace legacy dashboard, community/doctor cards and floating assistant with semantic teal actions, warm surfaces and matching dark mode; align hospital surfaces/navigation. Accessible community confirmation, responsive assistant, owned request disposal, actual directory matches, bounded optional unreviewed general-AI replies and honest unavailable states. Provider failures retain input; no entire directory is sent to AI.
+- Preserve names in the database while correcting repeated display titles and protecting Drew/Driscoll/Doctorow. Apply the shared formatter to appointment summaries, video labels, suggestions, hospital cards, navigation and nurse choices.
+- Replace unsupported launch approval with evidence-based status; update backlog/repair plan. Connected synthetic-data graph, exception inbox/next-step/visit-packet ideas and preservation/recovery safeguards are prepared in the plan. No production seed/schema operation, original-record mutation, mail or provider activation occurred.
+
+### Executed checks (isolated fixtures only)
+
+| Check | Final observed result |
+|---|---|
+| Backend `npm.cmd test` | **145 passed, 0 failed/skipped**, 44.23 s |
+| Backend `npm.cmd run test:integration` with explicit local replica-set direct connection / Redis DB 15 | **128 passed, 0 failed/skipped**, 342.04 s; includes eight new real mounted-router/session/Mongo regressions |
+| Frontend `npm.cmd run test:ui` | **38 passed, 0 failed/skipped**, 1.79 s |
+| Edge Playwright dashboard-assistant + booking + products, same-origin API proxy | **60 passed, 0 failed/skipped**, 3.9 min |
+| Frontend build | **Passed**, 2,319 modules, 53.83 s; main JS 792.76 kB / 226.73 kB gzip; existing >500 kB warning remains |
+| Affected frontend lint (14 files) | **0 errors**, three existing warnings (two video hooks, AuthContext refresh export) |
+
+Rendered and inspected synthetic mobile dark and desktop light screenshots; browser checks additionally exercise 360/768/1440 widths in both themes, semantic colors, keyboard Escape/focus restoration, directory matching without provider calls, actor changes and failed AI requests. Browser fixtures establish UI contracts; they do not establish live provider delivery or production clinical acceptance. Logs/traces/screenshots stay in the local temporary directory, outside Git.
+
+Earlier runs are retained as contrary/debug evidence: pre-import-repair integration **109 passed/18 failed (127)**; initial local connection failed on Docker's advertised hostname until explicit directConnection; first targeted browser run **5 passed/1 reload failure**; broader direct-API run **52 passed/4 failed**, with a later repetition interrupted after tracing Edge's public-host-to-loopback private-network rejection. The final full browser rerun used the existing same-origin relay. Playwright now defaults to that production-like mode; direct cross-origin mode is opt-in. Fixture origin allowlisting changed only the harness, with production CORS untouched. An attempted concurrent rerun was refused because the prior harness still held its port; only the identified owned runner and children were stopped before the clean final run.
+
+### Remaining work / release boundary
+
+R1 clinical order/prescription reference and capability/department checks, MP17 versioned conditional note review, R2 stock/report transactions and schema gates, R3 verified identity/custody, R4 patient released-document journey, R5 durable queue controls, R6 setup/entitlement/publication and R7 provider/consent boundary remain open. LAB_SUPERVISOR/PATHOLOGIST are not current staff roles; no qualifications were fabricated. No broad “A01–A17 closed” or “all phases launch-ready” claim is supported. Complete those slices and isolated connected-demo seed/recovery before proposing exact production data additions. Main commits use Khushal Midha with no Codex coauthor.

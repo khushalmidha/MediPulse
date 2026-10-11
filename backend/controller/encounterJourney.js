@@ -11,31 +11,12 @@ import {
 import { accessError } from "../services/hospitalAccess.js";
 
 export const getGuidance = async (req, res) => {
-  const { id } = req.params;
-  const isObjectId = id.length === 24;
-
-  let guidance;
-  if (isObjectId) {
-    try {
-      guidance = await getEncounterGuidance({ encounterId: id });
-    } catch {
-      guidance = await getEncounterGuidance({ tokenId: id });
-    }
-  } else {
-    guidance = await getEncounterGuidance({ tokenId: id });
+  if (!req.encounter) throw accessError(403, "Encounter authorization is required");
+  const guidance = await getEncounterGuidance({ encounterId: req.encounter._id });
+  if (!req.staff) {
+    guidance.physicalFile = { tracked: guidance.physicalFile.tracked, location: guidance.physicalFile.location };
+    delete guidance.qrPayload;
   }
-
-  // Tenant / Patient access guard
-  if (req.staff) {
-    if (guidance.hospitalId && String(req.staff.hospitalId) !== String(guidance.hospitalId)) {
-      return res.status(403).json({ message: "You cannot access encounters from another hospital" });
-    }
-  } else if (req.auth) {
-    if (guidance.patientId && String(req.auth.id) !== String(guidance.patientId)) {
-      return res.status(403).json({ message: "You cannot view guidance for another patient's encounter" });
-    }
-  }
-
   res.json({ guidance });
 };
 
@@ -107,9 +88,8 @@ export const linkWalkIn = async (req, res) => {
 };
 
 export const getTicket = async (req, res) => {
-  const { id } = req.params;
-  const encounter = await EncounterJourney.findById(id).lean();
-  if (!encounter) throw accessError(404, "Encounter not found");
+  const encounter = req.encounter;
+  if (!encounter) throw accessError(403, "Encounter authorization is required");
 
   if (req.staff) {
     if (encounter.hospitalId && String(req.staff.hospitalId) !== String(encounter.hospitalId)) {

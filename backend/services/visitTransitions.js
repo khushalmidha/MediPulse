@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { recordVisitEvent } from "./workflowEvents.js";
 import { consultationDeadline } from "./consultationPolicy.js";
 import Appointment from "../model/appointment.js";

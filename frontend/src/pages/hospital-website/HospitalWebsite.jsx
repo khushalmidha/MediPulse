@@ -1,3 +1,4 @@
+import { formatDoctorName } from "../../utils/appointments";
 /* eslint-disable react/prop-types */
 import BookingFlow from "../../components/appointments/BookingFlow";
 import { Dialog } from "../../components/ui";
@@ -202,26 +203,26 @@ const HospitalWebsite = ({ slug }) => {
   const openBooking = doctor => setBookingDoctor(doctor);
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-50 px-6 py-10 text-slate-700">Loading hospital website...</div>;
+    return <div className="min-h-screen bg-[var(--mp-surface-muted)] px-6 py-10 text-[var(--mp-text)]">Loading hospital website...</div>;
   }
 
   if (error || !hospital) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-        <div className="max-w-md rounded-lg border border-slate-200 bg-white dark:bg-slate-950 p-6 text-center shadow-sm">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--mp-surface-muted)] px-6">
+        <div className="max-w-md rounded-lg border border-[var(--mp-border)] bg-[var(--mp-surface)] p-6 text-center shadow-sm">
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Hospital website unavailable</h1>
-          <p className="mt-2 text-sm text-slate-600">{error || "This hospital profile could not be found."}</p>
+          <p className="mt-2 text-sm text-[var(--mp-muted)]">{error || "This hospital profile could not be found."}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:text-slate-100">
+    <main className="min-h-screen bg-[var(--mp-surface-muted)] text-slate-900 dark:text-slate-100">
       {patientToast && (
-        <div className="fixed left-4 top-4 z-50 max-w-sm rounded-lg border border-blue-100 bg-white dark:bg-slate-950 p-4 shadow-xl">
+        <div className="fixed left-4 top-4 z-50 max-w-sm rounded-lg border border-blue-100 bg-[var(--mp-surface)] p-4 shadow-xl">
           <p className="text-sm font-bold text-slate-950">{patientToast.isOpd ? "🏥 Your turn!" : "Appointment started"}</p>
-          <p className="mt-1 text-sm text-slate-600">{patientToast.message}</p>
+          <p className="mt-1 text-sm text-[var(--mp-muted)]">{patientToast.message}</p>
           <div className="mt-3 flex gap-2">
             {patientToast.isOpd ? (
               <button
@@ -235,16 +236,16 @@ const HospitalWebsite = ({ slug }) => {
               <button
                 type="button"
                 onClick={() => navigate(`/triage/${patientToast.doctorId}`)}
-                className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+                className="mp-button mp-button--primary"
               >
                 Join meeting
               </button>
             )}
-            <button type="button" onClick={() => setPatientToast(null)} className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Dismiss</button>
+            <button type="button" onClick={() => setPatientToast(null)} className="rounded-md border border-[var(--mp-border)] px-3 py-2 text-sm text-[var(--mp-muted)] hover:bg-[var(--mp-surface-muted)]">Dismiss</button>
           </div>
         </div>
       )}
-      <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 dark:bg-slate-950/95 backdrop-blur">
+      <nav className="sticky top-0 z-20 border-b border-[var(--mp-border)] bg-[var(--mp-surface)]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             {hospital.branding?.logo ? (
@@ -256,7 +257,7 @@ const HospitalWebsite = ({ slug }) => {
             )}
             <div>
               <div className="text-lg font-bold">{hospital.name}</div>
-              <div className="text-xs text-slate-500">{hospital.address?.city}, {hospital.address?.state}</div>
+              <div className="text-xs text-[var(--mp-muted)]">{hospital.address?.city}, {hospital.address?.state}</div>
             </div>
           </div>
           <a href="#doctors" className="rounded-md px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: primaryColor, color: brand.onAccent }}>
@@ -309,7 +310,7 @@ const HospitalWebsite = ({ slug }) => {
                 type="button"
                 aria-label={`Show slide ${index + 1}`}
                 onClick={() => setSlide(index)}
-                className={`h-2 rounded-full transition-all ${index === slide ? "w-6 bg-white dark:bg-slate-950" : "w-2 bg-white/60 dark:bg-slate-950/60"}`}
+                className={`h-2 rounded-full transition-all ${index === slide ? "w-6 bg-[var(--mp-surface)]" : "w-2 bg-white/60 dark:bg-slate-950/60"}`}
               />
             ))}
           </div>
@@ -346,16 +347,16 @@ const HospitalWebsite = ({ slug }) => {
                     setSelectedDepartmentId(isSelected ? "" : String(department._id));
                     document.getElementById("doctors")?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
-                  className={`rounded-lg border bg-white dark:bg-slate-950 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isSelected ? "border-red-500 ring-2 ring-blue-100" : "border-slate-200"}`}>
+                  className={`rounded-lg border bg-[var(--mp-surface)] p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isSelected ? "border-[var(--mp-accent-ink)] ring-2 ring-[var(--mp-accent-soft)]" : "border-[var(--mp-border)]"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-bold">{department.icon || "🏥"} {department.name}</h3>
-                      <p className="mt-2 text-sm text-slate-600">{department.description || "OPD consultation available."}</p>
+                      <p className="mt-2 text-sm text-[var(--mp-muted)]">{department.description || "OPD consultation available."}</p>
                       <p className="mt-3 text-xs font-semibold text-blue-700">
                         {stats ? `${stats.todayTokensIssued || 0} tokens today, ${stats.estimatedWait != null ? stats.estimatedWait + " min estimated wait" : "Wait estimate unavailable"}` : "Queue opens when OPD starts"}
                       </p>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-[var(--mp-text)]">
                       {money(department.opd?.consultationFee)}
                     </span>
                   </div>
@@ -364,33 +365,33 @@ const HospitalWebsite = ({ slug }) => {
             </div>
           </div>
 
-          <aside className="rounded-lg border border-slate-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
+          <aside className="rounded-lg border border-[var(--mp-border)] bg-[var(--mp-surface)] p-5 shadow-sm">
             <h2 className="text-xl font-bold">Live OPD Status</h2>
             <div className="mt-4 space-y-3">
               {(queue?.departments || []).slice(0, 6).map((item) => (
-                <div key={item.id} className="rounded-md bg-slate-50 p-3">
+                <div key={item.id} className="rounded-md bg-[var(--mp-surface-muted)] p-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold">{item.name}</span>
-                    <span className="text-xs text-slate-500">{item.todayTokensIssued} tokens</span>
+                    <span className="text-xs text-[var(--mp-muted)]">{item.todayTokensIssued} tokens</span>
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">
+                  <p className="mt-1 text-sm text-[var(--mp-muted)]">
                     Current: {item.currentToken || "Not started"} | ETA: {item.estimatedWait != null ? item.estimatedWait + " min" : "Unavailable"}
                   </p>
                 </div>
               ))}
-              {!queue?.departments?.length && <p className="text-sm text-slate-500">Queue status will appear here when OPD starts.</p>}
+              {!queue?.departments?.length && <p className="text-sm text-[var(--mp-muted)]">Queue status will appear here when OPD starts.</p>}
             </div>
           </aside>
         </div>
       </section>
 
-      <section id="doctors" className="bg-white dark:bg-slate-950 py-12">
+      <section id="doctors" className="bg-[var(--mp-surface)] py-12">
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-2xl font-bold">Doctors</h2>
               {selectedDepartmentId && (
-                <button onClick={() => setSelectedDepartmentId("")} className="mt-1 text-sm font-semibold text-red-600 dark:text-red-500">
+                <button onClick={() => setSelectedDepartmentId("")} className="mt-1 text-sm font-semibold text-[var(--mp-accent-ink)]">
                   Clear department filter
                 </button>
               )}
@@ -401,23 +402,23 @@ const HospitalWebsite = ({ slug }) => {
                 value={doctorSearch}
                 onChange={(event) => setDoctorSearch(event.target.value)}
                 placeholder="Search doctor or specialization"
-                className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-red-500"
+                className="w-full rounded-lg border border-[var(--mp-border)] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[var(--mp-focus)]"
               />
             </label>
           </div>
           <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredDoctors.map((doctor) => (
-              <div key={doctor._id} className="rounded-lg border border-slate-200 p-5">
+              <div key={doctor._id} className="rounded-lg border border-[var(--mp-border)] p-5">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 font-bold text-[var(--mp-text)]">
                     {doctor.profilePhoto ? <img src={doctor.profilePhoto} alt={doctor.name} className="h-full w-full rounded-full object-cover" /> : doctor.name?.slice(0, 2)}
                   </div>
                   <div>
-                    <h3 className="font-bold">{doctor.name}</h3>
-                    <p className="text-sm text-slate-600">{doctor.doctorProfile?.specialization || "Doctor"}</p>
+                    <h3 className="font-bold">{formatDoctorName(doctor)}</h3>
+                    <p className="text-sm text-[var(--mp-muted)]">{doctor.doctorProfile?.specialization || "Doctor"}</p>
                   </div>
                 </div>
-                <p className="mt-4 text-sm text-slate-600">{doctor.doctorProfile?.bio || "Available for OPD consultation."}</p>
+                <p className="mt-4 text-sm text-[var(--mp-muted)]">{doctor.doctorProfile?.bio || "Available for OPD consultation."}</p>
                 <button
                   onClick={() => openBooking(doctor)}
                   className="mt-4 w-full rounded-md px-4 py-2 text-sm font-semibold text-white"
@@ -428,7 +429,7 @@ const HospitalWebsite = ({ slug }) => {
             ))}
           </div>
           {!filteredDoctors.length && (
-            <p className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+            <p className="mt-5 rounded-lg border border-dashed border-[var(--mp-border)] bg-[var(--mp-surface-muted)] p-8 text-center text-sm text-[var(--mp-muted)]">
               This hospital has not added matching doctors yet.
             </p>
           )}
@@ -437,32 +438,32 @@ const HospitalWebsite = ({ slug }) => {
 
       {bookingDoctor && <Dialog open onClose={() => { setBookingDoctor(null); setBookingParams(params => { params.delete("doctor"); return params; }, { replace: true }); }} title="Book OPD Token"><BookingFlow key={bookingDoctor._id + ":" + (user?._id || "guest")} embedded doctor={bookingDoctor} hospital={hospital} departmentId={bookingDoctor.departmentIds?.[0]?._id || bookingDoctor.departmentIds?.[0]} /></Dialog>}
 
-      <section className="bg-slate-50 py-12">
+      <section className="bg-[var(--mp-surface-muted)] py-12">
         <div className="mx-auto max-w-7xl px-4">
           <h2 className="text-2xl font-bold">Patient Reviews</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {reviews.map((review) => (
-              <div key={review._id} className="rounded-lg border border-slate-200 bg-white dark:bg-slate-950 p-5 shadow-sm">
+              <div key={review._id} className="rounded-lg border border-[var(--mp-border)] bg-[var(--mp-surface)] p-5 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex text-yellow-500">
                     {[1, 2, 3, 4, 5].map((score) => (
                       <Star key={score} size={17} fill={score <= review.overallRating ? "currentColor" : "none"} />
                     ))}
                   </div>
-                  <span className="text-xs font-semibold text-slate-500">{review.overallRating}/5</span>
+                  <span className="text-xs font-semibold text-[var(--mp-muted)]">{review.overallRating}/5</span>
                 </div>
-                <p className="mt-4 text-sm text-slate-700">{review.comment || "Good care experience."}</p>
+                <p className="mt-4 text-sm text-[var(--mp-text)]">{review.comment || "Good care experience."}</p>
                 {review.hospitalResponse?.text && (
-                  <p className="mt-3 rounded-md bg-slate-50 p-3 text-xs text-slate-600">Hospital response: {review.hospitalResponse.text}</p>
+                  <p className="mt-3 rounded-md bg-[var(--mp-surface-muted)] p-3 text-xs text-[var(--mp-muted)]">Hospital response: {review.hospitalResponse.text}</p>
                 )}
               </div>
             ))}
           </div>
-          {!reviews.length && <p className="mt-4 text-sm text-slate-500">Patient reviews will appear here after completed visits.</p>}
+          {!reviews.length && <p className="mt-4 text-sm text-[var(--mp-muted)]">Patient reviews will appear here after completed visits.</p>}
         </div>
       </section>
 
-      <footer className="border-t border-slate-200 bg-slate-950 px-4 py-8 text-white">
+      <footer className="border-t border-[var(--mp-border)] bg-slate-950 px-4 py-8 text-white">
         <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-4">
           <div>
             <div className="font-bold">{hospital.name}</div>

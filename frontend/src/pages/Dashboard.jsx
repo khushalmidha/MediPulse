@@ -1,190 +1,44 @@
-import { useEffect, useMemo, useState } from "react";
+/* eslint-disable react/prop-types */
+import { useEffect, useState } from "react";
 import axios from "axios";
+import { Navigate } from "react-router-dom";
+import { ArrowUpRight, CalendarDays, FileHeart, Stethoscope } from "lucide-react";
 import RecommendationCard from "../components/RecommendationCard";
-import { Link, useNavigate } from "react-router-dom";
 import RecommendationDoctors from "../components/RecommendationDoctors";
+import { Banner, Button, Card, EmptyState, LoadingState, StatusBadge } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { BACKEND_URL } from "../utils";
+import { visitTime } from "../utils/appointments";
+import "../components/dashboard.css";
 
-const formatEventDate = (value) => {
-	if (!value) return "Date not set";
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) return value;
-	return date.toLocaleString([], {
-		weekday: "short",
-		month: "short",
-		day: "numeric",
-		hour: "numeric",
-		minute: "2-digit",
-	});
-};
-
-const Dashboard = () => {
-	const { isAuth, loader, role } = useAuth();
-	const navigate = useNavigate();
-	const [communityEvents, setCommunityEvents] = useState([]);
-	const [eventsLoading, setEventsLoading] = useState(false);
-	const [eventsError, setEventsError] = useState("");
-
-
-	useEffect(()=>{
-		if(loader){
-			return
-		}
-		if(!isAuth){
-			navigate("/login");
-		}
-	},[isAuth,loader])
-
-	useEffect(() => {
-		if (loader || !isAuth) return;
-		let ignore = false;
-
-		const loadCommunityEvents = async () => {
-			setEventsLoading(true);
-			setEventsError("");
-			try {
-				const [communitiesResponse, eventsResponse] = await Promise.all([
-					axios.get(`${BACKEND_URL}/community/user`, { withCredentials: true }),
-					axios.get(`${BACKEND_URL}/event`, {
-						withCredentials: true,
-						params: { status: "upcoming" },
-					}),
-				]);
-
-				if (ignore) return;
-				const communities = communitiesResponse.data || [];
-				const communityIds = new Set(communities.map((community) => String(community._id)));
-				const communityNames = new Map(
-					communities.map((community) => [String(community._id), community.title]),
-				);
-
-				const filtered = (eventsResponse.data.events || [])
-					.filter((event) => communityIds.has(String(event.community)))
-					.map((event) => ({
-						...event,
-						communityName: communityNames.get(String(event.community)) || "Community",
-					}));
-
-				setCommunityEvents(filtered);
-			} catch (error) {
-				if (!ignore) {
-					setEventsError(error.response?.data?.message || "Unable to load community events");
-				}
-			} finally {
-				if (!ignore) {
-					setEventsLoading(false);
-				}
-			}
-		};
-
-		loadCommunityEvents();
-		return () => {
-			ignore = true;
-		};
-	}, [isAuth, loader]);
-
-	const visibleCommunityEvents = useMemo(
-		() => communityEvents.slice(0, 4),
-		[communityEvents],
-	);
-
-	return (
-		<div className="p-6 bg-gray-100 min-h-screen">
-			<h2 className="text-2xl font-semibold">
-				Welcome to Your Health Dashboard
-			</h2>
-
-
-			<div className="mt-6">
-				<RecommendationCard />
-			</div>
-
-			<div className="bg-teal-800 dark:bg-teal-900 h-48 pt-12 mt-12 shadow-md border border-teal-700 dark:border-teal-800 rounded-xl">
-				<h1 className="flex justify-center font-bold tracking-tighter text-4xl mb-1 text-white">
-					Find Specialized Healthcare Providers
-				</h1>
-				<p className="flex justify-center text-xl text-white">
-					Connect with specialized and experienced doctors based on the disease
-					you are facing
-				</p>
-			</div>
-
-			<div className="mb-10">
-				<RecommendationDoctors />
-			</div>
-
-			<div className="mb-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-sm">
-				<h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Your Health Records</h3>
-				<p className="mt-2 text-sm text-gray-600 dark:text-slate-400">
-					View OPD visits, completed appointments, AI summaries, and family profiles in one place.
-				</p>
-				<Link
-					to="/health-records"
-					className="mt-4 inline-block rounded-md bg-teal-700 dark:bg-teal-800 px-4 py-2 text-white hover:bg-teal-800 transition-colors"
-				>
-					Open Health Records
-				</Link>
-			</div>
-
-			<div className="mb-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-sm">
-				<div className="flex flex-wrap items-center justify-between gap-3">
-					<div>
-						<h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Events From Your Communities</h3>
-						<p className="mt-1 text-sm text-gray-600 dark:text-slate-400">
-							Upcoming events connected to communities you have joined.
-						</p>
-					</div>
-					<Link to="/events" className="rounded-md border border-gray-300 dark:border-slate-700 px-4 py-2 text-sm text-gray-700 dark:text-slate-300">
-						View all events
-					</Link>
-				</div>
-
-				{eventsLoading ? (
-					<p className="mt-4 text-sm text-gray-500">Loading community events...</p>
-				) : eventsError ? (
-					<p className="mt-4 text-sm text-red-600">{eventsError}</p>
-				) : visibleCommunityEvents.length === 0 ? (
-					<p className="mt-4 text-sm text-gray-500">
-						No upcoming events from your joined communities yet.
-					</p>
-				) : (
-					<div className="mt-4 grid gap-4 md:grid-cols-2">
-						{visibleCommunityEvents.map((event) => (
-							<div key={event._id} className="rounded-lg border border-slate-200 dark:border-slate-800 p-4">
-								<div className="flex flex-wrap items-start justify-between gap-3">
-									<div>
-										<p className="text-xs font-medium text-teal-700 dark:text-teal-400">{event.communityName}</p>
-										<h4 className="mt-1 font-semibold text-gray-900 dark:text-slate-100">{event.title}</h4>
-										<p className="mt-1 text-sm text-gray-500">{formatEventDate(event.time)}</p>
-									</div>
-									<span className="rounded-full bg-teal-50 dark:bg-teal-950/40 px-3 py-1 text-xs font-semibold capitalize text-teal-700 dark:text-teal-300">
-										{event.kind}
-									</span>
-								</div>
-								<p className="mt-3 line-clamp-2 text-sm text-gray-700 dark:text-slate-300">{event.bio}</p>
-							</div>
-						))}
-					</div>
-				)}
-			</div>
-
-			{role === "doctor" && (
-				<div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-sm">
-					<h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Appointment Queue</h3>
-					<p className="mt-2 text-sm text-gray-600 dark:text-slate-400">
-						Start and manage booked appointments one by one from your doctor panel.
-					</p>
-					<Link
-						to="/doctor/appointments"
-						className="mt-4 inline-block rounded-md bg-teal-700 dark:bg-teal-800 px-4 py-2 text-white hover:bg-teal-800 transition-colors"
-					>
-						Open Doctor Queue
-					</Link>
-				</div>
-			)}
-		</div>
-	);
-};
-
-export default Dashboard;
+function DashboardContent({ role, firstName }) {
+  const [events, setEvents] = useState({ loading: true, items: [], error: "" }), [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setEvents({ loading: true, items: [], error: "" });
+    Promise.all([
+      axios.get(`${BACKEND_URL}/community/user`, { withCredentials: true, signal: controller.signal }),
+      axios.get(`${BACKEND_URL}/event`, { withCredentials: true, signal: controller.signal, params: { status: "upcoming" } }),
+    ]).then(([memberships, response]) => {
+      if (controller.signal.aborted) return;
+      const communities = Array.isArray(memberships.data) ? memberships.data : memberships.data?.items || [];
+      const names = new Map(communities.map(item => [String(item._id), item.title]));
+      const rows = Array.isArray(response.data?.events) ? response.data.events : [];
+      setEvents({ loading: false, error: "", items: rows.filter(item => names.has(String(item.community?._id || item.community))).slice(0, 4).map(item => ({ ...item, communityName: names.get(String(item.community?._id || item.community)) })) });
+    }).catch(() => { if (!controller.signal.aborted) setEvents({ loading: false, items: [], error: "Your community events could not be loaded." }); });
+    return () => controller.abort();
+  }, [attempt]);
+  return <main className="mp-page mp-page--patient mp-dashboard">
+    <header className="mp-dashboard-welcome"><div><p className="mp-eyebrow">Your care, connected</p><h1>{firstName ? `Welcome back, ${firstName}` : "Your health dashboard"}</h1><p>Keep track of visits, find care and stay close to your communities.</p></div><Button to={role === "doctor" ? "/doctor/appointments" : "/my-appointments"}><CalendarDays size={18} aria-hidden="true" />{role === "doctor" ? "Open doctor queue" : "My appointments"}</Button></header>
+    <div className="mp-dashboard-shortcuts"><Card><FileHeart size={24} aria-hidden="true" /><h2>Your health records</h2><p>Review visits, clinician notes and linked family profiles.</p><Button to="/health-records" variant="ghost">Open health records<ArrowUpRight size={16} aria-hidden="true" /></Button></Card><Card><Stethoscope size={24} aria-hidden="true" /><h2>Find your next clinician</h2><p>Compare recorded specialties and check actual availability.</p><Button to="/doctors" variant="ghost">Explore doctors<ArrowUpRight size={16} aria-hidden="true" /></Button></Card></div>
+    <RecommendationCard />
+    <section aria-labelledby="dashboard-doctors"><div className="mp-section-heading"><div><p className="mp-eyebrow">Explore care</p><h2 id="dashboard-doctors">Meet healthcare providers</h2><p>Browse profiles. A listed doctor does not confirm an available appointment.</p></div><Button to="/doctors" variant="secondary">All doctors</Button></div><RecommendationDoctors /></section>
+    <Card><div className="mp-card-heading"><h2>Events from your communities</h2><Button to="/events" variant="ghost">All events</Button></div>{events.loading ? <LoadingState>Loading community events...</LoadingState> : events.error ? <Banner action={<Button variant="secondary" onClick={() => setAttempt(value => value + 1)}>Retry events</Button>}>{events.error}</Banner> : !events.items.length ? <EmptyState title="No upcoming community events" /> : <div className="mp-dashboard-community-grid">{events.items.map(event => <div key={event._id} className="mp-visit-note"><StatusBadge>{event.kind || "Event"}</StatusBadge><h3>{event.title}</h3><p>{event.communityName}</p><p className="mp-field-hint">{visitTime(event.time)}</p><p>{event.bio}</p></div>)}</div>}</Card>
+  </main>;
+}
+export default function Dashboard() {
+  const { isAuth, loader, role, user } = useAuth();
+  if (loader) return <main className="mp-page"><LoadingState>Checking your account...</LoadingState></main>;
+  if (!isAuth || !user?._id) return <Navigate to="/login?returnTo=%2Fdashboard" replace />;
+  return <DashboardContent key={`${role}:${user._id}`} role={role} firstName={user.firstName} />;
+}

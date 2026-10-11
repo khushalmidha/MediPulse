@@ -1,4 +1,5 @@
 import { useAuth } from "../../context/AuthContext";
+import { formatDoctorName } from "../../utils/appointments";
 import { Banner, Button, Card, DataTable, Dialog, EmptyState, Field, LoadingState, StatusBadge } from "../../components/ui";
 import { validateWalkIn } from "../../utils/visualSystem";
 import { createSnapshotGuard } from "../../utils/queueSnapshot";
@@ -255,7 +256,7 @@ const NursingStation = () => {
           </Field>
           <Field as="select" label="Doctor" value={doctorId} onChange={(event) => { resetQueue(); setDoctorId(event.target.value); }}>
             <option value="">Select doctor</option>
-            {doctors.map((doctor) => <option key={doctor._id} value={doctor._id}>{doctor.name}</option>)}
+            {doctors.map((doctor) => <option key={doctor._id} value={doctor._id}>{formatDoctorName(doctor)}</option>)}
           </Field>
           <Field as="select" label="Care session" value={sessionId || queue.sessionId || "day"} onChange={(event) => { resetQueue(); setSessionId(event.target.value); }}>
             {(queue.sessionIds || [queue.sessionId || "day"]).map((id) => <option key={id} value={id}>{id}</option>)}

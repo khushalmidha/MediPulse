@@ -14,10 +14,10 @@ const isPlatformAdmin = (principalId) => {
  */
 export const requirePlatformOperator = async (req, res, next) => {
   try {
-    const { principal } = await authenticateRequest(req, "user");
+    const { principal, kind } = await authenticateRequest(req, "account");
     req.auth = { id: String(principal._id), name: principal.name, role: "user" };
 
-    if (!isPlatformAdmin(principal._id)) {
+    if (kind !== "user" || !isPlatformAdmin(principal._id)) {
       return res.status(403).json({ message: "Platform operator access is required" });
     }
 
@@ -64,10 +64,10 @@ export const requireTenantAdminOrPlatformOperator = async (req, res, next) => {
 
   // 2. Try user session (for platform operator)
   try {
-    const { principal: user } = await authenticateRequest(req, "user");
+    const { principal: user, kind } = await authenticateRequest(req, "account");
     req.auth = { id: String(user._id), name: user.name, role: "user" };
 
-    if (isPlatformAdmin(user._id)) {
+    if (kind === "user" && isPlatformAdmin(user._id)) {
       return next();
     }
 

@@ -5,7 +5,8 @@ export const cleanDoctorName = (doctor, fallback = "Doctor") => {
     : (doctor?.fullName || doctor?.name || [doctor?.firstName, doctor?.lastName].filter(Boolean).join(" ") || "");
   const trimmed = String(raw || "").trim();
   if (!trimmed) return fallback;
-  const cleaned = trimmed.replace(/^(?:(?:dr|doctor)\.?\s*)+/i, "").trim();
+  // A title must end at punctuation/whitespace. Never truncate Drew or Driscoll.
+  const cleaned = trimmed.replace(/^(?:(?:doctor|dr)(?:\.\s*|\s+|$))+/i, "").trim();
   return cleaned || fallback;
 };
 

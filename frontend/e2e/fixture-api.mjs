@@ -12,7 +12,11 @@ const community = { _id: "000000000000000000000040", title: "Fixture Care Commun
 const appointmentId = "000000000000000000000003";
 let state = { guest: false, failBooking: false, bookings: 0, bookingKeys: [], nurse: false, doctorSession: false, checkedIn: false, hidePending: false, topupKeys: [], refundKeys: [], topups: 0, refunds: 0 };
 const server = createServer(async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1:15173");
+  // The product tests also render under explicitly mapped synthetic hosts.
+  // Mirror those fixture origins only; never change the production CORS policy.
+  const fixtureOrigins = new Set(["127.0.0.1", "localhost", "medipulse.live", "medi-pulse-gamma.vercel.app", "connect.medipulse.live", "app.medipulse.live", "fixture.medipulse.live", "missing.medipulse.live", "api.medipulse.live", "care.example.test", "unclaimed.example.test"].map(host => `http://${host}:15173`));
+  if (fixtureOrigins.has(req.headers.origin)) res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Idempotency-Key,Authorization,X-CSRF-Token");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");

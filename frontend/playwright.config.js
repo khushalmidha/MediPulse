@@ -14,7 +14,9 @@ export default defineConfig({
   webServer: [
     { command: "node e2e/fixture-api.mjs", url: "http://127.0.0.1:19080/health/live", reuseExistingServer: false },
     { command: "npm run dev -- --host 127.0.0.1 --port 15173 --mode e2e", url: "http://127.0.0.1:15173", reuseExistingServer: false,
-      env: { VITE_BACKEND_URL: process.env.E2E_API_PROXY === "true" ? "/backend" : "http://127.0.0.1:19080", DEV_API_PROXY_URL: "http://127.0.0.1:19080",
+      // Match the production same-origin relay. Direct cross-origin mode is opt-in;
+      // modern browsers reject synthetic public-host to loopback API requests.
+      env: { VITE_BACKEND_URL: process.env.E2E_API_PROXY === "false" ? "http://127.0.0.1:19080" : "/backend", DEV_API_PROXY_URL: "http://127.0.0.1:19080",
         VITE_APP_DOMAINS: "localhost,127.0.0.1,connect.medipulse.live,app.medipulse.live,api.medipulse.live", VITE_BASE_DOMAIN: "medipulse.live", VITE_ENABLE_HOSPITAL_CUSTOM_DOMAINS: "true", VITE_GOOGLE_CLIENT_ID: "" } },
   ],
 });

@@ -11,6 +11,7 @@ import {
 } from "../controller/opdToken.js";
 import validateStaff, { requireRole } from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
+import { canAccessVisit, loadVisit } from "../services/hospitalAccess.js";
 import patientOrStaffAuth from "../middleware/patientOrStaffAuth.js";
 
 const opdRouter = Router();
@@ -43,11 +44,9 @@ opdRouter.get("/tokens/:tokenId/live-timeline", patientOrStaffAuth, asyncRoute(a
   if (!token) return res.status(404).json({ message: "Token not found" });
 
   if (req.staff) {
-    if (String(req.staff.hospitalId) !== String(token.hospitalId)) {
-      return res.status(403).json({ message: "You cannot view queues for another hospital" });
-    }
+    await loadVisit(req.staff, req.params.tokenId);
   } else if (req.auth) {
-    if (!token.patientId || String(req.auth.id) !== String(token.patientId)) {
+    if (req.auth.role !== "user" || !token.patientId || String(req.auth.id) !== String(token.patientId)) {
       return res.status(403).json({ message: "You cannot view another patient's timeline" });
     }
   }
@@ -55,7 +54,7 @@ opdRouter.get("/tokens/:tokenId/live-timeline", patientOrStaffAuth, asyncRoute(a
   const { getPatientLiveTimeline } = await import("../services/queueTrackingService.js");
   const timeline = await getPatientLiveTimeline(req.params.tokenId);
 
-  if (req.auth && !req.staff) {
+  if (!req.staff || !canAccessVisit(req.staff, token, { clinical: true })) {
     timeline.physicalFile = {
       hasPhysicalFile: Boolean(timeline.physicalFile?.hasPhysicalFile),
       locationName: timeline.physicalFile?.locationName || "not recorded",

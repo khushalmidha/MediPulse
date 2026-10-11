@@ -1,4 +1,6 @@
+/* eslint-disable react/prop-types */
 import { useProduct } from "../context/ProductContext"
+import { cleanDoctorName, formatDoctorName } from "../utils/appointments"
 import { NavLink, Link, useNavigate } from 'react-router-dom'
 import {
   Building2,
@@ -67,10 +69,10 @@ const Navbar = () => {
 
   const isLoggedIn = isAuth || isStaffAuth
   const displayName = isStaffAuth
-    ? staffUser?.name || 'Hospital Staff'
-    : [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Profile'
+    ? staffUser?.role === 'DOCTOR' ? formatDoctorName(staffUser) : staffUser?.name || 'Hospital Staff'
+    : role === 'doctor' ? formatDoctorName(user) : [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Profile'
   const initials = isStaffAuth
-    ? (staffUser?.name || 'HS')
+    ? (staffUser?.role === 'DOCTOR' ? cleanDoctorName(staffUser, 'HS') : staffUser?.name || 'HS')
         .split(' ')
         .map((part) => part[0])
         .join('')

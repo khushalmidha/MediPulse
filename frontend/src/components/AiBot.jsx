@@ -1,241 +1,98 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Home, Building2 } from 'lucide-react';
-import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { BACKEND_URL } from '../utils';
-import { formatDoctorName } from '../utils/appointments';
+/* eslint-disable react/prop-types */
+import { useEffect, useRef, useState } from "react";
+import { MessageCircle, X, Home, Send } from "lucide-react";
+import axios from "axios";
+import { useAuth } from "../context/AuthContext";
+import { BACKEND_URL } from "../utils";
+import { formatDoctorName } from "../utils/appointments";
+import { Button } from "./ui";
+import "./dashboard.css";
 
-const getDoctorNavigationPath = (doctor) => {
-  if (doctor?.sourceType === 'hospital' && doctor?.hospitalContext?.hospitalSlug) {
-    return `/hospitals/${doctor.hospitalContext.hospitalSlug}`;
-  }
-  return `/doctorsProfile/${doctor._id}`;
+const welcome = { role: "assistant", content: "Find care and communities on MediPulse. Search by name, specialty or city.", menu: true };
+const rows = data => Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+const modes = { hospital: "Hospitals", doctor: "Doctors", community: "Communities", general: "General AI information" };
+const search = (items, query, fields) => {
+  const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  return items.filter(item => terms.every(term => fields(item).join(" ").toLocaleLowerCase().includes(term))).slice(0, 6);
 };
 
-const AiBot = () => {
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [doctors, setDoctors] = useState([]);
-  const [communities, setCommunities] = useState([]);
-  const [hospitals, setHospitals] = useState([]);
-  const [activeMode, setActiveMode] = useState(null);
-  const { user, isAuth } = useAuth();
-  const messagesEndRef = useRef(null);
-  const navigate = useNavigate();
-
+function Assistant({ isAuth }) {
+  const [open, setOpen] = useState(false), [messages, setMessages] = useState([welcome]), [mode, setMode] = useState("hospital");
+  const [input, setInput] = useState(""), [busy, setBusy] = useState(false);
+  const [directories, setDirectories] = useState({});
+  const trigger = useRef(null), field = useRef(null), end = useRef(null), inFlight = useRef(null);
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [doctorsRes, commRes, hospRes] = await Promise.all([
-          axios.get(`${BACKEND_URL}/doctor`, { withCredentials: true }),
-          axios.get(`${BACKEND_URL}/community`, { withCredentials: true }),
-          axios.get(`${BACKEND_URL}/api/hospitals`, { withCredentials: true }),
-        ]);
-        setDoctors(Array.isArray(doctorsRes.data) ? doctorsRes.data : doctorsRes.data?.items || []);
-        setCommunities(Array.isArray(commRes.data) ? commRes.data : commRes.data?.items || []);
-        setHospitals(Array.isArray(hospRes.data?.items) ? hospRes.data.items : []);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+    if (!open) return undefined;
+    field.current?.focus();
+    const controller = new AbortController();
+    const paths = { hospital: "/api/hospitals", doctor: "/doctor", community: "/community" };
+    Object.entries(paths).forEach(([key, path]) => {
+      axios.get(BACKEND_URL + path, { withCredentials: true, signal: controller.signal }).then(({ data }) => {
+        if (!controller.signal.aborted) setDirectories(current => ({ ...current, [key]: { items: rows(data) } }));
+      }).catch(() => {
+        if (!controller.signal.aborted) setDirectories(current => ({ ...current, [key]: { error: true } }));
+      });
+    });
+    return () => controller.abort();
+  }, [open]);
+  useEffect(() => () => inFlight.current?.abort(), []);
+  useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [messages, busy]);
+  const close = () => {
+    inFlight.current?.abort(); inFlight.current = null; setBusy(false); setOpen(false);
+    trigger.current?.focus();
+  };
+  const menu = () => {
+    inFlight.current?.abort(); inFlight.current = null; setBusy(false); setInput(""); setMessages([welcome]); setMode("hospital"); field.current?.focus();
+  };
+  const choose = value => {
+    inFlight.current?.abort(); inFlight.current = null; setBusy(false); setMode(value); setInput("");
+    setMessages(current => [...current, { role: "assistant", content: value === "general" ? "AI replies are unreviewed general information. Do not enter identifying or private medical details. For care, contact a clinician." : `Search ${modes[value].toLowerCase()} by name${value === "doctor" ? " or recorded specialty" : value === "hospital" ? " or city" : " or category"}. These are directory matches, not medical recommendations.` }]);
+    field.current?.focus();
+  };
+  const submit = async event => {
+    event.preventDefault();
+    const query = input.trim();
+    if (!query || inFlight.current || busy) return;
+    if (mode !== "general") {
+      const directory = directories[mode];
+      if (!directory || directory.error) {
+        setMessages(current => [...current, { role: "assistant", content: directory?.error ? "This directory is unavailable. Use its main search page or reopen the assistant to retry." : "This directory is still loading. Please try again shortly." }]);
+        return;
       }
-    };
-    // FIXED: Hospital browsing in the chatbot should work for visitors before login too.
-    fetchData();
-  }, [user, isAuth]);
-
-  useEffect(() => {
-    if (isChatOpen && messages.length === 0) showMainMenu();
-    scrollToBottom();
-  }, [isChatOpen, messages]);
-
-  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
-
-  const showMainMenu = () => {
-    setActiveMode(null);
-    setMessages([{
-      role: 'assistant',
-      content: "Hello! I'm your MediPulse AI assistant. How can I help you today?",
-      options: [
-        { label: '🏥 Browse Hospitals', value: 'hospital' },
-        { label: '🩺 Suggest a Doctor', value: 'doctor' },
-        { label: '👥 Suggest a Community', value: 'community' },
-        { label: '💬 General Query', value: 'general' },
-      ],
-    }]);
-  };
-
-  const handleOptionSelect = (option) => {
-    setActiveMode(option);
-    const msgs = {
-      hospital: 'Which type of hospital are you looking for? Allopathic, Ayurveda, Homeopathy, or Yoga & Wellness? You can also mention your city.',
-      doctor: 'Please describe your health concern or the type of doctor you need.',
-      community: 'What type of health community interests you?',
-      general: 'What would you like to know about health or MediPulse?',
-    };
-    setMessages(prev => [...prev, { role: 'assistant', content: msgs[option] }]);
-  };
-
-  const suggestHospitals = async (query) => {
-    setIsLoading(true);
+      const fields = item => mode === "doctor" ? [formatDoctorName(item), item.experience?.expertise || "", item.doctorProfile?.specialization || ""] : mode === "hospital" ? [item.name || "", item.address?.city || "", item.medicineSystem || ""] : [item.title || "", item.category || ""];
+      const found = search(directory.items, query, fields);
+      setMessages(current => [...current, { role: "user", content: query }, { role: "assistant", content: found.length ? "Matches in the loaded directory. Open a profile to check details and availability." : "No matches in this directory preview. Try the full directory for more results.", cards: found, cardMode: mode }]);
+      setInput("");
+      return;
+    }
+    if (!isAuth) {
+      setMessages(current => [...current, { role: "assistant", content: "Sign in to request general AI information. Directory browsing is available without an account." }]);
+      return;
+    }
+    const controller = new AbortController();
+    inFlight.current = controller; setBusy(true);
     try {
-      const lowerQuery = query.toLowerCase();
-      const typeMap = { ayurveda: ['ayurveda','herbal','natural'], homeopathy: ['homeopathy','homeopathic','homeo'], yoga_wellness: ['yoga','wellness','meditation'], allopathic: ['allopathic','hospital','modern','clinic'] };
-      let matched = hospitals;
-      for (const [type, keywords] of Object.entries(typeMap)) {
-        if (keywords.some(k => lowerQuery.includes(k))) { matched = hospitals.filter(h => h.medicineSystem === type); break; }
-      }
-      const cityMatch = hospitals.filter(h => h.address?.city && lowerQuery.includes(h.address.city.toLowerCase()));
-      if (cityMatch.length > 0) matched = cityMatch;
-      const toShow = (matched.length > 0 ? matched : hospitals).slice(0, 6);
-      setMessages(prev => [...prev, { role: 'assistant', content: toShow.length ? 'Here are some matching hospitals:' : 'Showing available hospitals:', hospitalCards: toShow }]);
-    } catch { setMessages(prev => [...prev, { role: 'assistant', content: 'Could not load hospitals. Try browsing at /hospitals.' }]); }
-    setIsLoading(false);
+      const { data } = await axios.post(BACKEND_URL + "/gemini/chat", { prompt: query, type: "general" }, { withCredentials: true, signal: controller.signal, timeout: 10000 });
+      if (inFlight.current !== controller) return;
+      setMessages(current => [...current, { role: "user", content: query }, { role: "assistant", content: data.text || "No answer was returned.", draft: true }]); setInput("");
+    } catch {
+      if (inFlight.current === controller) setMessages(current => [...current, { role: "assistant", content: "AI information is unavailable. Your message is kept so you can retry." }]);
+    } finally { if (inFlight.current === controller) { inFlight.current = null; setBusy(false); } }
   };
-
-  const suggestDoctors = async (query) => {
-    setIsLoading(true);
-    try {
-      const list = doctors.map(d => `ID: ${d._id}, Name: ${d.firstName||''} ${d.lastName||''}, Expertise: ${d.experience?.expertise||''}`).join('\n');
-      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt: `User: "${query}"\nMatch doctors from:\n${list}\nReturn only IDs comma-separated.`, type: 'doctor' }, { withCredentials: true });
-      const ids = res.data.text.split(',').map(id => id.trim());
-      const matched = doctors.filter(d => ids.some(id => String(d._id) === id));
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Here are matching doctors:', doctorCards: matched.length > 0 ? matched : doctors.slice(0, 5) }]);
-    } catch { setMessages(prev => [...prev, { role: 'assistant', content: "Couldn't find matching doctors. Try describing differently." }]); }
-    setIsLoading(false);
-  };
-
-  const suggestCommunities = async (query) => {
-    setIsLoading(true);
-    try {
-      const list = communities.map(c => `ID: ${c._id}, Title: ${c.title}, Category: ${c.category}`).join('\n');
-      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt: `User: "${query}"\nMatch communities from:\n${list}\nReturn only IDs comma-separated.`, type: 'community' }, { withCredentials: true });
-      const ids = res.data.text.split(',').map(id => id.trim());
-      const matched = communities.filter(c => ids.some(id => String(c._id) === id));
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Here are matching communities:', communityCards: matched.length > 0 ? matched : communities.slice(0, 5) }]);
-    } catch { setMessages(prev => [...prev, { role: 'assistant', content: "Couldn't find matching communities." }]); }
-    setIsLoading(false);
-  };
-
-  const handleGeneralQuery = async (query) => {
-    setIsLoading(true);
-    try {
-      const res = await axios.post(`${BACKEND_URL}/gemini/chat`, { prompt: query, type: 'general' }, { withCredentials: true });
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.text }]);
-    } catch { setMessages(prev => [...prev, { role: 'assistant', content: "Couldn't process your question. Please try again." }]); }
-    setIsLoading(false);
-  };
-
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!inputMessage.trim()) return;
-    setMessages(prev => [...prev, { role: 'user', content: inputMessage }]);
-    const query = inputMessage;
-    setInputMessage('');
-    if (activeMode === 'hospital') await suggestHospitals(query);
-    else if (activeMode === 'doctor') await suggestDoctors(query);
-    else if (activeMode === 'community') await suggestCommunities(query);
-    else if (activeMode === 'general') await handleGeneralQuery(query);
-    else showMainMenu();
-  };
-
-  return (
-    <div className="fixed bottom-0 right-0 z-50 m-4">
-      {!isChatOpen && (
-        <button onClick={() => setIsChatOpen(true)} className="bg-teal-700 dark:bg-teal-800 hover:bg-teal-800 text-white rounded-full p-4 shadow-xl transition-all duration-300 hover:scale-110" aria-label="Open AI Chat">
-          <MessageCircle className="h-6 w-6" />
-        </button>
-      )}
-      {isChatOpen && (
-        <div className="bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-slate-200 overflow-hidden w-96 flex flex-col" style={{ maxHeight: '620px' }}>
-          <div className="bg-teal-800 dark:bg-teal-900 text-white p-4 flex justify-between items-center flex-shrink-0">
-            <div>
-              <h3 className="text-base font-bold">MediPulse Assistant</h3>
-              <p className="text-xs text-teal-100">AI-powered healthcare guide</p>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={showMainMenu} className="rounded-full bg-white/20 dark:bg-slate-950/20 hover:bg-white/30 dark:bg-slate-950/30 p-1.5 transition-colors" title="Main menu"><Home className="h-4 w-4" /></button>
-              <button onClick={() => setIsChatOpen(false)} className="rounded-full bg-white/20 dark:bg-slate-950/20 hover:bg-white/30 dark:bg-slate-950/30 p-1.5 transition-colors" title="Close"><X className="h-4 w-4" /></button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-            {messages.map((message, index) => (
-              <div key={index} className="flex flex-col gap-2">
-                <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`rounded-2xl p-3 max-w-[85%] text-sm shadow-sm ${message.role === 'user' ? 'bg-teal-700 dark:bg-teal-800 text-white' : 'bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200 border border-slate-200'}`}>{message.content}</div>
-                </div>
-                {message.options && (
-                  <div className="flex flex-wrap gap-2">
-                    {message.options.map((opt, i) => (
-                      <button key={i} onClick={() => handleOptionSelect(opt.value)} className="bg-white dark:bg-slate-950 hover:bg-teal-50 dark:hover:bg-teal-950/30 text-teal-700 dark:text-teal-300 px-3 py-2 rounded-xl border border-teal-200 dark:border-teal-800 text-sm font-medium shadow-sm hover:shadow transition-all">{opt.label}</button>
-                    ))}
-                  </div>
-                )}
-                {message.hospitalCards && (
-                  <div className="overflow-x-auto flex gap-3 pb-2">
-                    {message.hospitalCards.map((h, i) => (
-                      <div key={i} className="min-w-[190px] bg-white dark:bg-slate-950 border border-slate-200 rounded-xl p-3 flex-shrink-0 cursor-pointer hover:border-teal-400 hover:shadow-md transition-all" onClick={() => { navigate(`/hospitals/${h.slug}`); setIsChatOpen(false); }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center"><Building2 size={14} /></div>
-                          <p className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate">{h.name}</p>
-                        </div>
-                        <p className="text-xs text-slate-500">{h.address?.city}, {h.address?.state}</p>
-                        <span className="mt-1 inline-block text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full capitalize">{h.medicineSystem || 'hospital'}</span>
-                        <button className="mt-2 w-full bg-teal-600 hover:bg-teal-700 text-white text-xs py-1.5 rounded-lg font-medium transition-colors">View Hospital</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {message.doctorCards && (
-                  <div className="overflow-x-auto flex gap-3 pb-2">
-                    {message.doctorCards.map((doc, i) => (
-                      <div key={i} className="min-w-[190px] bg-white dark:bg-slate-950 border border-slate-200 rounded-xl p-3 flex-shrink-0 cursor-pointer hover:border-teal-400 hover:shadow-md transition-all" onClick={() => { navigate(getDoctorNavigationPath(doc)); setIsChatOpen(false); }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center font-bold text-sm">{(doc.firstName || 'D')[0]}</div>
-                          <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">{formatDoctorName(doc)}</p>
-                        </div>
-                        <p className="text-xs text-teal-700 dark:text-teal-400">{doc.experience?.expertise}</p>
-                        <button className="mt-2 w-full bg-teal-700 dark:bg-teal-800 hover:bg-teal-800 text-white text-xs py-1.5 rounded-lg font-medium transition-colors">View Profile</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {message.communityCards && (
-                  <div className="overflow-x-auto flex gap-3 pb-2">
-                    {message.communityCards.map((c, i) => (
-                      <div key={i} className="min-w-[190px] bg-white dark:bg-slate-950 border border-slate-200 rounded-xl p-3 flex-shrink-0 cursor-pointer hover:border-green-400 hover:shadow-md transition-all" onClick={() => { navigate(`/communities#${c._id}`); setIsChatOpen(false); }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-sm">{(c.title || 'C')[0]}</div>
-                          <p className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate">{c.title}</p>
-                        </div>
-                        <span className="inline-block text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">{c.category}</span>
-                        <button className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white text-xs py-1.5 rounded-lg font-medium transition-colors">Join Community</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex items-center gap-1 py-2">
-                <span className="h-2 w-2 rounded-full bg-teal-600 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="h-2 w-2 rounded-full bg-teal-600 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="h-2 w-2 rounded-full bg-teal-600 animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-          <form onSubmit={handleSendMessage} className="border-t border-slate-200 p-3 bg-white dark:bg-slate-950 flex-shrink-0">
-            <div className="flex gap-2">
-              <input type="text" value={inputMessage} onChange={e => setInputMessage(e.target.value)} placeholder="Type your message..." className="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-teal-600 bg-slate-50 dark:bg-slate-900 dark:text-white" disabled={isLoading} />
-              <button type="submit" className="bg-teal-700 dark:bg-teal-800 text-white p-2.5 rounded-xl hover:bg-teal-800 disabled:opacity-40 transition-colors" disabled={isLoading || !inputMessage.trim()}><Send className="h-4 w-4" /></button>
-            </div>
-          </form>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default AiBot;
+  return <div className="mp-assistant">
+    <button ref={trigger} className="mp-assistant-trigger" aria-label="Open MediPulse assistant" aria-expanded={open} aria-controls="medipulse-assistant" onClick={() => setOpen(value => !value)}><MessageCircle aria-hidden="true" size={23} /></button>
+    {open && <section id="medipulse-assistant" role="dialog" aria-modal="false" aria-labelledby="assistant-title" className="mp-assistant-panel" onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
+      <header className="mp-assistant-header"><div><h2 id="assistant-title">MediPulse Assistant</h2><p>Care directory & general information</p></div><div><Button variant="ghost" aria-label="Assistant main menu" onClick={menu}><Home size={18} aria-hidden="true" /></Button><Button variant="ghost" aria-label="Close assistant" onClick={close}><X size={18} aria-hidden="true" /></Button></div></header>
+      <div className="mp-assistant-messages" role="log" aria-live="polite" aria-relevant="additions">{messages.map((message, index) => <div key={index} className={"mp-assistant-message mp-assistant-message--" + message.role}>
+        {message.draft && <small>AI draft · unreviewed</small>}<p>{message.content}</p>
+        {message.menu && <div className="mp-assistant-options">{Object.entries(modes).map(([value, label]) => <Button key={value} variant="secondary" onClick={() => choose(value)}>{label}</Button>)}</div>}
+        {message.cards?.map(card => <div key={card._id} className="mp-assistant-card"><strong>{message.cardMode === "doctor" ? formatDoctorName(card) : card.name || card.title}</strong><Button variant="ghost" to={message.cardMode === "hospital" ? `/hospitals/${card.slug}` : message.cardMode === "community" ? `/communities#${card._id}` : card.sourceType === "hospital" && card.hospitalContext?.hospitalSlug ? `/hospitals/${card.hospitalContext.hospitalSlug}` : `/doctorsProfile/${card._id}`} onClick={close}>Open {message.cardMode}</Button></div>)}
+      </div>)}{busy && <p role="status">Requesting general information...</p>}<div ref={end} /></div>
+      <form onSubmit={submit} className="mp-assistant-form"><label htmlFor="assistant-query">{modes[mode]} search</label><div><input id="assistant-query" ref={field} className="mp-input" value={input} maxLength={2000} disabled={busy} onChange={event => setInput(event.target.value)} placeholder={mode === "general" ? "Ask a general question" : "Search by name or specialty"} /><Button type="submit" disabled={busy || !input.trim()} aria-label="Send assistant message"><Send size={18} aria-hidden="true" /></Button></div><small>For emergencies, contact local emergency care.</small></form>
+    </section>}
+  </div>;
+}
+export default function AiBot() {
+  const { user, staffUser, isAuth, role } = useAuth();
+  return <Assistant key={isAuth ? `${role}:${user?._id}` : staffUser ? `staff:${staffUser._id}` : "visitor"} isAuth={isAuth} />;
+}

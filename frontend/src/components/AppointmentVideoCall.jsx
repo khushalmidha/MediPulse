@@ -1,3 +1,4 @@
+import { formatDoctorName } from "../utils/appointments";
 /* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
@@ -448,7 +449,7 @@ const AppointmentVideoCall = ({
   }, [activeSidePanel]);
 
   // Who is the remote participant
-  const remoteLabel = role === "doctor" ? (patientName || "Patient") : (doctorName ? `Dr. ${doctorName}` : "Doctor");
+  const remoteLabel = role === "doctor" ? (patientName || "Patient") : formatDoctorName(doctorName);
   const selfLabel = role === "doctor" ? "You (Doctor)" : "You (Patient)";
   const remotePhoto = role === "doctor" ? patientPhoto : doctorPhoto;
 

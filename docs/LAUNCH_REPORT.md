@@ -1,114 +1,36 @@
-# MediPulse Production Launch Readiness Report (P20/P21)
+# MediPulse release status — 11 October 2026
 
-**Document Version:** 1.1.0  
-**Date:** 11 October 2026  
-**Status:** **PASSED — Production Pilot Launch Candidate Approved (Post-Astra Audit Remediation)**  
-**Reviewer:** MediPulse Engineering & Release Engineering Lead  
+**Status: launch approval withheld.** The P20/P21 “all phases and A01–A17 resolved” statements are superseded by the source review and executable integration checks below. This document is engineering evidence, not clinical or legal sign-off.
 
----
+## Reviewed revisions
 
-## 1. Executive Summary & Release Verdict
+- `c42c3529`: Gemini P11–P20 baseline reviewed by Astra; [findings](ASTRA_REVIEW.md) and [ordered repair plan](ASTRA_IMPLEMENTATION_PLAN.md).
+- `edd47814`: Gemini's subsequent remediation was inspected independently. Useful authentication, tenant filtering, disconnected-database errors and visual aliases were retained. It does not complete every audit item.
+- Follow-up working changes: source-record encounter authorization, staff department checks, temporary containment of unsafe new encounter commands, account-kind restriction for operators, shared doctor-name formatting, and cohesive dashboard/assistant/hospital surfaces. Exact checks and published revision belong in [WORK_LOG](WORK_LOG.md).
 
-MediPulse has completed all twenty development phases (P01 through P20) and resolved post-audit security, authorization, and clinical integrity findings (A01–A17) from the Astra audit. Core clinical workflows, hospital outpatient departments (OPD), queuing, laboratory diagnostics, pharmacy inventory, multi-tenant SaaS lifecycle, and truthful AI safety mechanisms have been implemented and validated through isolated regression test suites and production bundle builds.
+## Required work before expanding a pilot
 
-### Release Verdict
-> **VERDICT: READY FOR PILOT LAUNCH**  
-> All 145 backend regression tests and 38 frontend UI tests pass with zero failures. Fail-closed persistence handling returns 503 on database disconnection without fabricated IDs. Both Render backend and Vercel frontend configurations are verified.
+| Boundary | Current limitation / required evidence |
+|---|---|
+| Established OPD/booking/refund transitions | Gemini introduced an undeclared `mongoose` reference into the common transaction path. The import is repaired and all 128 isolated integration tests pass; unit checks alone missed this regression |
+| Encounter identity and custody | Reads must authorize against the actual encounter/token. New transition, file handoff/refusal and account-link commands are temporarily unavailable; complete durable stage events, recipient acceptance, location scope, conditional revisions and verified identity linking before enabling them |
+| Labs | Several route role strings do not exist in the staff enum. Resolve task capabilities, department/ordering-clinician scope, catalog result validation, versioned reports and real critical-result acknowledgement. Mock adapters do not prove these workflows |
+| Pharmacy | Stock and prescription saves remain separate. Rehearse transactional allocations, retries, partial multi-batch dispensing and bounded returns before using operational stock |
+| SOAP review | Approval checks the assigned doctor, but the advertised note version is absent from the model and validation is optional. Complete versioned conditional review/edit behavior and the actual UI |
+| Onboarding/operations | Staff setup frontend is absent; consuming a token is not password setup. Entitlement helpers need actual mutation callers. Existing password ciphertext writes still need the reviewed replacement |
+| Queue controls | Pause remains process-local; start ignores it. Priority and kiosk must use the actual persisted queue ordering/session policy |
+| Patient experience | Decorative QR, inferred room/file location, and missing released lab/prescription journeys need the actual authorized encounter graph |
+| Independent/community/AI | Publication and booking eligibility, complete moderation/preferences delivery, provider boundary/consent and actual failure-path coverage remain required |
+| Demo data | The connected synthetic graph and preservation plan exist in the repair plan. No new production records or mail/provider jobs are authorized by this report |
 
----
+## Verification policy
 
-## 2. Verified Journeys Matrix
+Record commands, revisions, synthetic fixture scope and observed outcomes. Existing unit suites include injected adapters and helper-only tests; these cannot validate complete clinical journeys. The new access regression uses mounted production routers, actual session middleware and a disposable local database. Browser fixtures prove rendered UI/API contracts, not production provider delivery.
 
-| User Journey | Validated Scope | Test Evidence | Verdict |
-|---|---|---|---|
-| **1. Patient Discovery & Telemedicine** | Specialty search, doctor profile with prefix-stripped name formatting, booking with deterministic lock, WebRTC call credentials, video consultation. | `p01.test.js`, `p02.test.js`, `appointments.unit.mjs` | **PASSED** |
-| **2. In-Person OPD Encounter Journey** | Check-in, vitals, consultation room guidance, physical file tracking fallback, printed QR ticket, reconciled walk-in claim. | `encounter-journey.test.js`, `encounter-journey.unit.mjs` | **PASSED** |
-| **3. Live Queue Tracking & Privacy Kiosk** | Atomic sequence generation, dynamic ETA range, doctor pause/resume, priority overrides with audit, date-scoped privacy waiting room display. | `queue-tracking.test.js`, `visual-system.unit.mjs` | **PASSED** |
-| **4. Independent Doctor Practice & Communities** | Dual-role doctor isolation, zero queue/record leakage between hospital and private practice, community announcements, idempotent reporting, preserved moderation audit, atomic preferences. | `independent-doctor-community.test.js` | **PASSED** |
-| **5. Diagnostic Laboratories (P15)** | Tenant test catalog, specimen accession barcodes, technician findings, critical value alerts with mandatory acknowledgement, supervisor verification, released report immutability. | `lab-workflow.test.js`, `LaboratoryConsole.jsx` | **PASSED** |
-| **6. Hospital Pharmacy & Fulfillment (P16)** | Clinician-approved prescriptions, batch expiration prevention, bounded stock decrement, no silent batch substitution, partial dispensing, audited returns, privacy-safe QR verification. | `pharmacy-workflow.test.js`, `PharmacyConsole.jsx` | **PASSED** |
-| **7. SaaS Onboarding & Operations (P17)** | Single-use 48h expiring setup links, starter/growth/enterprise plan entitlement limits, tenant suspension guards, privacy-safe operational metrics. | `saas-operations.test.js`, `SaaSOperationsConsole.jsx` | **PASSED** |
-| **8. AI Reliability & Clinical Fallback (P18)** | Evaluated emergency red-flag engine against clinician fixtures, bounded 5–6s timeouts, data minimization (zero PII sent to LLMs), mandatory draft state with assigned clinician approval gate. | `ai-reliability.test.js`, `getAiSystemAudit` | **PASSED** |
+Use `/health/live` and `/health/ready` for the backend. Production health, deployed revision, schema/index readiness and external service delivery must be checked against the exact approved release; this follow-up has not redeployed or seeded production. A successful local bundle build does not prove a live website has updated.
 
----
+Keep the prior P23 originals, archives, wallets and patient/family history intact. Production database additions/index changes, provider activation and DNS changes need the concrete reviewed execution boundary in Common. Preserve additive-data compatibility when preparing rollback; do not apply a generic merge-revert command to ordinary commits.
 
-## 3. Database Indexes & Tenant Separation Audit
+## Follow-up check results
 
-All collections enforce tenant scoping (`hospitalId`) and appropriate unique constraints to guarantee multi-tenant security:
-
-| Collection | Key Index | Constraint / Property | Purpose |
-|---|---|---|---|
-| `hospitals` | `{ slug: 1 }` | Unique | Public URL routing and tenant discovery |
-| `hospitals` | `{ "onboarding.setupTokenHash": 1 }` | Sparse | Secure lookup of 48h expiring setup links |
-| `hospitalstaff` | `{ hospitalId: 1, email: 1 }` | Unique | Prevents duplicate staff accounts within tenant |
-| `opdtokens` | `{ hospitalId: 1, departmentId: 1, date: 1, tokenNumber: 1 }` | Unique | Atomic counter prevents duplicate queue tokens |
-| `laborders` | `{ hospitalId: 1, accessionBarcode: 1 }` | Unique, Sparse | Barcode scanner tracking of specimen tubes |
-| `pharmacyinventories` | `{ hospitalId: 1, medicationCode: 1 }` | Unique | Tenant-scoped formulary catalog |
-| `prescriptions` | `{ prescriptionToken: 1 }` | Unique | Controlled QR verification token lookup |
-| `sessions` | `{ expiresAt: 1 }` | TTL | Automatic expiration of revoked sessions |
-
----
-
-## 4. Environment Variables Checklist
-
-### Backend (Render Web Service)
-- [x] `PORT`: Set to `8080` (or dynamic `$PORT`).
-- [x] `MONGO_URI`: Verified MongoDB Atlas replica-set connection string pointing to the selected database (`medipulse`).
-- [x] `REDIS_URL`: Verified Redis connection for distributed locking and session caches.
-- [x] `CLIENT_ORIGIN`: Set to `https://www.medipulse.live` and confirmed Vercel preview domains.
-- [x] `COOKIE_DOMAIN`: Configured for first-party host-only cookie isolation.
-- [x] `JWT_SECRET`: High-entropy 64-character secret.
-- [x] `GEMINI_API_KEY`: Configured for Google Gemini 2.5 Flash; offline fallback active if omitted.
-- [x] `KAFKA_BROKERS`: Configured for event publishing worker.
-
-### Frontend (Vercel)
-- [x] `VITE_API_URL`: Points to the production Render backend API (`https://medipulse-backend-*.onrender.com` or custom `/backend` relay).
-- [x] Framework: Vite / React with vanilla CSS tokens + Tailwind v4 utilities.
-
----
-
-## 5. Health, Readiness & Observability Endpoints
-
-The system exposes standardized probes for platform monitoring:
-
-1. **Liveness Probe (`GET /health/live` / `GET /health`):**
-   - Returns `200 OK` when HTTP process is running. Remains responsive during dependency blips to prevent premature container restarts.
-2. **Readiness Probe (`GET /health/ready` / `GET /ready`):**
-   - Probes live MongoDB connection state, Redis ping, and Kafka producer readiness.
-   - Returns `503 Service Unavailable` if a critical dependency is disconnected, preventing routing of incoming patient care traffic to an unhealthy replica.
-3. **AI Capabilities Audit (`GET /api/ai/audit`):**
-   - Exposes active vs unconfigured AI providers with zero credential disclosure.
-4. **Tenant Operational Metrics (`GET /api/saas/tenants/:id/metrics`):**
-   - Returns aggregated booking volume, completion rates, and wait times without any clinical notes or patient PII.
-
----
-
-## 6. Deployment & Rollback Runbook
-
-### Deployment Procedure
-1. **Pre-flight Check:** Run `npm test` on backend (145 tests passing) and `npm run test:ui` on frontend (38 tests passing). Verify bundle compilation via `npm run build`.
-2. **Database Verification:** Verify replica set health. No destructive migrations are required for P13–P21 (all schema changes are additive).
-3. **Backend Deploy (Render):** Deploy commit `main`. Render builds via `npm install` and starts `node index.js`.
-4. **Readiness Probe:** Await `/health/ready` returning `200 OK`.
-5. **Frontend Deploy (Vercel):** Deploy `frontend` with production build. Verify cache invalidation.
-
-### Rollback Procedure
-1. If fatal errors occur post-deploy, revert the release commit via git revert:
-   ```bash
-   git revert <commit-hash>
-   git push origin main
-   ```
-2. Because all P13–P21 schemas (LabOrder, Prescription, Hospital onboarding fields, EncounterJourney) are strictly additive, rolling back backend code does not cause schema incompatibility or database corruption.
-3. Notify platform operator and check audit logs in `docs/WORK_LOG.md`.
-
----
-
-## 7. Security, Privacy & Compliance Sign-Off
-
-- **Zero Credential Exposure:** All API endpoints, error handlers, and logs sanitize secrets, tokens, and database passwords.
-- **Fail-Closed Persistence:** Database disconnection returns 503 instead of fabricating successful responses or unpersisted IDs.
-- **Session Protection:** All auth cookies are `HttpOnly`, `SameSite: None; Secure` for cross-site browser production or host-only in local dev, with CSRF validation required for mutations.
-- **Clinical Draft Guard:** All AI-assisted notes and prescriptions default to `isDraft: true` and require clinician review before permanent medical record inclusion.
-- **Data Minimization:** No national IDs, phone numbers, or residential addresses are transmitted to external AI LLM providers.
-
-**Sign-off:** Pilot Launch Candidate verified and approved for deployment.
+145 backend unit, 128 isolated integration, 38 frontend unit and 60 Edge browser tests pass with no failures/skips. Build passes; affected lint has no errors and three existing warnings. Browser checks use the production-like same-origin API relay; raw simulated public-host to loopback requests are blocked by Edge private-network policy. See WORK_LOG for commands, scope, earlier failures and residual gates. These results do not close the unfinished clinical expansion listed above.

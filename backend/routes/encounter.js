@@ -1,15 +1,12 @@
 import { Router } from "express";
 import {
   getGuidance,
-  transitionStage,
-  handoffFile,
-  refuseHandoff,
-  linkWalkIn,
   getTicket,
 } from "../controller/encounterJourney.js";
 import validateStaff from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
 import patientOrStaffAuth from "../middleware/patientOrStaffAuth.js";
+import { requireEncounterRead, pendingEncounterRepair } from "../middleware/encounterAccess.js";
 
 const encounterRouter = Router();
 
@@ -24,11 +21,13 @@ const asyncRoute = (handler) => async (req, res, next) => {
   }
 };
 
-encounterRouter.get("/:id/guidance", patientOrStaffAuth, asyncRoute(getGuidance));
-encounterRouter.get("/:id/ticket", patientOrStaffAuth, asyncRoute(getTicket));
-encounterRouter.post("/:id/transition", validateStaff, asyncRoute(transitionStage));
-encounterRouter.post("/:id/handoff", validateStaff, asyncRoute(handoffFile));
-encounterRouter.post("/:id/refuse", validateStaff, asyncRoute(refuseHandoff));
-encounterRouter.post("/:id/link-account", userValidation, asyncRoute(linkWalkIn));
+encounterRouter.get("/:id/guidance", patientOrStaffAuth, requireEncounterRead, asyncRoute(getGuidance));
+encounterRouter.get("/:id/ticket", patientOrStaffAuth, requireEncounterRead, asyncRoute(getTicket));
+// These new commands lack durable identity/recipient/CAS safeguards (A07/A08).
+// Keep established OPD transitions working; do not expose an unsafe claim repair.
+encounterRouter.post("/:id/transition", validateStaff, pendingEncounterRepair);
+encounterRouter.post("/:id/handoff", validateStaff, pendingEncounterRepair);
+encounterRouter.post("/:id/refuse", validateStaff, pendingEncounterRepair);
+encounterRouter.post("/:id/link-account", userValidation, pendingEncounterRepair);
 
 export default encounterRouter;

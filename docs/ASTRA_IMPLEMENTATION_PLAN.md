@@ -79,3 +79,11 @@ Use a six-step demonstration: patient discovery/booking; reception arrival and r
 Run meaningful regression tests for each repaired boundary, then full existing isolated integration tests and selected browser journeys at the final candidate. Frontend unit tests must import real application logic; browser tests must exercise forms/routes and verify rendered data after mutation. Record current revision, commands, fixture scope, observed results and remaining limitations. Do not carry forward P20 “passed” claims just because a helper suite is green.
 
 No production mutation, message delivery, DNS/provider activation or deployment is performed by this document. The immediate authorized next work is local R0/R1 repair and isolated regression coverage, alongside the display-only naming/color fixes as scope permits.
+
+## Execution update: Gemini follow-up
+
+Owner setting: **Astra Medium only for future reviews**. The initial Astra review preceded this preference. Gemini `edd47814` was checked separately; its blanket A01–A17 closure is unsupported.
+
+This follow-up delivers R1 containment for encounter access/unsafe commands and part of R8 (dashboard, assistant, hospital surfaces and physician display names), plus the common visit-transition regression repair. Remaining R1 clinical order/prescription reference and capability checks, versioned SOAP approval and the deeper R2–R7 workflows are still required. Do not treat temporary 503 containment as a finished clinical workflow.
+
+Continue with small executable slices: (1) lab/pharmacy assigned-visit and department/capability boundaries using mounted-router tests, (2) transactional pharmacy allocations and lab report versions with migration inspection/rehearsal, (3) durable encounters and verified file/account claim protocol, (4) actual patient released-document journeys and persisted queue controls, (5) one-use password setup/entitlement callers, then (6) isolated connected-demo seed and recovery. Use this plan's original preservation/external-effect safeguards. WORK_LOG records observed checks; LAUNCH_REPORT now withholds approval.

@@ -57,3 +57,16 @@ Public hospital/review DTOs and anonymous-feedback output use explicit publicVie
 ## Execution order and decisions
 
 MP01 destructive exposure is repaired by the P01 follow-up; reviewed removal/deactivation remains P17. Repair MP02 before broad patient/family use. Finish P11 C–H one reviewable batch at a time, followed by P12/P13, P14, P15/P16, P17/P18 and P19/P20. The owner explicitly requested the full roadmap on 11 October 2026; that supersedes the earlier current-batch-only scope. Preserve the existing domain and stack, demo-credit boundary, real/synthetic record preservation and Khushal-only main commits. Enterprise implementation milestones require operating-hospital requirements; P19 supplies the requested plan rather than inventing a full inpatient system. No provider/DNS purchase or production database mutation is authorized by this audit.
+
+## Astra / Gemini follow-up status (11 October 2026)
+
+Read [ASTRA_REVIEW.md](ASTRA_REVIEW.md) for baseline evidence and the verified `edd47814` follow-up; use [ASTRA_IMPLEMENTATION_PLAN.md](ASTRA_IMPLEMENTATION_PLAN.md) for the ordered repair slices. P20/P21 blanket completion is superseded.
+
+- **Core transition regression repaired:** the P12 common transition's undeclared `mongoose` aborted care/refund transactions; the subsequent complete isolated integration run passed 128/128.
+- **A04 containment:** encounter/guidance/ticket and timeline reads check source-record ownership and the existing staff visit policy. New unsafe encounter mutation/claim routes explicitly return 503 pending R3; they are not completed workflows.
+- **A01 partial:** Gemini's operations authentication retained; operator policy now also checks account kind. Provisioning and owned-tenant UI/entitlement integration remain R6.
+- **A02 partial:** LAB_TECH now matches the existing enum and has a real mounted-router collection/foreign-tenant regression. Clinical task capabilities, assigned visit/department scope and all order/prescription references remain open; verification roles in the newer routes are still absent from the staff enum.
+- **A16 improved:** shared naming boundary avoids truncating Drew/Driscoll/Doctorow; dashboard, assistant, directory cards, hospital doctor cards, appointment summaries, smart-booking, video labels, navigation and nurse doctor choices use consistent titles/tokens. The remaining visual/role inventory still belongs to R8.
+- **MP02 repaired in d0539640:** active family archive/booking guards preserve historical identity. Restoration/server-idempotent creation are follow-ups, not a reason to replace the family array.
+- **MP10/MP11/MP12/MP16/MP17 remain partial/open:** pharmacy transactions, encounter persistence, lab report versions/critical tasks, durable pause/order, setup/password and entitlement callers, actual AI/clinician review and connected patient journeys require their acceptance checks before launch.
+- **Demo graph prepared, insertion not executed:** retain all prior P23 originals/archives/financial history. Rehearse the scoped connected dataset locally and review the exact production plan before inserting anything or enabling external jobs.

@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useProduct } from "./ProductContext"
 import axios from 'axios'
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
@@ -161,11 +162,13 @@ export const AuthProvider = ({ children }) => {
         { id },
         { withCredentials: true, credentials: 'include' },
       )
-      if (generation !== sessionGeneration.current) return
+      if (generation !== sessionGeneration.current) return false
       setUser(res.data.user)
-      fetchCommunities()
+      await fetchCommunities()
+      return true
     } catch {
       // Leave the current UI state untouched if the request fails.
+      return false
     }
   }
 

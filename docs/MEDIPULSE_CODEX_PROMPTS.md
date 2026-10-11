@@ -12,6 +12,8 @@ Read docs/MEDIPULSE_CODEX_PROMPTS.md. Execute task P01 using the Common instruct
 
 If these files are unavailable in another checkout, paste Common instructions followed by the specific task block. Keep work logs free of secrets and patient details. Do not repeatedly paste the README or earlier reports. Escalate a Sol task to Astra only when a specific unresolved concurrency, authorization, or architecture problem remains. Avoid Max and Extra high as defaults. The architecture and difficult fixes get High; ordinary implementation gets Medium. Use Luna for clearly specified small edits. No multi-agent work is requested by this pack.
 
+Owner preference (11 October 2026): use **Astra at Medium effort only**, including future critical reviews. Other model settings in the table remain recommendations.
+
 ## Common instructions
 
 ```text
@@ -29,10 +31,10 @@ Update docs/WORK_LOG.md with task ID, changed behavior/files, checks and results
 | Task | Model | Effort | Prerequisite |
 |---|---|---|---|
 | P00 Remaining module audit | GPT-6.1 Sol | High | Existing review |
-| P01 Credentials, public data, authorization | GPT-6 Astra | High | Run immediately |
+| P01 Credentials, public data, authorization | GPT-6 Astra | Medium | Run immediately |
 | P02 Reproducible dev and regression baseline | GPT-6.1 Sol | Medium | P01 |
-| P03 OPD/appointment concurrency | GPT-6 Astra | High | P02 |
-| P04 Ledger, refunds, booking reconciliation | GPT-6 Astra | High | P03 |
+| P03 OPD/appointment concurrency | GPT-6 Astra | Medium | P02 |
+| P04 Ledger, refunds, booking reconciliation | GPT-6 Astra | Medium | P03 |
 | P05 Sessions and community/forecast bugs | GPT-6.1 Sol | High | P01-P04 |
 | P06 Durable events, mail, realtime and calls | GPT-6.1 Sol | High | P03-P05 |
 | P07 Two products, domain routing and care context | GPT-6.1 Sol | High | P03-P06 |
@@ -50,7 +52,7 @@ Update docs/WORK_LOG.md with task ID, changed behavior/files, checks and results
 | P19 Enterprise hospital expansion plan | GPT-6.1 Sol | High | Pilot feedback, P15-P17 |
 | P20 Launch preparation and critical journey verification | GPT-6.1 Sol | High | Chosen pilot scope complete |
 | P21 Small UI/text/docs corrections | GPT-6 Luna | Low | A precise local task |
-| P22 Critical change review when needed | GPT-6 Astra | High | P03/P04 or disputed design |
+| P22 Critical change review when needed | GPT-6 Astra | Medium | P03/P04 or disputed design |
 
 P00 can document unresolved modules while P01 is prioritized, but finish tasks sequentially. P15-P19 are expansion tasks after a stable OPD pilot; they are not prerequisites for selling the initial OPD product.
 
