@@ -14,6 +14,7 @@ import { accessError, assertVisitAccess, canAccessVisit, departmentMember, emitO
 import { queueContext, localServiceDate, patientKey, liveTokenStatuses, invalidateVisitQueue } from "../services/queueContext.js";
 import { bookingRequest, createQueueBooking } from "../services/queueBooking.js";
 import { transitionVisit, afterVisitCommit } from "../services/visitTransitions.js";
+import { initializeEncounterJourney } from "../services/encounterJourneyService.js";
 
 const sameHospital = (req, hospitalId) => idOf(req.staff?.hospitalId) === String(hospitalId);
 const queuePosition = (token) => token.status === "reserved" ? 0 : OpdToken.countDocuments({ queueKey: token.queueKey,
@@ -55,7 +56,23 @@ const issueToken = async (req, res) => {
   });
   if (result.operation.state !== "completed") return res.status(202).json({ message: result.operation.state === "review_required" ? "Booking requires reviewed recovery; do not make another payment" : "Booking is processing; retry with the same request key", operationId: result.operation._id, status: "processing" });
   const token = result.token;
-  if (!result.replay) await notify("opd:token-issued", token);
+  if (!result.replay) {
+    await notify("opd:token-issued", token);
+    try {
+      await initializeEncounterJourney({
+        hospitalId: token.hospitalId,
+        departmentId: token.departmentId,
+        tokenId: token._id,
+        appointmentId: result.appointment?._id,
+        patientId: token.patientId,
+        familyMemberId: token.familyMemberId,
+        isWalkIn: Boolean(token.patientInfo?.isWalkIn),
+        ticketNumber: token.displayToken || `T${token.tokenNumber}`,
+      });
+    } catch (err) {
+      console.error("Encounter initialization notice:", err.message);
+    }
+  }
   if (result.appointment) await afterVisitCommit(async () => {
     const io = getIO();
     io?.to(`doctor:${idOf(result.appointment.doctor)}`).emit("appointment:brief-ready", { appointmentId: result.appointment._id, source: "hospital-opd" });

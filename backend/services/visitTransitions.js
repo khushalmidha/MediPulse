@@ -4,6 +4,7 @@ import Appointment from "../model/appointment.js";
 import OpdToken from "../model/opdToken.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 import Department from "../model/department.js";
+import EncounterJourney from "../model/encounterJourney.js";
 import { accessError, idOf } from "./hospitalAccess.js";
 import { queueTransaction } from "./queueBooking.js";
 import { localServiceDate, requireQueueContext } from "./queueContext.js";
@@ -110,6 +111,18 @@ export const transitionVisit = async ({ tokenId, appointmentId, action, expected
       if (!appointment) throw accessError(409, "Appointment changed; refresh before retrying");
     }
     await recordVisitEvent({ token, appointment, action }, session);
+    const actionToStage = { check_in: "checked_in", vitals: "vitals", start: "consultation", complete: "completed", no_show: "cancelled", cancel: "cancelled" };
+    const targetStage = actionToStage[action];
+    if (targetStage && mongoose.connection?.readyState === 1) {
+      const matchCriteria = [...(token?._id ? [{ tokenId: token._id }] : []), ...(appointment?._id ? [{ appointmentId: appointment._id }] : [])];
+      if (matchCriteria.length) {
+        await EncounterJourney.updateOne(
+          { $or: matchCriteria },
+          { $set: { currentStage: targetStage }, $inc: { revision: 1 } },
+          { session }
+        );
+      }
+    }
     return { token, appointment };
   };
   return providedSession ? apply(providedSession) : queueTransaction(apply);

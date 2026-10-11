@@ -34,6 +34,7 @@ import opdAiRouter from './routes/opdAi.js'
 import patientPortalRouter from './routes/patientPortal.js'
 import forecastRouter from './routes/forecast.js'
 import copilotRouter from './routes/copilot.js'
+import encounterRouter from './routes/encounter.js'
 import { startAutoRefundWorker } from './controller/appointment.js'
 import { startReviewRequestWorker } from './services/reviewRequestWorker.js'
 import { StaffVerifier, Verifier } from './controller/auth.js'
@@ -98,6 +99,7 @@ const start = async () => {
   app.use('/api/patients', patientPortalRouter)
   app.use('/api/forecast', forecastRouter)
   app.use('/api/copilot', copilotRouter)
+  app.use('/api/encounters', encounterRouter)
   app.use('/vpay', virtualPaymentRouter)
   app.get('/verify', asyncHandler(Verifier))
   app.get('/verify/staff', asyncHandler(StaffVerifier))

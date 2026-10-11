@@ -30,6 +30,10 @@ import {
   removeCustomDomain,
   verifyCustomDomain,
 } from "../controller/hospitalWebsite.js";
+import {
+  getLocations,
+  createLocation,
+} from "../controller/encounterJourney.js";
 import validateStaff from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
 
@@ -57,6 +61,9 @@ hospitalRouter.get("/:id/admin-profile", validateStaff, getHospitalAdminProfile)
 hospitalRouter.post("/:id/website/custom-domain", validateStaff, addCustomDomain);
 hospitalRouter.post("/:id/website/verify-domain", validateStaff, verifyCustomDomain);
 hospitalRouter.delete("/:id/website/custom-domain", validateStaff, removeCustomDomain);
+
+hospitalRouter.get("/:id/locations", validateStaff, getLocations);
+hospitalRouter.post("/:id/locations", validateStaff, createLocation);
 
 hospitalRouter.get("/resolve-host", asyncRoute(resolveHospitalHost));
 hospitalRouter.get("/:slug", getHospitalProfile);

@@ -729,6 +729,39 @@ Migrated `/about` (`About.jsx`), `/privacy` (`Privacy.jsx`), `/terms` (`Terms.js
 - **Milestone Reached:** P11 UI migration across all Batches A through H is now 100% complete across the entire application codebase!
 
 
+## P12 — Hospital visit, room guidance and file handoffs (11 October 2026)
+
+Implemented the explicit hospital encounter journey, room/destination guidance, and physical file custody tracking system according to P12 requirements.
+
+- **Configurable Hospital Facility Locations (`HospitalLocation.js`):**
+  - Schema modeling buildings, floors, rooms, service desks, and clinical stations.
+  - Directional patient instructions and department service bindings (`reception`, `registration`, `vitals`, `consultation`, `lab`, `pharmacy`, `billing`).
+  - Hospital admin location management endpoints (`GET/POST /api/hospitals/:id/locations`).
+- **Encounter Journey Architecture (`EncounterJourney.js`, `encounterJourneyService.js`):**
+  - Explicit encounter state machine: `booked -> checked_in -> reception -> vitals -> consultation -> diagnostics -> pharmacy -> completed / cancelled`.
+  - Department-specific step adaptation (e.g. Cardiology vs Dermatology quick consultation).
+  - Authorized staff confirmations and override tracking with mandatory clinical reasons.
+  - Automatic journey initialization on OPD token issuance in `opdToken.js`.
+  - Automatic stage synchronization in `visitTransitions.js` on check-in, vitals, start, and completion.
+- **Physical File Tracking & Acknowledged Custody (`EncounterJourney.js`):**
+  - Separate digital workflow responsibility from physical file custody (record view alone does not constitute physical custody).
+  - Explicit "not recorded" default when location is unknown.
+  - Acknowledged file handoff flow with sender, recipient, timestamp, location, and reason.
+  - Refused handoff flow preserving current holder custody while auditing refusal reasons.
+- **Patient Guidance & Walk-in Account Linking:**
+  - Public & authenticated guidance endpoint (`GET /api/encounters/:id/guidance`) providing real-time room directions.
+  - Ticket & QR code generation (`GET /api/encounters/:id/ticket`).
+  - Walk-in ticket claiming to patient accounts (`POST /api/encounters/:id/link-account`) with double-linking prevention.
+  - Enhanced `PatientVisits.jsx` with room guidance, custody tracker, printable ticket dialog, and walk-in account linking action.
+
+### Executed checks
+
+- Backend unit suite: **102 passed / 0 failed / 0 skipped** (including 6 new P12 synthetic tests across two departments and separate hospitals).
+- Frontend unit suite: **37 passed / 0 failed / 0 skipped** (including `encounter-journey.unit.mjs`).
+- Frontend production build: **Passed** (2314 modules, 26.37s).
+
+
+
 
 
 
