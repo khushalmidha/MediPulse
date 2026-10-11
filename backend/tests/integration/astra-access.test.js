@@ -44,13 +44,13 @@ before(async () => {
   await User.collection.insertMany([owner, other, operator].map(_id => ({ _id, firstName: "Synthetic Patient", authVersion: 0 })));
   await Doctor.collection.insertOne({ _id: doctor, firstName: "Synthetic Doctor", authVersion: 0 });
   await Hospital.collection.insertMany([hospital, foreignHospital].map(_id => ({ _id, name: "Synthetic Hospital", slug: String(_id), status: "active" })));
-  await Department.collection.insertMany([department, otherDepartment].map(_id => ({ _id, hospitalId: hospital, name: "Synthetic Department" })));
+  await Department.collection.insertMany([department, otherDepartment].map(_id => ({ _id, hospitalId: hospital, status: "active", name: "Synthetic Department" })));
   await HospitalStaff.collection.insertMany([
     { _id: clinician, role: "DOCTOR", departmentIds: [department] }, { _id: nurse, role: "NURSE", departmentIds: [department] },
     { _id: wrongNurse, role: "NURSE", departmentIds: [otherDepartment] }, { _id: foreignStaff, role: "HOSPITAL_ADMIN", hospitalId: foreignHospital },
     { _id: admin, role: "HOSPITAL_ADMIN" }, { _id: labTech, role: "LAB_TECH", departmentIds: [department] },
   ].map(row => ({ hospitalId: hospital, name: "Synthetic Staff", isActive: true, inviteStatus: "accepted", authVersion: 0, ...row })));
-  await OpdToken.collection.insertOne({ _id: tokenId, hospitalId: hospital, departmentId: department, doctorId: clinician, patientId: owner, tokenNumber: 1, displayToken: "T001", status: "waiting", serviceDate: "2026-10-11", queueKey: "synthetic-astra-queue", createdAt: new Date() });
+  await OpdToken.collection.insertOne({ _id: tokenId, hospitalId: hospital, departmentId: department, doctorId: clinician, patientId: owner, patientInfo: { name: "Synthetic Patient" }, tokenNumber: 1, displayToken: "T001", status: "waiting", serviceDate: "2026-10-11", queueKey: "synthetic-astra-queue", createdAt: new Date() });
   await EncounterJourney.create({ _id: encounterId, hospitalId: hospital, departmentId: department, tokenId, patientId: owner, ticketNumber: "Synthetic ticket", currentDestination: { name: "Synthetic Reception" }, physicalFile: { hasPhysicalFile: true, currentHolderName: "Internal Staff Identity", locationName: "Records desk" } });
   for (const [label, principalId, kind, tenant] of [["owner",owner,"user"],["other",other,"user"],["doctor",doctor,"doctor"],["operator",operator,"user"],["nurse",nurse,"staff",hospital],["wrongNurse",wrongNurse,"staff",hospital],["admin",admin,"staff",hospital],["foreign",foreignStaff,"staff",foreignHospital]]) tokens[label] = await session(principalId, kind, tenant);
   tokens.labTech = await session(labTech, "staff", hospital);
@@ -106,7 +106,7 @@ test("tenant admin details reject a foreign tenant and permit their own tenant",
   assert.equal((await http("/api/saas/tenants/" + hospital,"admin")).status,200);
 });
 test("the actual LAB_TECH role can collect only tenant-scoped samples and records its real actor", async () => {
-  const fields = { patientId: owner, patientInfo: { name: "Synthetic Patient" }, orderingDoctorId: clinician, orderStatus: "billing_cleared", tests: [{ testCode: "SYN", testName: "Synthetic Test" }] };
+  const fields = { tokenId, departmentId: department, serviceDepartmentId: department, patientId: owner, patientInfo: { name: "Synthetic Patient" }, orderingDoctorId: clinician, orderStatus: "billing_cleared", tests: [{ testCode: "SYN", testName: "Synthetic Test" }] };
   const order = await LabOrder.create({ hospitalId: hospital, ...fields });
   const foreignOrder = await LabOrder.create({ hospitalId: foreignHospital, ...fields });
   assert.equal((await http("/api/labs/orders/" + foreignOrder._id + "/collect", "labTech", {}, "PATCH")).status, 404);

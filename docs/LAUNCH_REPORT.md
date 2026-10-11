@@ -14,8 +14,8 @@
 |---|---|
 | Established OPD/booking/refund transitions | Gemini introduced an undeclared `mongoose` reference into the common transaction path. The import is repaired and all 128 isolated integration tests pass; unit checks alone missed this regression |
 | Encounter identity and custody | Reads must authorize against the actual encounter/token. New transition, file handoff/refusal and account-link commands are temporarily unavailable; complete durable stage events, recipient acceptance, location scope, conditional revisions and verified identity linking before enabling them |
-| Labs | Several route role strings do not exist in the staff enum. Resolve task capabilities, department/ordering-clinician scope, catalog result validation, versioned reports and real critical-result acknowledgement. Mock adapters do not prove these workflows |
-| Pharmacy | Stock and prescription saves remain separate. Rehearse transactional allocations, retries, partial multi-batch dispensing and bounded returns before using operational stock |
+| Labs | R1 now enforces actual staff roles, assigned visit/department/service scope, patient/family and catalog identity. Verify/release/correct explicitly return 503 pending reviewed capabilities, catalog-backed result validation and versioned reports/critical-result tasks. Mock adapters do not prove these workflows |
+| Pharmacy | R1 enforces visit/service assignment, catalog-backed prescribing and private patient/public projections. Unsafe split stock/prescription writes were replaced by explicit 503 containment for dispensing/returns; implement and rehearse transactional allocations, replay, multi-batch partial fills and bounded returns before enabling them |
 | SOAP review | Approval checks the assigned doctor, but the advertised note version is absent from the model and validation is optional. Complete versioned conditional review/edit behavior and the actual UI |
 | Onboarding/operations | Staff setup frontend is absent; consuming a token is not password setup. Entitlement helpers need actual mutation callers. Existing password ciphertext writes still need the reviewed replacement |
 | Queue controls | Pause remains process-local; start ignores it. Priority and kiosk must use the actual persisted queue ordering/session policy |
@@ -34,3 +34,5 @@ Keep the prior P23 originals, archives, wallets and patient/family history intac
 ## Follow-up check results
 
 145 backend unit, 128 isolated integration, 38 frontend unit and 60 Edge browser tests pass with no failures/skips. Build passes; affected lint has no errors and three existing warnings. Browser checks use the production-like same-origin API relay; raw simulated public-host to loopback requests are blocked by Edge private-network policy. See WORK_LOG for commands, scope, earlier failures and residual gates. These results do not close the unfinished clinical expansion listed above.
+
+R1 backend follow-up: 21 targeted real-router/local-database integration checks and 145 backend unit checks pass. Full integration/frontend/browser results above belong to the earlier P22 revision. Exact scope, containment and preservation evidence are in WORK_LOG. New order creation is source-bound but not yet retry-safe or coordinated transactionally with consultation completion.

@@ -1,7 +1,7 @@
+import { resolveClinicalCreation, loadClinicalRecord } from "./clinicalOrderAccess.js";
+import { resolveClinicalItems, clinicalText } from "./clinicalOrderItems.js";
 import mongoose from "mongoose";
 import LabOrder from "../model/labOrder.js";
-import LabTestCatalog from "../model/labTestCatalog.js";
-import EncounterJourney from "../model/encounterJourney.js";
 import { accessError } from "./hospitalAccess.js";
 
 export const generateAccessionBarcode = (hospitalId) => {
@@ -13,6 +13,7 @@ export const generateAccessionBarcode = (hospitalId) => {
 
 let testDouble = null;
 export const setLabTestDouble = (adapter) => {
+  if (process.env.NODE_ENV !== "test") throw new Error("Clinical test adapters are only available in tests");
   testDouble = adapter;
 };
 
@@ -21,6 +22,10 @@ export const createLabOrder = async ({
   encounterJourneyId,
   tokenId,
   patientId,
+  familyMemberId,
+  personKey,
+  departmentId,
+  serviceDepartmentId,
   patientInfo,
   orderingDoctorId,
   orderingDoctorName = "Attending Physician",
@@ -29,7 +34,7 @@ export const createLabOrder = async ({
   actor,
 }) => {
   if (!hospitalId) throw accessError(400, "Hospital tenant is required");
-  if (!patientInfo || !patientInfo.name) throw accessError(400, "Patient information is required");
+  if (testDouble && (!patientInfo || !patientInfo.name)) throw accessError(400, "Patient information is required");
   if (!Array.isArray(tests) || tests.length === 0) throw accessError(400, "At least one laboratory test is required");
 
   if (testDouble?.createLabOrder) {
@@ -51,33 +56,18 @@ export const createLabOrder = async ({
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
+  const context = await resolveClinicalCreation({ hospitalId, encounterJourneyId, tokenId, patientId, familyMemberId, personKey, departmentId, serviceDepartmentId, orderingDoctorId, actor }, "lab");
+  const resolvedItems = await resolveClinicalItems(hospitalId, tests, "lab");
   const order = new LabOrder({
-    hospitalId,
-    encounterJourneyId: encounterJourneyId || null,
-    tokenId: tokenId || null,
-    patientId: patientId || null,
-    patientInfo: {
-      name: patientInfo.name,
-      age: patientInfo.age,
-      gender: patientInfo.gender,
-      phone: patientInfo.phone,
-    },
-    orderingDoctorId: orderingDoctorId || null,
-    orderingDoctorName,
-    clinicalNotes,
-    tests: tests.map((t) => ({
-      catalogId: t.catalogId || null,
-      testCode: t.testCode || t.code,
-      testName: t.testName || t.name,
-      category: t.category || "General",
-      priceMinor: t.priceMinor || 0,
-    })),
+    ...context,
+    clinicalNotes: clinicalText(clinicalNotes, "Clinical notes"),
+    tests: resolvedItems,
     orderStatus: "ordered",
     auditHistory: [
       {
         stage: "ordered",
-        actorId: actor?.id || orderingDoctorId,
-        actorName: actor?.name || orderingDoctorName,
+        actorId: context.actor.id,
+        actorName: context.actor.name,
         timestamp: new Date(),
         notes: "Laboratory test order created",
       },
@@ -85,14 +75,6 @@ export const createLabOrder = async ({
   });
 
   await order.save();
-
-  // If linked to an encounter journey, update its lab step status
-  if (encounterJourneyId) {
-    await EncounterJourney.updateOne(
-      { _id: encounterJourneyId, hospitalId, "steps.step": "lab" },
-      { $set: { "steps.$.status": "in_progress" } }
-    ).catch(() => {});
-  }
 
   return order;
 };
@@ -106,8 +88,8 @@ export const clearOrderBilling = async ({ orderId, hospitalId, actor }) => {
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const order = await LabOrder.findOne({ _id: orderId, hospitalId });
-  if (!order) throw accessError(404, "Laboratory order not found in this hospital");
+  const order = await loadClinicalRecord(LabOrder, orderId, hospitalId, actor, "lab", ["RECEPTIONIST", "HOSPITAL_ADMIN"], { billing: true });
+  actor = order.$locals.clinicalActor;
 
   if (order.orderStatus !== "ordered") {
     throw accessError(409, `Cannot clear billing from status ${order.orderStatus}`);
@@ -135,8 +117,8 @@ export const collectSample = async ({ orderId, hospitalId, actor, customBarcode 
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const order = await LabOrder.findOne({ _id: orderId, hospitalId });
-  if (!order) throw accessError(404, "Laboratory order not found in this hospital");
+  const order = await loadClinicalRecord(LabOrder, orderId, hospitalId, actor, "lab", ["NURSE", "LAB_TECH"]);
+  actor = order.$locals.clinicalActor;
 
   if (!["ordered", "billing_cleared", "rejected"].includes(order.orderStatus)) {
     throw accessError(409, `Cannot collect sample for order in status ${order.orderStatus}`);
@@ -173,8 +155,8 @@ export const rejectSample = async ({ orderId, hospitalId, actor, reason, request
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const order = await LabOrder.findOne({ _id: orderId, hospitalId });
-  if (!order) throw accessError(404, "Laboratory order not found in this hospital");
+  const order = await loadClinicalRecord(LabOrder, orderId, hospitalId, actor, "lab", ["LAB_TECH"]);
+  actor = order.$locals.clinicalActor;
 
   if (order.orderStatus === "released") {
     throw accessError(409, "Cannot reject sample for an already released report");
@@ -227,8 +209,8 @@ export const enterLabResults = async ({ orderId, hospitalId, actor, results }) =
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const order = await LabOrder.findOne({ _id: orderId, hospitalId });
-  if (!order) throw accessError(404, "Laboratory order not found in this hospital");
+  const order = await loadClinicalRecord(LabOrder, orderId, hospitalId, actor, "lab", ["LAB_TECH"]);
+  actor = order.$locals.clinicalActor;
 
   if (!["collected", "processing", "result_entered"].includes(order.orderStatus)) {
     throw accessError(409, `Cannot enter results for order in status ${order.orderStatus}`);
@@ -269,28 +251,8 @@ export const verifyLabResults = async ({ orderId, hospitalId, actor }) => {
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const order = await LabOrder.findOne({ _id: orderId, hospitalId });
-  if (!order) throw accessError(404, "Laboratory order not found in this hospital");
-
-  if (order.orderStatus !== "result_entered") {
-    throw accessError(409, "Results must be entered by technician before verification");
-  }
-
-  order.orderStatus = "verified";
-  order.verifiedById = actor?.id;
-  order.verifiedByName = actor?.name || "Pathologist";
-  order.verifiedAt = new Date();
-
-  order.auditHistory.push({
-    stage: "verified",
-    actorId: actor?.id,
-    actorName: actor?.name || "Pathologist",
-    timestamp: new Date(),
-    notes: "Laboratory findings verified and authorized",
-  });
-
-  await order.save();
-  return order;
+  await loadClinicalRecord(LabOrder, orderId, hospitalId, actor, "lab", ["DOCTOR", "LAB_TECH"]);
+  throw accessError(503, "Laboratory verification and release require reviewed clinical capabilities and report version safety; this action is temporarily unavailable");
 };
 
 export const releaseLabResults = async ({ orderId, hospitalId, actor }) => {
@@ -302,36 +264,8 @@ export const releaseLabResults = async ({ orderId, hospitalId, actor }) => {
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const order = await LabOrder.findOne({ _id: orderId, hospitalId });
-  if (!order) throw accessError(404, "Laboratory order not found in this hospital");
-
-  if (order.orderStatus !== "verified") {
-    throw accessError(409, "Order must be verified before release to patient");
-  }
-
-  order.orderStatus = "released";
-  order.releasedAt = new Date();
-  order.releasedBy = actor?.id;
-
-  order.auditHistory.push({
-    stage: "released",
-    actorId: actor?.id,
-    actorName: actor?.name || "Lab Supervisor",
-    timestamp: new Date(),
-    notes: "Report released to patient and ordering clinician",
-  });
-
-  await order.save();
-
-  // Complete lab step on encounter journey if linked
-  if (order.encounterJourneyId) {
-    await EncounterJourney.updateOne(
-      { _id: order.encounterJourneyId, hospitalId, "steps.step": "lab" },
-      { $set: { "steps.$.status": "completed", "steps.$.completedAt": new Date() } }
-    ).catch(() => {});
-  }
-
-  return order;
+  await loadClinicalRecord(LabOrder, orderId, hospitalId, actor, "lab", ["DOCTOR", "LAB_TECH"]);
+  throw accessError(503, "Laboratory verification and release require reviewed clinical capabilities and report version safety; this action is temporarily unavailable");
 };
 
 export const correctLabReport = async ({ orderId, hospitalId, actor, reason, newResults }) => {
@@ -348,36 +282,8 @@ export const correctLabReport = async ({ orderId, hospitalId, actor, reason, new
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const order = await LabOrder.findOne({ _id: orderId, hospitalId });
-  if (!order) throw accessError(404, "Laboratory order not found in this hospital");
-
-  if (!["verified", "released"].includes(order.orderStatus)) {
-    throw accessError(409, "Only verified or released reports can be amended");
-  }
-
-  // Save current version into corrections archive
-  order.reportCorrections.push({
-    version: order.reportVersion || 1,
-    correctedAt: new Date(),
-    correctedBy: actor?.name || "Pathologist",
-    reason: reason.trim(),
-    previousResults: [...order.results],
-  });
-
-  order.reportVersion = (order.reportVersion || 1) + 1;
-  order.results = newResults;
-  order.orderStatus = "verified"; // Requires re-release or verified state
-
-  order.auditHistory.push({
-    stage: "corrected",
-    actorId: actor?.id,
-    actorName: actor?.name || "Pathologist",
-    timestamp: new Date(),
-    notes: `Report version ${order.reportVersion} created: ${reason.trim()}`,
-  });
-
-  await order.save();
-  return order;
+  await loadClinicalRecord(LabOrder, orderId, hospitalId, actor, "lab", ["DOCTOR", "LAB_TECH"]);
+  throw accessError(503, "Laboratory verification and release require reviewed clinical capabilities and report version safety; this action is temporarily unavailable");
 };
 
 export const acknowledgeCriticalValue = async ({ orderId, hospitalId, actor }) => {
@@ -389,8 +295,8 @@ export const acknowledgeCriticalValue = async ({ orderId, hospitalId, actor }) =
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const order = await LabOrder.findOne({ _id: orderId, hospitalId });
-  if (!order) throw accessError(404, "Laboratory order not found in this hospital");
+  const order = await loadClinicalRecord(LabOrder, orderId, hospitalId, actor, "lab", ["DOCTOR"]);
+  actor = order.$locals.clinicalActor;
 
   if (!order.criticalValueAlert?.isCritical) {
     throw accessError(400, "This order does not have an active critical value alert");

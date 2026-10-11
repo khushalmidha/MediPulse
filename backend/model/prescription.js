@@ -48,6 +48,10 @@ const prescriptionSchema = new mongoose.Schema(
       ref: "user",
       index: true,
     },
+    departmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
+    serviceDepartmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
+    familyMemberId: { type: mongoose.Schema.Types.ObjectId },
+    personKey: String,
     patientInfo: {
       name: { type: String, required: true },
       age: { type: Number },

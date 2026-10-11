@@ -1,3 +1,4 @@
+import { listClinicalRecords, loadClinicalRecord, patientClinicalRecords, pick } from "../services/clinicalOrderAccess.js";
 import mongoose from "mongoose";
 import asyncHandler from "../middleware/asyncHandler.js";
 import LabOrder from "../model/labOrder.js";
@@ -60,6 +61,10 @@ export const postCreateLabOrder = asyncHandler(async (req, res) => {
     encounterJourneyId: req.body.encounterJourneyId,
     tokenId: req.body.tokenId,
     patientId: req.body.patientId,
+    familyMemberId: req.body.familyMemberId,
+    personKey: req.body.personKey,
+    departmentId: req.body.departmentId,
+    serviceDepartmentId: req.body.serviceDepartmentId,
     patientInfo: req.body.patientInfo,
     orderingDoctorId: req.staff.id,
     orderingDoctorName: req.staff.name || "Attending Physician",
@@ -75,15 +80,7 @@ export const listLabOrders = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
   if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
 
-  const filter = { hospitalId };
-  if (req.query.status) {
-    filter.orderStatus = req.query.status;
-  }
-  if (req.query.barcode) {
-    filter.accessionBarcode = req.query.barcode;
-  }
-
-  const orders = await LabOrder.find(filter).sort({ createdAt: -1 }).limit(100);
+  const orders = await listClinicalRecords(LabOrder, req.staff, "lab", req.query);
   return res.json({ orders });
 });
 
@@ -91,8 +88,7 @@ export const getLabOrderById = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
   const { id } = req.params;
 
-  const order = await LabOrder.findOne({ _id: id, hospitalId });
-  if (!order) return res.status(404).json({ message: "Laboratory order not found" });
+  const order = await loadClinicalRecord(LabOrder, id, hospitalId, req.staff, "lab");
 
   return res.json({ order });
 });
@@ -105,7 +101,7 @@ export const patchClearBilling = asyncHandler(async (req, res) => {
     hospitalId,
     actor: { id: req.staff.id, name: req.staff.name || "Billing Staff", role: req.staff.role },
   });
-  return res.json({ message: "Billing cleared", order });
+  return res.json({ message: "Billing cleared", order: pick(order, ["_id", "orderStatus", "createdAt", "updatedAt"]) });
 });
 
 export const patchCollectSample = asyncHandler(async (req, res) => {
@@ -192,15 +188,6 @@ export const postAcknowledgeCritical = asyncHandler(async (req, res) => {
 });
 
 export const getPatientLabResults = asyncHandler(async (req, res) => {
-  if (!req.auth || !req.auth.id) return res.status(401).json({ message: "Authentication required" });
-
-  const orders = await LabOrder.find({
-    patientId: req.auth.id,
-    orderStatus: "released",
-  })
-    .populate("hospitalId", "name slug")
-    .sort({ releasedAt: -1 })
-    .lean();
-
-  return res.json({ results: orders });
+  const results = await patientClinicalRecords(LabOrder, req.auth, "lab");
+  return res.json({ results });
 });

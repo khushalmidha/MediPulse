@@ -1,3 +1,4 @@
+import { listClinicalRecords, loadClinicalRecord, patientClinicalRecords, pick } from "../services/clinicalOrderAccess.js";
 import asyncHandler from "../middleware/asyncHandler.js";
 import PharmacyInventory from "../model/pharmacyInventory.js";
 import Prescription from "../model/prescription.js";
@@ -91,6 +92,10 @@ export const postCreatePrescription = asyncHandler(async (req, res) => {
     encounterJourneyId: req.body.encounterJourneyId,
     tokenId: req.body.tokenId,
     patientId: req.body.patientId,
+    familyMemberId: req.body.familyMemberId,
+    personKey: req.body.personKey,
+    departmentId: req.body.departmentId,
+    serviceDepartmentId: req.body.serviceDepartmentId,
     patientInfo: req.body.patientInfo,
     prescribingDoctorId: req.staff.id,
     prescribingDoctorName: req.staff.name || "Attending Physician",
@@ -106,12 +111,7 @@ export const listPrescriptions = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
   if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
 
-  const filter = { hospitalId };
-  if (req.query.status) {
-    filter.status = req.query.status;
-  }
-
-  const prescriptions = await Prescription.find(filter).sort({ createdAt: -1 }).limit(100);
+  const prescriptions = await listClinicalRecords(Prescription, req.staff, "pharmacy", req.query);
   return res.json({ prescriptions });
 });
 
@@ -119,8 +119,7 @@ export const getPrescriptionById = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
   const { id } = req.params;
 
-  const prescription = await Prescription.findOne({ _id: id, hospitalId });
-  if (!prescription) return res.status(404).json({ message: "Prescription not found" });
+  const prescription = await loadClinicalRecord(Prescription, id, hospitalId, req.staff, "pharmacy");
 
   return res.json({ prescription });
 });
@@ -161,12 +160,6 @@ export const getVerifyQR = asyncHandler(async (req, res) => {
 });
 
 export const getPatientPrescriptions = asyncHandler(async (req, res) => {
-  if (!req.auth || !req.auth.id) return res.status(401).json({ message: "Authentication required" });
-
-  const prescriptions = await Prescription.find({ patientId: req.auth.id })
-    .populate("hospitalId", "name slug")
-    .sort({ createdAt: -1 })
-    .lean();
-
+  const prescriptions = await patientClinicalRecords(Prescription, req.auth, "pharmacy");
   return res.json({ prescriptions });
 });
