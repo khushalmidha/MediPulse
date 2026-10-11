@@ -1,4 +1,5 @@
 import User from "../model/user.js";
+import { requireReviewedAccountRemoval } from "../services/accountRemoval.js";
 
 const getUserById = async (req, res) => {
 	if (!req.auth) return res.status(401).json({ message: "Unauthorized" });
@@ -34,8 +35,7 @@ const getAllUsers = async (req, res) => {
 };
 
 const deleteUserById = async (req, res) => {
-	const result = await User.findByIdAndDelete(req.params.id);
-	return res.json(result);
+	return requireReviewedAccountRemoval(req, res, "user");
 };
 
 export { getUserById, getAllUsers, deleteUserById, updateUserData };

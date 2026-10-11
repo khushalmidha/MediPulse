@@ -1,4 +1,5 @@
 import { communitySummary } from "../services/communityAccess.js";
+import { requireReviewedAccountRemoval } from "../services/accountRemoval.js";
 import { normalizeSpecialty } from '../util/normalizeSpecialty.js';
 import { DEFAULT_CONSULTATION_FEE_INR, MAX_CONSULTATION_FEE_INR, resolveConsultationFee } from '../config/fees.js';
 
@@ -363,8 +364,7 @@ const getAllDoctors = async (req, res) => {
 };
 
 const deleteDoctorById = async (req, res) => {
-	const result = await Doctor.findByIdAndDelete(req.params.id);
-	return res.json(result);
+	return requireReviewedAccountRemoval(req, res, "doctor");
 };
 
 const getDoctorHospitals = async (req, res) => {
