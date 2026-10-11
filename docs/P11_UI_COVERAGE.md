@@ -82,6 +82,19 @@ Migrated `/communities` (`CommunityCard.jsx`), `/chat` (`Chat.jsx`), `/events` (
 
 Test contracts (`"View More"`, `"Close community details"`, `"Create Community"`, `"Browse Communities"`, and `"{n} members"`) remain intact.
 
+## Batch G — wallet transactions, refunds, notifications and virtual payments admin
+
+Migrated `/wallet/transactions` (`VirtualTransactions.jsx`), `/wallet/refunds` (`VirtualRefunds.jsx`), `/wallet/notifications` (`VirtualNotifications.jsx`), and `/admin/virtual-payments` (`VirtualAdminDashboard.jsx`) to P08 design tokens and components.
+
+| Route / context | Coverage |
+|---|---|
+| `/wallet/transactions` | Filterable simulated transaction ledger (Search, Type, Status, Apply), CSV export download, responsive table with type/status badges, and page-based pagination |
+| `/wallet/refunds` | Demo credit refund request form, retaining exact test locators (`aria-label="Original transactionId"`, `aria-label="Partial refund amount"`, `aria-label="Refund reason"`), `bookingRequestKey` idempotency, and `/Could not confirm/` recovery |
+| `/wallet/notifications` | Realtime payment alerts list, unread-only filter toggle, status badges, and mark-as-read actions via `/vpay/notifications/:id/read` |
+| `/admin/virtual-payments` | Platform operations analytics cards (circulation, total payments, revenue simulation, refunds, active wallets), demo credit top-up form (`Target user id`, `Target wallet role`, `Demo top-up amount`, `Top-up`), most active doctors list, daily transaction volume, and wallet freeze/unfreeze controls |
+
+Test contracts (`"Target user id"`, `"Demo top-up amount"`, `"Top-up"`, `"Original transactionId"`, `"Partial refund amount"`, `"Issue Refund"`, `"Demo top-up completed"`, `"Demo refund completed"`, and idempotency keys) remain intact.
+
 ## Remaining batches
 
 | Batch | Status | Routes / remaining scope |
@@ -92,7 +105,7 @@ Test contracts (`"View More"`, `"Close community details"`, `"Create Community"`
 | D | Migrated; see work log for verification | `/hospital/nursing-station`, `/hospital/reception`, `/hospital/staff-communication` |
 | E | Migrated; see work log for verification | `/hospital/admin`, website/editor configuration and hospital website body |
 | F | Migrated; see work log for verification | `/communities`, `/chat`, `/events`, `/events/past` |
-| G | Next | `/wallet/transactions`, `/wallet/refunds`, `/wallet/notifications`, `/admin/virtual-payments` |
-| H | Pending | `/about`, `/privacy`, `/terms`, `/cookiepolicy`, remaining public/utility page bodies |
+| G | Migrated; see work log for verification | `/wallet/transactions`, `/wallet/refunds`, `/wallet/notifications`, `/admin/virtual-payments` |
+| H | Next | `/about`, `/privacy`, `/terms`, `/cookiepolicy`, remaining public/utility page bodies |
 
 P12/P13 room/file/ETA workflows and later product expansion remain separate tasks. No deployment, DNS, provider activation or database migration is included in this UI batch.

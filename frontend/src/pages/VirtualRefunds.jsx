@@ -1,8 +1,10 @@
-import { bookingRequestKey, clearBookingRequest } from "../utils/bookingRequest";
-import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
 import axios from "axios";
+import { ArrowLeft, RotateCcw } from "lucide-react";
+import { bookingRequestKey, clearBookingRequest } from "../utils/bookingRequest";
+import { useAuth } from "../context/AuthContext";
 import { BACKEND_URL } from "../utils";
+import { Banner, Button, Card } from "../components/ui";
 
 const VirtualRefunds = () => {
   const [form, setForm] = useState({ transactionId: "", amount: "", reason: "" });
@@ -41,41 +43,90 @@ const VirtualRefunds = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-6">
-      <div className="mx-auto max-w-2xl rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Request Refund</h1>
-        <p className="mt-1 text-sm text-gray-600">Demo INR credits only. Leave amount empty to refund the remaining balance. Cancel booked visits from their appointment page.</p>
+  const isSuccess = message === "Demo refund completed" || (!message.includes("Could not confirm") && !message.includes("failed") && message.length > 0);
 
-        <form onSubmit={onSubmit} className="mt-4 space-y-3">
-          <input
-            value={form.transactionId}
-            onChange={(event) => setForm((prev) => ({ ...prev, transactionId: event.target.value }))}
-            aria-label="Original transactionId" placeholder="Original transactionId"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            required
-          />
-          <input
-            value={form.amount}
-            onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
-            aria-label="Partial refund amount" placeholder="Optional partial refund amount"
-            type="number"
-            min="0.01"
-            step="0.01"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          />
-          <textarea
-            value={form.reason}
-            onChange={(event) => setForm((prev) => ({ ...prev, reason: event.target.value }))}
-            aria-label="Refund reason" placeholder="Reason"
-            rows={4}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          />
-          <button disabled={busy || !user?._id} className="rounded-md bg-amber-600 px-4 py-2 text-white disabled:bg-gray-400">{busy ? "Processing..." : "Issue Refund"}</button>
-        </form>
+  return (
+    <main className="mp-page" style={{ maxWidth: 720 }}>
+      <div className="mp-section-heading">
+        <div>
+          <p className="mp-eyebrow">Virtual Payments</p>
+          <h1>Request Refund</h1>
+          <p>Demo INR credits only. Leave amount empty to refund the remaining balance. Cancel booked visits from their appointment page.</p>
+        </div>
+        <Button to="/wallet/transactions" variant="secondary">
+          <ArrowLeft size={16} /> Transaction history
+        </Button>
       </div>
-      {message && <p className="mx-auto mt-4 max-w-2xl text-sm text-blue-700">{message}</p>}
-    </div>
+
+      {message && (
+        <Banner tone={isSuccess ? "positive" : "error"}>
+          {message}
+        </Banner>
+      )}
+
+      <Card>
+        <form onSubmit={onSubmit} className="mp-form" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="mp-field">
+            <label htmlFor="tx-id">Original transactionId *</label>
+            <input
+              id="tx-id"
+              name="transactionId"
+              aria-label="Original transactionId"
+              placeholder="e.g. TXN_01HX72..."
+              value={form.transactionId}
+              onChange={(event) => setForm((prev) => ({ ...prev, transactionId: event.target.value }))}
+              className="mp-input"
+              required
+            />
+            <p className="mp-field-hint">The transaction ID from your simulated billing statement or booking receipt.</p>
+          </div>
+
+          <div className="mp-field">
+            <label htmlFor="partial-amount">Partial refund amount</label>
+            <input
+              id="partial-amount"
+              name="amount"
+              aria-label="Partial refund amount"
+              placeholder="Leave empty for full remaining balance"
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={form.amount}
+              onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
+              className="mp-input"
+            />
+            <p className="mp-field-hint">Specify an amount in demo INR, or leave blank to return the full original amount.</p>
+          </div>
+
+          <div className="mp-field">
+            <label htmlFor="refund-reason">Refund reason</label>
+            <textarea
+              id="refund-reason"
+              name="reason"
+              aria-label="Refund reason"
+              placeholder="Describe the reason for reversal..."
+              rows={3}
+              value={form.reason}
+              onChange={(event) => setForm((prev) => ({ ...prev, reason: event.target.value }))}
+              className="mp-input"
+            />
+          </div>
+
+          <div className="mp-actions" style={{ marginTop: 8 }}>
+            <Button
+              type="submit"
+              disabled={busy || !user?._id}
+              style={{ minWidth: 160 }}
+            >
+              <RotateCcw size={16} /> {busy ? "Processing..." : "Issue Refund"}
+            </Button>
+            <Button to="/wallet/transactions" variant="secondary">
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </main>
   );
 };
 

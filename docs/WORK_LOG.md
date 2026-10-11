@@ -679,4 +679,28 @@ Migrated `/communities` (`CommunityCard.jsx`), `/chat` (`Chat.jsx`), `/events` (
 - Frontend production build: **Passed** (2319 modules, 20.46s).
 
 
+## P11 G — Wallet transactions, refunds, notifications and virtual admin (11 October 2026)
+
+Migrated `/wallet/transactions` (`VirtualTransactions.jsx`), `/wallet/refunds` (`VirtualRefunds.jsx`), `/wallet/notifications` (`VirtualNotifications.jsx`), and `/admin/virtual-payments` (`VirtualAdminDashboard.jsx`) to P08 design tokens and components.
+
+- **Transaction History (`VirtualTransactions.jsx`):**
+  - Upgraded to P08 teal surfaces, responsive controls (search, type filter, status filter, apply button), CSV download, and responsive table with status badges and page pagination.
+- **Refund Requests (`VirtualRefunds.jsx`):**
+  - Retained exact test contracts: `aria-label="Original transactionId"`, `aria-label="Partial refund amount"`, `aria-label="Refund reason"`, `Issue Refund` button, `/Could not confirm/` error message, and `/Demo INR credits only/` notice.
+  - Retained `bookingRequestKey` idempotency and `clearBookingRequest`.
+- **Payment Notifications (`VirtualNotifications.jsx`):**
+  - Upgraded alerts list with unread-only toggle, read/unread status badges, and mark-as-read action.
+- **Virtual Payments Admin (`VirtualAdminDashboard.jsx`):**
+  - Retained exact test contracts: `Target user id` input, `Target wallet role` select, `Demo top-up amount` input, `Top-up` button, `Demo top-up completed` feedback, and `/Demo INR credits only/` notice.
+  - Retained operational metrics cards, doctor volume list, daily transaction metrics, and wallet freeze/unfreeze controls.
+
+### Executed checks
+
+- Backend unit suite: **96 passed / 0 failed / 0 skipped**.
+- Frontend unit suite: **32 passed / 0 failed / 0 skipped**.
+- Affected files lint (`VirtualTransactions.jsx`, `VirtualRefunds.jsx`, `VirtualNotifications.jsx`, `VirtualAdminDashboard.jsx`): **0 errors / 0 warnings**.
+- Frontend production build: **Passed** (2319 modules, 22.83s).
+
+
+
 
