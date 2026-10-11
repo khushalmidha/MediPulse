@@ -13,7 +13,7 @@ export default function useFormTask() {
       const result = await action(controller.current.signal);
       if (alive.current) success?.(result);
     } catch (error) {
-      if (alive.current && !controller.current.signal.aborted) setFeedback({ message: error.response?.data?.message || "The response was interrupted. Check the current status before trying again.", tone: "error" });
+      if (alive.current && !controller.current.signal.aborted) setFeedback({ message: error.response?.data?.message || "The response was interrupted. Check the current status before trying again.", tone: "error", status: error.response?.status || null });
     } finally { pending.current = false; if (alive.current) setBusy(false); }
   }, []);
   return { run, busy, online, feedback, setFeedback };

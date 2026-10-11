@@ -24,13 +24,30 @@ Email/Google sign-in reuse existing endpoints. Google controls are shared, dispo
 
 Profile PUT sends only account fields already supported by the API. Doctor nested experience/clinic metadata is preserved; blank optional experience/fee/phone does not fabricate a zero or clear stored data. Signup sends explicit zero experience as a supplied value and omits blank optional fields. Fees remain visibly tied to demo credits and frozen scheduled bookings.
 
+## Batch B — patient records and hospital discovery
+
+Migrated to the shared teal controls, warm surfaces and patient page layout. Executed checks are recorded in WORK_LOG.md.
+
+| Route / context | Coverage |
+|---|---|
+| `/health-records`, Connect health records | Patient gate, completed timeline, family/self/type/search filters, pagination, private details, draft text download, independent read failures and explicit stale refresh |
+| Family profiles within health records | Required name/relation, optional known demographics, failed-input preservation, duplicate local submission guard, removal confirmation, offline blocking and focus restoration |
+| `/hospitals`, Connect hospital directory | Actual profiles, name/city/care-system URL filters, real result pagination, unknown ratings, empty versus failed search, retry and hospital-product navigation |
+| `/triage/:appointmentId` | Explicit language/start, failed-answer preservation, conversation, explicit draft save, access denial and offline states |
+| `/smart-booking` | Protected symptom draft, failed-input recovery, returned profiles with actual metadata/demo fees, explicit model uncertainty and urgent-result booking suppression |
+| `/review`, hospital patient review | Signed link/owner context, five explicit ratings with no defaults, optional anonymous public display, retry, replay/expired recovery and hospital visits return |
+
+Patient workspaces are keyed by account identity; disposed reads and mutation callbacks cannot populate another account. Denied private requests hide details and close record dialogs. Clinical text and signed review details are not persisted by these forms. Linked completed hospital token/appointment entries count once while preserving consultation notes, draft text and available summaries. The read DTO adds family identity and visit mode without changing stored records.
+
+Pre-visit questions remain optional clinician-review drafts. Explicit start avoids the old automatic conversation reset on page mount. The current triage/family APIs do not provide server request idempotency; local guards cannot guarantee recovery after an interrupted response. Family removal retains visit documents but existing backend removal policy needs historical-identity review. Room/file/ETA data, AI validation and hospital staff/body redesign remain their own documented phases.
+
 ## Remaining batches
 
 | Batch | Status | Routes / remaining scope |
 |---|---|---|
 | A | Migrated; see work log for verification | Account routes above; organization operating/onboarding tools remain E/P17 |
-| B | Next | `/health-records`, `/hospitals`, patient family/records, related patient triage/review pages |
-| C | Pending | `/doctor/appointments`, `/hospital/doctor-opd`; P10 call/booking compatibility remains |
+| B | Migrated; see work log for verification | Patient routes above |
+| C | Next | `/doctor/appointments`, `/hospital/doctor-opd`; P10 call/booking compatibility remains |
 | D | Pending | Reception/nurse workflows and `/hospital/staff-communication`; P08 nursing controls are partial coverage |
 | E | Pending | `/hospital/admin`, website/editor configuration and hospital website body; P10 booking modal is complete |
 | F | Pending | `/communities`, `/chat`, `/events`, `/events/past` |

@@ -1,4 +1,5 @@
 import { handleAccounts } from "./accounts-fixture.mjs";
+import { handlePatient } from "./patient-fixture.mjs";
 import { handleScheduling } from "./scheduling-fixture.mjs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
@@ -13,7 +14,7 @@ const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1:15173");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Idempotency-Key,Authorization,X-CSRF-Token");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
   const reply = (data, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(data)); };
   if (req.method === "OPTIONS") return reply({});
   const path = new URL(req.url, "http://127.0.0.1:19080").pathname.replace(/\/$/, "");
@@ -48,6 +49,7 @@ const server = createServer(async (req, res) => {
     return reply({ message: "Signed out" });
   }
   if (await handleAccounts({ req, state, reply, doctor, staff, hospitalId })) return;
+  if (await handlePatient({ req, state, reply, hospitalId })) return;
   if (path === "/user/login" && req.method === "POST") {
     state.guest = false; state.nurse = false;
     res.setHeader("Set-Cookie", ["staffToken=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0", "token=fixture-opaque-session; Path=/; HttpOnly; SameSite=Lax"]);

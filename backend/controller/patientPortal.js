@@ -9,11 +9,14 @@ const mapOpdToken = (token) => ({
   title: `${token.hospitalId?.name || "Hospital"} OPD visit`,
   subtitle: `${token.departmentId?.name || "Department"} • ${token.displayToken}`,
   status: token.status,
+  familyMemberId: token.familyMemberId || null,
+  visitMode: "in_person",
   date: token.consultationEndedAt || token.date || token.createdAt,
   hospital: token.hospitalId,
   department: token.departmentId,
   doctor: token.doctorId,
   chiefComplaint: token.chiefComplaint,
+  doctorNotes: token.consultationNotes || "",
   vitals: token.vitals,
   patientBrief: token.aiTriage?.patientBrief || null,
 });
@@ -21,9 +24,11 @@ const mapOpdToken = (token) => ({
 const mapAppointment = (appointment) => ({
   id: appointment._id,
   type: "appointment",
-  title: `Telehealth appointment with Dr. ${appointment.doctor?.firstName || ""} ${appointment.doctor?.lastName || ""}`.trim(),
-  subtitle: appointment.doctor?.expertise || "Online consultation",
+  title: appointment.visitMode === "in_person" ? "Hospital appointment" : appointment.doctor?.firstName || appointment.doctor?.lastName ? `Online consultation with Dr. ${appointment.doctor?.firstName || ""} ${appointment.doctor?.lastName || ""}`.trim() : "Online consultation",
+  subtitle: appointment.doctor?.experience?.expertise || appointment.doctor?.expertise || (appointment.visitMode === "in_person" ? "In-person consultation" : "Online consultation"),
   status: appointment.status,
+  familyMemberId: appointment.familyMemberId || null,
+  visitMode: appointment.visitMode || "online",
   date: appointment.endedAt || appointment.startedAt || appointment.createdAt,
   doctor: appointment.doctor,
   doctorNotes: appointment.doctorNotes,
@@ -44,11 +49,18 @@ export const getHealthTimeline = async (req, res) => {
         .lean(),
       Appointment.find({ user: req.auth.id, status: "completed" })
         .sort({ endedAt: -1, createdAt: -1 })
-        .populate("doctor", "firstName lastName expertise")
+        .populate("doctor", "firstName lastName expertise experience.expertise")
         .lean(),
     ]);
 
-    const timeline = [...tokens.map(mapOpdToken), ...appointments.map(mapAppointment)].sort(
+    // A completed linked hospital token and appointment describe one encounter.
+    const linked = new Set(tokens.filter(token => token.appointmentId).map(token => String(token.appointmentId)));
+    const byId = new Map(appointments.map(appointment => [String(appointment._id), appointment]));
+    const visits = tokens.map(token => {
+      const record = mapOpdToken(token), appointment = byId.get(String(token.appointmentId));
+      return appointment ? { ...record, doctorNotes: record.doctorNotes || appointment.doctorNotes, receiptText: appointment.receiptText, patientBrief: record.patientBrief || appointment.patientBrief || null } : record;
+    });
+    const timeline = [...visits, ...appointments.filter(appointment => !linked.has(String(appointment._id))).map(mapAppointment)].sort(
       (left, right) => new Date(right.date || 0) - new Date(left.date || 0),
     );
 

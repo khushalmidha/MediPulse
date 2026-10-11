@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import process from "node:process";
 
 const api = "http://127.0.0.1:19080";
 const browserApi = process.env.E2E_API_PROXY === "true" ? "http://127.0.0.1:15173/backend" : api;
@@ -17,6 +18,7 @@ test("booking shows the doctor fee and keyboard confirmation opens synthetic tri
   const button = page.getByRole("button", { name: "Confirm Booking for ₹500", exact: true });
   await expect(button).toBeEnabled(); await button.focus(); await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/triage\/000000000000000000000003$/);
+  await page.getByRole("button", { name: "Start questions", exact: true }).click();
   await expect(page.getByText("Fixture question: what brings you here today?", { exact: true }).first()).toBeVisible();
   expect((await (await request.get(`${api}/__fixture/state`)).json()).bookings).toBe(1);
 });

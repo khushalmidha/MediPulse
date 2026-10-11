@@ -1,125 +1,24 @@
-import { useMemo, useState } from "react";
-import axios from "axios";
-import { CheckCircle2, Star } from "lucide-react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import axios from "axios";
+import { MessageSquare, Star } from "lucide-react";
+import { Button, Card, EmptyState, Field, StatusBadge } from "../components/ui";
+import { PatientAccess, PatientPage } from "../components/patient/PatientUI";
+import { Feedback } from "../components/account/AccountUI";
+import { useAuth } from "../context/AuthContext";
+import { useProduct } from "../context/ProductContext";
+import useFormTask from "../hooks/useFormTask";
+import { overallRating, ratingFields } from "../utils/patientCare";
 import { BACKEND_URL } from "../utils";
-
-const ratingFields = [
-  ["doctorQuality", "Doctor quality"],
-  ["waitTime", "Wait time"],
-  ["staffBehavior", "Staff behavior"],
-  ["cleanliness", "Cleanliness"],
-  ["valueForMoney", "Value for money"],
-];
-
-const RatingInput = ({ label, value, onChange }) => (
-  <div className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <span className="text-sm font-semibold text-gray-800 dark:text-slate-200">{label}</span>
-      <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map((score) => (
-          <button
-            type="button"
-            key={score}
-            onClick={() => onChange(score)}
-            className={`rounded-md p-1 ${score <= value ? "text-yellow-500" : "text-gray-300"}`}
-            aria-label={`${label} ${score}`}
-          >
-            <Star size={22} fill="currentColor" />
-          </button>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-const ReviewVisit = () => {
-  const [searchParams] = useSearchParams();
-  const tokenId = searchParams.get("token") || "";
-  const patientId = searchParams.get("patient") || "";
-  const sig = searchParams.get("sig") || "";
-  const [ratings, setRatings] = useState({
-    doctorQuality: 5,
-    waitTime: 5,
-    staffBehavior: 5,
-    cleanliness: 5,
-    valueForMoney: 5,
-  });
-  const [comment, setComment] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [message, setMessage] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const overallRating = useMemo(() => {
-    const values = Object.values(ratings);
-    return Math.round(values.reduce((sum, value) => sum + Number(value), 0) / values.length);
-  }, [ratings]);
-
-  const submitReview = async (event) => {
-    event.preventDefault();
-    setMessage("");
-    setLoading(true);
-    try {
-      await axios.post(
-        `${BACKEND_URL}/api/reviews`,
-        { tokenId, patientId, sig, ratings, overallRating, comment, isAnonymous },
-        { withCredentials: true },
-      );
-      setSubmitted(true);
-    } catch (error) {
-      setMessage(error.response?.data?.message || "Unable to submit review. Please sign in and try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (submitted) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-slate-900 px-4">
-        <section className="max-w-md rounded-xl bg-white dark:bg-slate-950 p-8 text-center shadow-sm">
-          <CheckCircle2 className="mx-auto text-green-600" size={44} />
-          <h1 className="mt-4 text-2xl font-extrabold text-gray-950">Thank you for your review</h1>
-          <p className="mt-2 text-sm text-gray-600">Your feedback is now part of the hospital quality score.</p>
-        </section>
-      </main>
-    );
-  }
-
-  return (
-    <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-10">
-      <form onSubmit={submitReview} className="mx-auto max-w-2xl rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase text-red-600 dark:text-red-500">MediPulse Visit Review</p>
-        <h1 className="mt-2 text-3xl font-extrabold text-gray-950">Rate your hospital visit</h1>
-        <p className="mt-2 text-sm text-gray-600">Your feedback helps other patients and improves hospital operations.</p>
-
-        {message && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{message}</p>}
-
-        <div className="mt-6 space-y-3">
-          {ratingFields.map(([field, label]) => (
-            <RatingInput key={field} label={label} value={ratings[field]} onChange={(value) => setRatings({ ...ratings, [field]: value })} />
-          ))}
-        </div>
-
-        <textarea
-          value={comment}
-          onChange={(event) => setComment(event.target.value)}
-          maxLength={1000}
-          placeholder="Share details about your experience..."
-          className="mt-5 min-h-32 w-full rounded-lg border border-gray-300 p-3 text-sm outline-none focus:border-red-500"
-        />
-
-        <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" checked={isAnonymous} onChange={(event) => setIsAnonymous(event.target.checked)} className="h-4 w-4" />
-          Submit anonymously
-        </label>
-
-        <button disabled={loading || !tokenId || !sig} className="mt-6 w-full rounded-lg bg-red-600 dark:bg-red-700 px-4 py-3 text-sm font-bold text-white disabled:bg-gray-400">
-          {loading ? "Submitting..." : `Submit ${overallRating}-star review`}
-        </button>
-      </form>
-    </main>
-  );
-};
-
-export default ReviewVisit;
+export default function ReviewVisit() { const [params] = useSearchParams(); return <PatientAccess><VisitReview key={[params.get("token"), params.get("patient"), params.get("sig")].join(":")} /></PatientAccess>; }
+function VisitReview() {
+  const [params] = useSearchParams(), { user } = useAuth(), tokenId = params.get("token") || "", patientId = params.get("patient") || user._id, sig = params.get("sig") || "";
+  const product = useProduct(), visitsPath = product.kind === "patient" ? "/visits" : "/my-appointments";
+  const task = useFormTask(), [ratings, setRatings] = useState(Object.fromEntries(ratingFields.map(([key]) => [key, 0]))), [comment, setComment] = useState(""), [anonymous, setAnonymous] = useState(false), [submitted, setSubmitted] = useState(false), overall = overallRating(ratings);
+  const submit = event => { event.preventDefault(); if (!overall) { task.setFeedback({ message: "Choose all five ratings before submitting.", tone: "error" }); return; } void task.run(signal => axios.post(BACKEND_URL + "/api/reviews", { tokenId, patientId, sig, ratings, overallRating: overall, comment: comment.trim(), isAnonymous: anonymous }, { signal, withCredentials: true }), () => setSubmitted(true)); };
+  const invalid = !/^[a-f0-9]{24}$/i.test(tokenId) || !sig || patientId !== user._id;
+  const denied = [401, 403, 404].includes(task.feedback?.status), existing = task.feedback?.status === 409;
+  return <PatientPage eyebrow="Your visit experience" title="Rate your hospital visit" description="Share what went well and what could be better. Choose your own ratings for each part of the visit." aside={<><MessageSquare size={29} aria-hidden="true" /><h2>Feedback with context</h2><p>Your review is linked to your completed visit. Hiding your name affects the public review; the visit remains linked privately.</p></>}>
+    {invalid || denied ? <Card><EmptyState title="A valid visit review link is needed" action={<Button to={visitsPath}>View my appointments</Button>}>{patientId !== user._id ? "Sign in with the patient account this review link belongs to." : task.feedback?.message || "Open the review link for a completed hospital visit. No review has been sent."}</EmptyState></Card> : submitted || existing ? <Card className="mp-stack"><StatusBadge tone="positive">{existing ? "Already reviewed" : "Review submitted"}</StatusBadge><h2 tabIndex={-1} ref={node => node?.focus()}>{existing ? "This visit already has a review" : "Thank you for sharing your experience"}</h2><p>{existing ? "A second review was not created. Your draft on this page was not submitted again." : "Your review was submitted successfully."}</p><Button to={visitsPath}>Return to my appointments</Button></Card> : <Card as="form" onSubmit={submit} className="mp-stack" aria-label="Visit review"><Feedback feedback={task.feedback} />{!task.online && <p role="status">You are offline. Reconnect before submitting your review.</p>}{ratingFields.map(([key, label]) => <fieldset className="mp-review-rating" key={key}><legend>{label}</legend><div className="mp-review-stars">{[1, 2, 3, 4, 5].map(score => <label key={score} data-selected={score <= ratings[key]}><input type="radio" name={key} value={score} aria-label={label + " " + score + " out of 5"} required checked={ratings[key] === score} disabled={task.busy} onChange={() => setRatings(previous => ({ ...previous, [key]: score }))} /><Star size={23} fill={score <= ratings[key] ? "currentColor" : "none"} aria-hidden="true" /></label>)}</div><p className="mp-field-hint">{ratings[key] ? ratings[key] + " out of 5" : "Choose a rating"}</p></fieldset>)}<Field as="textarea" label="Visit feedback (optional)" rows={4} maxLength={1000} value={comment} disabled={task.busy} onChange={event => setComment(event.target.value)} hint="Focus on your experience. Avoid including private medical details in a public review." /><label className="mp-checkbox"><input type="checkbox" checked={anonymous} disabled={task.busy} onChange={event => setAnonymous(event.target.checked)} />Hide my name on the public review</label><p className="mp-field-hint">{overall ? "Overall rating: " + overall + " out of 5" : "Choose all five ratings to calculate your overall rating."}</p><Button type="submit" disabled={task.busy || !task.online}>{task.busy ? "Submitting review..." : "Submit review"}</Button></Card>}
+  </PatientPage>;
+}

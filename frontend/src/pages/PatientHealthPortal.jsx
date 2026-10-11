@@ -1,236 +1,45 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import axios from "axios";
-import { Building2, CalendarDays, HeartPulse, Plus, Search, Star, Trash2, UserRound } from "lucide-react";
-import { BACKEND_URL } from "../utils";
-
+import { CalendarDays, Plus, RefreshCw, Users } from "lucide-react";
+import { Banner, Button, Card, Dialog, EmptyState, Field, LoadingState, StatusBadge } from "../components/ui";
+import { DraftBrief, PatientAccess, PatientPage, PrivateNote, ResourceNotice } from "../components/patient/PatientUI";
+import { Feedback } from "../components/account/AccountUI";
 import { useAuth } from "../context/AuthContext";
-import { Link } from "react-router-dom";
-
-const formatDate = (value) =>
-  value
-    ? new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value))
-    : "Date unavailable";
-
-const PatientHealthPortal = () => {
-  const { user } = useAuth();
-  const [timeline, setTimeline] = useState([]);
-  const [hospitals, setHospitals] = useState([]);
-  const [browseHospitals, setBrowseHospitals] = useState([]);
-  const [family, setFamily] = useState([]);
-  const [member, setMember] = useState({ name: "", relation: "", dob: "", gender: "", bloodGroup: "" });
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  const stats = useMemo(
-    () => ({
-      visits: timeline.length,
-      hospitals: hospitals.length,
-      family: family.length,
-    }),
-    [family.length, hospitals.length, timeline.length],
-  );
-
-  const loadPortal = async () => {
-    setLoading(true);
-    setMessage("");
-    try {
-      const [timelineRes, hospitalsRes, familyRes, browseRes] = await Promise.all([
-        axios.get(`${BACKEND_URL}/api/patients/me/health-timeline`, { withCredentials: true }),
-        axios.get(`${BACKEND_URL}/api/patients/me/hospitals`, { withCredentials: true }),
-        axios.get(`${BACKEND_URL}/api/patients/me/family`, { withCredentials: true }),
-        axios.get(`${BACKEND_URL}/api/hospitals?limit=12`),
-      ]);
-      setTimeline(timelineRes.data.items || []);
-      setHospitals(hospitalsRes.data.items || []);
-      setFamily(familyRes.data.items || []);
-      setBrowseHospitals(browseRes.data.items || []);
-    } catch (error) {
-      setMessage(error.response?.data?.message || "Unable to load patient portal");
-    } finally {
-      setLoading(false);
-    }
+import { useCareResource } from "../hooks/useCareResource";
+import useFormTask from "../hooks/useFormTask";
+import { dateInZone as todayInTimezone, downloadText, visitTime } from "../utils/appointments";
+import { familyPayload, filterRecords, hospitalLocation, hospitalPath, personName, recordKey } from "../utils/patientCare";
+import { BACKEND_URL } from "../utils";
+export default function PatientHealthPortal() { return <PatientAccess><RecordsWorkspace /></PatientAccess>; }
+function RecordsWorkspace() {
+  const { user, setUser } = useAuth(), owner = "user:" + user._id;
+  const timeline = useCareResource("/api/patients/me/health-timeline", owner), hospitals = useCareResource("/api/patients/me/hospitals", owner), family = useCareResource("/api/patients/me/family", owner);
+  const task = useFormTask(), [overlay, setOverlay] = useState(null), [adding, setAdding] = useState(false), [removing, setRemoving] = useState(null), [selectedKey, setSelectedKey] = useState(null);
+  const [filters, setFilters] = useState({ search: "", type: "all", person: "all" }), [page, setPage] = useState(1);
+  const members = overlay || family.data?.items || [], items = timeline.data?.items || [], filtered = filterRecords(items, filters), pages = Math.max(1, Math.ceil(filtered.length / 8)), currentPage = Math.min(page, pages), selected = items.find(item => recordKey(item) === selectedKey);
+  const denied = [timeline, hospitals, family].some(resource => [401, 403, 404].includes(resource.errorStatus)) || [401, 403, 404].includes(task.feedback?.status);
+  const refresh = () => { setOverlay(null); timeline.refresh(); hospitals.refresh(); family.refresh(); };
+  const update = key => event => { setFilters(previous => ({ ...previous, [key]: event.target.value })); setPage(1); };
+  const acceptFamily = response => { const next = response.data.items || []; setOverlay(next); setUser(previous => previous?._id === user._id ? { ...previous, familyMembers: next } : previous); setAdding(false); setRemoving(null); task.setFeedback({ message: response.data.message || "Family profiles updated.", tone: "info" }); };
+  const add = event => {
+    event.preventDefault(); const form = Object.fromEntries(new FormData(event.currentTarget)); let body;
+    try { body = familyPayload(form, todayInTimezone()); } catch (error) { task.setFeedback({ message: error.message, tone: "error" }); return; }
+    void task.run(signal => axios.post(BACKEND_URL + "/api/patients/me/family", body, { signal, withCredentials: true }), acceptFamily);
   };
-
-  useEffect(() => {
-    loadPortal();
-  }, []);
-
-  const addMember = async (event) => {
-    event.preventDefault();
-    setMessage("");
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/patients/me/family`, member, { withCredentials: true });
-      setFamily(response.data.items || []);
-      setMember({ name: "", relation: "", dob: "", gender: "", bloodGroup: "" });
-    } catch (error) {
-      setMessage(error.response?.data?.message || "Unable to add family member");
-    }
-  };
-
-  const removeMember = async (memberId) => {
-    try {
-      const response = await axios.delete(`${BACKEND_URL}/api/patients/me/family/${memberId}`, { withCredentials: true });
-      setFamily(response.data.items || []);
-    } catch (error) {
-      setMessage(error.response?.data?.message || "Unable to remove family member");
-    }
-  };
-
-  return (
-    <main className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-          <p className="text-sm font-semibold uppercase text-red-600 dark:text-red-500">Patient Portal</p>
-          <h1 className="mt-1 text-3xl font-extrabold text-gray-950">Health Records</h1>
-          <p className="mt-2 text-sm text-gray-600">A unified timeline of completed OPD visits and online appointments.</p>
-          {message && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{message}</p>}
-        </section>
-
-
-
-        <section className="grid gap-4 md:grid-cols-3">
-          {[
-            ["Completed visits", stats.visits, HeartPulse],
-            ["Hospitals visited", stats.hospitals, Building2],
-            ["Family members", stats.family, UserRound],
-          ].map(([label, value, Icon]) => (
-            <div key={label} className="rounded-xl bg-white dark:bg-slate-950 p-5 shadow-sm">
-              <Icon className="text-red-600 dark:text-red-500" />
-              <p className="mt-3 text-sm text-gray-500">{label}</p>
-              <p className="mt-1 text-2xl font-bold text-gray-950">{value}</p>
-            </div>
-          ))}
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
-          <div className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-              <CalendarDays className="text-red-600 dark:text-red-500" />
-              Health Timeline
-            </h2>
-            <div className="mt-5 space-y-4">
-              {loading ? (
-                <p className="text-sm text-gray-500">Loading records...</p>
-              ) : timeline.length ? (
-                timeline.map((item) => (
-                  <div key={`${item.type}-${item.id}`} className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-red-600 dark:text-red-500">{item.type.replace("_", " ")}</p>
-                        <h3 className="mt-1 font-bold text-gray-950">{item.title}</h3>
-                        <p className="mt-1 text-sm text-gray-600">{item.subtitle}</p>
-                      </div>
-                      <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">{formatDate(item.date)}</span>
-                    </div>
-                    {item.chiefComplaint && <p className="mt-3 text-sm text-gray-700">Complaint: {item.chiefComplaint}</p>}
-                    {item.patientBrief?.agentSummary && <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-blue-900">{item.patientBrief.agentSummary}</p>}
-                    {item.doctorNotes && <p className="mt-3 text-sm text-gray-700">Doctor notes: {item.doctorNotes}</p>}
-                  </div>
-                ))
-              ) : (
-                <p className="rounded-lg bg-gray-50 dark:bg-slate-900 p-5 text-sm text-gray-500">No completed health records yet.</p>
-              )}
-            </div>
-          </div>
-
-          <aside className="space-y-6">
-            <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-gray-950">Visited Hospitals</h2>
-              <div className="mt-4 space-y-3">
-                {hospitals.map((hospital) => (
-                  <div key={hospital._id} className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
-                    <p className="font-bold text-gray-950">{hospital.name}</p>
-                    <p className="text-sm text-gray-600">{hospital.address?.city}, {hospital.address?.state}</p>
-                  </div>
-                ))}
-                {!hospitals.length && <p className="text-sm text-gray-500">No hospital visits yet.</p>}
-              </div>
-            </section>
-
-            <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-gray-950">Family Manager</h2>
-              <form onSubmit={addMember} className="mt-4 space-y-3">
-                {[
-                  ["name", "Name"],
-                  ["relation", "Relation"],
-                  ["dob", "Date of birth"],
-                  ["gender", "Gender"],
-                  ["bloodGroup", "Blood group"],
-                ].map(([field, label]) => (
-                  <input
-                    key={field}
-                    type={field === "dob" ? "date" : "text"}
-                    value={member[field]}
-                    onChange={(event) => setMember({ ...member, [field]: event.target.value })}
-                    placeholder={label}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500"
-                  />
-                ))}
-                <button className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-sm font-bold text-white">
-                  <Plus size={16} />
-                  Add Family Member
-                </button>
-              </form>
-
-              <div className="mt-5 space-y-2">
-                {family.map((item) => (
-                  <div key={item._id} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 dark:bg-slate-900 p-3">
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-slate-100">{item.name}</p>
-                      <p className="text-xs text-gray-500">{item.relation} {item.bloodGroup ? `• ${item.bloodGroup}` : ""}</p>
-                    </div>
-                    <button onClick={() => removeMember(item._id)} className="rounded-md p-2 text-red-600 hover:bg-red-50" aria-label="Remove family member">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </aside>
-        </section>
-
-        <section className="rounded-xl bg-white dark:bg-slate-950 p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-950">
-                <Search className="text-red-600 dark:text-red-500" />
-                Browse Hospitals
-              </h2>
-              <p className="mt-1 text-sm text-gray-600">Explore active hospitals available on MediPulse.</p>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {browseHospitals.map((hospital) => (
-              <div key={hospital._id} className="rounded-lg border border-gray-200 dark:border-red-900/40 p-4">
-                <div className="flex items-center gap-3">
-                  {hospital.branding?.logo ? (
-                    <img src={hospital.branding.logo} alt={hospital.name} className="h-12 w-12 rounded-lg object-cover" />
-                  ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-50 text-red-600 dark:text-red-500">
-                      <Building2 size={22} />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate font-bold text-gray-950">{hospital.name}</p>
-                    <p className="text-sm text-gray-600">{hospital.address?.city}, {hospital.address?.state}</p>
-                  </div>
-                </div>
-                <p className="mt-3 line-clamp-2 text-sm text-gray-600">{hospital.branding?.tagline || "Smart OPD hospital on MediPulse."}</p>
-                <div className="mt-3 flex items-center justify-between text-sm">
-                  <span className="inline-flex items-center gap-1 text-yellow-600">
-                    <Star size={15} fill="currentColor" />
-                    {Number(hospital.stats?.avgRating || 0).toFixed(1)}
-                  </span>
-                  <span className="text-gray-500">{hospital.stats?.totalDoctors || 0} doctors</span>
-                </div>
-              </div>
-            ))}
-            {!browseHospitals.length && !loading && <p className="text-sm text-gray-500">No active hospitals available yet.</p>}
-          </div>
-        </section>
-      </div>
-    </main>
-  );
-};
-
-export default PatientHealthPortal;
+  const remove = () => void task.run(signal => axios.delete(BACKEND_URL + "/api/patients/me/family/" + removing._id, { signal, withCredentials: true }), acceptFamily);
+  if (denied) return <PatientPage title="Record access unavailable" description="Your private records are hidden because patient access could not be verified."><Card><EmptyState title="Sign in again to continue" action={<Button to="/login?returnTo=%2Fhealth-records">Patient sign in</Button>}>No previous account records are shown.</EmptyState></Card></PatientPage>;
+  return <PatientPage title="Health Records" description="Your completed care, saved consultation notes and family profiles, together in one private place." actions={<><Button to="/my-appointments">My appointments</Button><Button variant="secondary" onClick={refresh} disabled={task.busy}><RefreshCw size={16} aria-hidden="true" />Refresh records</Button></>} aside={<><Users size={28} aria-hidden="true" /><h2>Care for you and your family</h2><p>Keep family profiles ready for booking. Your timeline shows recorded information from completed visits.</p><PrivateNote /></>}>
+    {!adding && !removing && <Feedback feedback={task.feedback} />}{!task.online && <Banner>You are offline. Loaded records may be out of date; reconnect before changing family profiles.</Banner>}
+    <div className="mp-patient-summary">{[["Completed records", timeline.data ? items.length : "—"], ["Hospitals visited", hospitals.data ? hospitals.data.items.length : "—"], ["Family profiles", family.data || overlay ? members.length : "—"]].map(([label, value]) => <Card key={label}><span>{label}</span><strong>{value}</strong></Card>)}</div>
+    <div className="mp-patient-layout"><Card aria-labelledby="record-timeline-title"><div className="mp-patient-section-heading"><div><h2 id="record-timeline-title">Your care timeline</h2><p>Open a record to see its saved details.</p></div><CalendarDays size={24} aria-hidden="true" /></div><ResourceNotice resource={timeline} label="records" />
+      <div className="mp-patient-filters"><Field label="Search records" value={filters.search} onChange={update("search")} placeholder="Visit, concern or notes" /><Field as="select" label="Person" value={filters.person} onChange={update("person")}><option value="all">All people</option><option value="self">My records</option>{members.map(member => <option key={member._id} value={member._id}>{member.name}</option>)}</Field><Field as="select" label="Record type" value={filters.type} onChange={update("type")}><option value="all">All records</option><option value="opd_token">Hospital OPD</option><option value="appointment">Appointments</option></Field></div>
+      {timeline.loading && !timeline.data ? <LoadingState>Loading your care timeline...</LoadingState> : filtered.length ? <div className="mp-record-list">{filtered.slice((currentPage - 1) * 8, currentPage * 8).map(item => <article className="mp-record" key={recordKey(item)}><div className="mp-record-top"><div><StatusBadge status={item.status} /><h3>{item.title}</h3><p>{item.subtitle}</p></div><time>{visitTime(item.date)}</time></div><div className="mp-record-bottom"><span className="mp-field-hint">{personName(item, members)}</span><Button variant="secondary" size="small" onClick={() => setSelectedKey(recordKey(item))} aria-label={"Open record: " + item.title}>View record</Button></div></article>)}</div> : !timeline.error ? <EmptyState title={items.length ? "No records match your filters" : "Your care timeline starts here"}>{items.length ? "Try another person, record type or search." : "Completed visits will appear after their records are saved."}</EmptyState> : null}
+      {pages > 1 && <nav aria-label="Record pages" className="mp-patient-pagination"><Button variant="secondary" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Previous records</Button><span>Page {currentPage} of {pages}</span><Button variant="secondary" disabled={currentPage >= pages} onClick={() => setPage(currentPage + 1)}>Next records</Button></nav>}
+    </Card><aside className="mp-stack"><Card aria-labelledby="family-title"><div className="mp-patient-section-heading"><div><h2 id="family-title">Family profiles</h2><p>Choose these people when you book.</p></div><Button variant="secondary" size="small" disabled={task.busy || family.loading || !family.data || !task.online} onClick={() => { task.setFeedback(null); setAdding(true); }}><Plus size={16} aria-hidden="true" />Add family member</Button></div><ResourceNotice resource={family} label="family profiles" />{family.loading && !family.data ? <LoadingState>Loading family profiles...</LoadingState> : members.length ? members.map(member => <div className="mp-family-row" key={member._id}><div><strong>{member.name}</strong><p>{member.relation}{member.bloodGroup ? " · " + member.bloodGroup : ""}</p>{member.dob && <p>Born {visitTime(member.dob).split(",")[0]}</p>}</div><Button variant="ghost" size="small" disabled={task.busy || family.loading || !task.online} aria-label={"Remove " + member.name} onClick={() => { task.setFeedback(null); setRemoving(member); }}>Remove</Button></div>) : !family.error && <EmptyState title="No family profiles yet">Add a profile to book care for someone in your family.</EmptyState>}</Card>
+      <Card><div className="mp-patient-section-heading"><div><h2>Hospitals you have visited</h2><p>Return to a hospital profile.</p></div></div><ResourceNotice resource={hospitals} label="visited hospitals" />{hospitals.loading && !hospitals.data ? <LoadingState>Loading visited hospitals...</LoadingState> : hospitals.data?.items.length ? hospitals.data.items.map(hospital => <div className="mp-family-row" key={hospital._id}><div><strong>{hospital.name}</strong><p>{hospitalLocation(hospital)}</p></div><Button to={hospitalPath(hospital) || undefined} disabled={!hospitalPath(hospital)} variant="ghost" size="small">View hospital</Button></div>) : !hospitals.error && <EmptyState title="No hospital visits recorded">Hospital visits linked to your account will appear here.</EmptyState>}<Button to="/hospitals" variant="secondary">Find a hospital</Button></Card>
+    </aside></div>
+    <Dialog open={adding} title="Add a family member" onClose={() => { if (!task.busy) setAdding(false); }}><form onSubmit={add} className="mp-stack"><Feedback feedback={task.feedback} /><Field label="Full name" name="name" required maxLength={100} pattern=".*\S.*" data-autofocus disabled={task.busy} /><Field label="Relationship" name="relation" required maxLength={60} pattern=".*\S.*" placeholder="For example, parent or child" disabled={task.busy} /><Field label="Date of birth" name="dob" type="date" max={todayInTimezone()} disabled={task.busy} /><div className="mp-form-row"><Field as="select" label="Gender" name="gender" disabled={task.busy}><option value="">Not recorded</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></Field><Field as="select" label="Blood group" name="bloodGroup" disabled={task.busy}><option value="">Not recorded</option>{["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(value => <option key={value}>{value}</option>)}</Field></div><p className="mp-field-hint">Only enter details you know. If a save response is interrupted, refresh your family list before adding the same person again.</p><div className="mp-actions"><Button type="submit" disabled={task.busy || !task.online}>{task.busy ? "Saving profile..." : "Save family profile"}</Button><Button variant="secondary" disabled={task.busy} onClick={() => setAdding(false)}>Cancel</Button></div></form></Dialog>
+    <Dialog open={Boolean(removing)} title="Remove this family profile?" onClose={() => { if (!task.busy) setRemoving(null); }}><div className="mp-stack"><Feedback feedback={task.feedback} /><p>Remove <strong>{removing?.name}</strong> from your saved family profiles and future booking choices? This does not delete visit records.</p><div className="mp-actions"><Button variant="danger" disabled={task.busy || !task.online} onClick={remove}>{task.busy ? "Removing..." : "Remove profile"}</Button><Button variant="secondary" data-autofocus disabled={task.busy} onClick={() => setRemoving(null)}>Keep profile</Button></div></div></Dialog>
+    <Dialog open={Boolean(selected)} title="Care record" onClose={() => setSelectedKey(null)}>{selected && <div className="mp-stack mp-record-detail"><h3>{selected.title}</h3><p>{personName(selected, members)} · {visitTime(selected.date)}</p>{timeline.error && <Banner>These are previously loaded details. Refresh records to check for updates.</Banner>}{selected.chiefComplaint && <section><h3>Recorded concern</h3><p>{selected.chiefComplaint}</p></section>}{selected.doctorNotes && <section><h3>Recorded consultation notes</h3><p>{selected.doctorNotes}</p></section>}{selected.vitals && Object.values(selected.vitals).some(value => value !== null && value !== undefined) && <section><h3>Recorded vitals</h3><dl className="mp-details">{Object.entries(selected.vitals).filter(([, value]) => ["string", "number"].includes(typeof value)).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl></section>}{selected.patientBrief && <section><h3>Generated summary</h3><DraftBrief brief={selected.patientBrief} /></section>}{selected.receiptText && <section><h3>Draft consultation text</h3><pre>{selected.receiptText}</pre><Button variant="secondary" onClick={() => downloadText("medipulse-consultation-draft.txt", selected.receiptText)}>Download draft text</Button></section>}{!selected.chiefComplaint && !selected.doctorNotes && !selected.patientBrief && !selected.receiptText && !selected.vitals && <p>No additional clinical details were recorded.</p>}<Button variant="secondary" onClick={() => setSelectedKey(null)}>Close record</Button></div>}</Dialog>
+  </PatientPage>;
+}
