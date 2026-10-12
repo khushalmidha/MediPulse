@@ -12,64 +12,64 @@ const patientFields = ["name", "age", "gender", "phone"];
 export const pick = (record, fields) => Object.fromEntries(fields.filter(key => record?.[key] !== undefined).map(key => [key, record[key]]));
 
 // Resolve the persisted principal: a body-supplied role, name or adminAccess is never clinical authority.
-export async function clinicalStaff(actor, hospitalId) {
+export async function clinicalStaff(actor, hospitalId, { session = null } = {}) {
   requireRecordId(actor?.id, "staff");
   requireRecordId(hospitalId, "hospital");
-  const staff = await HospitalStaff.findOne({ _id: actor.id, hospitalId, isActive: true, inviteStatus: "accepted" }).lean();
+  const staff = await HospitalStaff.findOne({ _id: actor.id, hospitalId, isActive: true, inviteStatus: "accepted" }).session(session).lean();
   if (!staff) throw accessError(403, "Active hospital staff membership is required");
   return staff;
 }
 
-async function checkPatient(token) {
+async function checkPatient(token, session = null) {
   if (token.familyMemberId && !token.patientId) throw accessError(403, "Visit family identity is inconsistent");
   if (token.patientId) {
     const filter = { _id: token.patientId };
     // Historical care remains accessible after a family member is archived.
     if (token.familyMemberId) filter["familyMembers._id"] = token.familyMemberId;
-    if (!await User.exists(filter)) throw accessError(403, "Visit patient identity needs reviewed repair");
+    if (!await User.exists(filter).session(session)) throw accessError(403, "Visit patient identity needs reviewed repair");
   }
 }
 
-async function checkEncounter(encounterId, token) {
+async function checkEncounter(encounterId, token, session = null) {
   if (!encounterId) return;
   requireRecordId(encounterId, "encounter");
-  const encounter = await EncounterJourney.findOne({ _id: encounterId, hospitalId: token.hospitalId }).lean();
+  const encounter = await EncounterJourney.findOne({ _id: encounterId, hospitalId: token.hospitalId }).session(session).lean();
   if (!encounter || !same(encounter.tokenId, token._id)
     || !same(encounter.departmentId, token.departmentId) || !same(encounter.patientId, token.patientId)
     || !same(encounter.familyMemberId, token.familyMemberId)) throw accessError(403, "Encounter does not match this visit");
 }
 
-export async function clinicalRecordVisit(record, kind) {
+export async function clinicalRecordVisit(record, kind, { session = null } = {}) {
   if (!record.tokenId || !record.departmentId) throw accessError(403, "Clinical record needs reviewed visit linkage");
-  const token = await OpdToken.findOne({ _id: record.tokenId, hospitalId: record.hospitalId }).lean();
+  const token = await OpdToken.findOne({ _id: record.tokenId, hospitalId: record.hospitalId }).session(session).lean();
   if (!token || !same(record.departmentId, token.departmentId) || !same(record.patientId, token.patientId)
     || !same(record.familyMemberId, token.familyMemberId) || !same(record[doctorField(kind)], token.doctorId)
     || record.personKey !== token.personKey || !token.patientInfo?.name
-    || record.patientInfo?.name !== token.patientInfo.name || !await validVisitReferences(token)) {
+    || record.patientInfo?.name !== token.patientInfo.name || !await validVisitReferences(token, { session })) {
     throw accessError(403, "Clinical record identity does not match its visit");
   }
-  await checkPatient(token);
-  await checkEncounter(record.encounterJourneyId, token);
+  await checkPatient(token, session);
+  await checkEncounter(record.encounterJourneyId, token, session);
   return token;
 }
 
-export async function assertClinicalRecordAccess(staff, record, kind, { billing = false } = {}) {
+export async function assertClinicalRecordAccess(staff, record, kind, { billing = false, session = null } = {}) {
   if (!same(staff.hospitalId, record.hospitalId)) throw accessError(403, "Clinical record belongs to another hospital");
-  const token = await clinicalRecordVisit(record, kind);
+  const token = await clinicalRecordVisit(record, kind, { session });
   if (billing && ["HOSPITAL_ADMIN", "RECEPTIONIST"].includes(staff.role)) return;
   if (staff.role === "DOCTOR" && same(staff._id, token.doctorId)) return;
   if (["NURSE", "DEPARTMENT_HEAD"].includes(staff.role) && departmentMember(staff, token.departmentId)) return;
   if (staff.role === serviceRole(kind) && record.serviceDepartmentId
     && departmentMember(staff, record.serviceDepartmentId)
-    && await Department.exists({ _id: record.serviceDepartmentId, hospitalId: record.hospitalId, status: "active" })) return;
+    && await Department.exists({ _id: record.serviceDepartmentId, hospitalId: record.hospitalId, status: "active" }).session(session)) return;
   throw accessError(403, "You are not assigned to this clinical task");
 }
 
 export async function loadClinicalRecord(Model, id, hospitalId, actor, kind, roles, options) {
   requireRecordId(id, "clinical record");
-  const staff = await clinicalStaff(actor, hospitalId);
+  const staff = await clinicalStaff(actor, hospitalId, options);
   if (roles && !roles.includes(staff.role)) throw accessError(403, "This staff role cannot perform this clinical action");
-  const record = await Model.findOne({ _id: id, hospitalId });
+  const record = await Model.findOne({ _id: id, hospitalId }).session(options?.session || null);
   if (!record) throw accessError(404, "Clinical record not found in this hospital");
   await assertClinicalRecordAccess(staff, record, kind, options);
   record.$locals.clinicalActor = { id: String(staff._id), name: staff.name, role: staff.role };
@@ -148,7 +148,7 @@ export function patientClinicalView(record, kind) {
     view.results = (record.results || []).map(item => pick(item, ["parameterCode", "parameterName", "value", "unit", "referenceRangeText", "flag", "isCritical"]));
   } else {
     Object.assign(view, pick(record, ["status", "prescribingDoctorName", "diagnosis", "version", "dispensedAt"]));
-    view.items = (record.items || []).map(item => pick(item, ["medicationCode", "medicationName", "directions", "durationDays", "quantityPrescribed", "quantityDispensed", "itemStatus"]));
+    view.items = (record.items || []).map(item => pick(item, ["medicationCode", "medicationName", "directions", "durationDays", "quantityPrescribed", "quantityDispensed", "quantityFulfilled", "quantityReturned", "itemStatus"]));
   }
   return view;
 }

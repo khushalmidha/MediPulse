@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import "./pharmacy.css";
+import { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import {
   Pill,
@@ -10,140 +11,122 @@ import {
   Boxes,
   ClipboardList,
 } from "lucide-react";
+import { returnAllocations, pendingPharmacyKey, readPendingPharmacy } from "../../utils/pharmacy";
+import { formatDoctorName } from "../../utils/appointments";
 import { BACKEND_URL } from "../../utils";
 import { useAuth } from "../../context/AuthContext";
 import { Banner, Button, Card, Dialog, EmptyState, Field, LoadingState, StatusBadge } from "../../components/ui";
 
 export default function PharmacyConsole() {
+  const { staffUser, isStaffAuth } = useAuth();
+  if (!isStaffAuth || staffUser?.role !== "PHARMACIST") return <main className="mp-page"><Card><h1>Hospital pharmacy access is needed</h1><p>Sign in with your assigned pharmacist account to view this workspace.</p></Card></main>;
+  return <PharmacyWorkspace key={`${staffUser._id}:${staffUser.hospitalId}`} />;
+}
+
+function PharmacyWorkspace() {
   const { staffUser, staffHospital } = useAuth();
-  const hospitalId = staffUser?.hospitalId || staffHospital?._id;
-
-  const [activeTab, setActiveTab] = useState("prescriptions"); // 'prescriptions' | 'inventory'
-  const [prescriptions, setPrescriptions] = useState([]);
-  const [inventory, setInventory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Dialog states
-  const [selectedPrescription, setSelectedPrescription] = useState(null);
-  const [actionType, setActionType] = useState(null); // 'dispense' | 'return' | 'qr'
-  const [actionBusy, setActionBusy] = useState(false);
-  const [actionFeedback, setActionFeedback] = useState("");
-
-  // Form states
-  const [dispenseItems, setDispenseItems] = useState([]);
-  const [returnItems, setReturnItems] = useState([]);
-  const [returnReason, setReturnReason] = useState("");
+  const hospitalId = staffUser.hospitalId || staffHospital?._id;
+  const storageKey = pendingPharmacyKey(hospitalId, staffUser._id);
+  const [activeTab, setActiveTab] = useState("prescriptions");
+  const [prescriptions, setPrescriptions] = useState([]), [inventory, setInventory] = useState([]);
+  const [loading, setLoading] = useState(true), [error, setError] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"), [searchQuery, setSearchQuery] = useState("");
+  const [selectedPrescription, setSelectedPrescription] = useState(null), [actionType, setActionType] = useState(null);
+  const [actionBusy, setActionBusy] = useState(false), [actionFeedback, setActionFeedback] = useState("");
+  const [dispenseItems, setDispenseItems] = useState([]), [returnItems, setReturnItems] = useState([]), [returnReason, setReturnReason] = useState("");
+  const [notice, setNotice] = useState(""), [pending, setPending] = useState(null);
+  const [pendingProblem, setPendingProblem] = useState("");
+  const alive = useRef(false), readController = useRef(null), actionController = useRef(null), submitting = useRef(false);
 
   const fetchData = useCallback(async () => {
-    if (!hospitalId) return;
+    readController.current?.abort();
+    const controller = new AbortController(); readController.current = controller;
+    setLoading(true);
     try {
-      setLoading(true);
       const [rxRes, invRes] = await Promise.all([
-        axios.get(
-          `${BACKEND_URL}/api/pharmacy/prescriptions?hospitalId=${encodeURIComponent(hospitalId)}${
-            statusFilter !== "all" ? `&status=${encodeURIComponent(statusFilter)}` : ""
-          }`,
-          { withCredentials: true }
-        ),
-        axios.get(`${BACKEND_URL}/api/pharmacy/inventory?hospitalId=${encodeURIComponent(hospitalId)}`, {
-          withCredentials: true,
-        }),
+        axios.get(`${BACKEND_URL}/api/pharmacy/prescriptions`, { params: statusFilter === "all" ? {} : { status: statusFilter }, withCredentials: true, signal: controller.signal }),
+        axios.get(`${BACKEND_URL}/api/pharmacy/inventory`, { withCredentials: true, signal: controller.signal }),
       ]);
-      setPrescriptions(rxRes.data.prescriptions || []);
-      setInventory(invRes.data.inventory || []);
-      setError("");
+      if (!alive.current || controller.signal.aborted) return;
+      setPrescriptions(rxRes.data.prescriptions || []); setInventory(invRes.data.inventory || []); setError("");
     } catch (err) {
+      if (!alive.current || controller.signal.aborted) return;
       setError(err.response?.data?.message || "Failed to load pharmacy data");
-    } finally {
-      setLoading(false);
-    }
-  }, [hospitalId, statusFilter]);
+      if ([401,403].includes(err.response?.status)) { setPrescriptions([]); setInventory([]); setSelectedPrescription(null); setActionType(null); }
+    } finally { if (alive.current && !controller.signal.aborted) setLoading(false); }
+  }, [statusFilter]);
 
   useEffect(() => {
+    alive.current = true;
+    try { setPending(readPendingPharmacy(sessionStorage, storageKey)); }
+    catch { setPendingProblem("The saved operation cannot be read. Restore access to this tab's session storage and reload before recording another operation."); }
     fetchData();
-  }, [fetchData]);
+    return () => { alive.current = false; readController.current?.abort(); actionController.current?.abort(); };
+  }, [fetchData, storageKey]);
 
   const openAction = (rx, type) => {
-    setSelectedPrescription(rx);
-    setActionType(type);
-    setActionFeedback("");
-
-    if (type === "dispense") {
-      setDispenseItems(
-        (rx.items || []).map((i) => ({
-          itemId: i._id,
-          medicationCode: i.medicationCode,
-          medicationName: i.medicationName,
-          quantityPrescribed: i.quantityPrescribed,
-          quantityAlreadyDispensed: i.quantityDispensed || 0,
-          quantityToDispense: Math.max(0, i.quantityPrescribed - (i.quantityDispensed || 0)),
-          batchNumber: "",
-        }))
-      );
-    } else if (type === "return") {
-      setReturnReason("");
-      setReturnItems(
-        (rx.items || [])
-          .filter((i) => (i.quantityDispensed || 0) > 0)
-          .map((i) => ({
-            itemId: i._id,
-            medicationCode: i.medicationCode,
-            medicationName: i.medicationName,
-            quantityDispensed: i.quantityDispensed,
-            quantity: i.quantityDispensed,
-          }))
-      );
-    }
+    if (pending || pendingProblem || submitting.current) return;
+    setSelectedPrescription(rx); setActionType(type); setActionFeedback(""); setReturnReason("");
+    if (type === "dispense") setDispenseItems((rx.items || []).filter(item => !item.quantityReturned && item.itemStatus !== "cancelled")
+      .map(item => ({ itemId: item._id, medicationName: item.medicationName, quantityPrescribed: item.quantityPrescribed,
+        quantityAlreadyDispensed: item.quantityFulfilled ?? item.quantityDispensed ?? 0,
+        quantityToDispense: 0, batchNumber: "" })).filter(item => item.quantityAlreadyDispensed < item.quantityPrescribed));
+    if (type === "return") setReturnItems(returnAllocations(rx));
   };
-
-  const closeAction = () => {
-    if (!actionBusy) {
-      setSelectedPrescription(null);
-      setActionType(null);
-      setActionFeedback("");
-    }
-  };
-
-  const submitDispense = async () => {
-    setActionBusy(true);
+  const resetDialog = () => { setSelectedPrescription(null); setActionType(null); setActionFeedback(""); };
+  const closeAction = () => { if (!submitting.current) resetDialog(); };
+  const resumePending = async () => {
+    if (!pending || submitting.current) return;
+    const controller = new AbortController(); actionController.current = controller;
+    submitting.current = true; setActionBusy(true);
     try {
-      await axios.post(
-        `${BACKEND_URL}/api/pharmacy/prescriptions/${selectedPrescription._id}/dispense`,
-        { hospitalId, items: dispenseItems },
-        { withCredentials: true }
-      );
-      closeAction();
-      fetchData();
-    } catch (err) {
-      setActionFeedback(err.response?.data?.message || "Failed to dispense medications");
-    } finally {
-      setActionBusy(false);
-    }
+      const response = await axios.get(`${BACKEND_URL}/api/pharmacy/prescriptions/${pending.rxId}`, { withCredentials: true, signal: controller.signal });
+      if (!alive.current || controller.signal.aborted) return;
+      setSelectedPrescription(response.data.prescription); setActionType(pending.kind); setActionFeedback("");
+    } catch (err) { if (alive.current && !controller.signal.aborted) setError(err.response?.data?.message || "Could not resume the saved operation"); }
+    finally { if (alive.current) { submitting.current = false; setActionBusy(false); } }
   };
-
-  const submitReturn = async () => {
-    if (!returnReason.trim()) {
-      setActionFeedback("Return reason is required");
-      return;
+  const submitOperation = async kind => {
+    if (submitting.current || !selectedPrescription) return;
+    let packet = pending;
+    if (!packet) {
+      const rows = kind === "dispense" ? dispenseItems : returnItems, field = kind === "dispense" ? "quantityToDispense" : "quantity";
+      if (rows.some(row => !Number.isSafeInteger(row[field]) || row[field] < 0)) { setActionFeedback("Enter whole quantities of zero or more; zero skips an item."); return; }
+      const selected = rows.filter(row => row[field] > 0);
+      if (!selected.length) { setActionFeedback("Select at least one positive quantity."); return; }
+      if (kind === "return" && !returnReason.trim()) { setActionFeedback("Return reason is required"); return; }
+      packet = { rxId: selectedPrescription._id, kind, key: crypto.randomUUID(), body: {
+        expectedRevision: selectedPrescription.fulfillmentRevision || 0,
+        items: selected.map(row => kind === "dispense" ? { itemId: row.itemId, quantityToDispense: row.quantityToDispense, batchNumber: row.batchNumber }
+          : { allocationId: row.allocationId, quantity: row.quantity }),
+        ...(kind === "return" ? { reason: returnReason.trim() } : {}),
+      } };
+      // Retain only the pending command, scoped to this staff account/tab. Never cache clinical responses.
+      try { sessionStorage.setItem(storageKey, JSON.stringify(packet)); }
+      catch { setActionFeedback("Session storage is unavailable. This operation was not sent; restore storage and retry."); return; }
+      setPending(packet);
     }
-    setActionBusy(true);
+    submitting.current = true; setActionBusy(true); setActionFeedback("");
+    const controller = new AbortController(); actionController.current = controller;
     try {
-      await axios.post(
-        `${BACKEND_URL}/api/pharmacy/prescriptions/${selectedPrescription._id}/return`,
-        { hospitalId, items: returnItems, reason: returnReason.trim() },
-        { withCredentials: true }
-      );
-      closeAction();
-      fetchData();
+      const response = await axios.post(`${BACKEND_URL}/api/pharmacy/prescriptions/${packet.rxId}/${packet.kind}`, packet.body,
+        { withCredentials: true, headers: { "Idempotency-Key": packet.key }, signal: controller.signal, timeout: 20000 });
+      if (!alive.current || controller.signal.aborted) return;
+      sessionStorage.removeItem(storageKey); setPending(null); resetDialog();
+      setNotice(response.data.message || "Operation recorded"); fetchData();
     } catch (err) {
-      setActionFeedback(err.response?.data?.message || "Failed to process return");
-    } finally {
-      setActionBusy(false);
-    }
+      if (!alive.current || controller.signal.aborted) return;
+      const definitive = [400,409,422,428].includes(err.response?.status);
+      if (definitive) {
+        try { sessionStorage.removeItem(storageKey); }
+        catch { setActionFeedback("Restore session storage before resolving this saved operation."); return; }
+        setPending(null); fetchData();
+      }
+      setActionFeedback(definitive ? err.response.data?.message || "Operation rejected" : "The response was not confirmed. Retry this same operation; its quantities and operation key have been retained.");
+    } finally { if (alive.current) { submitting.current = false; setActionBusy(false); } }
   };
+  const submitDispense = () => submitOperation("dispense");
+  const submitReturn = () => submitOperation("return");
 
   const filteredPrescriptions = prescriptions.filter((rx) => {
     if (!searchQuery.trim()) return true;
@@ -157,9 +140,10 @@ export default function PharmacyConsole() {
 
   return (
     <main
-      className="mp-page"
+      className="mp-page mp-pharmacy"
       style={{
         maxWidth: 1400,
+        width: "100%",
         margin: "0 auto",
         padding: "32px 24px",
       }}
@@ -168,10 +152,10 @@ export default function PharmacyConsole() {
         <div>
           <p className="mp-eyebrow">Hospital Pharmacy · Medication Dispensing</p>
           <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Pill size={28} style={{ color: "var(--mp-teal)" }} />
+            <Pill size={28} style={{ color: "var(--mp-accent)" }} />
             Hospital Pharmacy Operations
           </h1>
-          <p style={{ color: "var(--mp-text-muted)" }}>
+          <p style={{ color: "var(--mp-muted)" }}>
             Fulfill clinician-approved prescriptions, track batch stock and expiries, record verified dispensing, and manage returns.
           </p>
         </div>
@@ -182,6 +166,9 @@ export default function PharmacyConsole() {
         </div>
       </div>
 
+      {pendingProblem && <Banner tone="danger">{pendingProblem}</Banner>}
+      {notice && <Banner tone="positive">{notice}</Banner>}
+      {pending && <Banner tone="warning">One pharmacy operation needs confirmation. Resume it before recording another. <Button onClick={resumePending} disabled={actionBusy}>Resume operation</Button></Banner>}
       {error && <Banner tone="danger" style={{ marginBottom: 16 }}>{error}</Banner>}
 
       {/* Main Switcher: Prescriptions vs Inventory */}
@@ -218,7 +205,7 @@ export default function PharmacyConsole() {
                   <Button
                     key={tab.id}
                     variant={statusFilter === tab.id ? "primary" : "ghost"}
-                    onClick={() => setStatusFilter(tab.id)}
+                    onClick={() => setStatusFilter(tab.id)} disabled={actionBusy || Boolean(pending)}
                     style={{ padding: "6px 14px", fontSize: 13 }}
                   >
                     {tab.label}
@@ -227,13 +214,14 @@ export default function PharmacyConsole() {
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Search size={16} style={{ color: "var(--mp-text-muted)" }} />
+                <Search size={16} style={{ color: "var(--mp-muted)" }} />
                 <Field
+                  label="Search prescriptions"
                   type="search"
                   placeholder="Search patient, medication or RX..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ minWidth: 260, marginBottom: 0 }}
+                  style={{ minWidth: 180, width: "100%", marginBottom: 0 }}
                 />
               </div>
             </div>
@@ -263,8 +251,8 @@ export default function PharmacyConsole() {
                       gap: 16,
                     }}
                   >
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                    <div className="mp-pharmacy-record-info">
+                      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
                         <h3 style={{ margin: 0, fontSize: 18 }}>{rx.patientInfo?.name || "Patient"}</h3>
                         <StatusBadge status={rx.status} />
                         {rx.verificationToken && (
@@ -274,7 +262,7 @@ export default function PharmacyConsole() {
                               fontSize: 12,
                               padding: "2px 8px",
                               borderRadius: 4,
-                              background: "rgba(15, 23, 42, 0.05)",
+                              background: "var(--mp-surface-muted)",
                               fontWeight: 600,
                             }}
                           >
@@ -283,8 +271,8 @@ export default function PharmacyConsole() {
                         )}
                       </div>
 
-                      <p style={{ margin: "4px 0", fontSize: 13, color: "var(--mp-text-muted)" }}>
-                        Prescribed by: {rx.prescribingDoctorName || "Doctor"} · Date:{" "}
+                      <p style={{ margin: "4px 0", fontSize: 13, color: "var(--mp-muted)" }}>
+                        Prescribed by: {formatDoctorName(rx.prescribingDoctorName)} · Date:{" "}
                         {new Date(rx.createdAt).toLocaleDateString()}
                         {rx.dispensedByName && ` · Dispensed by: ${rx.dispensedByName}`}
                       </p>
@@ -304,24 +292,26 @@ export default function PharmacyConsole() {
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
-                              background: "rgba(15, 23, 42, 0.02)",
+                              flexWrap: "wrap",
+                              gap: 10,
+                              background: "var(--mp-surface-muted)",
                               padding: "8px 12px",
                               borderRadius: 6,
                               fontSize: 13,
                             }}
                           >
-                            <div>
+                            <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                               <strong>{item.medicationName}</strong> ({item.medicationCode}) ·{" "}
-                              <span style={{ color: "var(--mp-text-muted)" }}>{item.directions}</span>
-                              {item.batchNumber && (
-                                <span style={{ marginLeft: 8, fontFamily: "monospace", color: "var(--mp-teal)" }}>
+                              <span style={{ color: "var(--mp-muted)" }}>{item.directions}</span>
+                              {item.batchNumber && !(rx.fulfillmentOperations || []).length && (
+                                <span style={{ marginLeft: 8, fontFamily: "monospace", color: "var(--mp-accent)" }}>
                                   Batch: {item.batchNumber}
                                 </span>
                               )}
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                               <span>
-                                Qty: {item.quantityDispensed || 0} / {item.quantityPrescribed}
+                                Held: {item.quantityDispensed || 0} / {item.quantityPrescribed} · Returned: {item.quantityReturned || 0}
                               </span>
                               <StatusBadge status={item.itemStatus} />
                             </div>
@@ -330,22 +320,28 @@ export default function PharmacyConsole() {
                       </div>
                     </div>
 
+                    <div aria-label="Recorded batch operations" style={{ flexBasis: "100%", color: "var(--mp-muted)", fontSize: 13 }}>
+                      {(rx.fulfillmentOperations || []).map(operation => <p key={operation._id}>
+                        {operation.kind === "return" ? "Returned to quarantine" : "Dispensed"}: {operation.allocations.map(row => `${row.batchNumber} × ${row.quantity}`).join(", ")}
+                      </p>)}
+                      {rx.fulfillmentLedgerVersion !== 1 && rx.items.some(item => item.quantityDispensed > 0) && <Banner tone="warning">Earlier dispensing has no batch allocations. Reviewed repair is needed before another stock operation.</Banner>}
+                    </div>
                     {/* Actions */}
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {["approved_by_doctor", "partially_dispensed"].includes(rx.status) && (
-                        <Button onClick={() => openAction(rx, "dispense")} style={{ gap: 6 }}>
+                        <Button disabled={Boolean(pendingProblem) || Boolean(pending) || (rx.items.some(item => item.quantityDispensed > 0) && rx.fulfillmentLedgerVersion !== 1)} onClick={() => openAction(rx, "dispense")} style={{ gap: 6 }}>
                           <PackageCheck size={16} /> Dispense Medication
                         </Button>
                       )}
 
                       {["partially_dispensed", "dispensed"].includes(rx.status) && (
-                        <Button variant="secondary" onClick={() => openAction(rx, "return")} style={{ gap: 6 }}>
+                        <Button variant="secondary" disabled={Boolean(pendingProblem) || Boolean(pending) || rx.fulfillmentLedgerVersion !== 1} onClick={() => openAction(rx, "return")} style={{ gap: 6 }}>
                           <RotateCcw size={16} /> Process Return
                         </Button>
                       )}
 
-                      <Button variant="ghost" onClick={() => openAction(rx, "qr")} style={{ gap: 6 }}>
-                        <QrCode size={16} /> QR Verification
+                      <Button variant="ghost" disabled={Boolean(pendingProblem) || Boolean(pending)} onClick={() => openAction(rx, "qr")} style={{ gap: 6 }}>
+                        <QrCode size={16} /> Verify Document
                       </Button>
                     </div>
                   </div>
@@ -369,7 +365,7 @@ export default function PharmacyConsole() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap" }}>
                   <div>
                     <h3 style={{ margin: 0, fontSize: 18 }}>{item.medicationName}</h3>
-                    <p style={{ margin: "4px 0", fontSize: 13, color: "var(--mp-text-muted)" }}>
+                    <p style={{ margin: "4px 0", fontSize: 13, color: "var(--mp-muted)" }}>
                       Code: {item.medicationCode} · Form: {item.dosageForm} · Strength: {item.strength || "Standard"}
                     </p>
                     <p style={{ margin: "6px 0", fontWeight: 600 }}>
@@ -390,7 +386,9 @@ export default function PharmacyConsole() {
                       <tr style={{ textAlign: "left", borderBottom: "1px solid var(--mp-border)" }}>
                         <th style={{ padding: "6px 8px" }}>Batch #</th>
                         <th style={{ padding: "6px 8px" }}>Expiry Date</th>
-                        <th style={{ padding: "6px 8px" }}>Available Qty</th>
+                        <th style={{ padding: "6px 8px" }}>On-hand Qty</th>
+                        <th style={{ padding: "6px 8px" }}>Reserved Qty</th>
+                        <th style={{ padding: "6px 8px" }}>Quarantined Qty</th>
                         <th style={{ padding: "6px 8px" }}>Status</th>
                       </tr>
                     </thead>
@@ -398,12 +396,14 @@ export default function PharmacyConsole() {
                       {(item.batches || []).map((b, idx) => {
                         const isExpired = new Date(b.expiryDate) < new Date();
                         return (
-                          <tr key={idx} style={{ borderBottom: "1px solid rgba(15, 23, 42, 0.05)" }}>
+                          <tr key={idx} style={{ borderBottom: "1px solid var(--mp-border)" }}>
                             <td style={{ padding: "6px 8px", fontFamily: "monospace" }}>{b.batchNumber}</td>
                             <td style={{ padding: "6px 8px" }}>
                               {new Date(b.expiryDate).toLocaleDateString()}
                             </td>
                             <td style={{ padding: "6px 8px", fontWeight: 600 }}>{b.quantityAvailable}</td>
+                            <td style={{ padding: "6px 8px" }}>{b.quantityReserved || 0}</td>
+                            <td style={{ padding: "6px 8px" }}>{b.quantityQuarantined || 0}</td>
                             <td style={{ padding: "6px 8px" }}>
                               <span
                                 style={{
@@ -411,8 +411,8 @@ export default function PharmacyConsole() {
                                   fontWeight: 600,
                                   padding: "2px 6px",
                                   borderRadius: 4,
-                                  background: isExpired ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)",
-                                  color: isExpired ? "#ef4444" : "#10b981",
+                                  background: isExpired ? "var(--mp-surface-muted)" : "var(--mp-accent-soft)",
+                                  color: isExpired ? "var(--mp-danger)" : "var(--mp-accent-ink)",
                                 }}
                               >
                                 {isExpired ? "EXPIRED" : "VALID"}
@@ -436,29 +436,31 @@ export default function PharmacyConsole() {
         onClose={closeAction}
         title="Dispense Prescription Medications"
       >
-        <p>Confirm the quantities and batches dispensed to the patient.</p>
+        {pending && <Banner tone="info">Saved dispensing quantities: {pending.body.items.map(row => row.quantityToDispense).join(", ")}. Retry confirms this original operation.</Banner>}
+        <p>Enter quantities to dispense. Zero skips an item. Leave the batch blank to use eligible stock in expiry order.</p>
         <div style={{ maxHeight: 360, overflowY: "auto", margin: "16px 0" }}>
           {dispenseItems.map((item, idx) => (
             <div
               key={idx}
               style={{
                 padding: 12,
-                background: "rgba(15, 23, 42, 0.03)",
+                background: "var(--mp-surface-muted)",
                 borderRadius: 6,
                 marginBottom: 10,
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                 <strong>{item.medicationName}</strong>
-                <span style={{ fontSize: 12, color: "var(--mp-text-muted)" }}>
+                <span style={{ fontSize: 12, color: "var(--mp-muted)" }}>
                   Prescribed: {item.quantityPrescribed} (Already dispensed: {item.quantityAlreadyDispensed})
                 </span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
                 <Field
                   label="Quantity to Dispense"
                   type="number"
                   min="0"
+                  step="1"
                   max={item.quantityPrescribed - item.quantityAlreadyDispensed}
                   value={item.quantityToDispense}
                   onChange={(e) => {
@@ -466,7 +468,7 @@ export default function PharmacyConsole() {
                     updated[idx].quantityToDispense = Number(e.target.value);
                     setDispenseItems(updated);
                   }}
-                  disabled={actionBusy}
+                  disabled={actionBusy || Boolean(pending)}
                   style={{ marginBottom: 0 }}
                 />
                 <Field
@@ -478,7 +480,7 @@ export default function PharmacyConsole() {
                     updated[idx].batchNumber = e.target.value;
                     setDispenseItems(updated);
                   }}
-                  disabled={actionBusy}
+                  disabled={actionBusy || Boolean(pending)}
                   style={{ marginBottom: 0 }}
                 />
               </div>
@@ -490,10 +492,10 @@ export default function PharmacyConsole() {
 
         <div className="mp-actions" style={{ marginTop: 20 }}>
           <Button variant="secondary" onClick={closeAction} disabled={actionBusy}>
-            Cancel
+            {pending ? "Close for now" : "Cancel"}
           </Button>
           <Button onClick={submitDispense} disabled={actionBusy}>
-            {actionBusy ? "Processing..." : "Confirm Dispensing"}
+            {actionBusy ? "Processing..." : pending ? "Retry Same Dispensing" : "Confirm Dispensing"}
           </Button>
         </div>
       </Dialog>
@@ -504,14 +506,16 @@ export default function PharmacyConsole() {
         onClose={closeAction}
         title="Process Medication Return"
       >
-        <p>Restores dispensed items back to inventory stock with an audited justification.</p>
+        {pending && <Banner tone="info">Saved return quantities: {pending.body.items.map(row => row.quantity).join(", ")}. Reason: {pending.body.reason}</Banner>}
+        <p>Record returned units against their original batches. Returns are quarantined and do not increase stock available for dispensing.</p>
         <Field
           label="Mandatory Reason for Return"
           value={returnReason}
           onChange={(e) => setReturnReason(e.target.value)}
           placeholder="e.g. Patient allergic reaction / clinician discontinued order..."
           required
-          disabled={actionBusy}
+          maxLength={1000}
+          disabled={actionBusy || Boolean(pending)}
         />
 
         <div style={{ maxHeight: 240, overflowY: "auto", margin: "16px 0" }}>
@@ -521,22 +525,26 @@ export default function PharmacyConsole() {
               style={{
                 display: "flex",
                 justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 8,
                 alignItems: "center",
                 padding: 8,
-                background: "rgba(15, 23, 42, 0.03)",
+                background: "var(--mp-surface-muted)",
                 borderRadius: 6,
                 marginBottom: 8,
               }}
             >
               <div>
                 <strong>{item.medicationName}</strong>
-                <p style={{ margin: 0, fontSize: 11, color: "var(--mp-text-muted)" }}>
-                  Dispensed: {item.quantityDispensed}
+                <p style={{ margin: 0, fontSize: 11, color: "var(--mp-muted)" }}>
+                  Batch: {item.batchNumber} · Available to return: {item.quantityDispensed}
                 </p>
               </div>
               <Field
+                label={`Return quantity for ${item.medicationName}, batch ${item.batchNumber}`}
                 type="number"
-                min="1"
+                min="0"
+                step="1"
                 max={item.quantityDispensed}
                 value={item.quantity}
                 onChange={(e) => {
@@ -544,8 +552,8 @@ export default function PharmacyConsole() {
                   updated[idx].quantity = Number(e.target.value);
                   setReturnItems(updated);
                 }}
-                disabled={actionBusy}
-                style={{ width: 90, marginBottom: 0 }}
+                disabled={actionBusy || Boolean(pending)}
+                style={{ width: 150, maxWidth: "100%", marginBottom: 0 }}
               />
             </div>
           ))}
@@ -555,10 +563,10 @@ export default function PharmacyConsole() {
 
         <div className="mp-actions" style={{ marginTop: 20 }}>
           <Button variant="secondary" onClick={closeAction} disabled={actionBusy}>
-            Cancel
+            {pending ? "Close for now" : "Cancel"}
           </Button>
           <Button variant="danger" onClick={submitReturn} disabled={actionBusy}>
-            {actionBusy ? "Processing..." : "Confirm Return"}
+            {actionBusy ? "Processing..." : pending ? "Retry Same Return" : "Confirm Return"}
           </Button>
         </div>
       </Dialog>
@@ -567,7 +575,7 @@ export default function PharmacyConsole() {
       <Dialog
         open={actionType === "qr"}
         onClose={closeAction}
-        title="Prescription QR Verification"
+        title="Prescription Verification"
       >
         <div style={{ textAlign: "center", padding: "20px 0" }}>
           <div
@@ -580,7 +588,7 @@ export default function PharmacyConsole() {
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
             }}
           >
-            <QrCode size={160} style={{ color: "#0f172a" }} />
+            <QrCode size={32} style={{ color: "#0f172a" }} />
           </div>
           <p
             style={{
@@ -588,16 +596,17 @@ export default function PharmacyConsole() {
               fontFamily: "monospace",
               fontSize: 16,
               fontWeight: 700,
-              color: "var(--mp-teal)",
+              color: "var(--mp-accent)",
             }}
           >
             {selectedPrescription?.verificationToken}
           </p>
-          <p style={{ fontSize: 13, color: "var(--mp-text-muted)", maxWidth: 360, margin: "8px auto 0" }}>
-            Controlled verification token for patient collection and pharmacy auditing without exposing confidential medical records.
+          <p style={{ fontSize: 13, color: "var(--mp-muted)", maxWidth: 360, margin: "8px auto 0" }}>
+            Verify document status using the link below. Clinical information requires an authorized account.
           </p>
         </div>
         <div className="mp-actions" style={{ marginTop: 20 }}>
+          <a href={`${BACKEND_URL}/api/pharmacy/verify-qr/${selectedPrescription?.verificationToken}`} target="_blank" rel="noopener noreferrer">Open verification link</a>
           <Button variant="secondary" onClick={closeAction}>
             Close
           </Button>

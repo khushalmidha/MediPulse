@@ -216,7 +216,7 @@ test("legacy unlinked and contradictory clinical records fail closed without alt
   await LabOrder.updateOne({ _id: labOrder._id }, { $set: { "patientInfo.name": "Synthetic Family Member" } });
 });
 
-test("unimplemented clinical verification and unsafe stock actions fail explicitly without writes", async () => {
+test("unimplemented lab verification and pharmacy commands without operation keys preserve records", async () => {
   const beforeLab = await LabOrder.findById(labOrder._id).lean(), beforeRx = await Prescription.findById(prescription._id).lean();
   const beforeStock = await PharmacyInventory.findById(inventory).lean();
   for (const action of ["verify", "release", "correct"]) {
@@ -225,7 +225,7 @@ test("unimplemented clinical verification and unsafe stock actions fail explicit
   }
   for (const action of ["dispense", "return"]) {
     const body = { items: [{ itemId: prescription.items[0]._id, quantityToDispense: 1, quantity: 1 }], reason: "Synthetic reason" };
-    assert.equal((await http("/pharmacy/prescriptions/" + prescription._id + "/" + action, "pharmacist", body)).status, 503);
+    assert.equal((await http("/pharmacy/prescriptions/" + prescription._id + "/" + action, "pharmacist", body)).status, 428);
     assert.equal((await http("/pharmacy/prescriptions/" + prescription._id + "/" + action, "wrongPharmacist", body)).status, 403);
   }
   assert.deepEqual(await LabOrder.findById(labOrder._id).lean(), beforeLab);

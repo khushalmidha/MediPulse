@@ -1,3 +1,4 @@
+import { staffDestination } from "../utils/accountForms";
 /* eslint-disable react/prop-types */
 import { useProduct } from "../context/ProductContext"
 import { cleanDoctorName, formatDoctorName } from "../utils/appointments"
@@ -248,6 +249,7 @@ const Navbar = () => {
     ...((staffRole === 'HOSPITAL_ADMIN' || staffUser?.adminAccess) ? [{ to: '/hospital/admin', label: 'Dashboard', icon: Building2 }] : []),
     ...(['HOSPITAL_ADMIN', 'NURSE', 'RECEPTIONIST'].includes(staffRole) ? [{ to: '/hospital/nursing-station', label: 'OPD Tokens', icon: ClipboardList }] : []),
     ...(staffRole === 'DOCTOR' ? [{ to: '/hospital/doctor-opd', label: 'Consultation', icon: Stethoscope, badge: staffOpdBadge }] : []),
+    ...(staffRole === 'PHARMACIST' ? [{ to: '/hospital/pharmacy', label: 'Pharmacy', icon: ClipboardList }] : []),
     { to: '/hospital/staff-communication', label: 'Staff Chat', icon: MessageSquare },
   ]
 
@@ -279,7 +281,7 @@ const Navbar = () => {
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-5">
           <div className="flex min-w-fit flex-shrink-0 items-center">
-            <Link to={isStaffAuth ? (staffRole === 'DOCTOR' ? '/hospital/doctor-opd' : ['NURSE', 'RECEPTIONIST'].includes(staffRole) ? '/hospital/nursing-station' : staffRole === 'HOSPITAL_ADMIN' || staffUser?.adminAccess ? '/hospital/admin' : '/hospital/staff-communication') : inStaffWorkspace ? '/hospital' : '/'} className="flex items-center gap-2">
+            <Link to={isStaffAuth ? staffDestination(staffUser) : inStaffWorkspace ? '/hospital' : '/'} className="flex items-center gap-2">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300">
                 <Heart size={28} strokeWidth={1.8} />
               </span>

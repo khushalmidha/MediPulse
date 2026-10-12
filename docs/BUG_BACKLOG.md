@@ -70,3 +70,8 @@ Read [ASTRA_REVIEW.md](ASTRA_REVIEW.md) for baseline evidence and the verified `
 - **MP02 repaired in d0539640:** active family archive/booking guards preserve historical identity. Restoration/server-idempotent creation are follow-ups, not a reason to replace the family array.
 - **MP10/MP11/MP12/MP16/MP17 remain partial/open:** pharmacy transactions, encounter persistence, lab report versions/critical tasks, durable pause/order, setup/password and entitlement callers, actual AI/clinician review and connected patient journeys require their acceptance checks before launch.
 - **Demo graph prepared, insertion not executed:** retain all prior P23 originals/archives/financial history. Rehearse the scoped connected dataset locally and review the exact production plan before inserting anything or enabling external jobs.
+
+
+## Pharmacy R2 update (12 October 2026)
+
+A06 pharmacy split-save corruption is repaired for dispensing/returns and batch receipts: document-scoped command replay/revisions, one Mongo transaction, immutable dispense allocations, bounded allocation-referenced quarantine returns and real concurrency/crash coverage. Qualified actions are enabled again. Legacy fills without allocation proof remain preserved and blocked, not automatically backfilled. The staff HTTP client's missing lab/pharmacy CSRF scope and pharmacist workspace/navigation have also been repaired. See WORK_LOG for actual checks; clinician order creation, named schema/index gates, lab report capabilities/versions and connected encounter/patient workflows remain open. This supersedes the earlier pharmacy-503 containment status only; it does not close every R2/P16/R4 requirement.

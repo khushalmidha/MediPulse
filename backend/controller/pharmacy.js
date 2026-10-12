@@ -1,3 +1,4 @@
+import { receivePharmacyBatch } from "../services/pharmacyFulfillment.js";
 import { listClinicalRecords, loadClinicalRecord, patientClinicalRecords, pick } from "../services/clinicalOrderAccess.js";
 import asyncHandler from "../middleware/asyncHandler.js";
 import PharmacyInventory from "../model/pharmacyInventory.js";
@@ -18,7 +19,8 @@ export const listPharmacyInventory = asyncHandler(async (req, res) => {
   if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
 
   const items = await PharmacyInventory.find({ hospitalId, isActive: true }).sort({ medicationName: 1 });
-  return res.json({ inventory: items });
+  return res.json({ inventory: items.map(item => ({ ...pick(item, ["_id", "hospitalId", "medicationCode", "medicationName", "genericName", "dosageForm", "strength", "unitPriceMinor", "totalStock", "reorderThreshold", "isActive"]),
+    batches: item.batches.map(batch => pick(batch, ["_id", "batchNumber", "expiryDate", "quantityAvailable", "quantityReserved", "quantityQuarantined"])) })) });
 });
 
 export const createPharmacyItem = asyncHandler(async (req, res) => {
@@ -53,34 +55,12 @@ export const createPharmacyItem = asyncHandler(async (req, res) => {
 });
 
 export const addInventoryBatch = asyncHandler(async (req, res) => {
-  const hospitalId = getHospitalIdFromReq(req);
-  const { id } = req.params;
-  const { batchNumber, expiryDate, quantity } = req.body;
-
-  if (!batchNumber || !expiryDate || quantity == null) {
-    return res.status(400).json({ message: "Batch number, expiry date, and quantity are required" });
-  }
-
-  const expiry = new Date(expiryDate);
-  if (isNaN(expiry.getTime()) || expiry <= new Date()) {
-    return res.status(400).json({ message: "Expiry date must be a valid future date" });
-  }
-
-  const inventory = await PharmacyInventory.findOne({ _id: id, hospitalId });
-  if (!inventory) return res.status(404).json({ message: "Medication not found in this hospital" });
-
-  const qty = Math.max(0, Number(quantity) || 0);
-  inventory.batches.push({
-    batchNumber: batchNumber.trim().toUpperCase(),
-    expiryDate: expiry,
-    quantityAvailable: qty,
-    quantityReserved: 0,
+  const inventory = await receivePharmacyBatch({
+    inventoryId: req.params.id, hospitalId: req.staff.hospitalId, actor: req.staff,
+    requestKey: req.get("Idempotency-Key"), batchNumber: req.body.batchNumber,
+    expiryDate: req.body.expiryDate, quantity: req.body.quantity,
   });
-
-  inventory.totalStock = inventory.batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
-  await inventory.save();
-
-  return res.status(201).json({ message: "Batch added successfully", inventory });
+  return res.status(201).json({ message: "Inventory receipt recorded", inventory });
 });
 
 export const postCreatePrescription = asyncHandler(async (req, res) => {
@@ -133,9 +113,11 @@ export const postDispensePrescription = asyncHandler(async (req, res) => {
     hospitalId,
     actor: { id: req.staff.id, name: req.staff.name, role: req.staff.role },
     dispenseItems: req.body.items,
+    requestKey: req.get("Idempotency-Key"),
+    expectedRevision: req.body.expectedRevision,
   });
 
-  return res.json({ message: "Medication dispensed", prescription });
+  return res.json({ message: "Dispensing recorded", prescription, replayed: prescription.$locals?.replayed || false });
 });
 
 export const postReturnPrescription = asyncHandler(async (req, res) => {
@@ -148,9 +130,11 @@ export const postReturnPrescription = asyncHandler(async (req, res) => {
     actor: { id: req.staff.id, name: req.staff.name, role: req.staff.role },
     returnItems: req.body.items,
     reason: req.body.reason,
+    requestKey: req.get("Idempotency-Key"),
+    expectedRevision: req.body.expectedRevision,
   });
 
-  return res.json({ message: "Medication returned and stock restored", prescription });
+  return res.json({ message: "Medication return recorded in quarantine", prescription, replayed: prescription.$locals?.replayed || false });
 });
 
 export const getVerifyQR = asyncHandler(async (req, res) => {

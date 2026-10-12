@@ -1,4 +1,5 @@
-import { resolveClinicalCreation, loadClinicalRecord, clinicalRecordVisit } from "./clinicalOrderAccess.js";
+import { fulfillPrescription } from "./pharmacyFulfillment.js";
+import { resolveClinicalCreation, clinicalRecordVisit } from "./clinicalOrderAccess.js";
 import { resolveClinicalItems, clinicalText } from "./clinicalOrderItems.js";
 import mongoose from "mongoose";
 import crypto from "crypto";
@@ -62,6 +63,7 @@ export const createPrescription = async ({
     ...context,
     diagnosis: clinicalText(diagnosis, "Diagnosis"),
     status: "approved_by_doctor",
+    fulfillmentLedgerVersion: 1,
     verificationToken,
     items: resolvedItems,
     auditHistory: [
@@ -80,7 +82,7 @@ export const createPrescription = async ({
   return prescription;
 };
 
-export const dispensePrescription = async ({ prescriptionId, hospitalId, actor, dispenseItems }) => {
+export const dispensePrescription = async ({ prescriptionId, hospitalId, actor, dispenseItems, requestKey, expectedRevision }) => {
   if (!Array.isArray(dispenseItems) || dispenseItems.length === 0) {
     throw accessError(400, "Dispense item details are required");
   }
@@ -93,12 +95,12 @@ export const dispensePrescription = async ({ prescriptionId, hospitalId, actor, 
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  await loadClinicalRecord(Prescription, prescriptionId, hospitalId, actor, "pharmacy", ["PHARMACIST"]);
-  throw accessError(503, "Dispensing and returns are temporarily unavailable pending atomic stock and allocation accounting");
+  return fulfillPrescription({ prescriptionId, hospitalId, actor, dispenseItems, requestKey, expectedRevision }, "dispense");
 };
 
-export const returnPrescriptionItems = async ({ prescriptionId, hospitalId, actor, returnItems, reason }) => {
-  if (!reason || !reason.trim()) throw accessError(400, "Reason for medication return is required");
+export const returnPrescriptionItems = async ({ prescriptionId, hospitalId, actor, returnItems, reason, requestKey, expectedRevision }) => {
+  reason = clinicalText(reason, "Return reason", 1000);
+  if (!reason) throw accessError(400, "Reason for medication return is required");
   if (!Array.isArray(returnItems) || returnItems.length === 0) {
     throw accessError(400, "Return items are required");
   }
@@ -111,8 +113,7 @@ export const returnPrescriptionItems = async ({ prescriptionId, hospitalId, acto
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  await loadClinicalRecord(Prescription, prescriptionId, hospitalId, actor, "pharmacy", ["PHARMACIST"]);
-  throw accessError(503, "Dispensing and returns are temporarily unavailable pending atomic stock and allocation accounting");
+  return fulfillPrescription({ prescriptionId, hospitalId, actor, returnItems, reason, requestKey, expectedRevision }, "return");
 };
 
 export const verifyPrescriptionQR = async ({ verificationToken }) => {

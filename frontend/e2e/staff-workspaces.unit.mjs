@@ -26,7 +26,7 @@ test("staff role destination opens correct operational workspace", () => {
   assert.equal(staffDestination({ role: "DOCTOR" }), "/hospital/doctor-opd");
   assert.equal(staffDestination({ role: "HOSPITAL_ADMIN" }), "/hospital/admin");
   assert.equal(staffDestination({ role: "LAB_TECH" }), "/hospital/staff-communication");
-  assert.equal(staffDestination({ role: "PHARMACIST" }), "/hospital/staff-communication");
+  assert.equal(staffDestination({ role: "PHARMACIST" }), "/hospital/pharmacy");
 });
 
 test("staff communication thread matcher isolates conversations", () => {

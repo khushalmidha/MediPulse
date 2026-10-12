@@ -8,6 +8,8 @@ const prescriptionItemSchema = new mongoose.Schema({
   durationDays: { type: Number, default: 5 },
   quantityPrescribed: { type: Number, required: true, min: 1 },
   quantityDispensed: { type: Number, default: 0, min: 0 },
+  quantityFulfilled: { type: Number, default: 0, min: 0 },
+  quantityReturned: { type: Number, default: 0, min: 0 },
   batchNumber: { type: String },
   unitPriceMinor: { type: Number, default: 0 },
   itemStatus: {
@@ -23,6 +25,28 @@ const prescriptionAuditSchema = new mongoose.Schema({
   actorName: { type: String, default: "Staff" },
   timestamp: { type: Date, default: Date.now },
   notes: { type: String, default: "" },
+});
+
+// Original dispense allocations remain unchanged; returns append references to those allocations.
+const fulfillmentAllocationSchema = new mongoose.Schema({
+  itemId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  inventoryId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  batchId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  batchNumber: { type: String, required: true },
+  expiryDate: { type: Date, required: true },
+  quantity: { type: Number, required: true, min: 1 },
+  allocationId: mongoose.Schema.Types.ObjectId,
+});
+const fulfillmentOperationSchema = new mongoose.Schema({
+  key: { type: String, required: true },
+  requestHash: { type: String, required: true },
+  kind: { type: String, enum: ["dispense", "return"], required: true },
+  actorId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  actorName: { type: String, required: true },
+  at: { type: Date, required: true },
+  reason: String,
+  allocations: [fulfillmentAllocationSchema],
+  resultingStatus: String,
 });
 
 const prescriptionSchema = new mongoose.Schema(
@@ -81,6 +105,9 @@ const prescriptionSchema = new mongoose.Schema(
       index: true,
     },
     items: [prescriptionItemSchema],
+    fulfillmentLedgerVersion: Number,
+    fulfillmentRevision: { type: Number, default: 0 },
+    fulfillmentOperations: [fulfillmentOperationSchema],
     dispensedAt: { type: Date },
     dispensedBy: { type: mongoose.Schema.Types.ObjectId },
     dispensedByName: { type: String },

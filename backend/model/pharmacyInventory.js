@@ -5,6 +5,12 @@ const batchSchema = new mongoose.Schema({
   expiryDate: { type: Date, required: true },
   quantityAvailable: { type: Number, required: true, min: 0 },
   quantityReserved: { type: Number, default: 0, min: 0 },
+  quantityQuarantined: { type: Number, default: 0, min: 0 },
+  receiptKey: String,
+  receiptHash: String,
+  quantityReceived: Number,
+  receivedBy: mongoose.Schema.Types.ObjectId,
+  receivedAt: Date,
 });
 
 const pharmacyInventorySchema = new mongoose.Schema(

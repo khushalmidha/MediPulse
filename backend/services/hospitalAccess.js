@@ -94,9 +94,9 @@ export const loadVisit = async (staff, tokenId, options) => {
   return token;
 };
 
-export const validVisitReferences = async (token) => Boolean(
-  await Department.exists({ _id: token.departmentId, hospitalId: token.hospitalId })
-  && await HospitalStaff.exists({ _id: token.doctorId, hospitalId: token.hospitalId, departmentIds: token.departmentId, role: "DOCTOR" }),
+export const validVisitReferences = async (token, { session = null } = {}) => Boolean(
+  await Department.exists({ _id: token.departmentId, hospitalId: token.hospitalId }).session(session)
+  && await HospitalStaff.exists({ _id: token.doctorId, hospitalId: token.hospitalId, departmentIds: token.departmentId, role: "DOCTOR" }).session(session),
 );
 
 export const activeStaff = (hospitalId) => HospitalStaff.find({ hospitalId, isActive: true, inviteStatus: "accepted" });

@@ -1,0 +1,7 @@
+.mp-pharmacy .mp-banner--positive { background: var(--mp-accent-soft); color: var(--mp-accent-ink); border-color: var(--mp-border); }
+.mp-pharmacy .mp-banner--warning { background: var(--mp-surface-muted); color: var(--mp-text); border-color: var(--mp-warning); }
+.mp-pharmacy .mp-banner--warning > svg { color: var(--mp-warning); }
+.mp-pharmacy .mp-section-heading, .mp-pharmacy .mp-actions { flex-wrap: wrap; }
+.mp-pharmacy .mp-dialog { max-height: 90dvh; overflow-y: auto; }
+
+.mp-pharmacy-record-info { width: 100%; min-width: 0; }
