@@ -39,9 +39,9 @@ async function session(principalId, kind, hospitalId) {
   await AuthSession.create({ _id: sid, principalId, kind, csrfToken: "isolated-csrf", expiresAt: new Date(Date.now() + 600000) });
   return jwt.sign({ id: String(principalId), role: kind, sid, ...(kind === "staff" ? { type: "staff", hospitalId: String(hospitalId) } : {}) }, process.env.TOKEN_KEY);
 }
-async function http(path, actor, body, method = body ? "POST" : "GET") {
+async function http(path, actor, body, method = body ? "POST" : "GET", key) {
   const response = await fetch(origin + path, { method, signal: AbortSignal.timeout(10000),
-    headers: { "Content-Type": "application/json", ...(actor ? { Authorization: "Bearer " + sessions[actor] } : {}) },
+    headers: { "Content-Type": "application/json", ...(key ? { "Idempotency-Key": key } : {}), ...(actor ? { Authorization: "Bearer " + sessions[actor] } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}) });
   return { status: response.status, body: await response.json() };
 }
@@ -74,7 +74,7 @@ before(async () => {
     { _id: otherToken, ...visit, departmentId: otherDepartment, doctorId: otherClinician, tokenNumber: 2 }]);
   await EncounterJourney.create([{ _id: encounter, ...visit, tokenId: token, ticketNumber: "SYN-1" },
     { _id: otherEncounter, ...visit, tokenId: otherToken, departmentId: otherDepartment, ticketNumber: "SYN-2" }]);
-  await LabTestCatalog.create([{ _id: catalog, hospitalId: hospital, code: "SYN", name: "Synthetic Test", priceMinor: 4500 },
+  await LabTestCatalog.create([{ _id: catalog, hospitalId: hospital, code: "SYN", name: "Synthetic Test", parameters: [{ code: "SYN", name: "Synthetic Parameter", valueType: "number" }], priceMinor: 4500 },
     { _id: foreignCatalog, hospitalId: foreignHospital, code: "FOREIGN", name: "Synthetic Foreign Test", priceMinor: 100 },
     { _id: inactiveCatalog, hospitalId: hospital, code: "INACTIVE", name: "Synthetic Inactive Test", isActive: false }]);
   await PharmacyInventory.create([{ _id: inventory, hospitalId: hospital, medicationCode: "SYN", medicationName: "Synthetic Medication", unitPriceMinor: 200 },
@@ -170,13 +170,13 @@ test("collection and critical acknowledgement enforce task assignment in router 
   await assert.rejects(collectSample({ orderId: labOrder._id, hospitalId: hospital, actor: { id: wrongLabTech, role: "LAB_TECH" } }), error => error.status === 403);
   assert.deepEqual(await LabOrder.findById(labOrder._id).lean(), original);
   assert.equal((await http("/labs/orders/" + labOrder._id + "/acknowledge-critical", "otherClinician", {})).status, 403);
-  const collected = await http("/labs/orders/" + labOrder._id + "/collect", "labTech", {}, "PATCH");
+  const collected = await http("/labs/orders/" + labOrder._id + "/collect", "labTech", { expectedRevision: 0 }, "PATCH", crypto.randomUUID());
   assert.equal(collected.status, 200); assert.equal(collected.body.order.collectedBy, String(labTech));
 });
 
 test("billing response contains operational status without clinical notes or results", async () => {
   const order = await LabOrder.create({ ...labOrder, _id: id(), orderStatus: "ordered", clinicalNotes: "Internal clinical note", results: [] });
-  const response = await http("/labs/orders/" + order._id + "/billing", "receptionist", {}, "PATCH");
+  const response = await http("/labs/orders/" + order._id + "/billing", "receptionist", { expectedRevision: 0 }, "PATCH", crypto.randomUUID());
   assert.equal(response.status, 200);
   assert.deepEqual(Object.keys(response.body.order).sort(), ["_id", "createdAt", "orderStatus", "updatedAt"]);
   await LabOrder.deleteOne({ _id: order._id });
@@ -184,7 +184,7 @@ test("billing response contains operational status without clinical notes or res
 
 test("patients see owned released results and archived-family history through explicit projections", async () => {
   assert.deepEqual((await http("/labs/patient-results", "patient")).body.results, []);
-  await LabOrder.updateOne({ _id: labOrder._id }, { $set: { orderStatus: "released", releasedAt: new Date(), clinicalNotes: "Internal note",
+  await LabOrder.updateOne({ _id: labOrder._id }, { $unset: { workflowVersion: 1 }, $set: { orderStatus: "released", releasedAt: new Date(), clinicalNotes: "Internal note",
     reportCorrections: [{ version: 1, correctedBy: "Internal staff", reason: "Internal reason" }],
     results: [{ parameterCode: "SYN", parameterName: "Synthetic Parameter", value: 1, unit: "synthetic" }] } });
   const lab = await http("/labs/patient-results", "patient");
@@ -216,11 +216,11 @@ test("legacy unlinked and contradictory clinical records fail closed without alt
   await LabOrder.updateOne({ _id: labOrder._id }, { $set: { "patientInfo.name": "Synthetic Family Member" } });
 });
 
-test("unimplemented lab verification and pharmacy commands without operation keys preserve records", async () => {
+test("unapproved lab verification and commands without operation keys preserve records", async () => {
   const beforeLab = await LabOrder.findById(labOrder._id).lean(), beforeRx = await Prescription.findById(prescription._id).lean();
   const beforeStock = await PharmacyInventory.findById(inventory).lean();
   for (const action of ["verify", "release", "correct"]) {
-    assert.equal((await http("/labs/orders/" + labOrder._id + "/" + action, "labTech", { reason: "Synthetic reason", results: [{ parameterCode: "SYN", value: 1 }] }, action === "correct" ? "POST" : "PATCH")).status, 503);
+    assert.equal((await http("/labs/orders/" + labOrder._id + "/" + action, "labTech", { reason: "Synthetic reason", results: [{ parameterCode: "SYN", testCode: "SYN", value: 1 }] }, action === "correct" ? "POST" : "PATCH")).status, action === "correct" ? 428 : 403);
     assert.equal((await http("/labs/orders/" + labOrder._id + "/" + action, "wrongLabTech", { reason: "Synthetic reason", results: [{ parameterCode: "SYN", value: 1 }] }, action === "correct" ? "POST" : "PATCH")).status, 403);
   }
   for (const action of ["dispense", "return"]) {

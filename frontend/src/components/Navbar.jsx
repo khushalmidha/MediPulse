@@ -249,6 +249,7 @@ const Navbar = () => {
     ...((staffRole === 'HOSPITAL_ADMIN' || staffUser?.adminAccess) ? [{ to: '/hospital/admin', label: 'Dashboard', icon: Building2 }] : []),
     ...(['HOSPITAL_ADMIN', 'NURSE', 'RECEPTIONIST'].includes(staffRole) ? [{ to: '/hospital/nursing-station', label: 'OPD Tokens', icon: ClipboardList }] : []),
     ...(staffRole === 'DOCTOR' ? [{ to: '/hospital/doctor-opd', label: 'Consultation', icon: Stethoscope, badge: staffOpdBadge }] : []),
+    ...(['DOCTOR', 'LAB_TECH', 'NURSE', 'DEPARTMENT_HEAD', 'HOSPITAL_ADMIN'].includes(staffRole) || staffUser?.adminAccess ? [{ to: '/hospital/laboratory', label: 'Laboratory', icon: ClipboardList }] : []),
     ...(staffRole === 'PHARMACIST' ? [{ to: '/hospital/pharmacy', label: 'Pharmacy', icon: ClipboardList }] : []),
     { to: '/hospital/staff-communication', label: 'Staff Chat', icon: MessageSquare },
   ]

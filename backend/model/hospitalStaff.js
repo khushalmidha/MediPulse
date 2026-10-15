@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 const objectId = mongoose.Schema.Types.ObjectId;
+const labApprovalSchema = new mongoose.Schema({ enabled: { type: Boolean, default: false },
+  departmentIds: [{ type: objectId, ref: "Department" }], qualificationReference: String,
+  approvedBy: { type: objectId, ref: "HospitalStaff" }, approvedAt: Date }, { _id: false });
 
 const hospitalStaffSchema = new mongoose.Schema(
   {
@@ -20,6 +23,10 @@ const hospitalStaffSchema = new mongoose.Schema(
     },
     // FIXED: Doctors/nurses could not receive admin portal access without losing their clinical role.
     adminAccess: { type: Boolean, default: false, index: true },
+    // An explicit hospital approval, separate from role and portal administration.
+    labReviewApproval: labApprovalSchema,
+    labReviewApprovalHistory: [labApprovalSchema],
+    clinicalAuthorizationRevision: { type: Number, default: 0 },
     doctorProfile: {
       qualification: String,
       specialization: String,
@@ -55,6 +62,9 @@ hospitalStaffSchema.pre("save", async function () {
 
 hospitalStaffSchema.set("toJSON", { transform: (_doc, value) => {
   for (const key of ["password", "inviteToken", "inviteExpiresAt", "authVersion"]) delete value[key];
+  delete value.labReviewApproval;
+  delete value.labReviewApprovalHistory;
+  delete value.clinicalAuthorizationRevision;
   return value;
 } });
 

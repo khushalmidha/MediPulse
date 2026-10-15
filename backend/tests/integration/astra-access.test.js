@@ -35,8 +35,8 @@ async function session(principalId, kind, hospitalId) {
   await AuthSession.create({ _id: sid, principalId, kind, csrfToken: "isolated-csrf", expiresAt: new Date(Date.now() + 600000) });
   return jwt.sign({ sid, id: String(principalId), role: kind, ...(kind === "staff" ? { type: "staff", hospitalId: String(hospitalId) } : {}) }, process.env.TOKEN_KEY);
 }
-async function http(path, actor, body, method = body ? "POST" : "GET") {
-  const response = await fetch(origin + path, { method, signal: AbortSignal.timeout(10000), headers: { "Content-Type": "application/json", ...(actor ? { Authorization: "Bearer " + tokens[actor] } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+async function http(path, actor, body, method = body ? "POST" : "GET", key) {
+  const response = await fetch(origin + path, { method, signal: AbortSignal.timeout(10000), headers: { "Content-Type": "application/json", ...(key ? { "Idempotency-Key": key } : {}), ...(actor ? { Authorization: "Bearer " + tokens[actor] } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
   return { status: response.status, body: await response.json() };
 }
 before(async () => {
@@ -106,12 +106,12 @@ test("tenant admin details reject a foreign tenant and permit their own tenant",
   assert.equal((await http("/api/saas/tenants/" + hospital,"admin")).status,200);
 });
 test("the actual LAB_TECH role can collect only tenant-scoped samples and records its real actor", async () => {
-  const fields = { tokenId, departmentId: department, serviceDepartmentId: department, patientId: owner, patientInfo: { name: "Synthetic Patient" }, orderingDoctorId: clinician, orderStatus: "billing_cleared", tests: [{ testCode: "SYN", testName: "Synthetic Test" }] };
+  const fields = { workflowVersion: 1, tokenId, departmentId: department, serviceDepartmentId: department, patientId: owner, patientInfo: { name: "Synthetic Patient" }, orderingDoctorId: clinician, orderStatus: "billing_cleared", tests: [{ testCode: "SYN", testName: "Synthetic Test" }] };
   const order = await LabOrder.create({ hospitalId: hospital, ...fields });
   const foreignOrder = await LabOrder.create({ hospitalId: foreignHospital, ...fields });
   assert.equal((await http("/api/labs/orders/" + foreignOrder._id + "/collect", "labTech", {}, "PATCH")).status, 404);
   assert.equal((await http("/api/labs/orders/" + order._id + "/collect", "admin", {}, "PATCH")).status, 403);
-  const collected = await http("/api/labs/orders/" + order._id + "/collect", "labTech", {}, "PATCH");
+  const collected = await http("/api/labs/orders/" + order._id + "/collect", "labTech", { expectedRevision: 0 }, "PATCH", crypto.randomUUID());
   assert.equal(collected.status, 200);
   const stored = await LabOrder.findById(order._id);
   assert.equal(stored.orderStatus, "collected"); assert.equal(String(stored.collectedBy), String(labTech));

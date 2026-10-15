@@ -1,0 +1,19 @@
+.mp-laboratory { max-width: 1300px; margin: 0 auto; padding: 32px 24px; }
+.mp-laboratory .mp-section-heading, .mp-lab-record-heading, .mp-lab-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.mp-laboratory h1 { display: flex; gap: 10px; align-items: center; }
+.mp-laboratory h1 svg { color: var(--mp-accent-ink); flex-shrink: 0; }
+.mp-lab-actions, .mp-lab-filters, .mp-lab-record, .mp-lab-approval { margin-bottom: 16px; }
+.mp-lab-filters, .mp-lab-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
+.mp-lab-record h2 { min-width: 0; width: 100%; overflow-wrap: anywhere; }
+.mp-lab-muted { color: var(--mp-muted); }
+.mp-lab-accession { color: var(--mp-accent-ink); overflow-wrap: anywhere; font-family: monospace; }
+.mp-lab-report { border-top: 1px solid var(--mp-border); margin-top: 16px; padding-top: 16px; }
+.mp-lab-values > div { display: grid; gap: 4px; background: var(--mp-surface-muted); border: 1px solid var(--mp-border); border-radius: 12px; padding: 12px; overflow-wrap: anywhere; }
+.mp-lab-critical { color: var(--mp-danger); font-weight: 600; }
+.dark .mp-laboratory { --mp-danger: #ffb5bf; }
+.mp-laboratory .mp-banner--positive { background: var(--mp-accent-soft); color: var(--mp-accent-ink); }
+.mp-laboratory .mp-banner--warning { background: var(--mp-surface-muted); color: var(--mp-text); border-color: var(--mp-warning); }
+.mp-laboratory .mp-dialog { max-height: 90dvh; overflow-y: auto; }
+.mp-lab-parameters { display: grid; gap: 12px; margin-block: 16px; }
+.mp-lab-checkbox { display: flex; gap: 8px; align-items: center; margin-block: 16px; }
+@media(max-width: 600px) { .mp-laboratory { padding: 24px 16px; } }

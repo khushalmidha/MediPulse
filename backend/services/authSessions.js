@@ -17,7 +17,7 @@ export const cookieOptions = (remember = false) => ({
 });
 export const safeAccount = (account) => {
   const value = account?.toObject ? account.toObject() : { ...account };
-  for (const key of ["password", "inviteToken", "inviteExpiresAt", "authVersion"]) delete value[key];
+  for (const key of ["password", "inviteToken", "inviteExpiresAt", "authVersion", "labReviewApproval", "labReviewApprovalHistory", "clinicalAuthorizationRevision"]) delete value[key];
   return value;
 };
 export async function revokeToken(token) {

@@ -5,6 +5,7 @@ const labParameterSchema = new mongoose.Schema({
   code: { type: String, required: true },
   unit: { type: String, default: "" },
   referenceRangeText: { type: String, default: "" },
+  valueType: { type: String, enum: ["number", "text"], default: "number" },
   refMin: { type: Number },
   refMax: { type: Number },
   criticalLow: { type: Number },

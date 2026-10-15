@@ -14,6 +14,9 @@ import {
   postCorrectLabReport,
   postAcknowledgeCritical,
   getPatientLabResults,
+  getLabCapabilities,
+  postLabReviewerApproval,
+  getLabReviewers,
 } from "../controller/lab.js";
 import validateStaff, { requireRole } from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
@@ -23,6 +26,9 @@ const labRouter = Router();
 labRouter.use(nosqlGuard);
 
 // Catalog
+labRouter.get("/capabilities", validateStaff, getLabCapabilities);
+labRouter.get("/reviewers", validateStaff, requireRole("HOSPITAL_ADMIN"), getLabReviewers);
+labRouter.post("/reviewers/:staffId/approval", validateStaff, requireRole("HOSPITAL_ADMIN"), postLabReviewerApproval);
 labRouter.get("/catalog", validateStaff, getLabCatalog);
 labRouter.post("/catalog", validateStaff, requireRole("LAB_TECH", "HOSPITAL_ADMIN"), createLabCatalogItem);
 

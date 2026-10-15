@@ -29,6 +29,13 @@ test("account serialization/projections omit password hashes and staff invite se
     assert.equal(safeAccount(doc).password, undefined); assert.equal(safeAccount(doc).authVersion, undefined);
   }
 });
+test("staff sessions omit private clinical qualification approvals and authorization counters", () => {
+  const doc = new HospitalStaff({ labReviewApproval: { enabled: true, qualificationReference: "synthetic-private-reference" },
+    labReviewApprovalHistory: [{ qualificationReference: "synthetic-history" }], clinicalAuthorizationRevision: 42 });
+  for (const view of [safeAccount(doc), JSON.parse(JSON.stringify(doc))]) {
+    assert.equal(view.labReviewApproval, undefined); assert.equal(view.labReviewApprovalHistory, undefined); assert.equal(view.clinicalAuthorizationRevision, undefined);
+  }
+});
 test("community policy permits member accounts and doctor organizers only", () => {
   const community = { author: "doctor", members: ["patient"] };
   assert.equal(canAccessCommunity(community, { id: "patient", role: "user" }), true);

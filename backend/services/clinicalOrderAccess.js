@@ -3,6 +3,7 @@ import Department from "../model/department.js";
 import OpdToken from "../model/opdToken.js";
 import EncounterJourney from "../model/encounterJourney.js";
 import User from "../model/user.js";
+import { canReviewLab, labReviewDepartments } from "./labCapabilities.js";
 import { accessError, idOf, requireRecordId, departmentMember, validVisitReferences } from "./hospitalAccess.js";
 
 const doctorField = kind => kind === "lab" ? "orderingDoctorId" : "prescribingDoctorId";
@@ -57,6 +58,8 @@ export async function assertClinicalRecordAccess(staff, record, kind, { billing 
   if (!same(staff.hospitalId, record.hospitalId)) throw accessError(403, "Clinical record belongs to another hospital");
   const token = await clinicalRecordVisit(record, kind, { session });
   if (billing && ["HOSPITAL_ADMIN", "RECEPTIONIST"].includes(staff.role)) return;
+  if (kind === "lab" && canReviewLab(staff, record)
+    && await Department.exists({ _id: record.serviceDepartmentId, hospitalId: record.hospitalId, status: "active" }).session(session)) return;
   if (staff.role === "DOCTOR" && same(staff._id, token.doctorId)) return;
   if (["NURSE", "DEPARTMENT_HEAD"].includes(staff.role) && departmentMember(staff, token.departmentId)) return;
   if (staff.role === serviceRole(kind) && record.serviceDepartmentId
@@ -83,16 +86,28 @@ export async function listClinicalRecords(Model, staff, kind, query) {
       throw accessError(400, "Invalid clinical worklist filter");
     }
   }
-  if (staff.role === "DOCTOR") filter[doctorField(kind)] = staff.id;
+  if (staff.role === "DOCTOR") {
+    const reviewDepartments = kind === "lab" ? labReviewDepartments(await clinicalStaff(staff, staff.hospitalId)) : [];
+    if (reviewDepartments.length) filter.$or = [{ [doctorField(kind)]: staff.id }, { serviceDepartmentId: { $in: reviewDepartments } }];
+    else filter[doctorField(kind)] = staff.id;
+  }
   else if (["NURSE", "DEPARTMENT_HEAD"].includes(staff.role)) filter.departmentId = { $in: staff.departmentIds };
   else if (staff.role === serviceRole(kind)) filter.serviceDepartmentId = { $in: staff.departmentIds };
   else throw accessError(403, "Clinical task access is required");
   if (query.status) filter[kind === "lab" ? "orderStatus" : "status"] = query.status;
   if (kind === "lab" && query.barcode) filter.accessionBarcode = query.barcode;
+  if (kind === "lab" && query.critical !== undefined) {
+    if (query.critical !== "pending") throw accessError(400, "Invalid critical task filter");
+    if (staff.role !== "DOCTOR") throw accessError(403, "Assigned clinician access is required for critical acknowledgement tasks");
+    filter.orderingDoctorId = staff.id;
+    filter.reportVersions = { $elemMatch: { "criticalTask.assignedDoctorId": staff.id,
+      "criticalTask.createdAt": { $exists: true }, "criticalTask.acknowledgedAt": { $exists: false } } };
+  }
   const records = await Model.find(filter).sort({ createdAt: -1 }).limit(100);
   const permitted = [];
+  const principal = kind === "lab" ? await clinicalStaff(staff, staff.hospitalId) : { ...staff, _id: staff.id };
   for (const record of records) {
-    try { await assertClinicalRecordAccess({ ...staff, _id: staff.id }, record, kind); permitted.push(record); }
+    try { await assertClinicalRecordAccess(principal, record, kind); permitted.push(record); }
     catch (error) { if (error.status !== 403) throw error; }
   }
   return permitted;
@@ -143,9 +158,12 @@ export function patientClinicalView(record, kind) {
   const view = pick(record, ["_id", "hospitalId", "tokenId", "departmentId", "familyMemberId", "patientInfo", "createdAt", "updatedAt"]);
   view.patientInfo = pick(record.patientInfo, patientFields);
   if (kind === "lab") {
-    Object.assign(view, pick(record, ["orderStatus", "orderingDoctorName", "releasedAt", "reportVersion"]));
+    const report = [...(record.reportVersions || [])].reverse().find(version => version.releasedAt);
+    Object.assign(view, pick(record, ["orderingDoctorName", "releasedAt", "reportVersion"]));
+    view.orderStatus = "released";
+    if (report) { view.reportVersion = report.version; view.releasedAt = report.releasedAt; view.verifiedByName = report.verifiedByName; }
     view.tests = (record.tests || []).map(item => pick(item, ["testCode", "testName", "category"]));
-    view.results = (record.results || []).map(item => pick(item, ["parameterCode", "parameterName", "value", "unit", "referenceRangeText", "flag", "isCritical"]));
+    view.results = (report?.results || record.results || []).map(item => pick(item, ["testCode", "parameterCode", "parameterName", "value", "unit", "referenceRangeText", "flag", "isCritical"]));
   } else {
     Object.assign(view, pick(record, ["status", "prescribingDoctorName", "diagnosis", "version", "dispensedAt"]));
     view.items = (record.items || []).map(item => pick(item, ["medicationCode", "medicationName", "directions", "durationDays", "quantityPrescribed", "quantityDispensed", "quantityFulfilled", "quantityReturned", "itemStatus"]));
@@ -156,7 +174,7 @@ export function patientClinicalView(record, kind) {
 export async function patientClinicalRecords(Model, auth, kind) {
   if (auth?.role !== "user") throw accessError(403, "Patient account access is required");
   const filter = { patientId: auth.id };
-  if (kind === "lab") filter.orderStatus = "released";
+  if (kind === "lab") filter.$or = [{ orderStatus: "released", workflowVersion: { $exists: false } }, { "reportVersions.releasedAt": { $exists: true } }];
   else filter.status = { $in: ["approved_by_doctor", "partially_dispensed", "dispensed", "returned"] };
   const records = await Model.find(filter).sort({ createdAt: -1 }).limit(100).lean();
   const views = [];
