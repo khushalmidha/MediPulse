@@ -39,3 +39,13 @@ node backend/scripts/prepareFoxoDemo.js --explicit-target --date 2026-10-15 --pl
 Production apply requires **separate approval of this exact graph and paused writers**, as required by the prompt pack's Common instructions. Then set `FOXO_DEMO_APPROVED=true` privately and supply the same plan with `--apply --writers-paused --backup C:\private\foxo-patient-backup.ejson`. Paths must be absolute and outside the checkout; existing files are not overwritten. Keep the backup private: it contains the pre-change patient record. No credentials or private source records go in Git or command output.
 
 After recording, retain the synthetic visits and archive the synthetic family through the normal patient UI when no live bookings remain. This keeps all history connected. No automatic production deletion, generic rollback over newer records, financial edits or mail/provider jobs are included.
+
+## Recorded video (15 October 2026)
+
+A **4:20 silent MP4**, `MediPulse_FOXO_Silent_Demo_4m20s.mp4`, is saved in the owner's outer workspace folder `FOXO-demo-2026-10-15` alongside `VOICEOVER_DRAFT.md` and `chapters.json`. Media, raw captures and session tooling remain outside Git. Add the owner's own narration before submission; replace the draft's academic-background and personal-contribution placeholders with verified facts. No upload or email was sent.
+
+The video uses actual medipulse.live screens: company/Connect/hospital pages, the signed-in patient's symptom guide, a hospital booking preview and the synthetic child's filtered timeline/details. The real smart-booking POST returned HTTP 200, Pediatrics and four profiles for fictional child symptoms. No response was mocked. The booking was not confirmed and no credits were debited. Unrelated family names were hidden during privacy preparation, then the actual synthetic-person filter was shown. Login/password entry was not recorded; browser session state was kept in memory and the owned recording browser was closed afterward.
+
+The current UI remains available at `/smart-booking`; the checkout's current handler uses Gemini. Existing Hugging Face classifiers and the heuristic ranker remain in the separate `/api/triage/v2/full-assessment` code path. The floating assistant provides directory search, which explains why it no longer presents the previous symptom-recommendation menu. The video distinguishes the current lookup flow from a trained/validated ranking model.
+
+Export verification: H.264 MP4, 1280×720, 30 fps, 260 seconds, no audio; full-file decode passed. Inspected live page/result/booking/record screenshots, presentation cards and sampled final-export frames. These recording checks do not establish model accuracy, recommended-doctor suitability or a completed appointment.
