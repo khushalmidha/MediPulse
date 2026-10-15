@@ -117,6 +117,21 @@ test("triage denial hides prior conversation and offline answers remain unsent",
   await patch(request, { denyTriage: 403 }); await button(page, "Send answer").click(); await expect(heading(page, "Pre-visit questions are unavailable")).toBeVisible(); await expect(page.getByRole("log")).toHaveCount(0); await expect(label(page, "Your answer")).toHaveCount(0);
 });
 
+test("stalled symptom routing times out, retains symptoms and permits retry or direct browsing", async ({ page }) => {
+  let stalled = true;
+  await page.route("**/api/triage/smart-booking", route => { if (!stalled) return route.continue(); });
+  await open(page, "/smart-booking");
+  await label(page, "Symptoms and concerns").fill("Synthetic routing concern");
+  await button(page, "Explore care options").click();
+  await expect(page.getByText(/The symptom guide timed out\. No urgency assessment was completed/)).toBeVisible({ timeout: 18000 });
+  await expect(label(page, "Symptoms and concerns")).toHaveValue("Synthetic routing concern");
+  await expect(page.getByRole("link", { name: "Browse doctors directly", exact: true })).toBeVisible();
+  await expect(page.getByText("Draft — clinician review needed", { exact: true })).toHaveCount(0);
+  stalled = false;
+  await button(page, "Explore care options").click();
+  await expect(page.getByRole("link", { name: "See availability", exact: true })).toBeVisible();
+});
+
 test("symptom routing retains errors, labels demo fees, and suppresses urgent booking", async ({ page, request }) => {
   await patch(request, { failSmart: true }); await open(page, "/smart-booking"); await label(page, "Symptoms and concerns").fill("Synthetic concern"); await button(page, "Explore care options").click(); await expect(page.getByText("Synthetic routing unavailable", { exact: true })).toBeVisible(); await expect(label(page, "Symptoms and concerns")).toHaveValue("Synthetic concern");
   await patch(request, { failSmart: false }); await button(page, "Explore care options").click(); await expect(page.getByText("Draft — clinician review needed", { exact: true })).toBeVisible(); await expect(page.getByText("0 years of recorded experience", { exact: true })).toBeVisible(); await expect(page.getByText("Listed fee in demo credits", { exact: true })).toBeVisible(); await expect(page.getByRole("link", { name: "See availability", exact: true })).toBeVisible();

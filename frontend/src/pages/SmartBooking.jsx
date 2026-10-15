@@ -11,7 +11,19 @@ import { BACKEND_URL } from "../utils";
 export default function SmartBooking() { return <PatientAccess><SymptomGuide /></PatientAccess>; }
 function SymptomGuide() {
   const task = useFormTask(), [symptoms, setSymptoms] = useState(""), [result, setResult] = useState(null);
-  const submit = event => { event.preventDefault(); if (!symptoms.trim()) return; void task.run(signal => axios.post(BACKEND_URL + "/api/triage/smart-booking", { symptoms: symptoms.trim() }, { signal, withCredentials: true }), response => setResult(response.data)); };
+  const submit = event => {
+    event.preventDefault(); if (!symptoms.trim()) return;
+    void task.run(async signal => {
+      try {
+        return await axios.post(BACKEND_URL + "/api/triage/smart-booking", { symptoms: symptoms.trim() }, { signal, withCredentials: true, timeout: 15000 });
+      } catch (error) {
+        if (["ECONNABORTED", "ETIMEDOUT"].includes(error.code)) error.response = { status: 503, data: {
+          message: "The symptom guide timed out. No urgency assessment was completed. Retry or browse doctors directly; booking remains available.",
+        } };
+        throw error;
+      }
+    }, response => setResult(response.data));
+  };
   const urgent = result && (["EMERGENCY", "HIGH"].includes(result.severity) || Number(result.esi_level) > 0 && Number(result.esi_level) <= 2);
   const denied = [401, 403].includes(task.feedback?.status);
   return <PatientPage eyebrow="Explore your next step" title="Symptom guide" description="Organize what you are feeling and explore doctor profiles returned by the care-routing tool. Its suggestions are drafts; they do not confirm a diagnosis, clinician suitability or appointment." aside={<><Compass size={29} aria-hidden="true" /><h2>You choose your care</h2><p>Review a profile and its actual booking options before making a reservation.</p><PrivateNote /></>}>

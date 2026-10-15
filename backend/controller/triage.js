@@ -1,5 +1,6 @@
 import { flagRedSymptoms } from "../services/copilotTools.js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { evaluateTriageRedFlag, withBoundedTimeout } from "../services/aiReliabilityService.js";
 import axios from "axios";
 import User from "../model/user.js";
 import { getIO } from "../socket.js";
@@ -581,50 +582,82 @@ import { resolveConsultationFee } from '../config/fees.js';
 
 export const smartBookingAssessment = async (req, res) => {
   try {
-    const { symptoms } = req.body;
-    if (!symptoms) {
-      return res.status(400).json({ message: "Symptoms are required for assessment." });
+    const input = req.body?.symptoms;
+    if (typeof input !== "string" || !input.trim() || input.length > 4000) {
+      return res.status(400).json({ message: "Enter symptoms as text, up to 4,000 characters." });
     }
-
-    const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = ai.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: `You are an AI diagnostic routing agent for a hospital booking system. Analyze the provided symptoms and return a JSON object with:
-- "predictedDisease": best guess of the medical condition (string).
-- "specialty": the precise medical department needed (e.g. Cardiology, Dermatology, General Medicine, Orthopedics, Neurology, Pediatrics, etc.).
-- "severity": "LOW", "MEDIUM", "HIGH", or "EMERGENCY".
-- "esi_level": number from 1 (most severe) to 5 (least severe).
-Always format your response as valid JSON without markdown formatting.`
+    const symptoms = input.trim();
+    const safetyFlags = evaluateTriageRedFlag({ chiefComplaint: symptoms }).triggersRedFlag
+      ? ["Potentially critical symptom flagged for urgent clinician review."] : [];
+    if (safetyFlags.length) return res.status(200).json({
+      disclaimer: "SEEK EMERGENCY CARE IMMEDIATELY. A safety rule flagged potentially critical symptoms; this is not a diagnosis.",
+      disease: null, specialty: "Emergency Medicine", severity: "EMERGENCY", esi_level: 1,
+      ranked_doctors: [], safetyFlags, assessmentSource: "safety_rules",
     });
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: symptoms }] }]
-    });
-
-    let rawText = result.response.text().trim();
-    const jsonMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      rawText = jsonMatch[1].trim();
-    } else {
-      const codeMatch = rawText.match(/```\s*([\s\S]*?)\s*```/);
-      if (codeMatch) rawText = codeMatch[1].trim();
-    }
-
-    let aiData;
+    let aiData, failureReason = "provider_error";
     try {
+      if (!process.env.GEMINI_API_KEY?.trim()) {
+        failureReason = "not_configured";
+        throw new Error("AI is not configured");
+      }
+      const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY.trim());
+      const model = ai.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction: `You are an AI diagnostic routing agent for a hospital booking system. Analyze the provided symptoms and return a JSON object with:
+  - "predictedDisease": best guess of the medical condition (string).
+  - "specialty": the precise medical department needed (e.g. Cardiology, Dermatology, General Medicine, Orthopedics, Neurology, Pediatrics, etc.).
+  - "severity": "LOW", "MEDIUM", "HIGH", or "EMERGENCY".
+  - "esi_level": number from 1 (most severe) to 5 (least severe).
+  Always format your response as valid JSON without markdown formatting. Your suggestion is not a confirmed diagnosis; do not recommend medications.`,
+        generationConfig: { responseMimeType: "application/json", responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            predictedDisease: { type: SchemaType.STRING }, specialty: { type: SchemaType.STRING },
+            severity: { type: SchemaType.STRING, enum: ["LOW", "MEDIUM", "HIGH", "EMERGENCY"] },
+            esi_level: { type: SchemaType.INTEGER },
+          },
+          required: ["predictedDisease", "specialty", "severity", "esi_level"],
+        } },
+      }, { timeout: 10000 });
+
+      const result = await withBoundedTimeout(model.generateContent({
+        contents: [{ role: "user", parts: [{ text: symptoms }] }]
+      }).then(value => ({ value }), error => ({ error })), 11000, null);
+      if (!result) {
+        failureReason = "timeout";
+        throw new Error("AI response unavailable");
+      }
+      if (result.error) throw result.error;
+
+      failureReason = "invalid_response";
+      const rawText = result.value.response.text().trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, "$1");
       aiData = JSON.parse(rawText);
-    } catch(e) {
-      console.error("Failed to parse Gemini JSON:", rawText);
-      aiData = { predictedDisease: "Unknown", specialty: "General Medicine", severity: "MEDIUM", esi_level: 4 };
+      if (!aiData || Array.isArray(aiData) || typeof aiData.predictedDisease !== "string" || !aiData.predictedDisease.trim()
+        || typeof aiData.specialty !== "string" || !aiData.specialty.trim()
+        || !["LOW", "MEDIUM", "HIGH", "EMERGENCY"].includes(aiData.severity)
+        || !Number.isInteger(aiData.esi_level) || aiData.esi_level < 1 || aiData.esi_level > 5) {
+        throw new Error("Invalid AI assessment");
+      }
+    } catch (error) {
+      if (error?.status === 429) failureReason = "rate_limited";
+      console.error("Smart booking AI unavailable", { reason: failureReason, status: Number.isInteger(error?.status) ? error.status : null });
+      return res.status(503).json({ code: "AI_ASSESSMENT_UNAVAILABLE", reason: failureReason, fallbackActive: true,
+        message: (failureReason === "rate_limited" ? "AI symptom guidance has reached its provider request limit. " : "AI symptom guidance is temporarily unavailable. ")
+          + "No urgency assessment was completed. Please retry later or browse doctors directly; booking remains available." });
     }
 
     // Determine safety flags
-    const disclaimer = (aiData.severity === "EMERGENCY" || aiData.severity === "HIGH" || aiData.esi_level <= 2) 
+    const disclaimer = (aiData.severity === "EMERGENCY" || aiData.severity === "HIGH" || aiData.esi_level <= 2)
       ? "SEEK EMERGENCY CARE IMMEDIATELY. Your symptoms suggest a potentially critical condition."
       : "This is an AI assessment, not a clinical diagnosis. Please proceed to book your appointment.";
 
     // Normalize specialty to match database terminology
     const normalizedSpecialty = normalizeSpecialty(aiData.specialty);
+    if (aiData.severity === "EMERGENCY" || aiData.severity === "HIGH" || aiData.esi_level <= 2) {
+      return res.status(200).json({ disclaimer, disease: aiData.predictedDisease, specialty: normalizedSpecialty,
+        severity: aiData.severity, esi_level: aiData.esi_level, ranked_doctors: [], safetyFlags: [] });
+    }
 
     // Fetch doctors for this specialty (Doctor model uses experience.expertise, not specialty)
     let matchedDoctors = await Doctor.find({ 'experience.expertise': normalizedSpecialty })
@@ -637,7 +670,7 @@ Always format your response as valid JSON without markdown formatting.`
         .select('firstName lastName experience profilePhoto clinic rating consultationFee')
         .lean();
     }
-    
+
     // If STILL empty, just return a few doctors
     if (matchedDoctors.length === 0) {
       matchedDoctors = await Doctor.find({})
@@ -667,9 +700,10 @@ Always format your response as valid JSON without markdown formatting.`
       safetyFlags: []
     });
 
-  } catch (error) {
-    console.error("Smart Booking error:", error);
-    return res.status(500).json({ message: "Failed to run AI assessment", error: error.message });
+  } catch {
+    console.error("Smart booking directory unavailable");
+    return res.status(503).json({ code: "DOCTOR_DIRECTORY_UNAVAILABLE",
+      message: "Doctor profiles could not be loaded. Please retry or browse doctors directly." });
   }
 };
 
