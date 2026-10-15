@@ -22,6 +22,7 @@ import AiBot from "./components/AiBot";
 import AppointmentBooking from "./pages/AppointmentBooking";
 import DoctorAppointments from "./pages/DoctorAppointments";
 import MyAppointments from "./pages/MyAppointments";
+import CurrentVisit from "./pages/CurrentVisit";
 import Events from "./pages/Events";
 import PastEvents from "./pages/PastEvents";
 import VirtualTransactions from "./pages/VirtualTransactions";
@@ -106,6 +107,7 @@ function App() {
         <Route path="/doctorsProfile/:id" element={<DoctorsProfile />} />
         <Route path="/appointment/book/:doctorId" element={<AppointmentBooking />} />
         <Route path="/my-appointments" element={<MyAppointments />} />
+        <Route path="/appointments/current/:appointmentId" element={<CurrentVisit />} />
         <Route path="/appointments/reservations/:reservationId" element={<ReservationTracking />} />
         <Route path="/doctor/appointments" element={<DoctorAppointments />} />
         <Route path="/communities" element={<CommunityForm />} />

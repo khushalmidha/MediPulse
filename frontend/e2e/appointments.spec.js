@@ -142,6 +142,61 @@ test("legacy queue cancellation retains pending request and reports one complete
   const result = await state(request); expect(result.refunds).toBe(1); expect(result.legacyRefundRequests).toHaveLength(2); expect(result.legacyRefundRequests[0]).toEqual(result.legacyRefundRequests[1]); expect(result.legacyRefundRequests[0].revision).toBe(1);
 });
 
+test("Open current visit follows the exact family appointment instead of opening a booking form", async ({ page, request }) => {
+  await patch(request, { legacyVisit: true, callMode: true });
+  await page.goto("/my-appointments", { waitUntil: "domcontentloaded" });
+  await page.getByRole("link", { name: "Open current visit", exact: true }).click();
+  await expect(page).toHaveURL(/\/appointments\/current\/000000000000000000000003$/);
+  await expect(page.getByRole("heading", { name: "Your online consultation", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Hold slot and review", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "Scheduled online", exact: true })).toHaveCount(0);
+});
+
+test("slow current-visit polls apply fresh status without remounting the call and revoked access hides it", async ({ page, request }) => {
+  await patch(request, { callMode: true });
+  let slow = false, denied = false, regressed = false;
+  await page.route("**/appointment/000000000000000000000003", async route => {
+    if (denied) return route.fulfill({ status: 403, json: { message: "Synthetic visit access revoked" } });
+    const update = slow;
+    if (update) await new Promise(resolve => setTimeout(resolve, 6000));
+    if (!page.isClosed()) await route.fulfill({ json: { _id: "000000000000000000000003", status: regressed ? "queued" : "active", visitMode: "online",
+      queueKey: "independent:previous-date:evening", revision: regressed ? 1 : update ? 3 : 2,
+      doctor: { firstName: update ? "Updated" : "Fixture", lastName: "Doctor" } } });
+  });
+  await page.goto("/appointments/current/000000000000000000000003", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("video").first()).toBeVisible();
+  await expect.poll(() => page.evaluate(async () => (await import("/src/socket.js")).getSocket().connected)).toBe(true);
+  await expect(page.getByRole("button", { name: "Refresh visit", exact: true })).toBeEnabled();
+  await page.locator("video").first().evaluate(node => { window.fixtureVisitVideo = node; });
+  slow = true;
+  await expect(page.getByText("Dr. Updated Doctor", { exact: true })).toBeVisible({ timeout: 14000 });
+  expect(await page.locator("video").first().evaluate(node => node === window.fixtureVisitVideo)).toBe(true);
+  slow = false; regressed = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.getByText(/A previous visit revision was returned/)).toBeVisible({ timeout: 14000 });
+  expect(await page.locator("video").first().evaluate(node => node === window.fixtureVisitVideo)).toBe(true);
+  denied = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.getByText("Synthetic visit access revoked", { exact: true })).toBeVisible({ timeout: 14000 });
+  await expect(page.locator("video")).toHaveCount(0);
+  await expect(page.getByText("Dr. Updated Doctor", { exact: true })).toHaveCount(0);
+});
+
+test("a queued exact visit becomes a consultation when started and never offers video for in-person care", async ({ page, request }) => {
+  await page.goto("/appointments/current/000000000000000000000003", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText(/You are in the care queue/)).toBeVisible();
+  await expect(page.locator("video")).toHaveCount(0);
+  await patch(request, { callMode: true });
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.getByRole("heading", { name: "Your online consultation", exact: true })).toBeVisible();
+  await page.route("**/appointment/000000000000000000000003", route => route.fulfill({ json: {
+    _id: "000000000000000000000003", status: "active", visitMode: "in_person", revision: 3,
+  } }));
+  await page.getByRole("button", { name: "Refresh visit", exact: true }).click();
+  await expect(page.getByText(/This is an in-person visit/)).toBeVisible();
+  await expect(page.locator("video")).toHaveCount(0);
+});
+
 
 test("online OPD uses its capacity window and online arrival updates the live queue", async ({ page, request }, info) => {
   await choose(page); await page.getByRole("radio", { name: "Online OPD window", exact: true }).check();

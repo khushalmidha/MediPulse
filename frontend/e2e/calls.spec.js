@@ -13,7 +13,7 @@ test("both participants exchange real media, recover doctor disconnect, leave/re
     await protect(doctor); await protect(patient);
     await doctor.addCookies([{ name: "fixtureRole", value: "doctor", url: "http://127.0.0.1:15173", httpOnly: true }]);
     const doc = await doctor.newPage(), user = await patient.newPage();
-    await doc.goto("/doctor/appointments", { waitUntil: "domcontentloaded" }); await user.goto(booking, { waitUntil: "domcontentloaded" });
+    await doc.goto("/doctor/appointments", { waitUntil: "domcontentloaded" }); await user.goto("/appointments/current/000000000000000000000003", { waitUntil: "domcontentloaded" });
     await expect(doc.getByText("Connected", { exact: true })).toBeVisible(); await expect(user.getByText("Connected", { exact: true })).toBeVisible();
     await expect.poll(() => remoteLive(doc)).toBe(true); await expect.poll(() => remoteLive(user)).toBe(true);
     const connections = (await (await request.get(`${api}/__fixture/state`)).json()).doctorConnections;

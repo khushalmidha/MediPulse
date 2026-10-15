@@ -114,6 +114,9 @@ const server = createServer(async (req, res) => {
     if (!state.legacyRefunded) { state.legacyRefunded = true; state.refunds++; }
     return reply({ compensationStatus: "completed" });
   }
+  if (path === `/appointment/${appointmentId}` && req.method === "GET") return reply({ _id: appointmentId, doctor,
+    status: state.callEnded ? "completed" : state.callMode ? "active" : "queued", visitMode: "online", revision: state.callEnded ? 3 : state.callMode ? 2 : 1,
+    queueKey: "independent:fixture", familyMemberId: "000000000000000000000008" });
   if (state.callMode && path === `/appointment/doctor/${doctor._id}/pending`) return reply({ queueKey: "independent:fixture", queueRevision: state.callEnded ? 3 : 2, pendingCount: 0,
     myAppointment: state.callEnded ? null : { _id: appointmentId, status: "active", visitMode: "online", revision: 2 } });
   if (path === `/appointment/doctor/${doctor._id}/pending`) return reply({ pendingCount: state.bookings, myAppointment: state.bookings && !state.failBooking && !state.hidePending ? { _id: appointmentId, status: "queued", queuePosition: 1 } : null });
