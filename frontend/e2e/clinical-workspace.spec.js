@@ -14,6 +14,28 @@ test.beforeEach(async ({ page, request }) => {
 });
 test.afterEach(async ({ page }) => { expect(errors.get(page)).toEqual([]); });
 
+test("queue responses slower than polling still complete the initial load", async ({ page }) => {
+  await page.route("**/appointment/doctor/queue*", async route => {
+    const response = await route.fetch();
+    await new Promise(resolve => setTimeout(resolve, 5500));
+    if (!page.isClosed()) await route.fulfill({ response });
+  });
+  await open(page);
+  await expect(active(page).getByRole("heading", { name: "Synthetic Family Patient" })).toBeVisible({ timeout: 12000 });
+});
+
+test("queue polling times out a stalled request and permits a successful retry", async ({ page }) => {
+  let stalled = true;
+  await page.route("**/appointment/doctor/queue*", route => {
+    if (!stalled) return route.continue();
+  });
+  await open(page);
+  await expect(page.getByText("Queue refresh timed out. Please try again.", { exact: true })).toBeVisible({ timeout: 18000 });
+  stalled = false;
+  await button(page, "Retry queue").click();
+  await expect(active(page).getByRole("heading", { name: "Synthetic Family Patient" })).toBeVisible();
+});
+
 test("clinician pages reject patients and stale saved staff identity", async ({ page, request }) => {
   await request.post(api + "/__fixture/reset", { data: { clinical: true } });
   await page.addInitScript(() => sessionStorage.setItem("medipulse.hospitalAdmin", JSON.stringify({ staff: { _id: "000000000000000000000005", role: "DOCTOR", hospitalId: "000000000000000000000004" } })));

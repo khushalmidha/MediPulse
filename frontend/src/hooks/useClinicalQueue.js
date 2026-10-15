@@ -12,18 +12,22 @@ export default function useClinicalQueue(path, actor, hospital = false) {
   const [attempt, setAttempt] = useState(0);
   const refresh = useCallback(() => setAttempt(value => value + 1), []);
   useEffect(() => {
-    let disposed = false, sequence = 0; const controller = new AbortController();
+    let disposed = false, inFlight = false, sequence = 0; const controller = new AbortController();
     const load = async () => {
+      if (disposed || inFlight) return;
+      inFlight = true;
       const current = ++sequence, ticket = guard.current.begin(scope);
       setState(previous => ({ ...previous, scope, data: previous.scope === scope ? previous.data : null, loading: true }));
       try {
-        const response = await axios.get(BACKEND_URL + path, { withCredentials: true, signal: controller.signal });
+        const response = await axios.get(BACKEND_URL + path, { withCredentials: true, signal: controller.signal, timeout: 15000 });
         if (!disposed && current === sequence) {
           if (guard.current.accept(ticket, response.data)) setState({ scope, data: response.data, loading: false, error: "", errorStatus: null, refreshedAt: new Date() });
           else setState(previous => ({ ...previous, loading: false, error: "A previous queue revision was returned. The newer records are retained; refresh before taking action.", errorStatus: 409 }));
         }
       } catch (error) {
-        if (!disposed && !controller.signal.aborted && current === sequence) setState(previous => ({ ...previous, scope, loading: false, data: [401, 403, 404].includes(error.response?.status) ? null : previous.data, errorStatus: error.response?.status || null, error: error.response?.data?.message || "Unable to refresh the queue. Check your connection and retry." }));
+        if (!disposed && !controller.signal.aborted && current === sequence) setState(previous => ({ ...previous, scope, loading: false, data: [401, 403, 404].includes(error.response?.status) ? null : previous.data, errorStatus: error.response?.status || null, error: error.response?.data?.message || (["ECONNABORTED", "ETIMEDOUT"].includes(error.code) ? "Queue refresh timed out. Please try again." : "Unable to refresh the queue. Check your connection and retry.") }));
+      } finally {
+        inFlight = false;
       }
     };
     const visible = () => { if (document.visibilityState === "visible") void load(); };

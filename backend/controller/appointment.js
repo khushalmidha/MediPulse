@@ -241,8 +241,11 @@ const buildDoctorQueuePayloadRaw = async (doctorId, selectedQueueKey) => {
 };
 
 const buildDoctorQueuePayload = async (doctorId, selectedQueueKey) => {
-  const initial = await buildDoctorQueuePayloadRaw(doctorId, selectedQueueKey);
-  return withQueueRevision(initial.queueKey, () => buildDoctorQueuePayloadRaw(doctorId, initial.queueKey));
+  const rootId = normalizeId(doctorId);
+  if (selectedQueueKey && typeof selectedQueueKey !== "string") throw accessError(403, "Queue is not available in this doctor's care contexts");
+  // Resolve the revision key without building and discarding a complete queue first.
+  const queueKey = selectedQueueKey || queueContext({ doctorId: rootId, doctor: await Doctor.findById(rootId) }).queueKey;
+  return withQueueRevision(queueKey, () => buildDoctorQueuePayloadRaw(rootId, queueKey));
 };
 
 const emitQueueUpdates = async (doctorId, selectedQueueKey) => {
