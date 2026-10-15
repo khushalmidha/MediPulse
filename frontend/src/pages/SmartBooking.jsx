@@ -17,6 +17,19 @@ function SymptomGuide() {
       try {
         return await axios.post(BACKEND_URL + "/api/triage/smart-booking", { symptoms: symptoms.trim() }, { signal, withCredentials: true, timeout: 15000 });
       } catch (error) {
+        const data = error.response?.data;
+        const reason = {
+          not_configured: "The live server's AI configuration is missing.",
+          timeout: "The AI provider took too long to respond.",
+          invalid_response: "The AI provider returned an unusable assessment.",
+          provider_error: "The AI provider request failed.",
+          rate_limited: "The AI provider's request limit was reached.",
+          provider_access_denied: "The AI provider rejected the server's credentials or access permissions.",
+          provider_request_rejected: "The AI provider rejected the assessment request.",
+          model_unavailable: "The configured AI model is unavailable.",
+          provider_unavailable: "The AI provider is experiencing a service failure.",
+        }[data?.reason];
+        if (data?.code === "AI_ASSESSMENT_UNAVAILABLE" && reason) error.response.data = { ...data, message: `${reason} ${data.message}` };
         if (["ECONNABORTED", "ETIMEDOUT"].includes(error.code)) error.response = { status: 503, data: {
           message: "The symptom guide timed out. No urgency assessment was completed. Retry or browse doctors directly; booking remains available.",
         } };

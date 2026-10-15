@@ -1,5 +1,5 @@
 import { flagRedSymptoms } from "../services/copilotTools.js";
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI, GoogleGenerativeAIAbortError, SchemaType } from "@google/generative-ai";
 import { evaluateTriageRedFlag, withBoundedTimeout } from "../services/aiReliabilityService.js";
 import axios from "axios";
 import User from "../model/user.js";
@@ -641,6 +641,11 @@ export const smartBookingAssessment = async (req, res) => {
       }
     } catch (error) {
       if (error?.status === 429) failureReason = "rate_limited";
+      else if (error instanceof GoogleGenerativeAIAbortError || error?.name === "AbortError") failureReason = "timeout";
+      else if ([401, 403].includes(error?.status)) failureReason = "provider_access_denied";
+      else if (error?.status === 400) failureReason = "provider_request_rejected";
+      else if (error?.status === 404) failureReason = "model_unavailable";
+      else if (error?.status >= 500) failureReason = "provider_unavailable";
       console.error("Smart booking AI unavailable", { reason: failureReason, status: Number.isInteger(error?.status) ? error.status : null });
       return res.status(503).json({ code: "AI_ASSESSMENT_UNAVAILABLE", reason: failureReason, fallbackActive: true,
         message: (failureReason === "rate_limited" ? "AI symptom guidance has reached its provider request limit. " : "AI symptom guidance is temporarily unavailable. ")

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GoogleGenerativeAIAbortError } from "@google/generative-ai";
 import { smartBookingAssessment } from "../controller/triage.js";
 import Doctor from "../model/doctor.js";
 
@@ -51,6 +51,24 @@ test("null and malformed provider JSON do not invent a normal urgency result", a
     assert.equal(result.body.severity, undefined);
   }
   assert.equal(find.mock.callCount(), 0);
+});
+
+test("provider access, request and service errors retain safe actionable classifications", async t => {
+  const { generate } = provider(t);
+  for (const [status, reason] of [[400, "provider_request_rejected"], [401, "provider_access_denied"], [403, "provider_access_denied"], [404, "model_unavailable"], [500, "provider_unavailable"], [503, "provider_unavailable"]]) {
+    generate.mock.mockImplementation(async () => { throw Object.assign(new Error("private provider detail"), { status }); });
+    const result = await invoke("Synthetic concern");
+    assert.equal(result.status, 503);
+    assert.equal(result.body.reason, reason);
+    assert.doesNotMatch(JSON.stringify(result), /private provider detail/);
+  }
+});
+
+test("the real SDK's abort error is reported as a timeout", async t => {
+  provider(t, async () => { throw new GoogleGenerativeAIAbortError("private provider timeout"); });
+  const result = await invoke("Synthetic concern");
+  assert.equal(result.status, 503);
+  assert.equal(result.body.reason, "timeout");
 });
 
 test("valid structured and fenced JSON retain actual doctor fees and profile identity", async t => {

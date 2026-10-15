@@ -117,6 +117,22 @@ test("triage denial hides prior conversation and offline answers remain unsent",
   await patch(request, { denyTriage: 403 }); await button(page, "Send answer").click(); await expect(heading(page, "Pre-visit questions are unavailable")).toBeVisible(); await expect(page.getByRole("log")).toHaveCount(0); await expect(label(page, "Your answer")).toHaveCount(0);
 });
 
+test("symptom routing displays safe failure reasons without DevTools and retains the draft", async ({ page }) => {
+  let reason = "invalid_response";
+  await page.route("**/api/triage/smart-booking", route => route.fulfill({ status: 503, json: {
+    code: "AI_ASSESSMENT_UNAVAILABLE", reason, message: "No assessment was completed. Browse doctors directly.",
+  } }));
+  await open(page, "/smart-booking");
+  await label(page, "Symptoms and concerns").fill("Synthetic routing concern");
+  for (const [code, description] of [["invalid_response", "The AI provider returned an unusable assessment."], ["timeout", "The AI provider took too long to respond."], ["provider_access_denied", "The AI provider rejected the server's credentials or access permissions."]]) {
+    reason = code;
+    await button(page, "Explore care options").click();
+    await expect(page.getByText(description + " No assessment was completed. Browse doctors directly.", { exact: true })).toBeVisible();
+    await expect(label(page, "Symptoms and concerns")).toHaveValue("Synthetic routing concern");
+    await expect(page.getByRole("link", { name: "Browse doctors directly", exact: true })).toBeVisible();
+  }
+});
+
 test("stalled symptom routing times out, retains symptoms and permits retry or direct browsing", async ({ page }) => {
   let stalled = true;
   await page.route("**/api/triage/smart-booking", route => { if (!stalled) return route.continue(); });
