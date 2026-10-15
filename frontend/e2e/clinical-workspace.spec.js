@@ -36,6 +36,71 @@ test("queue polling times out a stalled request and permits a successful retry",
   await expect(active(page).getByRole("heading", { name: "Synthetic Family Patient" })).toBeVisible();
 });
 
+test("a background queue poll keeps the first patient startable and cannot overwrite a successful start", async ({ page, request }) => {
+  await patch(request, { clinicalIdle: true });
+  let holdNext = false, release;
+  const held = new Promise(resolve => { release = resolve; });
+  await page.route("**/appointment/doctor/queue*", async route => {
+    const response = await route.fetch();
+    if (holdNext) { holdNext = false; await held; }
+    if (!page.isClosed()) await route.fulfill({ response });
+  });
+  try {
+    await open(page);
+    const start = button(page, "Start Appointment").first();
+    await expect(start).toBeEnabled();
+    await expect.poll(() => page.evaluate(async () => (await import("/src/socket.js")).getSocket("account").connected)).toBe(true);
+    await expect(button(page, "Refresh queue")).toBeEnabled();
+    holdNext = true;
+    await expect(page.getByText(/Last successful refresh.*Refreshing/)).toBeVisible({ timeout: 7000 });
+    await expect(start).toBeEnabled({ timeout: 1000 });
+    await start.click();
+    await expect(active(page)).toBeVisible();
+    release();
+    await expect(active(page)).toBeVisible();
+    const starts = (await state(request)).clinicalRequests.filter(row => row.path.endsWith("/start"));
+    expect(starts).toHaveLength(1);
+    expect(starts[0].body.revision).toBe(4);
+  } finally { release(); }
+});
+
+test("a failed background queue poll retains patients but pauses actions until recovery", async ({ page, request }) => {
+  await patch(request, { clinicalIdle: true }); await open(page);
+  const start = button(page, "Start Appointment").first();
+  await expect(start).toBeEnabled();
+  await patch(request, { clinicalReadStatus: 503 });
+  await expect(page.getByText(/Previously loaded records are shown/)).toBeVisible({ timeout: 7000 });
+  await expect(start).toBeDisabled();
+  await patch(request, { clinicalReadStatus: null });
+  await button(page, "Retry queue").click();
+  await expect(start).toBeEnabled();
+});
+
+test("reconnecting during a background poll pauses actions until a fresh snapshot arrives", async ({ page, request }) => {
+  await patch(request, { clinicalIdle: true });
+  let holdNext = false, release;
+  const held = new Promise(resolve => { release = resolve; });
+  await page.route("**/appointment/doctor/queue*", async route => {
+    const response = await route.fetch();
+    if (holdNext) { holdNext = false; await held; }
+    if (!page.isClosed()) await route.fulfill({ response });
+  });
+  try {
+    await open(page);
+    await expect.poll(() => page.evaluate(async () => (await import("/src/socket.js")).getSocket("account").connected)).toBe(true);
+    await expect(button(page, "Refresh queue")).toBeEnabled();
+    holdNext = true;
+    await expect(page.getByText(/Last successful refresh.*Refreshing/)).toBeVisible({ timeout: 7000 });
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(button(page, "Start Appointment").first()).toBeDisabled();
+    await patch(request, { clinicalIdle: false, clinicalQueueRevision: 11 });
+    release();
+    await expect(active(page)).toBeVisible();
+    await expect(button(page, "Start Appointment").first()).toBeDisabled();
+    expect((await state(request)).clinicalRequests || []).toHaveLength(0);
+  } finally { release(); }
+});
+
 test("clinician pages reject patients and stale saved staff identity", async ({ page, request }) => {
   await request.post(api + "/__fixture/reset", { data: { clinical: true } });
   await page.addInitScript(() => sessionStorage.setItem("medipulse.hospitalAdmin", JSON.stringify({ staff: { _id: "000000000000000000000005", role: "DOCTOR", hospitalId: "000000000000000000000004" } })));
