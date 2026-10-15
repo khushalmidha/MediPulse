@@ -6,7 +6,9 @@ Use **khushalmidha24@gmail.com as Patient** and **khushalmidha18@gmail.com as Ho
 
 The second email has an accepted active hospital DOCTOR membership linked to its platform doctor and a paediatric department. Its independent publication/credential state is not changed for this recording. Use the existing hospital page from `/hospitals`, select this doctor and book for the synthetic child. No additional domain is needed.
 
-## Prepared fixture (production execution pending)
+## Applied fixture (production verified)
+
+The owner approved this exact plan and confirmed no other writers. It was applied to `medipulse` on 15 October 2026 after unchanged-plan checks and a private patient backup. Post-apply verification checked 302 existing records (the patient has only the approved family append/revision), all nine new history documents and the run record. Financial records remain unchanged. The actual patient timeline/family controllers returned three synthetic visits, no duplicate linked appointment cards and the active synthetic family profile. This was a database/controller check, not a logged-in browser recording.
 
 - One family profile: **Aarav — Synthetic Demo Child**, born 15 June 2018.
 - Three historical hospital visits: routine wellness, fictional mild cough intake, and a follow-up. Dates are 24 September, 5 October and 12 October 2026, relative to the explicit recording date.
@@ -18,7 +20,7 @@ This graph prepares navigation/history. It does **not** feed a hidden response i
 ## Short screen sequence
 
 1. Patient profile: open `/health-records`, show the synthetic child's three connected records and select that family profile for booking.
-2. Hospital page: choose the confirmed paediatric doctor, review the actual fee and current availability, then book once. This new booking uses the existing demo-credit flow; it is not prepaid by this fixture. If funds/availability are insufficient, resolve them through the normal UI before recording.
+2. [Open the hospital with the confirmed doctor selected](https://medipulse.live/hospitals/alchemist-001?doctor=6a72d3e889b075aeb83d554a), review the actual fee and current availability, then book once for **Aarav — Synthetic Demo Child**. This new booking uses the existing demo-credit flow; it is not prepaid by this fixture. If funds/availability are insufficient, resolve them through the normal UI before recording.
 3. Open the confirmed visit and demonstrate the available intake. Example fictional answers: “This is a synthetic demonstration. My 8-year-old child has had a mild cough and blocked nose for two days; severity 2/10. No breathing difficulty is reported. No medicines, allergies or long-term conditions are reported in this fictional scenario.” Answer further questions honestly within the scenario. Describe the output as a draft for clinician review.
 4. In the separate staff profile, open `/hospital/doctor-opd`, select the new booking and demonstrate only the currently available review/copilot controls. Do not claim a prewritten fixture was generated live. Never mark fictional clinical material as a real reviewed medical record.
 
