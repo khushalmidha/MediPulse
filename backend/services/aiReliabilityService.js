@@ -18,6 +18,8 @@ export const CLINICAL_SAFETY_DISCLAIMER =
 export const FORECAST_PLANNING_DISCLAIMER =
   "Hospital operational forecast generated for resource planning with limited evidence. Projections are indicative estimates and do not constitute validated predictions.";
 
+export const getSmartBookingModel = () => process.env.GEMINI_SMART_BOOKING_MODEL?.trim() || "gemini-3.5-flash-lite";
+
 /**
  * Verified AI system capabilities audit.
  * Accurately enumerates what is live in this repository checkout vs external/roadmap components.
@@ -28,6 +30,7 @@ export const getAiSystemAudit = () => {
       geminiTriageAssistant: {
         status: process.env.GEMINI_API_KEY ? "configured" : "unconfigured_fallback_active",
         model: "gemini-2.5-flash",
+        smartBookingModel: getSmartBookingModel(),
         role: "Conversational intake and rough note structuring (drafts only)",
         requiresClinicianApproval: true,
       },

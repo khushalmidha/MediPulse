@@ -15,7 +15,7 @@ function SymptomGuide() {
     event.preventDefault(); if (!symptoms.trim()) return;
     void task.run(async signal => {
       try {
-        return await axios.post(BACKEND_URL + "/api/triage/smart-booking", { symptoms: symptoms.trim() }, { signal, withCredentials: true, timeout: 15000 });
+        return await axios.post(BACKEND_URL + "/api/triage/smart-booking", { symptoms: symptoms.trim() }, { signal, withCredentials: true, timeout: 30000 });
       } catch (error) {
         const data = error.response?.data;
         const reason = {

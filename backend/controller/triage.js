@@ -1,6 +1,6 @@
 import { flagRedSymptoms } from "../services/copilotTools.js";
 import { GoogleGenerativeAI, GoogleGenerativeAIAbortError, SchemaType } from "@google/generative-ai";
-import { evaluateTriageRedFlag, withBoundedTimeout } from "../services/aiReliabilityService.js";
+import { evaluateTriageRedFlag, getSmartBookingModel, withBoundedTimeout } from "../services/aiReliabilityService.js";
 import axios from "axios";
 import User from "../model/user.js";
 import { getIO } from "../socket.js";
@@ -603,7 +603,7 @@ export const smartBookingAssessment = async (req, res) => {
       }
       const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY.trim());
       const model = ai.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: getSmartBookingModel(),
         systemInstruction: `You are an AI diagnostic routing agent for a hospital booking system. Analyze the provided symptoms and return a JSON object with:
   - "predictedDisease": best guess of the medical condition (string).
   - "specialty": the precise medical department needed (e.g. Cardiology, Dermatology, General Medicine, Orthopedics, Neurology, Pediatrics, etc.).
@@ -619,11 +619,11 @@ export const smartBookingAssessment = async (req, res) => {
           },
           required: ["predictedDisease", "specialty", "severity", "esi_level"],
         } },
-      }, { timeout: 10000 });
+      }, { timeout: 25000 });
 
       const result = await withBoundedTimeout(model.generateContent({
         contents: [{ role: "user", parts: [{ text: symptoms }] }]
-      }).then(value => ({ value }), error => ({ error })), 11000, null);
+      }).then(value => ({ value }), error => ({ error })), 26000, null);
       if (!result) {
         failureReason = "timeout";
         throw new Error("AI response unavailable");

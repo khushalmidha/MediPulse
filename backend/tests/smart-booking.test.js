@@ -3,12 +3,16 @@ import assert from "node:assert/strict";
 import { GoogleGenerativeAI, GoogleGenerativeAIAbortError } from "@google/generative-ai";
 import { smartBookingAssessment } from "../controller/triage.js";
 import Doctor from "../model/doctor.js";
+import { getAiSystemAudit } from "../services/aiReliabilityService.js";
 
 const valid = { predictedDisease: "Needs clinician review", specialty: "Dermatology", severity: "LOW", esi_level: 5 };
 test.beforeEach(t => {
   const previous = process.env.GEMINI_API_KEY;
+  const previousModel = process.env.GEMINI_SMART_BOOKING_MODEL;
+  delete process.env.GEMINI_SMART_BOOKING_MODEL;
   process.env.GEMINI_API_KEY = "synthetic-test-key";
   t.after(() => { if (previous === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previous; });
+  t.after(() => { if (previousModel === undefined) delete process.env.GEMINI_SMART_BOOKING_MODEL; else process.env.GEMINI_SMART_BOOKING_MODEL = previousModel; });
   t.mock.method(console, "error", () => {});
 });
 const provider = (t, run) => {
@@ -84,8 +88,18 @@ test("valid structured and fenced JSON retain actual doctor fees and profile ide
     assert.deepEqual(find.mock.calls.at(-1).arguments[0], { "experience.expertise": "Dermatology" });
   }
   assert.equal(model.mock.calls[0].arguments[0].generationConfig.responseMimeType, "application/json");
-  assert.equal(model.mock.calls[0].arguments[1].timeout, 10000);
+  assert.equal(model.mock.calls[0].arguments[0].model, "gemini-3.5-flash-lite");
+  assert.equal(getAiSystemAudit().verifiedCapabilities.geminiTriageAssistant.smartBookingModel, "gemini-3.5-flash-lite");
+  assert.equal(model.mock.calls[0].arguments[1].timeout, 25000);
   assert.equal(generate.mock.calls[0].arguments[0].contents[0].parts[0].text, "Synthetic concern");
+});
+
+test("the assessment and public audit honor the same configured model", async t => {
+  process.env.GEMINI_SMART_BOOKING_MODEL = "  gemini-3.6-flash  ";
+  const { model } = provider(t); doctors(t);
+  assert.equal((await invoke("Synthetic concern")).status, 200);
+  assert.equal(model.mock.calls[0].arguments[0].model, "gemini-3.6-flash");
+  assert.equal(getAiSystemAudit().verifiedCapabilities.geminiTriageAssistant.smartBookingModel, "gemini-3.6-flash");
 });
 
 test("blank, oversized and nontext symptoms are rejected without a model request", async t => {
@@ -107,7 +121,7 @@ test("a provider that never settles is bounded without automatic billable retrie
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { generate } = provider(t, () => new Promise(() => {}));
   const pending = invoke("Synthetic concern");
-  t.mock.timers.tick(11000);
+  t.mock.timers.tick(26000);
   const { status, body } = await pending;
   assert.equal(status, 503);
   assert.equal(body.code, "AI_ASSESSMENT_UNAVAILABLE");

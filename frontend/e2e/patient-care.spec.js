@@ -139,7 +139,7 @@ test("stalled symptom routing times out, retains symptoms and permits retry or d
   await open(page, "/smart-booking");
   await label(page, "Symptoms and concerns").fill("Synthetic routing concern");
   await button(page, "Explore care options").click();
-  await expect(page.getByText(/The symptom guide timed out\. No urgency assessment was completed/)).toBeVisible({ timeout: 18000 });
+  await expect(page.getByText(/The symptom guide timed out\. No urgency assessment was completed/)).toBeVisible({ timeout: 33000 });
   await expect(label(page, "Symptoms and concerns")).toHaveValue("Synthetic routing concern");
   await expect(page.getByRole("link", { name: "Browse doctors directly", exact: true })).toBeVisible();
   await expect(page.getByText("Draft — clinician review needed", { exact: true })).toHaveCount(0);
