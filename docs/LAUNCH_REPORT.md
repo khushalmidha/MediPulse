@@ -1,6 +1,13 @@
-# MediPulse release status — 12 October 2026
+# MediPulse release status — 20 October 2026
 
 **Status: launch approval withheld.** The P20/P21 “all phases and A01–A17 resolved” statements are superseded by the source review and executable integration checks below. This document is engineering evidence, not clinical or legal sign-off.
+
+
+## Current candidate summary — 20 October
+
+Booking/fullscreen consultation fixes are published as `2358b356`. The following route-loading wrap-up reduces main JS from **802.20 to 386.50 kB**, adds explicit loading/focused error recovery, and removes the floating assistant from consultation/triage screens. **34/34 targeted Chromium desktop/mobile checks**, build and affected lint pass. Detailed commands, scope and the earlier interrupted attempt are in WORK_LOG.
+
+The public frontend and alias advertised `2358b356` before this wrap-up publication. API liveness/readiness were HTTP 200 with MongoDB/Redis ready; optional Kafka was degraded and actual mail/TURN delivery is unverified. These public probes are not full authenticated production acceptance. Historical checks below belong to their stated revisions; launch approval remains withheld for the unfinished workflows listed in the table.
 
 ## Reviewed revisions
 

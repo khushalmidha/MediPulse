@@ -1,57 +1,60 @@
-import ReservationTracking from "./pages/ReservationTracking";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import PageBoundary from "./components/PageBoundary";
 import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { classifyHostname } from "./utils/productHosts";
 import { useProduct } from "./context/ProductContext";
 import { CompanyHome, ConnectHome, StaffHome, RouteNotFound } from "./pages/ProductHome";
-import PatientVisits from "./pages/hospital-website/PatientVisits";
-import ProductShell from "./components/ProductShell";
-import SignUp from "./pages/SignUp";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import EditProfile from "./pages/EditProfile";
-import Chat from "./pages/Chat";
-import DoctorsProfile from "./pages/DoctorsProfile";
-import CommunityForm from "./pages/CommunityForm";
-import Doctors from "./pages/Doctors";
-import About from "./pages/About";
-import Privacy from "./pages/Privacy";
-import Terms from "./pages/Terms";
-import DataUsagePolicy  from "./pages/DataUsagePolicy"
-import AiBot from "./components/AiBot";
-import AppointmentBooking from "./pages/AppointmentBooking";
-import DoctorAppointments from "./pages/DoctorAppointments";
-import MyAppointments from "./pages/MyAppointments";
-import CurrentVisit from "./pages/CurrentVisit";
-import Events from "./pages/Events";
-import PastEvents from "./pages/PastEvents";
-import VirtualTransactions from "./pages/VirtualTransactions";
-import VirtualRefunds from "./pages/VirtualRefunds";
-import VirtualAdminDashboard from "./pages/VirtualAdminDashboard";
-import VirtualNotifications from "./pages/VirtualNotifications";
-import HospitalWebsite from "./pages/hospital-website/HospitalWebsite";
-import HospitalKiosk from "./pages/hospital-website/HospitalKiosk";
-import HospitalsListPage from "./pages/HospitalsListPage";
-import HospitalAdminSignup from "./pages/HospitalAdminSignup";
-import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
-import SaaSOperationsConsole from "./pages/hospital-admin/SaaSOperationsConsole";
-import DoctorOpdConsole from "./pages/hospital-staff/DoctorOpdConsole";
-import NursingStation from "./pages/hospital-staff/NursingStation";
-import StaffCommunication from "./pages/hospital-staff/StaffCommunication";
-import LaboratoryConsole from "./pages/hospital-staff/LaboratoryConsole";
-import PharmacyConsole from "./pages/hospital-staff/PharmacyConsole";
-import StaffAcceptInvite from "./pages/StaffAcceptInvite";
-import ReviewVisit from "./pages/ReviewVisit";
-import OpdTriage from "./pages/OpdTriage";
-import SmartBooking from "./pages/SmartBooking";
-import PatientHealthPortal from "./pages/PatientHealthPortal";
 
+import ProductShell from "./components/ProductShell";
+
+import AiBot from "./components/AiBot";
+
+const ReservationTracking = lazy(() => import("./pages/ReservationTracking"));
+const PatientVisits = lazy(() => import("./pages/hospital-website/PatientVisits"));
+const SignUp = lazy(() => import("./pages/SignUp"));
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
+const Chat = lazy(() => import("./pages/Chat"));
+const DoctorsProfile = lazy(() => import("./pages/DoctorsProfile"));
+const CommunityForm = lazy(() => import("./pages/CommunityForm"));
+const Doctors = lazy(() => import("./pages/Doctors"));
+const About = lazy(() => import("./pages/About"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
+const DataUsagePolicy = lazy(() => import("./pages/DataUsagePolicy"));
+const AppointmentBooking = lazy(() => import("./pages/AppointmentBooking"));
+const DoctorAppointments = lazy(() => import("./pages/DoctorAppointments"));
+const MyAppointments = lazy(() => import("./pages/MyAppointments"));
+const CurrentVisit = lazy(() => import("./pages/CurrentVisit"));
+const Events = lazy(() => import("./pages/Events"));
+const PastEvents = lazy(() => import("./pages/PastEvents"));
+const VirtualTransactions = lazy(() => import("./pages/VirtualTransactions"));
+const VirtualRefunds = lazy(() => import("./pages/VirtualRefunds"));
+const VirtualAdminDashboard = lazy(() => import("./pages/VirtualAdminDashboard"));
+const VirtualNotifications = lazy(() => import("./pages/VirtualNotifications"));
+const HospitalWebsite = lazy(() => import("./pages/hospital-website/HospitalWebsite"));
+const HospitalKiosk = lazy(() => import("./pages/hospital-website/HospitalKiosk"));
+const HospitalsListPage = lazy(() => import("./pages/HospitalsListPage"));
+const HospitalAdminSignup = lazy(() => import("./pages/HospitalAdminSignup"));
+const HospitalAdminDashboard = lazy(() => import("./pages/HospitalAdminDashboard"));
+const SaaSOperationsConsole = lazy(() => import("./pages/hospital-admin/SaaSOperationsConsole"));
+const DoctorOpdConsole = lazy(() => import("./pages/hospital-staff/DoctorOpdConsole"));
+const NursingStation = lazy(() => import("./pages/hospital-staff/NursingStation"));
+const StaffCommunication = lazy(() => import("./pages/hospital-staff/StaffCommunication"));
+const LaboratoryConsole = lazy(() => import("./pages/hospital-staff/LaboratoryConsole"));
+const PharmacyConsole = lazy(() => import("./pages/hospital-staff/PharmacyConsole"));
+const StaffAcceptInvite = lazy(() => import("./pages/StaffAcceptInvite"));
+const ReviewVisit = lazy(() => import("./pages/ReviewVisit"));
+const OpdTriage = lazy(() => import("./pages/OpdTriage"));
+const SmartBooking = lazy(() => import("./pages/SmartBooking"));
+const PatientHealthPortal = lazy(() => import("./pages/PatientHealthPortal"));
 
 function App() {
   const product = useProduct();
   const location = useLocation();
   if (product.kind === "patient") {
-    return <ProductShell type="patient"><Routes>
+    return <ProductShell type="patient"><PageBoundary key={location.pathname}><Suspense fallback={<div className="mp-page" role="status" aria-live="polite" aria-busy="true">Loading your page...</div>}><Routes>
       <Route path="/" element={<HospitalWebsite slug={product.slug} />} />
       <Route path="/login" element={<Login initialType="user" lockProfile />} />
       <Route path="/signup" element={<SignUp initialType="user" lockProfile />} />
@@ -64,9 +67,9 @@ function App() {
       <Route path="/review" element={<ReviewVisit />} />
       <Route path="/privacy" element={<Privacy />} /><Route path="/terms" element={<Terms />} />
       <Route path="*" element={<RouteNotFound />} />
-    </Routes></ProductShell>;
+    </Routes></Suspense></PageBoundary></ProductShell>;
   }
-  if (product.kind === "staff") return <ProductShell type="staff"><Routes>
+  if (product.kind === "staff") return <ProductShell type="staff"><PageBoundary key={location.pathname}><Suspense fallback={<div className="mp-page" role="status" aria-live="polite" aria-busy="true">Loading your page...</div>}><Routes>
     <Route path="/" element={<StaffHome />} /><Route path="/hospital" element={<StaffHome />} />
     <Route path="/login" element={<Login initialType="hospital-admin" lockProfile />} />
     <Route path="/hospital/login" element={<Login initialType="hospital-admin" lockProfile />} />
@@ -84,11 +87,11 @@ function App() {
     <Route path="/hospital/pharmacy" element={<PharmacyConsole />} />
     <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
     <Route path="*" element={<RouteNotFound />} />
-  </Routes></ProductShell>;
+  </Routes></Suspense></PageBoundary></ProductShell>;
   return (
     <ProductShell type={product.kind === "company" && location.pathname === "/" ? "company" : "care"}>
 
-      <Routes>
+      <PageBoundary key={location.pathname}><Suspense fallback={<div className="mp-page" role="status" aria-live="polite" aria-busy="true">Loading your page...</div>}><Routes>
       <Route path="/" element={product.kind === "connect" ? <ConnectHome /> : <CompanyHome />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signup/:type" element={<SignUp/>} />
@@ -123,8 +126,8 @@ function App() {
         <Route path="/terms" element={<Terms />}/>
         <Route path="/cookiepolicy" element={<DataUsagePolicy />}/>
         <Route path="*" element={<RouteNotFound />} />
-      </Routes>
-      {location.pathname !== "/" && !/^\/(?:appointment\/book|appointments\/reservations|my-appointments|doctors(?:Profile)?|login|signup|profile\/edit)(?:\/|$)/.test(location.pathname) && <AiBot />}
+      </Routes></Suspense></PageBoundary>
+      {location.pathname !== "/" && !/^\/(?:appointment\/book|appointments\/(?:reservations|current)|doctor\/appointments|triage|my-appointments|doctors(?:Profile)?|login|signup|profile\/edit)(?:\/|$)/.test(location.pathname) && <AiBot />}
     </ProductShell>
   );
 }
@@ -150,5 +153,4 @@ function StaffRedirect() {
 }
 
 export default App;
-
 
