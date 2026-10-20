@@ -4,6 +4,7 @@ import EncounterJourney from "../model/encounterJourney.js";
 import HospitalLocation from "../model/hospitalLocation.js";
 import OpdToken from "../model/opdToken.js";
 import { accessError } from "./hospitalAccess.js";
+import { assertClinicalWorkflowReady } from "./clinicalSchema.js";
 
 const DEFAULT_STEPS = ["reception", "vitals", "consultation"];
 
@@ -29,6 +30,10 @@ export const initializeEncounterJourney = async ({
   ticketNumber,
   requiredSteps,
 }) => {
+  if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
+    await assertClinicalWorkflowReady({ workflow: "Encounter" });
+  }
+
   if (mongoose.connection?.readyState !== 1) return null;
 
   let encounter = await EncounterJourney.findOne({

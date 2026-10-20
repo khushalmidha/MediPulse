@@ -3,9 +3,19 @@ import { assertMoneyReady } from "./moneyMigration.js";
 import { assertAuthSchema } from "./authSchema.js";
 import { assertDurableSchema } from "./durableSchema.js";
 import { assertSchedulingSchema } from "./schedulingSchema.js";
+import { assertClinicalSchema } from "./clinicalSchema.js";
 import { checkDependencies } from "./readiness.js";
 
-const schemaChecks = { queue: assertQueueIndexes, ledger: assertMoneyReady, auth: assertAuthSchema, durable: assertDurableSchema, scheduling: assertSchedulingSchema };
+export { assertClinicalSchema };
+
+export const schemaChecks = {
+  queue: assertQueueIndexes,
+  ledger: assertMoneyReady,
+  auth: assertAuthSchema,
+  durable: assertDurableSchema,
+  scheduling: assertSchedulingSchema,
+  ...(process.env.REQUIRE_CLINICAL_SCHEMA === "true" ? { clinical: assertClinicalSchema } : {}),
+};
 
 // Read-only bootstrap checks. Index creation cannot substitute for reviewed data migrations.
 export async function inspectStartupReadiness({ checks = schemaChecks, dependencies = checkDependencies } = {}) {

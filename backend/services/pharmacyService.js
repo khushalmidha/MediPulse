@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import Prescription from "../model/prescription.js";
 import { accessError } from "./hospitalAccess.js";
+import { assertClinicalWorkflowReady } from "./clinicalSchema.js";
 
 export const generatePrescriptionToken = () => {
   return "RX-" + crypto.randomBytes(8).toString("hex").toUpperCase();
@@ -32,6 +33,10 @@ export const createPrescription = async ({
   items,
   actor,
 }) => {
+  if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
+    await assertClinicalWorkflowReady({ workflow: "Pharmacy" });
+  }
+
   if (!hospitalId) throw accessError(400, "Hospital tenant is required");
   if (testDouble && (!patientInfo || !patientInfo.name)) throw accessError(400, "Patient information is required");
   if (!Array.isArray(items) || items.length === 0) throw accessError(400, "At least one medication is required");

@@ -3,6 +3,7 @@ import { resolveClinicalItems, clinicalText } from "./clinicalOrderItems.js";
 import mongoose from "mongoose";
 import LabOrder from "../model/labOrder.js";
 import { accessError } from "./hospitalAccess.js";
+import { assertClinicalWorkflowReady } from "./clinicalSchema.js";
 
 export { generateAccessionBarcode } from "./labWorkflow.js";
 import { labCommand } from "./labWorkflow.js";
@@ -23,6 +24,10 @@ export const createLabOrder = async ({
   clinicalNotes = "",
   actor,
 }) => {
+  if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
+    await assertClinicalWorkflowReady({ workflow: "Laboratory" });
+  }
+
   if (!hospitalId) throw accessError(400, "Hospital tenant is required");
   if (!Array.isArray(tests) || tests.length === 0) throw accessError(400, "At least one laboratory test is required");
 

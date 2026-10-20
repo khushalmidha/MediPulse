@@ -63,6 +63,14 @@ try {
     if (writerRunning) throw new Error();
     await applySchedulingSchema();
   }
-  console.log("Local queue, demo ledger, auth, durable workflow and scheduling schema ready");
+  const { assertClinicalSchema, applyClinicalSchema, clinicalModels } = await import("../services/clinicalSchema.js");
+  try { await assertClinicalSchema(); } catch {
+    if ((await Promise.all(clinicalModels.map(model => model.countDocuments({})))).some(Boolean)) throw new Error();
+    let writerRunning = false;
+    try { await fetch(process.env.API_PROBE_URL || "http://backend:8080/health/live", { signal: AbortSignal.timeout(1500) }); writerRunning = true; } catch {}
+    if (writerRunning) throw new Error();
+    await applyClinicalSchema();
+  }
+  console.log("Local queue, demo ledger, auth, durable workflow, scheduling and clinical schema ready");
 } catch { console.error("Local bootstrap refused: stop existing API/consumer first; nonempty queues require the reviewed migration"); process.exitCode = 1; }
 finally { await mongoose?.disconnect(); }

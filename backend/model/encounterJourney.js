@@ -4,10 +4,10 @@ const objectId = mongoose.Schema.Types.ObjectId;
 
 const encounterJourneySchema = new mongoose.Schema(
   {
-    hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
-    departmentId: { type: objectId, ref: "Department", required: true, index: true },
-    tokenId: { type: objectId, ref: "OpdToken", index: true },
-    appointmentId: { type: objectId, ref: "Appointment", index: true },
+    hospitalId: { type: objectId, ref: "Hospital", required: true },
+    departmentId: { type: objectId, ref: "Department", required: true },
+    tokenId: { type: objectId, ref: "OpdToken" },
+    appointmentId: { type: objectId, ref: "Appointment" },
     patientId: { type: objectId, ref: "user" },
     familyMemberId: { type: objectId },
     isWalkIn: { type: Boolean, default: false },
@@ -30,7 +30,6 @@ const encounterJourneySchema = new mongoose.Schema(
         "cancelled",
       ],
       default: "booked",
-      index: true,
     },
 
     requiredSteps: {
@@ -100,11 +99,24 @@ const encounterJourneySchema = new mongoose.Schema(
 
     revision: { type: Number, default: 0 },
   },
-  { timestamps: true }
+  { timestamps: true, autoIndex: false }
 );
 
-encounterJourneySchema.index({ hospitalId: 1, currentStage: 1 });
-encounterJourneySchema.index({ hospitalId: 1, departmentId: 1 });
+encounterJourneySchema.index(
+  { tokenId: 1 },
+  { unique: true, name: "ag01_encounter_token_unique", partialFilterExpression: { tokenId: { $type: "objectId" } } }
+);
+encounterJourneySchema.index(
+  { appointmentId: 1 },
+  { unique: true, name: "ag01_encounter_appointment_unique", partialFilterExpression: { appointmentId: { $type: "objectId" } } }
+);
+encounterJourneySchema.index({ hospitalId: 1, currentStage: 1 }, { name: "ag01_encounter_hospital_stage" });
+encounterJourneySchema.index({ hospitalId: 1, departmentId: 1 }, { name: "ag01_encounter_hospital_department" });
+encounterJourneySchema.index({ hospitalId: 1, ticketNumber: 1 }, { name: "ag01_encounter_hospital_ticket" });
+encounterJourneySchema.index(
+  { patientId: 1, createdAt: -1 },
+  { name: "ag01_encounter_patient_created", partialFilterExpression: { patientId: { $type: "objectId" } } }
+);
 
 const EncounterJourney = mongoose.model("EncounterJourney", encounterJourneySchema);
 

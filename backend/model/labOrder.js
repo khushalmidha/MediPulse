@@ -52,23 +52,21 @@ const labOrderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Hospital",
       required: true,
-      index: true,
     },
     encounterJourneyId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "EncounterJourney",
-      index: true,
     },
     tokenId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "OpdToken",
-      index: true,
     },
     patientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      index: true,
     },
+    creationKey: { type: String },
+    requestHash: { type: String },
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
     serviceDepartmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
     familyMemberId: { type: mongoose.Schema.Types.ObjectId },
@@ -117,12 +115,9 @@ const labOrderSchema = new mongoose.Schema(
         "cancelled",
       ],
       default: "ordered",
-      index: true,
     },
     accessionBarcode: {
       type: String,
-      sparse: true,
-      index: true,
     },
     collectedAt: { type: Date },
     collectedBy: { type: mongoose.Schema.Types.ObjectId },
@@ -166,11 +161,36 @@ const labOrderSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    autoIndex: false,
   }
 );
 
-labOrderSchema.index({ hospitalId: 1, orderStatus: 1 });
-labOrderSchema.index({ hospitalId: 1, createdAt: -1 });
+labOrderSchema.index(
+  { hospitalId: 1, creationKey: 1 },
+  { unique: true, name: "ag01_lab_order_creation_key", partialFilterExpression: { creationKey: { $type: "string" } } }
+);
+labOrderSchema.index(
+  { accessionBarcode: 1 },
+  { unique: true, name: "ag01_lab_order_accession_barcode", partialFilterExpression: { accessionBarcode: { $type: "string" } } }
+);
+labOrderSchema.index({ hospitalId: 1, orderStatus: 1 }, { name: "ag01_lab_order_hospital_status" });
+labOrderSchema.index({ hospitalId: 1, createdAt: -1 }, { name: "ag01_lab_order_hospital_created" });
+labOrderSchema.index(
+  { patientId: 1, createdAt: -1 },
+  { name: "ag01_lab_order_patient_created", partialFilterExpression: { patientId: { $type: "objectId" } } }
+);
+labOrderSchema.index(
+  { hospitalId: 1, serviceDepartmentId: 1, orderStatus: 1 },
+  { name: "ag01_lab_order_service_dept_status", partialFilterExpression: { serviceDepartmentId: { $type: "objectId" } } }
+);
+labOrderSchema.index(
+  { tokenId: 1 },
+  { name: "ag01_lab_order_token", partialFilterExpression: { tokenId: { $type: "objectId" } } }
+);
+labOrderSchema.index(
+  { encounterJourneyId: 1 },
+  { name: "ag01_lab_order_encounter", partialFilterExpression: { encounterJourneyId: { $type: "objectId" } } }
+);
 
 const LabOrder = mongoose.model("LabOrder", labOrderSchema);
 

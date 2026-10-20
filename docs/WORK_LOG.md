@@ -1358,3 +1358,53 @@ Baseline `565134c2`. The owner asked to verify actual project completion, repair
 No production database/index/seed/provider/DNS/mail/deployment-console change occurred. Additive private history fields require no new index/backfill; no legacy records were reapproved or rewritten. Old consultation-record clients missing revisions now receive a validation error; frontend/backend should ship together. Preserve real history, recovery archives, credentials, wallets and previous owner-approved demo data. Live deployed parity and physical-device/TURN/mail/hospital acceptance remain unverified.
 
 Next safe checkpoint: review AG01 evidence and prepare local-only clinical/encounter schema inspection/recovery gates; AG10 is the separate hospital-admin setup task. Use the ledger dependencies and acceptance instead of re-auditing the entire repository or marking future tasks complete. Git publication remains authorized on main under Khushal Midha.
+
+
+## AG01 - Clinical and encounter schema inspection/repair gates - 21 October 2026
+
+Baseline: following AG00 verification.
+Implemented schema inspection, explicit named indexes, dry-run/additive apply and guarded rollback tools for clinical and encounter records (`EncounterJourney`, `LabOrder`, `Prescription`).
+
+### Implemented changes
+
+- Explicit named indexes and disabled startup `autoIndex`:
+  - `backend/model/encounterJourney.js`: configured `{ timestamps: true, autoIndex: false }` and defined explicit named indexes: `ag01_encounter_token_unique` (unique partial index on `{ tokenId: 1 }`), `ag01_encounter_appointment_unique` (unique partial index on `{ appointmentId: 1 }`), `ag01_encounter_hospital_stage`, `ag01_encounter_hospital_department`, `ag01_encounter_hospital_ticket`, and `ag01_encounter_patient_created`. Inline `index: true` attributes removed.
+  - `backend/model/labOrder.js`: added `creationKey` and `requestHash` fields; configured `{ timestamps: true, autoIndex: false }` and defined explicit named indexes: `ag01_lab_order_creation_key` (unique partial index on `{ hospitalId: 1, creationKey: 1 }`), `ag01_lab_order_accession_barcode` (unique partial index on `{ accessionBarcode: 1 }`), `ag01_lab_order_hospital_status`, `ag01_lab_order_hospital_created`, `ag01_lab_order_patient_created`, `ag01_lab_order_service_dept_status`, `ag01_lab_order_token`, and `ag01_lab_order_encounter`.
+  - `backend/model/prescription.js`: added `creationKey` and `requestHash` fields; configured `{ timestamps: true, autoIndex: false }` and defined explicit named indexes: `ag01_prescription_creation_key` (unique partial index on `{ hospitalId: 1, creationKey: 1 }`), `ag01_prescription_verification_token` (unique partial index on `{ verificationToken: 1 }`), `ag01_prescription_hospital_status`, `ag01_prescription_hospital_created`, `ag01_prescription_patient_created`, `ag01_prescription_service_dept_status`, `ag01_prescription_token`, and `ag01_prescription_encounter`.
+- Clinical schema service (`backend/services/clinicalSchema.js`):
+  - `inspectClinicalSchema()`: checks database connectivity (`readyState !== 1` handled safely without hung queries), inspects `ag01_` named indexes against live MongoDB indexes, identifies missing and conflicting indexes, and performs data provenance aggregate checks for duplicate `tokenId`, `appointmentId`, `creationKey`, `accessionBarcode`, and `verificationToken`. Preserves corrupt duplicates in `issues` without modification.
+  - `applyClinicalSchema({ dryRun })`: supports dry-run inspection, refuses if duplicates or conflicting indexes are found, creates missing collections if not present, and applies missing indexes additively.
+  - `rollbackClinicalSchema(snapshot)`: validates task (`AG01`), database match, and collection list; drops only permitted `ag01_` indexes declared in the model schemas; retains all document records and collections intact.
+  - `assertClinicalSchema()`: verifies overall readiness, throwing informative descriptive errors when uninitialized.
+  - `assertClinicalWorkflowReady({ workflow })`: throws HTTP 503 error (`${workflow} workflow is undergoing maintenance`) when gating is enabled and indexes are not ready.
+- Startup and workflow readiness gates:
+  - `backend/services/startupReadiness.js`: exports `assertClinicalSchema` and conditionally includes it in readiness checks when `process.env.REQUIRE_CLINICAL_SCHEMA === "true"`.
+  - `backend/services/encounterJourneyService.js`, `backend/services/labService.js`, and `backend/services/pharmacyService.js`: call `assertClinicalWorkflowReady` when `process.env.REQUIRE_CLINICAL_SCHEMA === "true"`, failing gated operations clearly with HTTP 503 when indexes are missing.
+  - `backend/scripts/bootstrapQueues.js`: integrated clinical schema initialization for empty-database bootstrap.
+- Safe operator CLI tool (`backend/scripts/initClinicalSchema.js`):
+  - Requires `--explicit-target`; defaults to safe, read-only dry-run output with JSON inspection plan.
+  - `--apply` strictly requires `--writers-paused` and `--backup <file>`; writes backup snapshot with `0o600` permissions before applying. Refuses execution if data duplicates or conflicting index specs exist.
+  - `--rollback` strictly requires `--writers-paused` and `--backup <file>`; validates and drops only `ag01_` indexes without deleting collections or documents.
+
+### Executed checks and limits
+
+- **Clinical schema integration suite**: **6/6 passed**, zero failures/skips, **7.73 s** (`backend/tests/integration/clinical-schema.test.js`).
+  - Missing indexes fail the selected workflow clearly with HTTP 503 when gated (`REQUIRE_CLINICAL_SCHEMA=true`).
+  - Dry-run inspection detects all missing `ag01_` indexes without modifying database state.
+  - Rehearsed valid populated fixtures and additive apply without startup `autoIndex`.
+  - Guarded rollback drops only `ag01_` indexes and preserves existing documents.
+  - Rehearsed corrupt populated fixtures: duplicates are detected, preserved, and block apply without destructive legacy rewrites.
+  - Conflicting index definitions fail inspection and refuse apply.
+- **CLI tool rehearsal**: verified `--explicit-target` dry-run, `--apply --writers-paused --backup`, ready verification, and `--rollback --writers-paused --backup` against local MongoDB replica set test database.
+- **Clinical regression suites**:
+  - `clinical-order-access.test.js`: **13/13 passed**, **10.99 s**.
+  - `clinical-writes.test.js`: **19/19 passed**, **13.17 s**.
+  - `lab-transactions.test.js`: **17/17 passed**, **14.01 s**.
+  - `pharmacy-transactions.test.js`: **17/17 passed**, **11.45 s**.
+- **Backend unit tests**: **166/166 passed**, zero failures/skips, **40.29 s** (including 3 new tests in `backend/tests/clinical-schema.test.js`).
+- **Frontend unit tests**: **49/49 passed**, zero failures/skips, **490 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **24.13 s**, zero errors.
+- **Node syntax check**: all 12 changed backend files passed `node --check`.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed. Startup `autoIndex` is disabled; duplicate records are preserved for operator review.
+

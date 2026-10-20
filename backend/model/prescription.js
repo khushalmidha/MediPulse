@@ -55,23 +55,21 @@ const prescriptionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Hospital",
       required: true,
-      index: true,
     },
     encounterJourneyId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "EncounterJourney",
-      index: true,
     },
     tokenId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "OpdToken",
-      index: true,
     },
     patientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      index: true,
     },
+    creationKey: { type: String },
+    requestHash: { type: String },
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
     serviceDepartmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
     familyMemberId: { type: mongoose.Schema.Types.ObjectId },
@@ -102,7 +100,6 @@ const prescriptionSchema = new mongoose.Schema(
       type: String,
       enum: ["approved_by_doctor", "partially_dispensed", "dispensed", "cancelled", "returned"],
       default: "approved_by_doctor",
-      index: true,
     },
     items: [prescriptionItemSchema],
     fulfillmentLedgerVersion: Number,
@@ -113,19 +110,41 @@ const prescriptionSchema = new mongoose.Schema(
     dispensedByName: { type: String },
     verificationToken: {
       type: String,
-      unique: true,
-      sparse: true,
-      index: true,
     },
     auditHistory: [prescriptionAuditSchema],
   },
   {
     timestamps: true,
+    autoIndex: false,
   }
 );
 
-prescriptionSchema.index({ hospitalId: 1, status: 1 });
-prescriptionSchema.index({ hospitalId: 1, createdAt: -1 });
+prescriptionSchema.index(
+  { hospitalId: 1, creationKey: 1 },
+  { unique: true, name: "ag01_prescription_creation_key", partialFilterExpression: { creationKey: { $type: "string" } } }
+);
+prescriptionSchema.index(
+  { verificationToken: 1 },
+  { unique: true, name: "ag01_prescription_verification_token", partialFilterExpression: { verificationToken: { $type: "string" } } }
+);
+prescriptionSchema.index({ hospitalId: 1, status: 1 }, { name: "ag01_prescription_hospital_status" });
+prescriptionSchema.index({ hospitalId: 1, createdAt: -1 }, { name: "ag01_prescription_hospital_created" });
+prescriptionSchema.index(
+  { patientId: 1, createdAt: -1 },
+  { name: "ag01_prescription_patient_created", partialFilterExpression: { patientId: { $type: "objectId" } } }
+);
+prescriptionSchema.index(
+  { hospitalId: 1, serviceDepartmentId: 1, status: 1 },
+  { name: "ag01_prescription_service_dept_status", partialFilterExpression: { serviceDepartmentId: { $type: "objectId" } } }
+);
+prescriptionSchema.index(
+  { tokenId: 1 },
+  { name: "ag01_prescription_token", partialFilterExpression: { tokenId: { $type: "objectId" } } }
+);
+prescriptionSchema.index(
+  { encounterJourneyId: 1 },
+  { name: "ag01_prescription_encounter", partialFilterExpression: { encounterJourneyId: { $type: "objectId" } } }
+);
 
 const Prescription = mongoose.model("Prescription", prescriptionSchema);
 

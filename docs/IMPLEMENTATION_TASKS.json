@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG01",
+  "startWith": "AG02",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -71,7 +71,7 @@
     {
       "id": "AG01",
       "title": "Clinical and encounter schema inspection/repair gates",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG00"
@@ -93,7 +93,49 @@
         "Rehearse valid and corrupt populated fixtures; no automatic startup index creation or destructive legacy rewrite."
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
-      "track": "outpatient_pilot"
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG01 clinical and encounter schema inspection/repair gates, 21 October 2026",
+        "clinicalSchemaIntegration": {
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        "clinicalOrderAccessIntegration": {
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0
+        },
+        "clinicalWritesIntegration": {
+          "passed": 19,
+          "failed": 0,
+          "skipped": 0
+        },
+        "labTransactionsIntegration": {
+          "passed": 17,
+          "failed": 0,
+          "skipped": 0
+        },
+        "pharmacyTransactionsIntegration": {
+          "passed": 17,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 166,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 49,
+          "failed": 0,
+          "skipped": 0
+        },
+        "cliRehearsal": "dry-run, apply with backup, rollback and duplicate preservation verified against local replica set",
+        "build": "passed",
+        "affectedLint": "passed, zero warnings",
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG02",
