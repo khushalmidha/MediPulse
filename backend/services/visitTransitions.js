@@ -1,3 +1,4 @@
+import { getQueuePauseState } from "./queueControls.js";
 import mongoose from "mongoose";
 import { recordVisitEvent } from "./workflowEvents.js";
 import { consultationDeadline } from "./consultationPolicy.js";
@@ -58,6 +59,9 @@ export const transitionVisit = async ({ tokenId, appointmentId, action, expected
     await scheduleTransition(appointment, action, session, now);
     if (["start", "vitals"].includes(action) && token && !token.arrivedAt) throw accessError(409, "Staff check-in is required before care begins");
     if (action === "start") {
+      // recordVisitEvent writes the same QueueRevision document in this transaction.
+      // A concurrent pause invalidates the snapshot and retries this check.
+      if ((await getQueuePauseState(primary.queueKey,session)).isPaused) throw accessError(409,"This queue is paused. Resume it before starting the next consultation.");
       if (primary.serviceDate !== localServiceDate(now, primary.timezone)) throw accessError(409, "This care session is not on the current service date");
       const head = token ? await OpdToken.findOne({ queueKey: token.queueKey, status: { $in: ["waiting", "vitals_done"] }, $or: [{ scheduledStart: { $exists: false } }, { scheduledStart: { $lte: now } }] }).sort({ tokenNumber: 1 }).session(session)
         : await Appointment.findOne({ queueKey: appointment.queueKey, status: "queued", admissionState: { $ne: "reserved" }, $or: [{ scheduledStart: { $exists: false } }, { scheduledStart: { $lte: now } }] }).sort({ checkedInAt: 1, createdAt: 1, _id: 1 }).session(session);

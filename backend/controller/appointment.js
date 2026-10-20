@@ -1,3 +1,4 @@
+import { getQueuePauseState } from "../services/queueControls.js";
 import { clinicalRevision, clinicalNotes, notesHash, checkClinicalEdit, commitClinicalEdit, invalidateSoap, soapApprovalFields } from "../services/clinicalWrites.js";
 import { visitPatientDisplay } from "../services/visitPatientDisplay.js";
 import { appointmentPosition } from "../services/appointmentPosition.js";
@@ -238,7 +239,7 @@ const buildDoctorQueuePayloadRaw = async (doctorId, selectedQueueKey) => {
       : new Date(left.checkedInAt || left.createdAt) - new Date(right.checkedInAt || right.createdAt) || normalizeId(left).localeCompare(normalizeId(right)));
   const active = selectedRows.find((row) => row.status === "active");
   if (active) await populateDoctorForAppointments([active]);
-  return { doctorId: rootId, queueKey: selected, queues, pendingCount: queued.length, queue: queued.map(mapQueueAppointment),
+  return { doctorId: rootId, queueKey: selected, pause: await getQueuePauseState(selected), queues, pendingCount: queued.length, queue: queued.map(mapQueueAppointment),
     reservations: selectedRows.filter((row) => row.status === "queued" && !ready(row)).map(mapQueueAppointment), activeAppointment: mapActiveAppointment(active) };
 };
 

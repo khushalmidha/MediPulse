@@ -11,6 +11,8 @@ Booking/fullscreen consultation fixes are published as `2358b356`. The following
 
 The public frontend and alias advertised `2358b356` before this wrap-up publication. API liveness/readiness were HTTP 200 with MongoDB/Redis ready; optional Kafka was degraded and actual mail/TURN delivery is unverified. These public probes are not full authenticated production acceptance. Historical checks below belong to their stated revisions; launch approval remains withheld for the unfinished workflows listed in the table.
 
+Appointment clinical write/review fixes are published as `9c573488`; the following hospital queue-pause repair adds durable controls and start enforcement. WORK_LOG records the local tests. These code publications have not established authenticated production parity or completed the remaining launch gates. The public build verification above remains limited to its stated revision.
+
 ## Reviewed revisions
 
 - `c42c3529`: Gemini P11–P20 baseline reviewed by Astra; [findings](ASTRA_REVIEW.md) and [ordered repair plan](ASTRA_IMPLEMENTATION_PLAN.md).
@@ -27,7 +29,7 @@ The public frontend and alias advertised `2358b356` before this wrap-up publicat
 | Pharmacy | Qualified dispensing/returns and receipts now use one Mongo transaction, revision/key replay and immutable batch allocation history with quarantine returns. Local real-router race/crash/replay checks pass and the pharmacist UI sends proper staff CSRF and resumes pending commands. Legacy unproven fills remain blocked; creation replay, named index/repair tooling, clinician ordering and connected patient documents still need completion |
 | SOAP review | Appointment notes, documents and SOAP now use atomic revision/status checks with prior clinical snapshots; review requires the exact generated version and source-note hash. The independent clinician UI supports explicit review and resists delayed stale snapshots. Completed note correction UI, hospital OPD review and released patient documents remain pending; see WORK_LOG for local evidence |
 | Onboarding/operations | StaffAcceptInvite already implements staff password setup; the earlier blanket absence statement was inaccurate. This does not complete the separate hospital-admin setup journey or entitlement mutation callers. Hospital registration/approval still writes/decrypts administrator password ciphertext and needs the reviewed replacement |
-| Queue controls | Pause remains process-local; start ignores it. Priority and kiosk must use the actual persisted queue ordering/session policy |
+| Queue controls | Hospital pause/resume now persists in the existing QueueRevision document with actor/history and required revision. Both hospital start paths check it transactionally; the doctor UI supports pause/resume and paused patient estimates withhold invented numeric delays. Cross-process/restart/race checks pass locally. Independent pause controls, priority ordering, terminal-visit ETA and multi-doctor/date/session kiosk repair remain open |
 | Patient experience | Decorative QR, inferred room/file location, and missing released lab/prescription journeys need the actual authorized encounter graph |
 | Independent/community/AI | Publication and booking eligibility, complete moderation/preferences delivery, provider boundary/consent and actual failure-path coverage remain required |
 | Demo data | The connected synthetic graph and preservation plan exist in the repair plan. No new production records or mail/provider jobs are authorized by this report |

@@ -89,9 +89,9 @@ opdRouter.post("/tokens/:tokenId/priority-override", validateStaff, asyncRoute(a
 
 opdRouter.post("/queue/pause", validateStaff, asyncRoute(async (req, res) => {
   const { pauseDoctorQueue } = await import("../services/queueTrackingService.js");
-  const result = pauseDoctorQueue({
+  const result = await pauseDoctorQueue({
     queueKey: req.body.queueKey,
-    doctorId: req.staff?._id || req.staff?.id,
+    actor: req.staff, revision: req.body.revision,
     reason: req.body.reason,
   });
   res.json({ message: "Queue paused", pause: result });
@@ -99,7 +99,7 @@ opdRouter.post("/queue/pause", validateStaff, asyncRoute(async (req, res) => {
 
 opdRouter.post("/queue/resume", validateStaff, asyncRoute(async (req, res) => {
   const { resumeDoctorQueue } = await import("../services/queueTrackingService.js");
-  const result = resumeDoctorQueue({ queueKey: req.body.queueKey });
+  const result = await resumeDoctorQueue({ queueKey: req.body.queueKey, actor: req.staff, revision: req.body.revision });
   res.json({ message: "Queue resumed", result });
 }));
 

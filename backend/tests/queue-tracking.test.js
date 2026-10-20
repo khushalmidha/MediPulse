@@ -1,41 +1,17 @@
+import { queueControlInput } from "../services/queueControls.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import {
-  pauseDoctorQueue,
-  resumeDoctorQueue,
-  getQueuePauseState,
-  calculateQueueETA,
-  getHospitalKioskStatus,
   recordPriorityOverride,
 } from "../services/queueTrackingService.js";
 
 test("P13: Queue tracking, ETA range, doctor pause, privacy kiosk and priority overrides", async (t) => {
-  const queueKey = "hospital:hosp1:doc1:2026-10-11:day";
-  const doctorId = new mongoose.Types.ObjectId();
-
-  await t.test("doctor pause and resume updates queue state and records reason", () => {
-    // Initial state is not paused
-    const initial = getQueuePauseState(queueKey);
-    assert.equal(initial.isPaused, false);
-
-    // Pause queue
-    const paused = pauseDoctorQueue({
-      queueKey,
-      doctorId,
-      reason: "Emergency surgical procedure",
-    });
-    assert.equal(paused.isPaused, true);
-    assert.equal(paused.reason, "Emergency surgical procedure");
-    assert.equal(paused.pausedBy, doctorId);
-
-    // Resume queue
-    const resumed = resumeDoctorQueue({ queueKey });
-    assert.equal(resumed.isPaused, false);
-    assert.equal(resumed.previous.reason, "Emergency surgical procedure");
-
-    const afterResume = getQueuePauseState(queueKey);
-    assert.equal(afterResume.isPaused, false);
+  await t.test("queue controls require a scoped key, current revision and operational reason", () => {
+    const input={queueKey:`hospital:${new mongoose.Types.ObjectId()}:${new mongoose.Types.ObjectId()}:2026-10-20:day`,revision:0,reason:"  Doctor break  "};
+    assert.equal(queueControlInput(input,true).reason,"Doctor break");
+    for(const invalid of [{...input,queueKey:"independent:any"},{...input,revision:"0"},{...input,reason:" "},{...input,reason:"x".repeat(301)}]) assert.throws(()=>queueControlInput(invalid,true),error=>error.status===400);
+    assert.equal(queueControlInput({...input,reason:undefined},false).reason,"");
   });
 
   await t.test("priority override requires reason and records actor audit", async () => {

@@ -3,33 +3,13 @@ import Appointment from "../model/appointment.js";
 import EncounterJourney from "../model/encounterJourney.js";
 import { idOf, accessError } from "./hospitalAccess.js";
 
-// Global in-memory pause registry for queue sessions (or stored with Redis)
-const queuePauseState = new Map();
-
-export const pauseDoctorQueue = ({ queueKey, doctorId, reason = "Doctor break" }) => {
-  if (!queueKey) throw accessError(400, "Queue key is required");
-  queuePauseState.set(queueKey, {
-    isPaused: true,
-    pausedAt: new Date(),
-    pausedBy: doctorId,
-    reason,
-  });
-  return queuePauseState.get(queueKey);
-};
-
-export const resumeDoctorQueue = ({ queueKey }) => {
-  if (!queueKey) throw accessError(400, "Queue key is required");
-  const previous = queuePauseState.get(queueKey);
-  queuePauseState.delete(queueKey);
-  return { isPaused: false, resumedAt: new Date(), previous };
-};
-
-export const getQueuePauseState = (queueKey) => {
-  return queuePauseState.get(queueKey) || { isPaused: false };
-};
+import { getQueuePauseState, setQueuePaused } from "./queueControls.js";
+export { getQueuePauseState };
+export const pauseDoctorQueue = options => setQueuePaused(options,true);
+export const resumeDoctorQueue = options => setQueuePaused(options,false);
 
 export const calculateQueueETA = async ({ queueKey, targetTokenNumber }) => {
-  const pause = getQueuePauseState(queueKey);
+  const pause = await getQueuePauseState(queueKey);
 
   // Find recent completed consultations to determine average duration
   const recentCompleted = await OpdToken.find({
@@ -79,7 +59,7 @@ export const calculateQueueETA = async ({ queueKey, targetTokenNumber }) => {
   return {
     patientsAhead: patientsAheadCount,
     nowServingToken: currentlyServing ? currentlyServing.displayToken || `T${currentlyServing.tokenNumber}` : null,
-    etaRange: {
+    etaRange: pause.isPaused ? {minMinutes:null,maxMinutes:null,label:"Queue paused - waiting time unavailable",confidence:"unavailable"} : {
       minMinutes,
       maxMinutes,
       label: patientsAheadCount === 0 && currentlyServing
@@ -88,7 +68,7 @@ export const calculateQueueETA = async ({ queueKey, targetTokenNumber }) => {
       confidence,
     },
     doctorStatus: pause.isPaused ? "paused" : currentlyServing ? "consulting" : "waiting",
-    pauseReason: pause.isPaused ? pause.reason : null,
+    pauseReason: pause.isPaused ? "Consultations temporarily paused" : null,
     lastUpdated: new Date(),
   };
 };

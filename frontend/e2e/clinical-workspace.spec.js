@@ -262,3 +262,30 @@ test("a delayed earlier save snapshot cannot replace the latest committed doctor
   expect(writes.at(-1).body).toMatchObject({doctorNotes:"Synthetic saved C",revision:6});
   await page.unrouteAll({ behavior: "wait" });
 });
+
+
+test("hospital queue pause survives reload, blocks starts and resumes with the current queue revision", async ({page,request})=>{
+  await request.post(api+"/__fixture/reset",{data:{clinical:true,nurse:true,staffRole:"DOCTOR"}});
+  await patch(request,{clinicalIdle:true});await open(page,"/hospital/doctor-opd");
+  const controls=page.getByRole("region",{name:"Queue availability",exact:true});
+  await expect(controls.getByRole("button",{name:"Pause queue",exact:true})).toBeDisabled();
+  await page.getByRole("textbox",{name:"Operational pause reason",exact:true}).fill("Synthetic scheduled break");
+  await button(page,"Pause queue").click();await expect(button(page,"Resume queue")).toBeVisible();
+  await expect(button(page,"Start").first()).toBeDisabled();
+  await page.reload();await expect(button(page,"Resume queue")).toBeVisible();await expect(button(page,"Start").first()).toBeDisabled();
+  await button(page,"Resume queue").focus();await page.keyboard.press("Enter");
+  await expect(button(page,"Pause queue")).toBeVisible();await expect(button(page,"Start").first()).toBeEnabled();
+  const writes=(await state(request)).clinicalRequests.filter(row=>row.path.includes("/queue/"));
+  expect(writes.map(row=>row.body.revision)).toEqual([10,11]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test("pausing the hospital queue preserves current consultation notes and completion",async({page,request})=>{
+  await request.post(api+"/__fixture/reset",{data:{clinical:true,nurse:true,staffRole:"DOCTOR"}});await open(page,"/hospital/doctor-opd");
+  const notes=page.getByRole("textbox",{name:"Doctor notes",exact:true});await notes.fill("Synthetic continuing care");
+  await page.getByRole("textbox",{name:"Operational pause reason",exact:true}).fill("Synthetic break after current visit");
+  await button(page,"Pause queue").click();await expect(button(page,"Resume queue")).toBeVisible();
+  await expect(notes).toHaveValue("Synthetic continuing care");await expect(button(page,"Complete consultation")).toBeEnabled();
+  await button(page,"Complete consultation").click();await button(page,"Confirm completion").click();await expect(active(page)).toHaveCount(0);
+  await expect(button(page,"Start").first()).toBeDisabled();
+});
