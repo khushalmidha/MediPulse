@@ -5,6 +5,8 @@
 
 ## Current candidate summary — 20 October
 
+**Published frontend candidate: `d58def4a`.** Anonymous live Chromium checks verified that build, company/Connect rendering and 390px reload with zero page errors, horizontal overflow or write requests. The initial private probe omitted the owned canonical www host and was corrected. This is public-page acceptance, not authenticated clinical or real-device/provider acceptance. The subsequent documentation-only commit records this evidence; application code is unchanged.
+
 Booking/fullscreen consultation fixes are published as `2358b356`. The following route-loading wrap-up reduces main JS from **802.20 to 386.50 kB**, adds explicit loading/focused error recovery, and removes the floating assistant from consultation/triage screens. **34/34 targeted Chromium desktop/mobile checks**, build and affected lint pass. Detailed commands, scope and the earlier interrupted attempt are in WORK_LOG.
 
 The public frontend and alias advertised `2358b356` before this wrap-up publication. API liveness/readiness were HTTP 200 with MongoDB/Redis ready; optional Kafka was degraded and actual mail/TURN delivery is unverified. These public probes are not full authenticated production acceptance. Historical checks below belong to their stated revisions; launch approval remains withheld for the unfinished workflows listed in the table.

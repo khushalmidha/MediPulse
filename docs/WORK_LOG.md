@@ -1274,3 +1274,10 @@ Baseline `2358b356`. The owner asked to wrap up quickly; completed a bounded loa
 No production record, schema/index, provider, DNS, dependency, credential, wallet or deployment-console change occurred. Git publication remains authorized on main under Khushal's identity. Preserve the existing history/recovery archives and keep clinical text in its current draft/review boundaries.
 
 The remaining pilot gates are real-device/TURN and operational delivery verification; durable encounter/custody and released patient documents; conditional clinical note/SOAP review and clinician ordering; complete onboarding/entitlement callers; persistent queue controls and provider/AI acceptance. Those are real unfinished workflows, not closed by this performance phase. The existing enterprise requirements plan remains separate from an outpatient demo.
+
+
+### Published candidate and read-only live verification
+
+Published the frontend wrap-up as **`d58def4a`** on main under Khushal Midha. A fresh anonymous bundled-Chromium browser confirmed that exact public build metadata, rendered the company homepage, followed Explore Connect and reloaded Connect at 390px. **All public smoke assertions passed: zero horizontal overflow, zero uncaught page errors and zero write requests.** The helper blocked all non-GET/HEAD/OPTIONS traffic and external provider hosts; no login, booking, patient/history read, mail or database mutation occurred.
+
+The first live check failed because its private host allowlist omitted the website's canonical `www.medipulse.live` redirect and consequently blocked the entry script. Inspecting failed asset hosts established that cause; allowing the owned canonical host made the same read-only checks pass. This was a probe configuration correction, not an application failure concealed by retries. Local 34/34 workflow checks, build and lint above remain the code acceptance evidence. This follow-up changes documentation only and does not claim completion of the remaining clinical/enterprise roadmap or real-device/TURN/provider-delivery acceptance.
