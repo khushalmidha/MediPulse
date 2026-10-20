@@ -1,0 +1,673 @@
+{
+  "formatVersion": 1,
+  "reviewDate": "2026-10-21",
+  "reviewBaseline": "565134c2",
+  "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
+  "notACompletionClaim": true,
+  "startWith": "AG01",
+  "statusRules": {
+    "pending": "Not completed; source evidence describes the gap",
+    "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
+    "verified_local": "Acceptance evidence recorded locally; not production acceptance",
+    "blocked_external": "Concrete owner/provider/production action is still required"
+  },
+  "tasks": [
+    {
+      "id": "AG00",
+      "title": "Audit, production API contract and consultation write bypass",
+      "status": "verified_local",
+      "priority": "P0",
+      "dependsOn": [],
+      "evidence": [
+        "backend/index.js",
+        "frontend/src/components/clinical/ClinicalUI.jsx",
+        "frontend/src/utils/sessionScope.js",
+        "backend/controller/doctor.js",
+        "backend/tests/integration/clinical-writes.test.js"
+      ],
+      "implementation": [
+        "Use the real /api/copilot mount and account-doctor CSRF.",
+        "Route alternate consultation-record edits through clinicalWrites, including prior draft/follow-up snapshots.",
+        "Publish this inventory, task ledger and portable browser runner."
+      ],
+      "acceptance": [
+        "19 real-router clinical cases; browser confirms production path and account CSRF.",
+        "Competing edits through both endpoints have one winner; completed edits and invented scheduled follow-up are rejected."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG00 implementation audit and portable continuation, 21 October 2026",
+        "clinicalIntegration": {
+          "passed": 19,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 163,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 49,
+          "failed": 0,
+          "skipped": 0
+        },
+        "browserClinicalCall": {
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        "portableRunner": {
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        "build": "passed",
+        "affectedLint": "passed, zero warnings",
+        "productionAcceptance": "not performed"
+      }
+    },
+    {
+      "id": "AG01",
+      "title": "Clinical and encounter schema inspection/repair gates",
+      "status": "pending",
+      "priority": "P0",
+      "dependsOn": [
+        "AG00"
+      ],
+      "evidence": [
+        "backend/model/encounterJourney.js",
+        "backend/model/labOrder.js",
+        "backend/model/prescription.js",
+        "backend/services/startupReadiness.js",
+        "backend/services/durableSchema.js"
+      ],
+      "implementation": [
+        "Prepare named-index/provenance inspection for encounter uniqueness, clinical creation keys and existing clinical workflows.",
+        "Produce read-only dry-run, additive apply and guarded recovery tools; preserve duplicates for reviewed repair.",
+        "Add startup/readiness gates only when the corresponding real workflow requires them."
+      ],
+      "acceptance": [
+        "Missing/conflicting indexes fail the selected workflow clearly.",
+        "Rehearse valid and corrupt populated fixtures; no automatic startup index creation or destructive legacy rewrite."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG02",
+      "title": "Exactly one recoverable encounter for every hospital visit",
+      "status": "pending",
+      "priority": "P0",
+      "dependsOn": [
+        "AG01"
+      ],
+      "evidence": [
+        "backend/services/encounterJourneyService.js",
+        "backend/controller/opdToken.js",
+        "backend/services/queueBooking.js",
+        "backend/services/scheduling.js",
+        "backend/services/visitTransitions.js"
+      ],
+      "implementation": [
+        "Replace read-then-create journey initialization with transaction/idempotency and source identity binding.",
+        "Cover immediate booking, assisted walk-in, scheduled confirmation/check-in and replay repair.",
+        "Bind tenant/department/patient/family/personKey and source token/appointment consistently."
+      ],
+      "acceptance": [
+        "Concurrent/replayed booking yields one encounter and no second debit.",
+        "A failed derived journey can be repaired on replay after restart without changing original history."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG03",
+      "title": "Source-driven stages, destinations and location administration",
+      "status": "pending",
+      "priority": "P0",
+      "dependsOn": [
+        "AG02"
+      ],
+      "evidence": [
+        "backend/services/visitTransitions.js",
+        "backend/services/encounterJourneyService.js",
+        "backend/controller/encounterJourney.js",
+        "backend/routes/hospital.js",
+        "backend/model/hospitalLocation.js"
+      ],
+      "implementation": [
+        "Write stage/destination/history updates with the actual visit transition and actor, rather than only currentStage.",
+        "Validate tenant/department/service location references and expose authorized location setup UI.",
+        "Define clinical source events versus administrative overrides; require reasons/revisions for overrides.",
+        "Replace fabricated destination fallbacks with explicitly unknown instructions."
+      ],
+      "acceptance": [
+        "Check-in/vitals/start/completion update the same encounter once and preserve prior events.",
+        "Foreign/inactive destinations, skipped required stages and stale transitions are rejected."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG04",
+      "title": "Physical file custody with recipient acceptance",
+      "status": "pending",
+      "priority": "P0",
+      "dependsOn": [
+        "AG03"
+      ],
+      "evidence": [
+        "backend/routes/encounter.js",
+        "backend/controller/encounterJourney.js",
+        "backend/services/encounterJourneyService.js",
+        "backend/model/encounterJourney.js",
+        "backend/middleware/encounterAccess.js"
+      ],
+      "implementation": [
+        "Replace disabled custody commands with send, recipient accept and recipient refuse, plus an explicit initial-file registration policy.",
+        "Keep current holder unchanged until recipient acceptance; derive recipient name/role from active staff records.",
+        "Use atomic revision/key checks and immutable handoff history with actual location scope.",
+        "Add operational worklist/actions and a minimal patient custody projection."
+      ],
+      "acceptance": [
+        "Wrong recipient/tenant/department, stale accept/refuse, replay and simultaneous acceptance are covered.",
+        "No request-supplied acknowledged=true can transfer custody; refusal preserves current holder."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG05",
+      "title": "Verified walk-in account claim",
+      "status": "pending",
+      "priority": "P1",
+      "dependsOn": [
+        "AG02",
+        "AG04"
+      ],
+      "evidence": [
+        "backend/routes/encounter.js",
+        "backend/middleware/encounterAccess.js",
+        "backend/services/encounterJourneyService.js",
+        "frontend/src/pages/hospital-website/PatientVisits.jsx"
+      ],
+      "implementation": [
+        "Use verified claim proof with expiry/attempt limits and the real account owner; a phone string or ticket ID alone is insufficient.",
+        "Atomically link all relevant source records while preserving original walk-in identity/history.",
+        "Add a real patient claim flow and replay recovery; obtain a specific policy decision if proof ownership is unclear."
+      ],
+      "acceptance": [
+        "Foreign/expired/replayed proof fails; simultaneous claims cannot link to different owners.",
+        "Original records, person identity, family links, payments and history remain consistent."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG06",
+      "title": "Retry-safe transactional creation of lab orders and prescriptions",
+      "status": "pending",
+      "priority": "P0",
+      "dependsOn": [
+        "AG01",
+        "AG02"
+      ],
+      "evidence": [
+        "backend/services/labService.js",
+        "backend/services/pharmacyService.js",
+        "backend/services/clinicalOrderAccess.js",
+        "backend/services/clinicalOrderItems.js",
+        "backend/controller/lab.js",
+        "backend/controller/pharmacy.js"
+      ],
+      "implementation": [
+        "Replace initial order.save/prescription.save with one creation command transaction and durable key/fingerprint.",
+        "Bind context/catalog reads to the transaction and coordinate with consultation completion.",
+        "Return the same created resource on identical retry; reject changed requests under the same key.",
+        "Preserve existing report, batch-allocation and independent verification workflows."
+      ],
+      "acceptance": [
+        "Concurrent create/replay and crash-after-commit yield one resource.",
+        "Create-versus-complete has a valid serialized result; no order appears after a completed source check.",
+        "Foreign family/catalog/department and unproven legacy clinical records remain blocked."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG07",
+      "title": "Connected clinician ordering and hospital note review",
+      "status": "pending",
+      "priority": "P0",
+      "dependsOn": [
+        "AG03",
+        "AG06"
+      ],
+      "evidence": [
+        "frontend/src/components/clinical/ClinicalUI.jsx",
+        "frontend/src/components/clinical/ClinicalWorkspace.jsx",
+        "backend/controller/opdToken.js",
+        "backend/services/clinicalWrites.js",
+        "backend/routes/lab.js",
+        "backend/routes/pharmacy.js"
+      ],
+      "implementation": [
+        "Build hospital clinician lab/prescription composers from real service departments and versioned catalogs/inventory.",
+        "Preserve a pending command key across response loss and recover the actual created order.",
+        "Implement hospital-token note/SOAP review with actor/version/source binding; do not reuse account-only routes with staff CSRF.",
+        "Show ordered work and version-bound critical acknowledgement tasks in the same consultation."
+      ],
+      "acceptance": [
+        "A hospital doctor orders for a family patient and the correct service worklist receives it once.",
+        "Draft/review invalidation, terminal edits, cancellation/reload and denied catalog access are rendered and tested."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG08",
+      "title": "Patient released documents, visit packet and real scannable ticket",
+      "status": "pending",
+      "priority": "P0",
+      "dependsOn": [
+        "AG04",
+        "AG07"
+      ],
+      "evidence": [
+        "backend/services/clinicalOrderAccess.js",
+        "backend/controller/patientPortal.js",
+        "frontend/src/pages/PatientHealthPortal.jsx",
+        "frontend/src/pages/hospital-website/PatientVisits.jsx",
+        "backend/controller/encounterJourney.js"
+      ],
+      "implementation": [
+        "Connect released report versions, approved prescriptions/partial fills and clinician-reviewed summaries to the actual encounter/person.",
+        "Add real QR encoding and authenticated authorized resolution; never expose patient details via a public bearer ticket.",
+        "Provide download/print and clear draft/released/amended labels; show unknown room/file states honestly."
+      ],
+      "acceptance": [
+        "Owner/family/foreign user tests and actor-switch disposal; drafts and staff history never reach patient documents.",
+        "A scanner resolves the intended owned visit; released amendments preserve earlier versions."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG09",
+      "title": "Remaining queue order, kiosk and ETA semantics",
+      "status": "pending",
+      "priority": "P1",
+      "dependsOn": [
+        "AG03"
+      ],
+      "evidence": [
+        "backend/services/queueTrackingService.js",
+        "backend/services/queueControls.js",
+        "backend/services/visitTransitions.js",
+        "backend/controller/opdToken.js",
+        "backend/controller/appointment.js",
+        "frontend/src/pages/hospital-website/HospitalKiosk.jsx"
+      ],
+      "implementation": [
+        "Complete independent pause controls with account authorization if enabled as a product feature.",
+        "Replace the unmodeled priority override with an authorized reasoned command and one real deterministic order used by start/staff/patient/kiosk.",
+        "Group the public kiosk by actual doctor/session and hospital service date/timezone; fix mobile overflow/stale responses.",
+        "Return truthful terminal/reserved/active-target ETA rather than a wait for completed/no-show patients."
+      ],
+      "acceptance": [
+        "Same order across readers and competing starts; priority command replay and foreign actor denial.",
+        "Two doctors with T001, multiple sessions and midnight boundaries remain distinct; no patient PII on kiosk."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG10",
+      "title": "Atomic hospital-admin password setup and registration replacement",
+      "status": "pending",
+      "priority": "P0",
+      "dependsOn": [
+        "AG00"
+      ],
+      "evidence": [
+        "backend/services/saasOperationsService.js",
+        "backend/controller/saasOperations.js",
+        "backend/controller/hospital.js",
+        "frontend/src/pages/HospitalAdminSignup.jsx",
+        "frontend/src/App.jsx"
+      ],
+      "implementation": [
+        "Implement /staff/setup in every intended product host/path context.",
+        "Consume setup proof atomically with creation/update of the intended admin password hash and account/session version.",
+        "Replace new encrypted-password registration/approval writes and password emails with expiring setup links.",
+        "Preserve legacy ciphertext/history for separately reviewed migration; staff invite setup already exists."
+      ],
+      "acceptance": [
+        "Exactly one concurrent consume succeeds; expiry/reissue/replay and correct login/password hash are tested.",
+        "Injected transaction failure cannot consume proof without setting the password; no token/password leaks."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG11",
+      "title": "Real entitlement/quota/suspension callers and activation checklist",
+      "status": "pending",
+      "priority": "P1",
+      "dependsOn": [
+        "AG10"
+      ],
+      "evidence": [
+        "backend/services/saasOperationsService.js",
+        "backend/controller/hospital.js",
+        "backend/services/scheduling.js",
+        "frontend/src/pages/HospitalAdminDashboard.jsx",
+        "frontend/src/pages/hospital-admin/SaaSOperationsConsole.jsx"
+      ],
+      "implementation": [
+        "Call limits/features at actual staff, department and relevant module mutations; serialize quota changes.",
+        "Apply consistent suspension policy and derive setup/usage metrics from actual records.",
+        "Guide an admin through departments, accepted staff, rooms and published availability to the first synthetic booking."
+      ],
+      "acceptance": [
+        "Two concurrent additions at a quota boundary cannot exceed it.",
+        "A new synthetic tenant completes actual setup; suspended and wrong-plan actions fail consistently."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG12",
+      "title": "Independent practice publication and booking eligibility",
+      "status": "pending",
+      "priority": "P1",
+      "dependsOn": [
+        "AG00"
+      ],
+      "evidence": [
+        "backend/controller/doctor.js",
+        "backend/model/doctor.js",
+        "backend/services/scheduling.js",
+        "backend/controller/appointment.js",
+        "frontend/src/pages/DoctorsProfile.jsx",
+        "frontend/src/pages/AppointmentBooking.jsx"
+      ],
+      "implementation": [
+        "Use actual verification/publication/enabled-practice state in discovery and booking eligibility.",
+        "Remove verified/enabled fallback claims and preserve an explicitly zero consultation fee.",
+        "Add practice/session publishing UI using CareSession and explicit independent/hospital contexts."
+      ],
+      "acceptance": [
+        "Unpublished/unverified/inactive practice cannot be booked; no self-verification via profile edits.",
+        "One professional can offer separated hospital and independent schedules without overlaps or mixed queues."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG13",
+      "title": "Complete community moderation, pagination and preference delivery",
+      "status": "pending",
+      "priority": "P1",
+      "dependsOn": [
+        "AG00"
+      ],
+      "evidence": [
+        "backend/controller/community.js",
+        "backend/controller/event.js",
+        "backend/model/community.js",
+        "backend/services/outboxDelivery.js",
+        "frontend/src/pages/Chat.jsx",
+        "frontend/src/pages/Events.jsx"
+      ],
+      "implementation": [
+        "Finish bounded message/member history and organizer/moderator report workflows, preserving restricted evidence.",
+        "Make preferences typed and race-safe; deliver announcements/event reminders through actual durable jobs respecting preferences.",
+        "Keep report/preference metadata out of ordinary member responses."
+      ],
+      "acceptance": [
+        "Nonmember/organizer/moderator paths, duplicate reports, bounded pagination and event edits/cancellation.",
+        "Restart/replay does not duplicate reminders; disabled notifications are not sent."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG14",
+      "title": "One clinical AI boundary and honest evaluation",
+      "status": "pending",
+      "priority": "P1",
+      "dependsOn": [
+        "AG07",
+        "AG12"
+      ],
+      "evidence": [
+        "backend/services/aiReliabilityService.js",
+        "backend/controller/aiReliability.js",
+        "backend/controller/triage.js",
+        "backend/controller/copilot.js",
+        "backend/controller/opdAi.js",
+        "backend/controller/gemini.js"
+      ],
+      "implementation": [
+        "Consolidate actual provider callers behind explicit bounds, minimization, consent and provenance.",
+        "Apply timeout/malformed/unavailable behavior at real call sites; core care must continue without the provider.",
+        "Run evaluation cases through the actual deterministic/provider boundary; do not count fixture enumeration or hardcoded routine labels as validation.",
+        "Keep missing Python/ranking services described as absent unless source/artifacts are actually added and evaluated."
+      ],
+      "acceptance": [
+        "Provider timeout/malformed response/revoked consent/stale source/unauthorized role tests exercise actual callers.",
+        "Clinician-reviewed expected outcomes and evidence limits remain separate from implementation checks."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG15",
+      "title": "Repeatable connected synthetic dataset and pitch journey",
+      "status": "pending",
+      "priority": "P2",
+      "dependsOn": [
+        "AG08",
+        "AG09",
+        "AG11",
+        "AG13"
+      ],
+      "evidence": [
+        "docs/ASTRA_IMPLEMENTATION_PLAN.md",
+        "backend/services/foxoDemo.js",
+        "backend/services/demoRecovery.js",
+        "backend/tests/integration/foxo-demo.test.js"
+      ],
+      "implementation": [
+        "Implement the documented versioned graph in an isolated demo DB with deterministic keys, scenario date and no outgoing providers/mail.",
+        "Connect existing hospital roles, family visits, labs, partial pharmacy fills and follow-ups; derive charts from actual data.",
+        "Provide manifest, preservation fingerprints, dry run, replay and guarded rollback."
+      ],
+      "acceptance": [
+        "Every demo card links to actual related records; replay creates no duplicate.",
+        "Owner-approved existing history/accounts/credentials/wallets remain unchanged; production additions need a new exact plan."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG16",
+      "title": "Final verification and production acceptance",
+      "status": "pending",
+      "priority": "P0",
+      "dependsOn": [
+        "AG05",
+        "AG08",
+        "AG09",
+        "AG11",
+        "AG12",
+        "AG13",
+        "AG14",
+        "AG15"
+      ],
+      "evidence": [
+        "docs/LAUNCH_REPORT.md",
+        "docs/WORK_LOG.md",
+        "backend/services/startupReadiness.js",
+        "backend/services/turnCredentials.js",
+        "backend/services/outbox.js",
+        "frontend/playwright.config.js"
+      ],
+      "implementation": [
+        "Run required local unit/integration/browser suites for the exact candidate and reconcile all task states.",
+        "Prepare schema/data dry-run and recovery evidence before requesting only necessary production execution.",
+        "Verify actual frontend/backend revisions, health/readiness, mail delivery and physical-device/cross-network TURN against the approved environment.",
+        "Document recovery/support/data-export/deletion operating requirements and owner acceptance."
+      ],
+      "acceptance": [
+        "Critical patient/doctor/reception/nurse/lab/pharmacy/admin journeys run end to end with correct roles/family/tenant.",
+        "No unsupported completion/clinical certification/payment/provider claim; unresolved failures remain explicit."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "outpatient_pilot"
+    },
+    {
+      "id": "AG17",
+      "title": "Enterprise hospital expansion requirements and phases",
+      "status": "pending",
+      "priority": "P2",
+      "dependsOn": [
+        "AG16"
+      ],
+      "evidence": [
+        "docs/ENTERPRISE_PLAN.md",
+        "PRODUCTION_ROADMAP.md"
+      ],
+      "implementation": [
+        "Turn the existing requirements plan into approved incremental IPD/ADT/bed/OT/nursing/medication/insurance/integration milestones.",
+        "Record operating jurisdiction, hospital workflows, interfaces and acceptance before new enterprise modules.",
+        "Retain a bounded outpatient pilot release; do not represent a planning document as implemented inpatient care."
+      ],
+      "acceptance": [
+        "Hospital owner requirements and dependency order are explicit.",
+        "Each approved expansion has actual schema/API/permissions/UI/tests/deployment evidence before being marked complete."
+      ],
+      "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
+      "track": "enterprise"
+    },
+    {
+      "id": "AG18",
+      "title": "Inpatient admission, discharge, transfers and beds",
+      "status": "pending",
+      "priority": "P2",
+      "track": "enterprise",
+      "dependsOn": [
+        "AG17"
+      ],
+      "evidence": [
+        "docs/ENTERPRISE_PLAN.md"
+      ],
+      "implementation": [
+        "Hospital-approved ADT states and bed/ward/location setup; model allocation and transfers with conditional revisions and durable history.",
+        "Connect inpatient identity, responsible team, investigations and discharge documents to the same patient/family record."
+      ],
+      "acceptance": [
+        "Two concurrent admissions cannot allocate one bed; transfer failures retain a valid original assignment.",
+        "Discharge/transfer permissions, patient identity and complete history are verified against approved hospital scenarios."
+      ],
+      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval."
+    },
+    {
+      "id": "AG19",
+      "title": "Inpatient clinical orders, nursing and medication administration",
+      "status": "pending",
+      "priority": "P2",
+      "track": "enterprise",
+      "dependsOn": [
+        "AG18"
+      ],
+      "evidence": [
+        "docs/ENTERPRISE_PLAN.md"
+      ],
+      "implementation": [
+        "Implement approved inpatient order sets, clinician sign-off, nursing tasks and medication administration records with versioned changes.",
+        "Use the hospital-approved allergy/safety/escalation policy and explicit role/shift handover; do not invent treatment rules or autonomous dosing."
+      ],
+      "acceptance": [
+        "Order change versus administration, omitted/refused doses, reassignment and audit scenarios preserve actor/time/version.",
+        "Clinicians validate actual workflow behavior; outpatient draft AI does not become an administration authority."
+      ],
+      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval."
+    },
+    {
+      "id": "AG20",
+      "title": "Emergency and theatre workflows",
+      "status": "pending",
+      "priority": "P2",
+      "track": "enterprise",
+      "dependsOn": [
+        "AG18",
+        "AG19"
+      ],
+      "evidence": [
+        "docs/ENTERPRISE_PLAN.md"
+      ],
+      "implementation": [
+        "Implement only hospital-approved emergency registration, handover and theatre scheduling/checklist workflows.",
+        "Coordinate room/team/equipment bookings, consent references and cancellation/rebooking with real prerequisites."
+      ],
+      "acceptance": [
+        "Competing theatre/resource reservations and cancelled/rescheduled cases remain consistent.",
+        "Approved clinical checklist/escalation policies and role boundaries are exercised by hospital reviewers."
+      ],
+      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval."
+    },
+    {
+      "id": "AG21",
+      "title": "Hospital revenue, procurement and stock operations",
+      "status": "pending",
+      "priority": "P2",
+      "track": "enterprise",
+      "dependsOn": [
+        "AG17",
+        "AG18"
+      ],
+      "evidence": [
+        "docs/ENTERPRISE_PLAN.md"
+      ],
+      "implementation": [
+        "Implement approved service tariff/invoice/payment/credit-note/insurance workflows separately from existing demo credits.",
+        "Add procurement, supplier receipts, ward stock transfers and batch/expiry reconciliation using immutable financial/stock entries.",
+        "Integrate a real payment provider only after the exact owner-approved activation and reconciliation plan."
+      ],
+      "acceptance": [
+        "Partial payment/refund/credit-note and split stock-transfer retries cannot duplicate money or inventory.",
+        "Real gateways are never reported active from a simulated checkout response."
+      ],
+      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval."
+    },
+    {
+      "id": "AG22",
+      "title": "Hospital integrations and enterprise operating acceptance",
+      "status": "pending",
+      "priority": "P2",
+      "track": "enterprise",
+      "dependsOn": [
+        "AG19",
+        "AG20",
+        "AG21"
+      ],
+      "evidence": [
+        "docs/ENTERPRISE_PLAN.md"
+      ],
+      "implementation": [
+        "Implement the approved external laboratory/imaging/identity/insurance interfaces and versioned contracts; define reconciliation and downtime ownership.",
+        "Complete tenant/role/shift audit, export, backup/restore, monitored worker delivery, capacity and recovery exercises to the hospital requirements.",
+        "Add separate delivery tasks for each accepted interface; approval of this plan is not evidence that those integrations exist."
+      ],
+      "acceptance": [
+        "Contract/replay/outage and restore drills preserve patient/financial identity with measurable agreed acceptance.",
+        "Hospital owner accepts the exact deployed enterprise scope; unsupported regulatory/SLA/certification claims remain absent."
+      ],
+      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval."
+    }
+  ]
+}

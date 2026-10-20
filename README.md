@@ -1,3 +1,5 @@
+> Current implementation and agent continuation: [Implementation status](docs/IMPLEMENTATION_STATUS.md) · [Antigravity handoff](docs/ANTIGRAVITY_HANDOFF.md) · [Task ledger](docs/IMPLEMENTATION_TASKS.json). Full product completion is not claimed.
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/khushalmidha/MediPulse/main/frontend/public/heart.svg" alt="MediPulse logo" width="120" />
 </p>

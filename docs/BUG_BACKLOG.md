@@ -85,3 +85,6 @@ The laboratory UI now uses shared neutral/teal surfaces, actual parameter templa
 
 
 20 October R5 follow-up: hospital queue pause/resume is now persisted and revision-checked in QueueRevision, scoped to authorized current hospital sessions, enforced transactionally before both linked/direct starts, and exposed in clinician snapshots/UI. Patient paused estimates withhold numeric waits/private reasons. Cross-process/restart/race evidence is in WORK_LOG. This supersedes the process-local-pause finding only; independent controls, priority ordering, terminal ETA and multi-doctor/date/session kiosk work remain open.
+
+
+21 October AG00 source audit: fixed a real SOAP client/server route mismatch (/copilot vs /api/copilot), wrong account-doctor CSRF classification and a second notes mutation path in doctor.saveConsultationRecord that bypassed revision/status/review history. Production-mount integration and explicit browser path/header checks now cover the contract; both clinical write paths share the atomic helper. See IMPLEMENTATION_STATUS / IMPLEMENTATION_TASKS for current cross-module completion boundaries rather than interpreting older completion summaries as current. Completed amendments, hospital clinical review and the remaining encounter/ordering/onboarding work stay open.

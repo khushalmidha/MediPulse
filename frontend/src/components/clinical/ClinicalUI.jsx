@@ -69,7 +69,7 @@ export function ActiveConsultation({ visit, hospital, disabled, refresh, onDirty
   const saveNotes = () => task.run(async signal => { const result = await send("patch", "notes", { doctorNotes: notes, revision: writeRevision.current }, signal); acceptedNotes(result); return result; }, () => { task.setFeedback({ tone: "info", message: "Doctor notes saved." }); refresh(); });
   const generateReceipt = () => task.run(async signal => { const result = await send("post", "receipt", { doctorNotes: notes, revision: writeRevision.current }, signal); acceptedNotes(result, false); return result; }, () => { task.setFeedback({ tone: "info", message: "Consultation document generated. Review its draft text before using it." }); refresh(); });
   const generateSoap = () => task.run(async signal => {
-    const result = await axios.post(`${BACKEND_URL}/copilot/${visit._id}/generate-soap`, { doctorNotes: notes, revision: writeRevision.current }, { withCredentials: true, signal });
+    const result = await axios.post(`${BACKEND_URL}/api/copilot/${visit._id}/generate-soap`, { doctorNotes: notes, revision: writeRevision.current }, { withCredentials: true, signal });
     if (!Number.isInteger(result.data.revision)) throw new Error("Refresh the visit before continuing.");
     writeRevision.current = result.data.revision; baseline.current = notes; setSaved(notes); setSoap(result.data.soapNote); soapSignature.current = JSON.stringify(result.data.soapNote); setReviewed(false); return result;
   }, () => { refresh(); task.setFeedback({ tone: "info", message: "SOAP draft prepared. Review it before approval." }); });

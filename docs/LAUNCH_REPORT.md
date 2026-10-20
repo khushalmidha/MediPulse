@@ -1,9 +1,9 @@
-# MediPulse release status — 20 October 2026
+# MediPulse release status — 21 October 2026
 
 **Status: launch approval withheld.** The P20/P21 “all phases and A01–A17 resolved” statements are superseded by the source review and executable integration checks below. This document is engineering evidence, not clinical or legal sign-off.
 
 
-## Current candidate summary — 20 October
+## Last public candidate verification — 20 October
 
 **Published frontend candidate: `d58def4a`.** Anonymous live Chromium checks verified that build, company/Connect rendering and 390px reload with zero page errors, horizontal overflow or write requests. The initial private probe omitted the owned canonical www host and was corrected. This is public-page acceptance, not authenticated clinical or real-device/provider acceptance. The subsequent documentation-only commit records this evidence; application code is unchanged.
 
@@ -12,6 +12,12 @@ Booking/fullscreen consultation fixes are published as `2358b356`. The following
 The public frontend and alias advertised `2358b356` before this wrap-up publication. API liveness/readiness were HTTP 200 with MongoDB/Redis ready; optional Kafka was degraded and actual mail/TURN delivery is unverified. These public probes are not full authenticated production acceptance. Historical checks below belong to their stated revisions; launch approval remains withheld for the unfinished workflows listed in the table.
 
 Appointment clinical write/review fixes are published as `9c573488`; the following hospital queue-pause repair adds durable controls and start enforcement. WORK_LOG records the local tests. These code publications have not established authenticated production parity or completed the remaining launch gates. The public build verification above remains limited to its stated revision.
+
+## Current implementation audit - 21 October
+
+The source-backed current module status and remaining work are in [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md), with a 23-task dependency ledger and [Antigravity handoff](ANTIGRAVITY_HANDOFF.md). These supersede blanket implementation-complete claims. The AG00 follow-up fixes the SOAP UI's /copilot versus actual /api/copilot mount mismatch, the account/staff CSRF misclassification, and the alternate consultation-record write that bypassed shared revision/terminal guards. Final local clinical integration, unit, browser, lint and build evidence is in WORK_LOG. The new checked-in browser runner removes reliance on an uncommitted OneDrive workaround.
+
+This is code/plan publication, not a new authenticated production or provider acceptance result. Initial clinical order creation still uses ordinary saves; transactional lab-result/fulfillment commands do not imply creation replay is finished. Hospital-admin token consumption still does not set a password. The encounter and enterprise gaps in the linked status remain open.
 
 ## Reviewed revisions
 

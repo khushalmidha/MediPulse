@@ -23,7 +23,7 @@ export async function commitClinicalEdit({ appointment, revision, actorId, field
   const filter = { _id: appointment._id, doctor: appointment.doctor?._id || appointment.doctor,
     status: appointment.status, ...condition, ...(revision === 0 ? { $or: [{ revision: 0 }, { revision: { $exists: false } }] } : { revision }) };
   const update = { $set: fields, $inc: { revision: 1 }, $push: { clinicalHistory: {
-    revision, doctorNotes: prior.doctorNotes || "", soapNote: prior.soapNote || null,
+    revision, doctorNotes: prior.doctorNotes || "", draftNotes: prior.draftNotes || "", followUp: prior.followUp || null, soapNote: prior.soapNote || null,
     receiptText: prior.receiptText || "", receiptGeneratedAt: prior.receiptGeneratedAt || null,
     actorId, reason, recordedAt: new Date(),
   } } };

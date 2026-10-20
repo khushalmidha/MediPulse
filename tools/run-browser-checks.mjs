@@ -1,0 +1,20 @@
+// Keep Playwright discovery/artifacts off OneDrive reparse files. No production API.
+import {mkdtemp,mkdir,readdir,copyFile,symlink,writeFile,access} from "node:fs/promises";
+import {fileURLToPath,pathToFileURL} from "node:url";
+import {spawn} from "node:child_process";
+import path from "node:path";
+import os from "node:os";
+const root=fileURLToPath(new URL("../",import.meta.url)), frontend=path.join(root,"frontend");
+const modules=path.join(frontend,"node_modules"), cli=path.join(modules,"@playwright/test/cli.js");
+await access(cli);
+const privateRoot=process.platform==="win32" && process.env.LOCALAPPDATA?path.join(process.env.LOCALAPPDATA,"MediPulse","Private"):path.join(os.tmpdir(),"medipulse-private");
+await mkdir(privateRoot,{recursive:true});
+const harness=await mkdtemp(path.join(privateRoot,"browser-checks-")), tests=path.join(harness,"e2e");await mkdir(tests);
+for(const name of await readdir(path.join(frontend,"e2e")))if(name.endsWith(".spec.js")||name.endsWith(".mjs"))await copyFile(path.join(frontend,"e2e",name),path.join(tests,name));
+for(const [name,target] of [["node_modules",modules],["src",path.join(frontend,"src")]])await symlink(target,path.join(harness,name),process.platform==="win32"?"junction":"dir");
+const config=path.join(harness,"playwright.config.mjs");
+await writeFile(config,`import base from ${JSON.stringify(pathToFileURL(path.join(frontend,"playwright.config.js")).href)};\nexport default {...base,testDir:"./e2e",outputDir:${JSON.stringify(path.join(harness,"results"))},webServer:base.webServer.map(server=>({...server,cwd:${JSON.stringify(frontend)}}))};\n`);
+console.log("Synthetic browser checks; private artifacts: "+harness);
+const child=spawn(process.execPath,[cli,"test","--config",config,...process.argv.slice(2)],{cwd:frontend,stdio:"inherit",env:{...process.env,E2E_API_PROXY:"true",E2E_TRACE:process.env.E2E_TRACE || "false"}});
+child.once("error",()=>{console.error("Could not start the local browser check runner");process.exitCode=1;});
+child.once("exit",code=>{process.exitCode=code===null?1:code;});

@@ -22,3 +22,9 @@ test("pending commands are scoped to staff/tenant and remain intact on invalid s
   const packet = { kind: "dispense", rxId: "000000000000000000000001", key: "synthetic-operation", body: { expectedRevision: 0, items: [{ itemId: "000000000000000000000002", quantityToDispense: 1 }] } };
   assert.deepEqual(readPendingPharmacy({ getItem: () => JSON.stringify(packet) }, "key"), packet);
 });
+
+
+test("account doctor copilot paths keep account CSRF even behind the production relay",()=>{
+  for(const path of ["/api/copilot/abc/generate-soap","/backend/api/copilot/abc/generate-soap"]) assert.equal(scopeForPath(path),"account",path);
+  for(const path of ["/api/opd-ai/tokens/abc/copilot","/backend/api/opd-ai/tokens/abc/copilot"]) assert.equal(scopeForPath(path),"staff",path);
+});

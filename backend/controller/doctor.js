@@ -1,3 +1,5 @@
+import { clinicalRevision, clinicalNotes, commitClinicalEdit, invalidateSoap, soapApprovalFields } from "../services/clinicalWrites.js";
+import { accessError, requireRecordId } from "../services/hospitalAccess.js";
 import { communitySummary } from "../services/communityAccess.js";
 import { requireReviewedAccountRemoval } from "../services/accountRemoval.js";
 import { normalizeSpecialty } from '../util/normalizeSpecialty.js';
@@ -549,29 +551,28 @@ const getIndependentQueue = async (req, res) => {
 };
 
 const saveConsultationRecord = async (req, res) => {
-	if (!req.auth || req.auth.role !== "doctor") return res.status(401).json({ message: "Unauthorized" });
-	const { appointmentId } = req.params;
-	const { doctorNotes, draftNotes, followUp } = req.body;
-
-	const appointment = await Appointment.findOne({ _id: appointmentId, doctor: req.auth.id });
-	if (!appointment) return res.status(404).json({ message: "Appointment not found for this practitioner" });
-
-	const updates = {};
-	if (doctorNotes !== undefined) updates.doctorNotes = String(doctorNotes);
-	if (draftNotes !== undefined) updates.draftNotes = String(draftNotes);
-	if (followUp && typeof followUp === "object") {
-		updates.followUp = {
-			scheduledDate: followUp.scheduledDate ? new Date(followUp.scheduledDate) : null,
-			notes: String(followUp.notes || ""),
-			status: ["none", "recommended", "scheduled", "completed"].includes(followUp.status) ? followUp.status : "none",
-		};
-	}
-
-	const updated = await Appointment.findByIdAndUpdate(appointmentId, { $set: updates }, { new: true });
-	return res.json({
-		message: "Consultation records saved",
-		appointment: updated,
-	});
+  if (req.auth?.role !== "doctor") throw accessError(403,"Doctor account required");
+  const appointmentId=requireRecordId(req.params.appointmentId,"appointment"), body=req.body || {};
+  const revision=clinicalRevision(body.revision), fields={}, unset=[];
+  if(body.doctorNotes!==undefined) fields.doctorNotes=clinicalNotes(body.doctorNotes);
+  if(body.draftNotes!==undefined) fields.draftNotes=clinicalNotes(body.draftNotes);
+  if(body.followUp!==undefined) {
+    const value=body.followUp;
+    if(!value || typeof value!=="object" || Array.isArray(value)) throw accessError(400,"Invalid follow-up recommendation");
+    // A recommendation is not proof of a scheduled or completed follow-up visit.
+    const status=value.status===undefined?"recommended":value.status;
+    if(!["none","recommended"].includes(status)) throw accessError(400,"Record a follow-up recommendation here; scheduling requires an actual reservation");
+    if(value.scheduledDate!==undefined && value.scheduledDate!==null && (typeof value.scheduledDate!=="string" || !Number.isFinite(Date.parse(value.scheduledDate)))) throw accessError(400,"Invalid follow-up date");
+    fields.followUp={status,notes:clinicalNotes(value.notes===undefined?"":value.notes),scheduledDate:value.scheduledDate?new Date(value.scheduledDate):null};
+  }
+  if(!Object.keys(fields).length) throw accessError(400,"Provide clinical notes, draft notes or a follow-up recommendation");
+  const appointment=await Appointment.findOne({_id:appointmentId,doctor:req.auth.id});
+  if(!appointment) throw accessError(404,"Appointment not found for this practitioner");
+  if(fields.doctorNotes!==undefined && fields.doctorNotes!==(appointment.doctorNotes || "")) {
+    Object.assign(fields,invalidateSoap());unset.push(...soapApprovalFields,"receiptText","receiptGeneratedAt");
+  }
+  const updated=await commitClinicalEdit({appointment,revision,actorId:req.auth.id,fields,unset,reason:"consultation-record"});
+  return res.json({message:"Consultation records saved",appointment:Object.fromEntries(["_id","status","revision","doctorNotes","draftNotes","followUp","soapNote","receiptText"].filter(key=>updated[key]!==undefined).map(key=>[key,updated[key]]))});
 };
 
 export {

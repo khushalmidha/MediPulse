@@ -211,7 +211,9 @@ test("clinical pages fit mobile, tablet and desktop with accessible dialogs and 
 test("SOAP draft requires explicit version review and a later note edit invalidates approval", async ({ page, request }, testInfo) => {
   await open(page);
   await page.getByText("SOAP draft and clinician review", { exact: true }).click();
+  const soapRequest=page.waitForRequest(req=>new URL(req.url()).pathname.endsWith("/api/copilot/000000000000000000000003/generate-soap"));
   await button(page, "Generate SOAP draft").click();
+  expect((await soapRequest).headers()["x-csrf-token"]).toBe("fixture-account-csrf");
   await expect(page.getByText("Draft — review needed · Version 5", { exact: true })).toBeVisible();
   await expect(button(page, "Approve reviewed SOAP version")).toBeDisabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
