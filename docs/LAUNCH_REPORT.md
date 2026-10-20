@@ -38,3 +38,14 @@ Keep the prior P23 originals, archives, wallets and patient/family history intac
 R1 backend follow-up: 21 targeted real-router/local-database integration checks and 145 backend unit checks pass. Full integration/frontend/browser results above belong to the earlier P22 revision. Exact scope, containment and preservation evidence are in WORK_LOG. New order creation is source-bound but not yet retry-safe or coordinated transactionally with consultation completion.
 
 Pharmacy R2 follow-up: 145 backend unit, 158 full isolated integration, 41 frontend unit and 16 pharmacy workflow browser checks passed; the repaired visual/readability subset passed 2/2. Build/affected lint passed. These are local synthetic checks, not a live deployment or hospital clinical acceptance. Exact commands, failures, transaction/return policy and remaining boundaries are in WORK_LOG.
+
+
+## Booking / online consultation follow-up — 20 October 2026
+
+The interrupted appointment/call batch now includes an explicit device-join lobby, responsive teal meeting room, native fullscreen with accessible expanded fallback, bounded reconnect, preserved mute/camera intent, genuine audio-only camera recovery, authorized media/chat signaling, visit information without the broken reports fetch, and parent-controlled note-save/completion confirmation. Family hold review and completed scheduled-visit filtering are repaired. WORK_LOG records the actual tests and earlier failed/interrupted attempts; this is not blanket clinical expansion or production-call acceptance.
+
+Remaining release gates above continue to apply. No production data/schema/provider/DNS or deployment-console changes occurred in this batch. Real mobile devices, cross-network relay behavior, deployed frontend/backend parity and the large initial JS chunk still need release attention.
+
+Edge 155 synthetic-camera repeats sometimes produced zero source/encoded video frames despite enabled tracks; foregrounding and separate browser processes did not reliably resolve it. Bundled Chromium comparison passed the targeted flows. See WORK_LOG for final canonical-suite evidence and the remaining real-device/relay acceptance gate; no blanket Edge video guarantee is claimed.
+
+Final bounded batch evidence: 163 backend unit + 43 targeted local integration + 48 frontend unit + **54/54 canonical Chromium browser scenarios** passed; final build and affected lint passed. Initial JS is 802.20 kB / 231.36 kB gzip. Full product launch gates and the Edge/physical-device limitations above remain open. Detailed commands and prior failures are in WORK_LOG.

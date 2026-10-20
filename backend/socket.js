@@ -198,8 +198,8 @@ export function initSocket(server) {
         if (typeof callback === "function") callback({ ok: false, message: "This is an in-person visit" });
         return;
       }
-      if (!["queued", "active"].includes(appointment.status)) {
-        if (typeof callback === "function") callback({ ok: false, message: "Appointment has already ended" });
+      if (appointment.status !== "active") {
+        if (typeof callback === "function") callback({ ok: false, message: "The online consultation is not active" });
         return;
       }
 
@@ -256,7 +256,7 @@ export function initSocket(server) {
     const authorizedMember = async (appointmentId) => {
       if (!isRecordId(appointmentId) || !socket.rooms.has(`appointment:${appointmentId}`)) return false;
       const appointment = await Appointment.findById(appointmentId);
-      return appointment && ["queued", "active"].includes(appointment.status) && await appointmentAccess(appointment);
+      return appointment && appointment.visitMode !== "in_person" && appointment.status === "active" && await appointmentAccess(appointment);
     };
     for (const [event, field] of [["appointment:offer", "sdp"], ["appointment:answer", "sdp"], ["appointment:ice-candidate", "candidate"]]) {
       socket.on(event, async (payload = {}) => {
@@ -267,11 +267,21 @@ export function initSocket(server) {
     }
     socket.on("appointment:chat-message", async (message = {}) => {
       try {
+        if (typeof message.text !== "string" || !message.text.trim() || message.text.length > 1000) return;
         if (await authorizedMember(message.appointmentId)) socket.to(`appointment:${message.appointmentId}`).emit("appointment:chat-message", {
-          appointmentId: message.appointmentId, text: message.text, message: message.message, content: message.content,
+          appointmentId: message.appointmentId, text: message.text.trim(),
           senderId: socket.user._id, senderRole: socket.user.role, timestamp: new Date().toISOString(),
         });
       } catch { /* Unauthorized senders cannot inject call messages. */ }
+    });
+    socket.on("appointment:media-state", async (payload = {}) => {
+      try {
+        if (typeof payload.muted !== "boolean" || typeof payload.cameraOff !== "boolean") return;
+        if (await authorizedMember(payload.appointmentId)) socket.to(`appointment:${payload.appointmentId}`).emit("appointment:media-state", {
+          appointmentId: payload.appointmentId, muted: payload.muted, cameraOff: payload.cameraOff,
+          senderRole: socket.user.role,
+        });
+      } catch { /* Media indicators obey the same live participant authorization as signaling. */ }
     });
     socket.on("appointment:renegotiate", async (payload = {}) => {
       try { if (await authorizedMember(payload.appointmentId)) socket.to(`appointment:${payload.appointmentId}`).emit("appointment:renegotiate", { appointmentId: payload.appointmentId }); }

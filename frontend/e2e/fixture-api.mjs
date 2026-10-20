@@ -37,13 +37,18 @@ const server = createServer(async (req, res) => {
     return reply({ disconnected: true });
   }
   if (state.callMode && path === `/appointment/${appointmentId}/call-credentials`) return reply({ iceServers: [], relayConfigured: true, expiresAt: null });
+  if (state.callMode && path === `/appointment/${appointmentId}/notes` && req.method === "PATCH") {
+    if (!callDoctor || req.headers["x-csrf-token"] !== "fixture-account-csrf") return reply({ message: "Forbidden" }, 403);
+    let body=""; for await (const chunk of req) body+=chunk; state.callNotes=JSON.parse(body).doctorNotes; state.noteWrites=(state.noteWrites || 0)+1;
+    return reply({ doctorNotes: state.callNotes });
+  }
   if (state.callMode && path === `/appointment/${appointmentId}/end` && req.method === "POST") {
     if (!callDoctor || req.headers["x-csrf-token"] !== "fixture-account-csrf") return reply({ message: "Forbidden" }, 403);
-    state.callEnded = true; state.ends = (state.ends || 0) + 1;
+    state.notesAtEnd = state.callNotes; state.callEnded = true; state.ends = (state.ends || 0) + 1;
     io.to(`appointment:${appointmentId}`).emit("appointment:ended", { appointmentId });
     return reply({ message: "Consultation completed" });
   }
-  if (state.callMode && path === `/appointment/${appointmentId}`) return reply({ _id: appointmentId, status: state.callEnded ? "completed" : "active", visitMode: "online", revision: state.callEnded ? 3 : 2 });
+  if (state.callMode && path === `/appointment/${appointmentId}`) return reply({ _id: appointmentId, status: state.callEnded ? "completed" : state.callStatus || "active", visitMode: "online", revision: state.callEnded ? 3 : 2, doctor, user: { firstName: "Fixture", lastName: "Patient" }, startedAt: (state.callStartedAt ||= new Date(Date.now() - 65000).toISOString()) });
   const hospitalId = "000000000000000000000004", departmentId = "000000000000000000000006";
   const staff = { _id: "000000000000000000000005", name: "Fixture Nurse", role: "NURSE", hospitalId, departmentIds: [departmentId] };
   if (path === "/verify/staff") return state.nurse ? reply({ csrfToken: "fixture-staff-csrf", data: { ...staff, role: state.staffRole || "NURSE", adminAccess: Boolean(state.staffAdminAccess) }, role: state.staffRole || "NURSE", hospital: { _id: hospitalId, name: "Fixture Hospital" } }) : reply({ message: "Synthetic patient session" }, 401);
@@ -147,7 +152,7 @@ const server = createServer(async (req, res) => {
   if (path === `/api/opd/tokens/${appointmentId}/check-in` && req.method === "PATCH") { if (req.headers["x-csrf-token"] !== "fixture-staff-csrf") return reply({ message: "Invalid synthetic staff CSRF" }, 403); state.checkedIn = true; return reply({ token: { ...reserved, status: "waiting", revision: 2 } }); }
   if (state.callMode && path === "/appointment/doctor/queue") return reply({ queueKey: "independent:fixture", queueRevision: state.callEnded ? 3 : 2,
     queues: [{ queueKey: "independent:fixture", visitMode: "online", serviceDate: "2026-10-09", sessionId: "day" }], pendingCount: 0, queue: [], reservations: [],
-    activeAppointment: state.callEnded ? null : { _id: appointmentId, status: "active", visitMode: "online", revision: 2, user: { firstName: "Fixture", lastName: "Patient" } } });
+    activeAppointment: state.callEnded ? null : { _id: appointmentId, status: "active", visitMode: "online", revision: 2, user: { firstName: "Fixture", lastName: "Patient" }, doctorNotes: state.callNotes || "" } });
   if (path === "/appointment/doctor/queue") {
     const requested = new URL(req.url, "http://127.0.0.1:19080").searchParams.get("queueKey");
     const selected = requested || (state.revokeHospitalQueue ? "independent:fixture" : "hospital:fixture");
@@ -177,8 +182,11 @@ io.on("connection", socket => {
   });
   socket.on("leaveAppointmentRoom", () => { socket.leave(room); io.to(room).emit("appointment:presence", presence(room)); });
   socket.on("disconnect", () => { io.to(room).emit("appointment:presence", presence(room)); });
-  for (const event of ["appointment:offer", "appointment:answer", "appointment:ice-candidate", "appointment:renegotiate", "appointment:chat-message"])
-    socket.on(event, payload => { if (socket.rooms.has(room) && !state.callEnded) socket.to(room).emit(event, payload); });
+  for (const event of ["appointment:offer", "appointment:answer", "appointment:ice-candidate", "appointment:renegotiate", "appointment:chat-message", "appointment:media-state"])
+    socket.on(event, payload => { if (socket.rooms.has(room) && !state.callEnded) {
+      if (event === "appointment:offer" && state.dropFirstOffer && !state.droppedOffers) { state.droppedOffers = 1; return; }
+      socket.to(room).emit(event, payload);
+    } });
 });
 server.listen(19080, "127.0.0.1");
 for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => io.close(() => process.exit(0)));

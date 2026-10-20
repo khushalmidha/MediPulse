@@ -46,3 +46,6 @@ export const downloadText = (name, text, type = "text/plain") => {
   const url = URL.createObjectURL(new Blob([text], { type })), link = document.createElement("a");
   link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
+
+export const scheduledVisitStatus = visit => ["completed", "cancelled", "refund_pending", "active"].includes(visit?.appointment?.status) ? visit.appointment.status : visit?.reservation?.state || visit?.appointment?.status || "unknown";
+export const reservationPatientName = (reservation, members = []) => reservation?.familyMemberId ? members.find(member => String(member._id) === String(reservation.familyMemberId))?.name || "Family member (profile unavailable)" : "Myself";

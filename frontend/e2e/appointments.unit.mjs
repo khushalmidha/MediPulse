@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { safeReturnPath, dateInZone, visitTime, feeText, canCheckIn, calendarReminder, formatDoctorName, doctorName } from "../src/utils/appointments.js";
+import { safeReturnPath, dateInZone, visitTime, feeText, canCheckIn, calendarReminder, formatDoctorName, doctorName, scheduledVisitStatus, reservationPatientName } from "../src/utils/appointments.js";
 const visit = { reservation: { _id: "fixture-reservation", state: "confirmed", startsAt: "2026-10-10T09:00:00Z", endsAt: "2026-10-10T09:15:00Z" },
   session: { visitMode: "online", appointmentType: "scheduled_online", policy: { checkInLeadMinutes: 15, checkInGraceMinutes: 30 } }, appointment: { status: "queued", admissionState: "reserved" } };
 test("login returns only to safe internal paths", () => {
@@ -54,4 +54,15 @@ test("calendar reminders contain actual UTC instants and no medical/patient inpu
 });
 test("unconfirmed reservations do not produce confirmed calendar events", () => {
   assert.throws(() => calendarReminder({ ...visit, reservation: { ...visit.reservation, state: "held" } }));
+});
+
+test("scheduled clinical status governs completed/upcoming filters", () => {
+ assert.equal(scheduledVisitStatus({reservation:{state:"confirmed"},appointment:{status:"completed"}}),"completed");
+ assert.equal(scheduledVisitStatus({reservation:{state:"confirmed"},appointment:{status:"active"}}),"active");
+ assert.equal(scheduledVisitStatus({reservation:{state:"cancelled"},appointment:{status:"queued"}}),"cancelled");
+});
+test("review identity comes from the persisted reservation, never a local family draft", () => {
+ assert.equal(reservationPatientName({familyMemberId:"child"},[{_id:"child",name:"Synthetic Child"}]),"Synthetic Child");
+ assert.equal(reservationPatientName({familyMemberId:"missing"},[]),"Family member (profile unavailable)");
+ assert.equal(reservationPatientName({},[{_id:"child",name:"Synthetic Child"}]),"Myself");
 });

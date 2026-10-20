@@ -240,6 +240,31 @@ test("actual socket participants recover presence; disconnect and patient end pr
   assert.equal((await http(`/appointment/${appointmentId}/call-credentials`, patient)).status, 409);
   assert.equal((await call(user, "joinAppointmentRoom", { appointmentId })).ok, false);
 });
+
+test("queued calls are unavailable and media/chat packets require an active participant", async () => {
+  const visit = await book(), appointmentId = String(visit.appointment._id);
+  const doc = await connect(doctor, "doctor"), user = await connect(patient, "user"), stranger = await connect(outsider, "user");
+  assert.equal((await http(`/appointment/${appointmentId}/call-credentials`, patient)).status, 409);
+  assert.equal((await call(user, "joinAppointmentRoom", { appointmentId })).ok, false);
+  await transitionVisit({ appointmentId, action: "start" });
+  assert.equal((await call(doc, "joinAppointmentRoom", { appointmentId })).ok, true);
+  assert.equal((await call(user, "joinAppointmentRoom", { appointmentId })).ok, true);
+  const media = new Promise(resolve => user.once("appointment:media-state", resolve));
+  doc.emit("appointment:media-state", { appointmentId, muted: true, cameraOff: false, senderRole: "user" });
+  assert.deepEqual(await media, { appointmentId, muted: true, cameraOff: false, senderRole: "doctor" });
+  const messages = []; user.on("appointment:chat-message", value => messages.push(value));
+  stranger.emit("appointment:chat-message", { appointmentId, text: "foreign" });
+  doc.emit("appointment:chat-message", { appointmentId, text: "x".repeat(1001) });
+  doc.emit("appointment:chat-message", { appointmentId, text: "  synthetic call message  ", senderId: String(outsider._id) });
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal(messages.length, 1); assert.equal(messages[0].text, "synthetic call message"); assert.equal(String(messages[0].senderId), String(doctor._id));
+  const indicators = []; user.on("appointment:media-state", value => indicators.push(value));
+  stranger.emit("appointment:media-state", { appointmentId, muted: true, cameraOff: true });
+  doc.emit("appointment:media-state", { appointmentId, muted: "false", cameraOff: false });
+  await Appointment.updateOne({ _id: appointmentId }, { $set: { status: "completed" } });
+  doc.emit("appointment:media-state", { appointmentId, muted: false, cameraOff: false });
+  await new Promise(resolve => setTimeout(resolve, 100)); assert.equal(indicators.length, 0);
+});
 test("changed staff permissions invalidate old socket rooms before another packet", async () => {
   const staff = await HospitalStaff.create({ hospitalId: new mongoose.Types.ObjectId(), name: "Synthetic Doctor", email: `${key()}@example.invalid`, role: "DOCTOR", inviteStatus: "accepted" });
   const socket = await connect(staff, "staff");

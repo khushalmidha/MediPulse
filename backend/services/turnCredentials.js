@@ -13,7 +13,7 @@ export const authorizeCall = async (appointmentId, actor) => {
     allowed = Boolean(staff && await OpdToken.exists({ appointmentId, doctorId: staff._id, hospitalId: staff.hospitalId, patientId: appointment.user }));
   }
   if (!allowed) throw accessError(403, "Forbidden appointment access");
-  if (appointment.visitMode === "in_person" || !["queued", "active"].includes(appointment.status)) throw accessError(409, "This visit does not have an available online call");
+  if (appointment.visitMode === "in_person" || appointment.status !== "active") throw accessError(409, "This visit does not have an active online call");
   return appointment;
 };
 export const buildIceCredentials = (actorId, appointmentId, now = Date.now()) => {
