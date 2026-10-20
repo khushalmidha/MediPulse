@@ -206,3 +206,59 @@ test("clinical pages fit mobile, tablet and desktop with accessible dialogs and 
   await page.evaluate(() => document.documentElement.classList.add("dark")); await page.screenshot({ path: testInfo.outputPath("clinical-hospital-dark.png"), fullPage: true });
   const finish = button(page, "Complete consultation"); await finish.focus(); await page.keyboard.press("Enter"); await expect(page.getByRole("dialog", { name: "Complete this consultation?" })).toBeVisible(); await page.keyboard.press("Escape"); await expect(finish).toBeFocused();
 });
+
+
+test("SOAP draft requires explicit version review and a later note edit invalidates approval", async ({ page, request }, testInfo) => {
+  await open(page);
+  await page.getByText("SOAP draft and clinician review", { exact: true }).click();
+  await button(page, "Generate SOAP draft").click();
+  await expect(page.getByText("Draft — review needed · Version 5", { exact: true })).toBeVisible();
+  await expect(button(page, "Approve reviewed SOAP version")).toBeDisabled();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath("soap-draft-light.png"),fullPage:true});
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.screenshot({path:testInfo.outputPath("soap-draft-dark.png"),fullPage:true});
+  const review = page.getByRole("checkbox", { name: "I reviewed this version against the consultation and saved notes." });
+  await review.focus(); await page.keyboard.press("Space"); await expect(review).toBeChecked();
+  await button(page, "Approve reviewed SOAP version").click();
+  await expect(page.getByText("Clinician reviewed · Version 5", { exact: true })).toBeVisible();
+  expect((await state(request)).clinicalRevision).toBe(6);
+  await page.getByRole("textbox", { name: "Doctor notes", exact: true }).fill("Synthetic revised source");
+  await button(page, "Save Notes").click();
+  await expect(page.getByText("Draft — review needed · Version 5", { exact: true })).toBeVisible();
+  await expect(button(page, "Approve reviewed SOAP version")).toBeDisabled();
+  expect((await state(request)).clinicalRevision).toBe(7);
+});
+
+
+test("a delayed earlier save snapshot cannot replace the latest committed doctor notes", async ({ page, request }) => {
+  let stale, original;
+  // Return the pre-refresh queue between writes, then deliver its saved response
+  // after the second write. Queue revision can remain unchanged for note edits.
+  await page.route("**/appointment/doctor/queue*", async route => {
+    const response = await route.fetch();
+    const current = await response.json();
+    original ||= current;
+    if (!stale && current.activeAppointment?.doctorNotes === "Synthetic saved B") stale = current;
+    const snapshot = current.activeAppointment?.revision >= 6 ? stale : original;
+    await route.fulfill({ response, json: snapshot || current });
+  });
+  await open(page);
+  const notes = page.getByRole("textbox", { name: "Doctor notes", exact: true });
+  await expect(notes).toHaveValue("Recorded clinician note");
+  await notes.fill("Synthetic saved B"); await button(page, "Save Notes").click();
+  await expect.poll(() => Boolean(stale)).toBe(true);
+  await expect(notes).toHaveValue("Synthetic saved B");
+  await notes.fill("Synthetic saved C"); await button(page, "Save Notes").click();
+  await expect.poll(async () => (await state(request)).clinicalRevision).toBe(6);
+  await expect(button(page, "Refresh queue")).toBeEnabled();
+  await button(page, "Refresh queue").click();
+  await expect(button(page, "Refresh queue")).toBeEnabled();
+  await expect(notes).toHaveValue("Synthetic saved C");
+  await expect(page.getByText(/Saved notes changed while you were editing/)).toHaveCount(0);
+  await button(page, "Save Notes").click();
+  await expect.poll(async () => (await state(request)).clinicalRevision).toBe(7);
+  const writes = (await state(request)).clinicalRequests.filter(row => row.path.endsWith("/notes"));
+  expect(writes.at(-1).body).toMatchObject({doctorNotes:"Synthetic saved C",revision:6});
+  await page.unrouteAll({ behavior: "wait" });
+});

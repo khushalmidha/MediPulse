@@ -1,3 +1,4 @@
+import { clinicalRevision, clinicalNotes, notesHash, checkClinicalEdit, commitClinicalEdit, invalidateSoap, soapApprovalFields } from "../services/clinicalWrites.js";
 import { visitPatientDisplay } from "../services/visitPatientDisplay.js";
 import { appointmentPosition } from "../services/appointmentPosition.js";
 import Hospital from "../model/hospital.js";
@@ -193,6 +194,7 @@ const mapActiveAppointment = (appointment) => {
     endedAt: appointment.endedAt,
     roomId: appointment.roomId,
     doctorNotes: appointment.doctorNotes || "",
+    soapNote: appointment.soapNote || null,
     receiptText: appointment.receiptText || "",
     receiptGeneratedAt: appointment.receiptGeneratedAt || null,
     patientBrief: appointment.patientBrief || null,
@@ -301,13 +303,15 @@ const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes
   }
 
   // Commit the shared clinical transition before optional AI/receipt generation.
-  const changed = await transitionVisit({ appointmentId, action: "complete", expectedRevision, appointmentFields: { endedBy, endedReason } });
-  if (roughNotes) await Appointment.updateOne({ _id: appointmentId, status: "completed" }, { $set: { doctorNotes: String(roughNotes) } });
-  Object.assign(appointment, { status: changed.appointment.status, endedAt: changed.appointment.endedAt, endedBy, endedReason });
+  const changed = await transitionVisit({ appointmentId, action: "complete", expectedRevision, appointmentFields: { endedBy, endedReason, ...(roughNotes !== null ? { doctorNotes: roughNotes } : {}) } });
+  if (roughNotes !== null) appointment.doctorNotes = roughNotes;
+  Object.assign(appointment, { status: changed.appointment.status, endedAt: changed.appointment.endedAt, endedBy, endedReason, doctorNotes: changed.appointment.doctorNotes, soapNote: changed.appointment.soapNote });
   await afterVisitCommit(async () => {
-  // Auto-generate SOAP note
+  // Preserve reviewed SOAP content; optional generation stays a conditional draft.
+  let soapGenerated = false;
   try {
     let soapNote;
+    if (!appointment.soapNote?.clinicianApproved) {
     if (roughNotes) {
       const generatedNote = await generateSoapNoteGemini(roughNotes);
       // Ensure we parse it to object if generatedNote is a markdown/string representation, or just store the raw markdown. 
@@ -351,7 +355,8 @@ const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes
       
       await redis.del(transcriptKey, suggestionsKey);
     }
-    appointment.soapNote = soapNote;
+    appointment.soapNote = soapNote; soapGenerated = true;
+    }
 
     try {
       if (!appointment.receiptText) {
@@ -367,9 +372,10 @@ const finishAppointment = async (appointmentId, endedBy, endedReason, roughNotes
   }
 
   const draftFields = {};
-  if (appointment.soapNote) draftFields.soapNote = appointment.soapNote;
+  if (soapGenerated && appointment.soapNote) draftFields.soapNote = appointment.soapNote;
   if (appointment.receiptText) { draftFields.receiptText = appointment.receiptText; draftFields.receiptGeneratedAt = appointment.receiptGeneratedAt; }
-  if (Object.keys(draftFields).length) await Appointment.updateOne({ _id: appointmentId, status: "completed", revision: changed.appointment.revision }, { $set: draftFields });
+  if (draftFields.soapNote) Object.assign(draftFields.soapNote, { version: changed.appointment.revision + 1, sourceNotesHash: notesHash(appointment.doctorNotes) });
+  if (Object.keys(draftFields).length) await commitClinicalEdit({ appointment: changed.appointment, revision: changed.appointment.revision, actorId: endedBy === "doctor" ? normalizeId(changed.appointment.doctor) : null, fields: draftFields, reason: "completion-draft", completed: true });
   });
 
   if (changed.token) await afterVisitCommit(() => clearLinkedOpdCache(changed.token), () => emitOpdEvent(getIO(), "opd:consultation-completed", changed.token));
@@ -729,97 +735,50 @@ const getUserAppointmentHistory = async (req, res) => {
 };
 
 const updateDoctorNotes = async (req, res) => {
-  if (req.auth.role !== "doctor") {
-    return res.status(403).json({ message: "Only doctors can add notes" });
-  }
-
-  const { appointmentId } = req.params;
-  const { doctorNotes = "" } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
-    return res.status(400).json({ message: "Invalid appointment id" });
-  }
-
-  const appointment = await Appointment.findById(appointmentId);
-  if (!appointment) {
-    return res.status(404).json({ message: "Appointment not found" });
-  }
-
-  const allIds = await getLinkedDoctorIds(req.auth.id);
-  if (!allIds.includes(normalizeId(appointment.doctor))) {
-    return res.status(403).json({ message: "You cannot update this appointment" });
-  }
-
-  appointment.doctorNotes = doctorNotes.trim();
-  if (appointment.soapNote && appointment.soapNote.clinicianApproved) {
-    appointment.soapNote.clinicianApproved = false;
-    appointment.soapNote.isDraft = true;
-    appointment.soapNote.approvedBy = undefined;
-    appointment.soapNote.approvedAt = undefined;
-  }
-  await appointment.save();
-
-  return res.status(200).json({
-    message: "Doctor notes saved",
-    appointmentId: appointment._id,
-    doctorNotes: appointment.doctorNotes,
-  });
+  if (req.auth.role !== "doctor") return res.status(403).json({ message: "Only doctors can add notes" });
+  if (!mongoose.Types.ObjectId.isValid(req.params.appointmentId)) return res.status(400).json({ message: "Invalid appointment id" });
+  const revision = clinicalRevision(req.body?.revision), notes = clinicalNotes(req.body?.doctorNotes);
+  const appointment = await Appointment.findById(req.params.appointmentId);
+  if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+  if (!(await getLinkedDoctorIds(req.auth.id)).includes(normalizeId(appointment.doctor))) return res.status(403).json({ message: "You cannot update this appointment" });
+  const changed = await commitClinicalEdit({ appointment, revision, actorId: req.auth.id, reason: "doctor-notes",
+    fields: { doctorNotes: notes, ...invalidateSoap() }, unset: [...soapApprovalFields, "receiptText", "receiptGeneratedAt"] });
+  return res.json({ message: "Doctor notes saved", appointmentId: changed._id, doctorNotes: changed.doctorNotes, revision: changed.revision });
 };
 
 const generateAppointmentReceipt = async (req, res) => {
-  if (req.auth.role !== "doctor") {
-    return res.status(403).json({ message: "Only doctors can generate receipts" });
+  if (req.auth.role !== "doctor") return res.status(403).json({ message: "Only doctors can generate receipts" });
+  if (!mongoose.Types.ObjectId.isValid(req.params.appointmentId)) return res.status(400).json({ message: "Invalid appointment id" });
+  const body = req.body || {}, revision = clinicalRevision(body.revision);
+  if (body.doctorNotes !== undefined) clinicalNotes(body.doctorNotes);
+  const fields = {}, unset = [];
+  if (body.voiceConsentRecorded !== undefined) {
+    if (typeof body.voiceConsentRecorded !== "boolean") throw accessError(400, "Invalid consent value");
+    fields.voiceConsentRecorded = body.voiceConsentRecorded;
   }
-
-  const { appointmentId } = req.params;
-  const {
-    doctorNotes = "",
-    voiceConsentRecorded = false,
-    voiceConsentKeywords = [],
-    voiceConsentTimestamp = null,
-  } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
-    return res.status(400).json({ message: "Invalid appointment id" });
+  if (body.voiceConsentKeywords !== undefined) {
+    if (!Array.isArray(body.voiceConsentKeywords) || body.voiceConsentKeywords.length > 20 || body.voiceConsentKeywords.some(value => typeof value !== "string" || value.length > 100)) throw accessError(400, "Invalid consent keywords");
+    fields.voiceConsentKeywords = body.voiceConsentKeywords;
   }
-
-  const appointmentRaw = await Appointment.findById(appointmentId)
-    .populate("user", "firstName lastName email");
-  
-  const [appointment] = await populateDoctorForAppointments(appointmentRaw ? [appointmentRaw] : []);
-
-  if (!appointment) {
-    return res.status(404).json({ message: "Appointment not found" });
+  if (body.voiceConsentTimestamp !== undefined) {
+    if (body.voiceConsentTimestamp === null) unset.push("voiceConsentTimestamp");
+    else if (typeof body.voiceConsentTimestamp !== "string" || !Number.isFinite(Date.parse(body.voiceConsentTimestamp))) throw accessError(400, "Invalid consent timestamp");
+    else fields.voiceConsentTimestamp = new Date(body.voiceConsentTimestamp);
   }
-
-  const allIds = await getLinkedDoctorIds(req.auth.id);
-  if (!allIds.includes(appointment.doctor._id.toString())) {
-    return res.status(403).json({ message: "You cannot generate receipt for this appointment" });
-  }
-
-  const notesToUse = doctorNotes.trim() || appointment.doctorNotes || "";
-  const receiptText = await generateReceiptText(appointment, notesToUse);
-
-  appointment.doctorNotes = notesToUse;
-  appointment.receiptText = receiptText;
-  appointment.receiptGeneratedAt = new Date();
-  appointment.voiceConsentRecorded = Boolean(voiceConsentRecorded);
-  appointment.voiceConsentKeywords = Array.isArray(voiceConsentKeywords)
-    ? voiceConsentKeywords.slice(0, 20)
-    : [];
-  appointment.voiceConsentTimestamp = voiceConsentTimestamp
-    ? new Date(voiceConsentTimestamp)
-    : undefined;
-  await appointment.save();
-
-  return res.status(200).json({
-    message: "Receipt generated successfully",
-    appointmentId: appointment._id,
-    receiptText,
-    receiptGeneratedAt: appointment.receiptGeneratedAt,
-    doctorNotes: appointment.doctorNotes,
-    voiceConsentRecorded: appointment.voiceConsentRecorded,
-  });
+  const appointment = await Appointment.findById(req.params.appointmentId).populate("user", "firstName lastName email");
+  if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+  if (!(await getLinkedDoctorIds(req.auth.id)).includes(normalizeId(appointment.doctor))) return res.status(403).json({ message: "You cannot generate receipt for this appointment" });
+  checkClinicalEdit(appointment, revision);
+  const notes = body.doctorNotes === undefined ? appointment.doctorNotes || "" : clinicalNotes(body.doctorNotes);
+  const [display] = await populateDoctorForAppointments([appointment.toObject()]);
+  display.doctorNotes = notes;
+  const receiptText = await generateReceiptText(display, notes);
+  if (typeof receiptText !== "string" || receiptText.length > 30000) throw accessError(503, "The document draft could not be prepared. Your saved notes are unchanged.");
+  Object.assign(fields, { doctorNotes: notes, receiptText, receiptGeneratedAt: new Date() });
+  if (notes !== (appointment.doctorNotes || "")) { Object.assign(fields, invalidateSoap()); unset.push(...soapApprovalFields); }
+  const changed = await commitClinicalEdit({ appointment, revision, actorId: req.auth.id, fields, unset, reason: "consultation-document" });
+  return res.json({ message: "Receipt generated successfully", appointmentId: changed._id, receiptText: changed.receiptText,
+    receiptGeneratedAt: changed.receiptGeneratedAt, doctorNotes: changed.doctorNotes, voiceConsentRecorded: changed.voiceConsentRecorded, revision: changed.revision });
 };
 
 const getAppointmentById = async (req, res) => {
@@ -953,7 +912,9 @@ const endAppointment = async (req, res) => {
   }
 
   if (req.body.revision !== undefined && req.body.revision !== appointment.revision) throw accessError(409, "Visit changed; refresh before retrying");
-  const { roughNotes } = req.body;
+  clinicalRevision(req.body?.revision);
+  const roughNotes = req.body?.roughNotes === undefined ? null : clinicalNotes(req.body.roughNotes);
+  if (roughNotes !== null && roughNotes !== (appointment.doctorNotes || "")) throw accessError(409, "Save and review doctor notes before completing the consultation.");
 
   const completed = await finishAppointment(
     appointmentId.toString(),
@@ -1034,41 +995,18 @@ const askDoctorAppointmentCopilot = async (req, res) => {
 };
 
 const approveSoapNote = async (req, res) => {
-  if (req.auth?.role !== "doctor") {
-    return res.status(403).json({ message: "Only doctors can approve SOAP notes" });
-  }
-
-  const { appointmentId } = req.params;
-  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
-    return res.status(400).json({ message: "Invalid appointment id" });
-  }
-
-  const appointment = await Appointment.findById(appointmentId);
+  if (req.auth?.role !== "doctor") return res.status(403).json({ message: "Only doctors can approve SOAP notes" });
+  if (!mongoose.Types.ObjectId.isValid(req.params.appointmentId)) return res.status(400).json({ message: "Invalid appointment id" });
+  const revision = clinicalRevision(req.body?.revision), noteVersion = req.body?.noteVersion;
+  if (!Number.isSafeInteger(noteVersion) || noteVersion < 1) throw accessError(400, "A reviewed SOAP version is required");
+  const appointment = await Appointment.findById(req.params.appointmentId);
   if (!appointment) return res.status(404).json({ message: "Appointment not found" });
-
-  const allIds = await getLinkedDoctorIds(req.auth.id);
-  if (!allIds.includes(normalizeId(appointment.doctor))) {
-    return res.status(403).json({ message: "You cannot approve notes for this appointment" });
-  }
-
-  if (!appointment.soapNote) return res.status(400).json({ message: "No SOAP note exists to approve" });
-
-  if (req.body?.noteVersion !== undefined && appointment.soapNote.version !== undefined) {
-    if (Number(req.body.noteVersion) !== Number(appointment.soapNote.version)) {
-      return res.status(409).json({ message: "SOAP note version mismatch. The note was updated since last reviewed." });
-    }
-  }
-
-  appointment.soapNote.isDraft = false;
-  appointment.soapNote.clinicianApproved = true;
-  appointment.soapNote.approvedBy = req.auth.id;
-  appointment.soapNote.approvedAt = new Date();
-  await appointment.save();
-
-  return res.status(200).json({
-    message: "SOAP note approved by clinician",
-    soapNote: appointment.soapNote,
-  });
+  if (!(await getLinkedDoctorIds(req.auth.id)).includes(normalizeId(appointment.doctor))) return res.status(403).json({ message: "You cannot approve notes for this appointment" });
+  if (appointment.soapNote?.version !== noteVersion || appointment.soapNote.sourceNotesHash !== notesHash(appointment.doctorNotes)) throw accessError(409, "SOAP draft or source notes changed. Generate and review the latest draft.");
+  const changed = await commitClinicalEdit({ appointment, revision, actorId: req.auth.id, completed: true, reason: "soap-review",
+    condition: { "soapNote.version": noteVersion, "soapNote.sourceNotesHash": notesHash(appointment.doctorNotes) },
+    fields: { "soapNote.isDraft": false, "soapNote.clinicianApproved": true, "soapNote.approvedBy": req.auth.id, "soapNote.approvedAt": new Date() } });
+  return res.json({ message: "SOAP note approved by clinician", soapNote: changed.soapNote, revision: changed.revision });
 };
 
 export {

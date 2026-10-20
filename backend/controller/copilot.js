@@ -1,3 +1,6 @@
+import { afterVisitCommit } from "../services/visitTransitions.js";
+import { withBoundedTimeout } from "../services/aiReliabilityService.js";
+import { clinicalRevision, clinicalNotes, notesHash, checkClinicalEdit, commitClinicalEdit } from "../services/clinicalWrites.js";
 import mongoose from "mongoose";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Appointment from "../model/appointment.js";
@@ -355,44 +358,45 @@ const generateSoap = async (req, res) => {
     const access = await loadDoctorAppointment(appointmentId, req.auth.id);
     if (access.status) return res.status(access.status).json({ message: access.message });
 
-    const { doctorNotes = "" } = req.body;
+    const revision = clinicalRevision(req.body?.revision);
+    const doctorNotes = clinicalNotes(req.body?.doctorNotes === undefined ? access.appointment.doctorNotes || "" : req.body.doctorNotes);
+    checkClinicalEdit(access.appointment, revision);
     const redis = getRedis();
     const [transcript, storedSuggestions] = await Promise.all([
       redis.get(transcriptKey(appointmentId)),
       readSuggestions(appointmentId),
     ]);
 
-    const soapNote = await generateSoapNote({
+    const soapNote = await withBoundedTimeout(generateSoapNote({
       transcript: transcript || "",
       doctorNotes,
       patientBrief: access.appointment.patientBrief || null,
       agentInsights: storedSuggestions.map((suggestion) => suggestion.message),
+    }), 7000, null);
+    if (!soapNote || ["subjective", "objective", "assessment", "plan"].some(key => typeof soapNote[key] !== "string" || soapNote[key].length > 12000)) return res.status(503).json({ message: "SOAP draft unavailable. Your saved clinical record is unchanged." });
+
+    const draft = { ...soapNote, generatedAt: new Date(), generatedBy: "ai-copilot", version: revision + 1,
+      sourceNotesHash: notesHash(doctorNotes), isDraft: true, clinicianApproved: false };
+    const changed = await commitClinicalEdit({ appointment: access.appointment, revision, actorId: req.auth.id,
+      fields: { soapNote: draft, doctorNotes }, unset: doctorNotes !== (access.appointment.doctorNotes || "") ? ["receiptText", "receiptGeneratedAt"] : [], reason: "soap-draft" });
+    access.appointment = changed;
+    await afterVisitCommit(() => redis.del(transcriptKey(appointmentId), suggestionsKey(appointmentId)), () => {
+      const io = getIO();
+      if (io) {
+        const payload = { appointmentId, soapNote: access.appointment.soapNote };
+        io.to(`doctor:${req.auth.id}`).emit("copilot:soap-ready", payload);
+        io.to(`copilot:${appointmentId}`).emit("copilot:soap-ready", payload);
+      }
     });
-
-    access.appointment.soapNote = {
-      ...soapNote,
-      generatedAt: new Date(),
-      generatedBy: "ai-copilot",
-    };
-    if (doctorNotes.trim()) access.appointment.doctorNotes = doctorNotes.trim();
-    await access.appointment.save();
-    await redis.del(transcriptKey(appointmentId), suggestionsKey(appointmentId));
-
-    const io = getIO();
-    if (io) {
-      const payload = { appointmentId, soapNote: access.appointment.soapNote };
-      io.to(`doctor:${req.auth.id}`).emit("copilot:soap-ready", payload);
-      io.to(`copilot:${appointmentId}`).emit("copilot:soap-ready", payload);
-    }
 
     return res.status(200).json({
       message: "SOAP note generated",
+      revision: access.appointment.revision,
       appointmentId,
       soapNote: access.appointment.soapNote,
     });
   } catch (error) {
-    console.error("Copilot SOAP failed:", error.message);
-    return res.status(500).json({ message: "Could not generate SOAP note right now" });
+    return res.status(error.status || 500).json({ message: error.status ? error.message : "Could not generate SOAP note right now" });
   }
 };
 

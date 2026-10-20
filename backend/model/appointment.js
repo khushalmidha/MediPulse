@@ -54,6 +54,7 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       enum: ["doctor-ended", "auto-timeout", "refunded", "cancelled"],
     },
+    clinicalHistory: { type: [mongoose.Schema.Types.Mixed], default: undefined },
     doctorNotes: {
       type: String,
       default: "",
@@ -109,6 +110,8 @@ const appointmentSchema = new mongoose.Schema(
       disclaimer: String,
     },
     soapNote: {
+      version: { type: Number, min: 1 },
+      sourceNotesHash: String,
       markdown: String,
       subjective: String,
       objective: String,
