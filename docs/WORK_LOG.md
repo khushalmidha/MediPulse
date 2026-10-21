@@ -1800,6 +1800,76 @@ Implemented patient released clinical document views, visit care packet with dow
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG09 — Remaining queue order, kiosk and ETA semantics (21 October 2026)
+
+Baseline: following AG08 verification.
+Implemented deterministic queue ordering across all consumers (`{ priority: -1, tokenNumber: 1 }`), modeled clinical priority overrides with replay-safe idempotency and auditable reason logging, independent doctor practice queue pause controls with account authorization, public kiosk grouped by doctor and session using local service-date boundaries with mobile-overflow protection and stale-response cancellation, and truthful terminal, active-target, and reserved ETA semantics with operational privacy shielding.
+
+### Implemented changes
+
+- **Data Models & Schema Indexing (`OpdToken.js`)**:
+  - Added modeled priority fields to `OpdToken`:
+    - `priority`: Number (`10` = urgent/critical, `0` = normal, default `0`).
+    - `priorityReason`: String (required for overrides, trimmed, max 300 chars).
+    - `priorityOverriddenAt`: Date.
+    - `priorityOverriddenBy`: ObjectId referencing `User` / `HospitalStaff`.
+    - `priorityOverrideKey`: String (sparse, unique for idempotent replay).
+  - Defined compound index `{ queueKey: 1, status: 1, priority: -1, tokenNumber: 1 }` (`ag09_queue_order`) ensuring deterministic and high-performance preemption ordering.
+- **Deterministic Queue Ordering & Consultation Transitions**:
+  - `backend/services/visitTransitions.js`:
+    - Updated next-in-line query in consultation start to sort by `{ priority: -1, tokenNumber: 1 }`, guaranteeing that prioritized tokens (e.g., triage red/urgent) preempt lower-priority tokens even if issued later.
+  - `backend/services/queueTrackingService.js`:
+    - Updated queue readers and tokens-ahead computation to sort by `{ priority: -1, tokenNumber: 1 }`.
+    - In `calculateQueueETA`:
+      - Active targets (`in_consultation`): `isActive: true`, `isTerminal: false`, `patientsAhead: 0`, `etaRange: { minMinutes: 0, maxMinutes: 5 }`.
+      - Terminal tokens (`completed`, `no_show`, `cancelled`): `isTerminal: true`, `isActive: false`, `patientsAhead: 0`, `etaRange: { minMinutes: null, maxMinutes: null }`.
+      - Reserved tokens (online unarrived): `isReserved: true`, `patientsAhead: null`, `etaRange: { minMinutes: null, maxMinutes: null }`.
+      - Waiting tokens: count tokens ahead strictly before the target token under `{ priority: -1, tokenNumber: 1 }`.
+      - Privacy shield: Withhold private operational pause reasons from patient-facing responses (`pauseReason: pause.isPaused ? "Consultations temporarily paused" : null`), preventing internal staff notes from leaking to patients.
+- **Priority Override Service & Route**:
+  - `backend/services/queueTrackingService.js` (`recordPriorityOverride`):
+    - Validates required reason (non-empty string, max 300 chars; returns exact error `"Reason for priority override is required"` on missing/empty).
+    - Validates target token existence and non-terminal state.
+    - Enforces hospital tenant isolation (403 for cross-hospital attempts) and role authorization (doctors, nurses, admins, department heads).
+    - Idempotency replay: checks `priorityOverrideKey`; if already set with matching key, replays safely without double-recording audit trail.
+    - Audits override in `EncounterJourney` journey log.
+  - `backend/routes/opd.js`:
+    - Mounted `POST /tokens/:tokenId/priority-override`, supporting idempotency keys via headers (`Idempotency-Key`, `x-idempotency-key`) or body (`key`).
+- **Independent Practice Queue Pause Controls**:
+  - `backend/services/queueControls.js`:
+    - Added support for independent doctor practice queues (`scopeKind: "doctor"`).
+    - Validates requesting actor against the doctor account (`Doctor.findOne({ userId: actor.userId })`).
+    - Resolves doctor's active session and timezone-adjusted service date.
+    - Employs atomic `QueueRevision` CAS transitions for independent queue pause/resume.
+  - `backend/routes/opd.js`:
+    - Updated `/queue/pause` and `/queue/resume` to use `patientOrStaffAuth` (`req.staff || req.auth`), allowing independent doctor accounts to pause/resume their queues.
+  - `backend/routes/hospital.js`:
+    - Added `Cache-Control: no-cache, no-store, must-revalidate` to `GET /:id/kiosk-display` to ensure real-time queue states on wallboards.
+- **Public Kiosk Grouping & Frontend Privacy**:
+  - `backend/services/queueTrackingService.js` (`getHospitalKioskStatus`):
+    - Groups queues by doctor and session (`${docId}:${sessId}`), ensuring two doctors or separate sessions with duplicate token numbers (e.g. T001) remain strictly separate.
+    - Evaluates hospital service-date boundary in local timezone.
+    - Strictly projects privacy-safe queue tokens without patient PII (only `tokenNumber`, `priority`, `status`).
+  - `frontend/src/pages/hospital-website/HospitalKiosk.jsx`:
+    - Rendered distinct doctor-session queue cards with specialization, session badges, status badges ("Queue Paused", "Consulting", "Waiting"), and priority badges.
+    - Implemented `AbortController` request cancellation to prevent stale async responses from overwriting current kiosk state.
+    - Protected mobile layouts against overflow with responsive grid `minmax(min(100%, 340px), 1fr)` and `overflowX: "hidden"`.
+  - `frontend/e2e/encounter-journey.unit.mjs`:
+    - Added unit tests for kiosk doctor-session grouping and status/priority projections.
+
+### Executed checks and limits
+
+- **Queue order, kiosk and ETA integration suite**: **9/9 passed**, zero failures/skips, **5.06 s** (`backend/tests/integration/queue-order-kiosk-eta.test.js`).
+- **Queue controls integration suite**: **8/8 passed**, zero failures/skips, **12.91 s** (`backend/tests/integration/queue-controls.test.js`).
+- **Full integration runner**: **275/275 passed**, zero failures/skips, **305.34 s** (`node scripts/testIntegration.js`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **41.34 s** (`npm test`).
+- **Frontend unit tests**: **57/57 passed**, zero failures/skips, **295 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **13.07 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 
 

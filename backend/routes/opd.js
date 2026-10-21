@@ -86,28 +86,37 @@ opdRouter.post("/tokens/:tokenId/priority-override", validateStaff, asyncRoute(a
   }
 
   const { recordPriorityOverride } = await import("../services/queueTrackingService.js");
+  const key = req.headers["idempotency-key"] || req.body.key;
   const result = await recordPriorityOverride({
     tokenId: req.params.tokenId,
     actor: req.staff,
     reason: req.body.reason,
-    newPriorityIndex: req.body.priorityIndex,
+    newPriorityIndex: req.body.priorityIndex ?? req.body.priority,
+    key,
   });
   res.json(result);
 }));
 
-opdRouter.post("/queue/pause", validateStaff, asyncRoute(async (req, res) => {
+opdRouter.post("/queue/pause", patientOrStaffAuth, asyncRoute(async (req, res) => {
   const { pauseDoctorQueue } = await import("../services/queueTrackingService.js");
+  const actor = req.staff || req.auth;
   const result = await pauseDoctorQueue({
     queueKey: req.body.queueKey,
-    actor: req.staff, revision: req.body.revision,
+    actor,
+    revision: req.body.revision,
     reason: req.body.reason,
   });
   res.json({ message: "Queue paused", pause: result });
 }));
 
-opdRouter.post("/queue/resume", validateStaff, asyncRoute(async (req, res) => {
+opdRouter.post("/queue/resume", patientOrStaffAuth, asyncRoute(async (req, res) => {
   const { resumeDoctorQueue } = await import("../services/queueTrackingService.js");
-  const result = await resumeDoctorQueue({ queueKey: req.body.queueKey, actor: req.staff, revision: req.body.revision });
+  const actor = req.staff || req.auth;
+  const result = await resumeDoctorQueue({
+    queueKey: req.body.queueKey,
+    actor,
+    revision: req.body.revision,
+  });
   res.json({ message: "Queue resumed", result });
 }));
 

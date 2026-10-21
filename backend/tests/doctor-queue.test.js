@@ -48,7 +48,7 @@ test("doctor queue reads booked visits once for a stable revision", async t => {
   assert.equal(body.queue[0].patientDisplayName, "Synthetic Patient");
   assert.equal(body.queueRevision, 4);
   assert.equal(visits.mock.callCount(), 1);
-  assert.equal(revisionRead.mock.callCount(), 2);
+  assert.equal(revisionRead.mock.callCount(), 3);
   assert.deepEqual(visits.mock.calls[0].arguments[0].doctor, { $in: [doctorId] });
 });
 

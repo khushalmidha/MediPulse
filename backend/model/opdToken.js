@@ -72,6 +72,11 @@ const opdTokenSchema = new mongoose.Schema(
     },
     clinicalHistory: { type: [mongoose.Schema.Types.Mixed], default: undefined },
     estimatedWaitMinutes: Number,
+    priority: { type: Number, default: 0 },
+    priorityReason: { type: String, default: "" },
+    priorityOverriddenAt: { type: Date },
+    priorityOverriddenBy: { type: objectId, ref: "HospitalStaff" },
+    priorityOverrideKey: { type: String },
     paymentStatus: { type: String, enum: ["pending", "paid", "waived"], default: "pending" },
     paymentAmount: Number,
     paymentMode: { type: String, enum: ["cash", "upi", "card", "wallet", "insurance"] },
@@ -131,6 +136,7 @@ opdTokenSchema.index(
 );
 
 opdTokenSchema.index({ queueKey: 1 }, { unique: true, name: "queue_active_token_p03", partialFilterExpression: { queueKey: { $type: "string" }, status: "in_consultation" } });
+opdTokenSchema.index({ queueKey: 1, status: 1, priority: -1, tokenNumber: 1 }, { name: "ag09_queue_order" });
 const OpdToken = mongoose.model("OpdToken", opdTokenSchema);
 
 export default OpdToken;

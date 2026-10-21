@@ -208,4 +208,69 @@ test("P12: Encounter guidance formatting, custody fallback and walk-in linking",
     });
     assert.equal(validRefusal.allowed, true);
   });
+
+  await t.test("kiosk groups by doctor/session and distinguishes identical token numbers across doctors", () => {
+    const rawKiosk = {
+      hospitalId: "hosp_1",
+      queues: [
+        {
+          queueKey: "hospital:hosp_1:doc_1:2026-10-21:day",
+          doctorId: "doc_1",
+          doctorName: "Dr. Alice Smith",
+          departmentName: "Cardiology",
+          sessionId: "day",
+          nowServing: "T001",
+          isPaused: false,
+          nextInLine: [{ displayToken: "T002", priority: 1, isPriority: true }],
+          totalWaiting: 1,
+        },
+        {
+          queueKey: "hospital:hosp_1:doc_2:2026-10-21:day",
+          doctorId: "doc_2",
+          doctorName: "Dr. Bob Jones",
+          departmentName: "Cardiology",
+          sessionId: "day",
+          nowServing: "T001",
+          isPaused: true,
+          nextInLine: [{ displayToken: "T003", priority: 0, isPriority: false }],
+          totalWaiting: 1,
+        },
+      ],
+      departments: [
+        { departmentId: "dept_1", departmentName: "Cardiology", nowServing: "T001" },
+      ],
+    };
+
+    const items = projectKioskDisplayItems(rawKiosk);
+    assert.equal(items.length, 2);
+    assert.notEqual(items[0].queueKey, items[1].queueKey);
+    assert.equal(items[0].doctorName, "Dr. Alice Smith");
+    assert.equal(items[1].doctorName, "Dr. Bob Jones");
+
+    // Check status formatting
+    const status1 = formatKioskItemStatus(items[0]);
+    assert.equal(status1.label, "Consulting");
+    assert.equal(status1.tone, "positive");
+
+    const status2 = formatKioskItemStatus(items[1]);
+    assert.equal(status2.label, "Queue Paused");
+    assert.equal(status2.tone, "warning");
+
+    // Priority token indicator preserved without exposing patient PII
+    assert.equal(items[0].nextInLine[0].isPriority, true);
+    assert.equal(items[0].nextInLine[0].displayToken, "T002");
+    assert.equal(items[0].nextInLine[0].patientName, undefined);
+  });
 });
+
+export function formatKioskItemStatus(item) {
+  if (item?.isPaused) return { tone: "warning", label: "Queue Paused", displayNowServing: item.nowServing || "—" };
+  if (item?.nowServing) return { tone: "positive", label: "Consulting", displayNowServing: item.nowServing };
+  return { tone: "neutral", label: "Waiting", displayNowServing: "—" };
+}
+
+export function projectKioskDisplayItems(kioskData) {
+  if (kioskData?.queues && kioskData.queues.length > 0) return kioskData.queues;
+  return kioskData?.departments || [];
+}
+

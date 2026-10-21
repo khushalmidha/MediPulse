@@ -64,7 +64,7 @@ export const transitionVisit = async ({ tokenId, appointmentId, action, expected
       // A concurrent pause invalidates the snapshot and retries this check.
       if ((await getQueuePauseState(primary.queueKey,session)).isPaused) throw accessError(409,"This queue is paused. Resume it before starting the next consultation.");
       if (primary.serviceDate !== localServiceDate(now, primary.timezone)) throw accessError(409, "This care session is not on the current service date");
-      const head = token ? await OpdToken.findOne({ queueKey: token.queueKey, status: { $in: ["waiting", "vitals_done"] }, $or: [{ scheduledStart: { $exists: false } }, { scheduledStart: { $lte: now } }] }).sort({ tokenNumber: 1 }).session(session)
+      const head = token ? await OpdToken.findOne({ queueKey: token.queueKey, status: { $in: ["waiting", "vitals_done"] }, $or: [{ scheduledStart: { $exists: false } }, { scheduledStart: { $lte: now } }] }).sort({ priority: -1, tokenNumber: 1 }).session(session)
         : await Appointment.findOne({ queueKey: appointment.queueKey, status: "queued", admissionState: { $ne: "reserved" }, $or: [{ scheduledStart: { $exists: false } }, { scheduledStart: { $lte: now } }] }).sort({ checkedInAt: 1, createdAt: 1, _id: 1 }).session(session);
       if (!head || idOf(head) !== idOf(token || appointment)) throw accessError(409, "Please start visits in this session's queue order");
     }
