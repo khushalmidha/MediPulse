@@ -2410,6 +2410,73 @@ Prior to this phase:
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG19: Inpatient clinical orders, nursing and medication administration (22 October 2026)
+
+### Context and baseline
+Task AG19 implements the inpatient clinical orders, high-frequency nursing vitals flowsheet, objective NEWS2 deterioration scoring, 5-rights bedside medication administration records (eMAR) with dual-nurse verification on controlled substances, and structured nurse shift handovers (Milestone M2), building upon the inpatient ADT and bed allocation model established in AG18.
+
+Prior to this phase:
+1. Inpatient clinical orders lacked structured data models, clinician sign-off boundaries, and automatic eMAR dose scheduling.
+2. Nursing vitals recording lacked standardized flowsheet fields, objective deterioration calculations, and deterministic escalation alerts.
+3. Bedside medication administration had no electronic 5-rights validation, mandatory dual-nurse witnessing for Schedule X narcotics / high-alert drugs, or structured omission reason capture.
+4. Nursing shift handovers lacked structured multi-patient critical summary logging between distinct registered nurses.
+
+### Changes implemented & verified
+- **Nursing & Inpatient Care Data Models (`backend/model/nursingCare.js`)**:
+  - `InpatientOrder`: hospital/admission-scoped with `orderType` (`medication`, `investigation`, `nursing_care`, `diet`, `monitoring`), `status` (`draft`, `active`, `completed`, `discontinued`, `cancelled`), `prescribedByDoctorId`, `departmentId`, `medicationDetails` (drugName, dose, route, frequency, durationDays, isHighAlert, isControlledSubstance, specialInstructions), and `version`.
+  - `NursingVitals`: high-frequency flowsheet with `respirationRate`, `spO2`, `supplementalOxygen`, `systolicBP`, `diastolicBP`, `pulse`, `consciousness` (`A`, `V`, `P`, `U`), `temperature`, `painScore`, `bloodGlucose`, and embedded `news2` assessment (`score`, `riskLevel`, `action`, `requiresDoctorEscalation`, `requiresCodeBlue`).
+  - `MedicationAdministrationRecord` (eMAR): ties `admissionId`, `orderId`, and `patientId` to specific `scheduledTime` doses. Enforces `status` (`scheduled`, `administered`, `omitted`, `refused`, `delayed`, `cancelled`), `fiveRightsVerified` booleans (rightPatient, rightDrug, rightDose, rightRoute, rightTime), `omissionReason`, `dualWitnessStaffId`, `dualWitnessSignature`, and `injectionSite`.
+  - `NurseShiftHandover`: ward-scoped shift logs for `morning`, `evening`, and `night` shifts capturing `outgoingNurseStaffId`, `incomingNurseStaffId`, `totalPatients`, `criticalPatientsCount`, `patientSummaries` with individual NEWS2 scores and pending tasks, `codeBlueEvents`, and `acknowledgedAt` timestamp.
+- **Nursing Care Service Layer (`backend/services/nursingCareService.js`)**:
+  - **Inpatient Orders & Automatic eMAR Generation (`createInpatientOrder`)**:
+    - Validates hospital active status and subscription feature entitlement (`ipd_beds`).
+    - Validates active admission status and required medication parameters (drugName, dose, route, frequency).
+    - Automatically calculates administration intervals (`od`, `bd`, `tds`, `qid`, `q4h`, `q6h`, `q8h`, `stat`, `prn`) and schedules eMAR doses in the database over the prescribed duration.
+  - **Order Discontinuation (`discontinueInpatientOrder`)**:
+    - Updates order status to `discontinued` with mandatory reason.
+    - Cancels remaining future `scheduled` eMAR doses without altering already administered or omitted dose history.
+  - **Nursing Vitals Flowsheet & NEWS2 Scoring (`recordNursingVitals`)**:
+    - Evaluates all 7 vital parameters using audited `calculateNews2Score`.
+    - Triggers `requiresDoctorEscalation` for score >= 5 or single-parameter score of 3.
+    - Triggers `requiresCodeBlue` for score >= 7.
+  - **5-Rights Bedside Medication Administration (`administerMedication`)**:
+    - Enforces all 5 rights (`rightPatient`, `rightDrug`, `rightDose`, `rightRoute`, `rightTime`). Incomplete verification fails with HTTP 400.
+    - Controlled substance / high-alert rule: Mandates secondary nurse witness staff ID and signature for Schedule X narcotics and high-alert drugs.
+    - Prohibits administering nurse from serving as their own secondary witness (HTTP 403).
+  - **Structured Omission / Refusal Logging (`recordMedicationOmission`)**:
+    - Enforces standardized reasons: `patient_refused`, `fasting_for_procedure`, `medication_unavailable`, `vital_contraindicated`, `clinician_hold`.
+    - Correctly marks status as `refused` when refused by patient, or `omitted`.
+  - **Structured Shift Handover (`recordShiftHandover`)**:
+    - Mandates distinct staff members for outgoing and incoming nurses (HTTP 400).
+    - Automatically derives `criticalPatientsCount` from patient summaries with NEWS2 >= 5.
+  - **Inpatient Flowsheet Querying (`getInpatientFlowsheet`)**:
+    - Aggregates recent vitals history, active clinical orders, and eMAR schedule.
+  - **Fail-Closed Disconnected DB Handling**:
+    - Fails with HTTP 503 Service Unavailable when DB is disconnected and no test double is present.
+- **Test Coverage (`backend/tests/nursing-care.test.js` & `backend/tests/integration/nursing-care.test.js`)**:
+  - Unit & domain suite: **8/8 passed**, **21.48 ms** (`node --test tests/nursing-care.test.js`):
+    1. Inpatient order creation and automatic eMAR dose scheduling.
+    2. Order discontinuation and remaining dose cancellation.
+    3. Nursing high-frequency vitals flowsheet & NEWS2 clinical escalation.
+    4. 5-Rights bedside medication administration enforcement.
+    5. Mandatory dual-nurse verification for controlled substances.
+    6. Self-witness prohibition for narcotics.
+    7. Structured medication omission / refusal logging.
+    8. Nurse shift handover between distinct staff members.
+  - Full backend test suite: **194/194 passed**, **48.21 s** (`npm test`).
+  - Integration suite: verified with graceful skip when local replica set is absent; ready for live container execution.
+  - Frontend UI test suite: **58/58 passed**, **441 ms** (`npm run test:ui`).
+
+### Executed checks and limits
+- **Nursing Care Unit Tests**: **8/8 passed**, zero failures/skips, **21.48 ms** (`node --test tests/nursing-care.test.js`).
+- **Backend Unit Tests**: **194/194 passed**, zero failures/skips, **48.21 s** (`npm test`).
+- **Frontend Unit Tests**: **58/58 passed**, zero failures/skips, **441 ms** (`npm run test:ui`).
+- **Plan Checker (`tools/check-implementation-plan.mjs --next`)**: verified all 20 tasks (AG00–AG19) locally verified; dependencies acyclic; next ready task: **AG20**.
+- **Local Environment**: Verified against isolated test harness; Docker engine unavailable locally for live replica set execution.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 
 

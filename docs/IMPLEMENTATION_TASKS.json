@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG19",
+  "startWith": "AG20",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1083,13 +1083,17 @@
     {
       "id": "AG19",
       "title": "Inpatient clinical orders, nursing and medication administration",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
         "AG18"
       ],
       "evidence": [
+        "backend/model/nursingCare.js",
+        "backend/services/nursingCareService.js",
+        "backend/tests/nursing-care.test.js",
+        "backend/tests/integration/nursing-care.test.js",
         "docs/ENTERPRISE_PLAN.md"
       ],
       "implementation": [
@@ -1100,7 +1104,26 @@
         "Order change versus administration, omitted/refused doses, reassignment and audit scenarios preserve actor/time/version.",
         "Clinicians validate actual workflow behavior; outpatient draft AI does not become an administration authority."
       ],
-      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval."
+      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval.",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG19 Inpatient clinical orders, nursing and medication administration, 22 October 2026",
+        "nursingCareUnit": {
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 194,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 58,
+          "failed": 0,
+          "skipped": 0
+        },
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG20",
