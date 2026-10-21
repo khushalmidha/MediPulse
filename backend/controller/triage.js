@@ -1,6 +1,13 @@
 import { flagRedSymptoms } from "../services/copilotTools.js";
 import { GoogleGenerativeAI, GoogleGenerativeAIAbortError, SchemaType } from "@google/generative-ai";
-import { evaluateTriageRedFlag, getSmartBookingModel, withBoundedTimeout } from "../services/aiReliabilityService.js";
+import {
+  evaluateTriageRedFlag,
+  getSmartBookingModel,
+  withBoundedTimeout,
+  checkAiConsent,
+  createAiProvenance,
+  CLINICAL_SAFETY_DISCLAIMER,
+} from "../services/aiReliabilityService.js";
 import axios from "axios";
 import User from "../model/user.js";
 import { getIO } from "../socket.js";
@@ -156,7 +163,10 @@ const getFallbackResponse = async (state) => {
   return { text: questions[Math.min(patientTurns, questions.length - 1)] };
 };
 
-const callAgent = async (state) => {
+const callAgent = async (state, { hasConsent = true } = {}) => {
+  if (!hasConsent) {
+    return getFallbackResponse(state);
+  }
   if (!process.env.GEMINI_API_KEY) {
     return getFallbackResponse(state);
   }
@@ -164,7 +174,15 @@ const callAgent = async (state) => {
   const model = buildModel(state.patientContext);
   let result;
   try {
-    result = await model.generateContent({ contents: state.contents });
+    result = await withBoundedTimeout(
+      model.generateContent({ contents: state.contents }),
+      6000,
+      null
+    );
+    if (!result) {
+      console.warn("Gemini timed out, falling back to basic triage");
+      return getFallbackResponse(state);
+    }
   } catch (error) {
     console.warn("Gemini failed (e.g. rate limit), falling back to basic triage:", error.message);
     return getFallbackResponse(state);
@@ -224,7 +242,12 @@ const callAgent = async (state) => {
     }
 
     try {
-      result = await model.generateContent({ contents: state.contents });
+      result = await withBoundedTimeout(
+        model.generateContent({ contents: state.contents }),
+        6000,
+        null
+      );
+      if (!result) return getFallbackResponse(state);
       response = result.response;
     } catch (error) {
       console.warn("Gemini failed on subsequent turn:", error.message);
@@ -252,6 +275,13 @@ const startTriage = async (req, res) => {
     const patientContext = await getPatientContext({ userId });
     patientContext.language = req.query.lang || req.body.lang || 'English';
     const firstPrompt = "Start the triage. Ask only the first focused question.";
+
+    const consent = checkAiConsent({
+      user: access.user,
+      appointment: access.appointment,
+      explicitConsent: req.body?.aiConsent,
+    });
+
     const state = {
       userId,
       patientContext,
@@ -259,15 +289,20 @@ const startTriage = async (req, res) => {
       messages: [],
       contents: [{ role: "user", parts: [{ text: firstPrompt }] }],
       brief: null,
+      aiConsentRevoked: !consent.consentGranted,
     };
 
     let question = fallbackFirstQuestion(patientContext);
-    if (process.env.GEMINI_API_KEY) {
+    if (process.env.GEMINI_API_KEY && consent.consentGranted) {
       try {
-        const result = await buildModel(patientContext).generateContent({
-          contents: state.contents,
-        });
-        question = extractText(result.response) || question;
+        const result = await withBoundedTimeout(
+          buildModel(patientContext).generateContent({ contents: state.contents }),
+          6000,
+          null
+        );
+        if (result) {
+          question = extractText(result.response) || question;
+        }
       } catch (error) {
         console.error("Triage start Gemini failed:", error.message);
       }
@@ -281,6 +316,9 @@ const startTriage = async (req, res) => {
       message: question,
       isBriefReady: false,
       patientContext,
+      consentGranted: consent.consentGranted,
+      fallbackActive: !consent.consentGranted,
+      fallbackReason: consent.reason || null,
     });
   } catch (error) {
     // FIXED: The response leaked the internal message and full stack trace to the client.
@@ -330,6 +368,13 @@ const sendMessage = async (req, res) => {
     state.messages.push({ role: "patient", text: trimmed });
     state.contents.push({ role: "user", parts: [{ text: trimmed }] });
 
+    const consent = checkAiConsent({
+      user: access.user,
+      appointment: access.appointment,
+      explicitConsent: req.body?.aiConsent,
+    });
+    const hasConsent = consent.consentGranted && !state.aiConsentRevoked;
+
     const patientMessageCount = state.messages.filter(
       (entry) => entry.role === "patient",
     ).length;
@@ -339,7 +384,7 @@ const sendMessage = async (req, res) => {
             text: "Thanks. I will prepare your doctor summary from what you shared.",
             brief: await forceCompleteFromHistory(state),
           }
-        : await callAgent(state);
+        : await callAgent(state, { hasConsent });
 
     state.messages.push({ role: "agent", text: agentResult.text });
     state.contents.push({ role: "model", parts: [{ text: agentResult.text }] });
@@ -349,6 +394,16 @@ const sendMessage = async (req, res) => {
         ...agentResult.brief,
         generatedAt: agentResult.brief.generatedAt || new Date(),
         conversationTurns: state.turnCount,
+        isDraft: true,
+        requiresClinicianApproval: true,
+        disclaimer: CLINICAL_SAFETY_DISCLAIMER,
+        provenance: createAiProvenance({
+          provider: hasConsent && process.env.GEMINI_API_KEY ? "google_gemini" : "deterministic_rules",
+          model: "gemini-2.5-flash",
+          consentVerified: hasConsent,
+          fallbackUsed: !hasConsent || !process.env.GEMINI_API_KEY,
+          fallbackReason: !hasConsent ? consent.reason : (!process.env.GEMINI_API_KEY ? "provider_not_configured" : null),
+        }),
       };
     }
 
@@ -399,10 +454,16 @@ const completeTriage = async (req, res) => {
       .filter(Boolean)
       .join(". ") || transcript;
 
+    const consent = checkAiConsent({
+      user: access.user,
+      appointment: access.appointment,
+      explicitConsent: req.body?.aiConsent,
+    });
+
     // Use the Node.js Hugging Face API integration to predict disease
-    if (symptomText.trim()) {
+    if (symptomText.trim() && consent.consentGranted) {
       try {
-        const mlData = await nlpManager.predictDisease(symptomText);
+        const mlData = await withBoundedTimeout(nlpManager.predictDisease(symptomText), 5000, null);
         const disease = String(mlData?.disease || "").trim();
         const confidence = Number(mlData?.confidence);
         
@@ -429,14 +490,18 @@ const completeTriage = async (req, res) => {
       }
     }
 
-    if (predictedDisease === "Unknown") {
+    if (predictedDisease === "Unknown" && consent.consentGranted) {
       try {
         const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
         const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const result = await model.generateContent({
-          contents: [{ role: "user", parts: [{ text: `Based on this patient-doctor triage conversation, predict the most likely disease or medical condition in 2-5 words only. No explanation needed.\n\nConversation:\n${transcript}` }] }]
-        });
-        const prediction = result.response.text().trim();
+        const result = await withBoundedTimeout(
+          model.generateContent({
+            contents: [{ role: "user", parts: [{ text: `Based on this patient-doctor triage conversation, predict the most likely disease or medical condition in 2-5 words only. No explanation needed.\n\nConversation:\n${transcript}` }] }]
+          }),
+          5000,
+          null
+        );
+        const prediction = result ? result.response.text().trim() : "";
         if (prediction && prediction.length < 100) {
           predictedDisease = prediction;
         }
@@ -460,6 +525,15 @@ const completeTriage = async (req, res) => {
       generatedAt: new Date(state.brief.generatedAt || Date.now()),
       conversationTurns: state.brief.conversationTurns || state.turnCount,
       predictedDisease,
+      isDraft: true,
+      disclaimer: CLINICAL_SAFETY_DISCLAIMER,
+      provenance: createAiProvenance({
+        provider: consent.consentGranted && process.env.GEMINI_API_KEY ? "huggingface_gemini" : "deterministic_rules",
+        model: "gemini-2.5-flash",
+        consentVerified: consent.consentGranted,
+        fallbackUsed: !consent.consentGranted || predictedDisease.startsWith("Pending"),
+        fallbackReason: !consent.consentGranted ? consent.reason : null,
+      }),
     };
 
     const appointment = await Appointment.findByIdAndUpdate(

@@ -79,6 +79,10 @@ const appointmentSchema = new mongoose.Schema(
     receiptGeneratedAt: {
       type: Date,
     },
+    aiConsent: {
+      type: Boolean,
+      default: true,
+    },
     voiceConsentRecorded: {
       type: Boolean,
       default: false,
@@ -108,6 +112,7 @@ const appointmentSchema = new mongoose.Schema(
       predictedDisease: String,
       isDraft: { type: Boolean, default: true },
       disclaimer: String,
+      provenance: { type: mongoose.Schema.Types.Mixed },
     },
     soapNote: {
       version: { type: Number, min: 1 },
@@ -124,6 +129,7 @@ const appointmentSchema = new mongoose.Schema(
       approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Doctor" },
       approvedAt: Date,
       disclaimer: String,
+      provenance: { type: mongoose.Schema.Types.Mixed },
     },
     payment: {
       nextRecoveryAt: Date,

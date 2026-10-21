@@ -2121,6 +2121,62 @@ Prior to this repair:
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG14: One clinical AI boundary and honest evaluation (21 October 2026)
+
+### Context and baseline
+Task AG14 addresses the unification of clinical AI provider callers behind a single reliable boundary, explicit patient and encounter consent checks, data minimization, provenance tracking, and an honest evaluation framework (P17 / A13 / AG14).
+Prior to this repair:
+1. AI callers (`backend/controller/triage.js`, `backend/controller/copilot.js`, `backend/controller/opdAi.js`, `backend/controller/gemini.js`) invoked provider APIs without uniform bounded timeouts, leaving requests susceptible to hangs or unhandled provider exceptions.
+2. Patient AI consent was implicit or unrecorded, lacking explicit controls to honor patient choice and revoked consent.
+3. Patient PII was passed directly to provider contexts without systematic clinical data minimization.
+4. Generated summaries, SOAP notes, and triage briefs lacked structured clinical provenance (model, provider, timestamp, fallback status, clinician review requirement, and mandatory clinical safety disclaimers).
+5. Evaluation was either absent or based on static hardcoded routine outputs rather than passing realistic clinical scenarios through the actual boundary and circuit breaker.
+6. System capability audits claimed or implied external machine learning/ranking microservices (e.g. Python FastAPI microservices, LightGBM LambdaMART ranking) that do not actually exist in the repository.
+
+### Changes implemented
+- **Patient & Appointment Model Updates (`backend/model/user.js`, `backend/model/appointment.js`)**:
+  - Added `aiConsent: { type: Boolean, default: true }` to `User` and `Appointment` schemas.
+  - Added `provenance: { type: mongoose.Schema.Types.Mixed }` to `appointment.patientBrief` and `appointment.soapNote`.
+- **AI Reliability Service (`backend/services/aiReliabilityService.js`)**:
+  - `checkAiConsent(patientId, appointmentId)`: verifies patient and encounter-level consent; detects revoked consent and returns structured decision `{ consentGranted, reason }`.
+  - `createAiProvenance({ provider, model, consentVerified, fallbackUsed, fallbackReason, dataMinimizationApplied, revision })`: generates standardized provenance metadata with `isDraft: true`, `requiresClinicianApproval: true`, and the explicit `CLINICAL_SAFETY_DISCLAIMER`.
+  - `invokeClinicalAiProvider({ callerType, patientId, appointmentId, clinicalContext, providerCall, fallbackFn, timeoutMs, schemaValidator })`: single unified boundary method enforcing consent checks, PII stripping via `minimizePatientContext`, bounded timeout via `withBoundedTimeout`, circuit-breaking fallback activation, response schema validation, and clinical provenance attachment. Core clinical care continues uninterrupted even when the provider fails or consent is revoked.
+  - Standardized clinical test fixtures: implemented `CLINICAL_EVALUATION_FIXTURES` (`EVAL-001` through `EVAL-006`) covering emergency red-flag overrides, pediatric fever, routine checkups, revoked consent, provider timeout, and malformed provider responses.
+  - `runHonestEvaluationSuite()`: executes all fixtures through the real deterministic and boundary caller, evaluating urgency prediction, provider bypass, and graceful fallback.
+  - `getAiSystemAudit()`: provides a truthful audit contrasting active in-process Node.js capabilities against absent external services (`Python FastAPI Microservice`, `Local LightGBM LambdaMART Ranking Engine`).
+- **Clinical Controllers**:
+  - `backend/controller/aiReliability.js`: added `evaluateEvaluationSuite` endpoint handler; enhanced `evaluateAiCase` to enforce consent, data minimization, and provenance.
+  - `backend/routes/aiReliability.js`: mounted `POST /evaluate-suite`.
+  - `backend/controller/triage.js`: `callAgent` accepts `hasConsent` and wraps provider calls in `withBoundedTimeout(..., 6000, null)`. `startTriage` verifies consent via `checkAiConsent` and falls back to deterministic sequence if revoked. `sendMessage` and `completeTriage` wrap prediction logic in bounded timeouts and attach provenance and safety disclaimers to `patientBrief`.
+  - `backend/controller/copilot.js`: `callAgent` wraps Gemini generation in `withBoundedTimeout(..., 6000, null)` with `fallbackAnalyze`. `analyzeChunk` enforces voice consent and patient AI consent. `generateSoap` enforces revision checking (`checkClinicalEdit` -> HTTP 409 Conflict), wraps note generation in bounded timeout, and attaches provenance metadata.
+  - `backend/controller/opdAi.js`: `startOpdTriage` checks consent; `buildBrief` attaches provenance, draft status, and safety disclaimer.
+  - `backend/controller/gemini.js`: `geminiChat` checks explicit consent, wraps provider calls, attaches provenance, and returns deterministic educational fallback when denied.
+- **Integration Test Suite (`backend/tests/integration/clinical-ai-boundary.test.js`)**:
+  - 11 comprehensive subtests covering role authorization (403 on non-doctor copilot, non-patient triage, cross-patient access), immediate deterministic emergency override without provider call, revoked consent fallback, stale source revision detection (409 Conflict), SOAP draft creation with provenance and source hash, missing voice consent fallback, PII minimization, truthful capability audit, and honest fixture evaluation execution.
+- **Integration Runner (`backend/scripts/testIntegration.js`)**:
+  - Registered `clinical-ai-boundary.test.js` in canonical test integration runner.
+
+### Executed checks and limits
+- **Clinical AI boundary integration suite**: **11/11 passed**, zero failures/skips, **2.21 s** (`backend/tests/integration/clinical-ai-boundary.test.js`):
+  1. Role-based access control enforces doctor-only copilot, patient-only triage, and patient appointment boundaries.
+  2. Deterministic red-flag emergency override activates immediately without calling AI provider.
+  3. Revoked consent falls back deterministically without provider call.
+  4. Stale source revision detection prevents conflicting SOAP updates (HTTP 409 Conflict).
+  5. Successful SOAP generation preserves source hash, revision, draft flag, and provenance metadata.
+  6. Missing voice consent returns deterministic suggestion rules with disclaimer.
+  7. Data minimization strips patient PII from clinical prompt context.
+  8. Truthful capabilities audit exposes active in-process modules while identifying absent external services.
+  9. Honest evaluation suite POST /api/ai/evaluate-suite executes clinical fixtures with expected urgency.
+  10. Core care continuity: patient triage completes and persists brief with provenance.
+- **AI Reliability Unit tests**: **10/10 passed**, zero failures/skips, **1.09 s** (`backend/tests/ai-reliability.test.js`).
+- **Backend unit tests**: **171/171 passed**, zero failures/skips, **41.22 s** (`npm test`).
+- **Frontend unit tests**: **58/58 passed**, zero failures/skips, **318 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **22.98 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 
 

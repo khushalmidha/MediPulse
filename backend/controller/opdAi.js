@@ -3,7 +3,14 @@ import OpdToken from "../model/opdToken.js";
 import { emitOpdEvent, loadVisit } from "../services/hospitalAccess.js";
 import { getRedis } from "../services/redis.js";
 import { getIO } from "../socket.js";
-import { withBoundedTimeout, minimizePatientContext, validateAiBriefSchema } from "../services/aiReliabilityService.js";
+import {
+  withBoundedTimeout,
+  minimizePatientContext,
+  validateAiBriefSchema,
+  checkAiConsent,
+  createAiProvenance,
+  CLINICAL_SAFETY_DISCLAIMER,
+} from "../services/aiReliabilityService.js";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const TRIAGE_TTL_SECONDS = 45 * 60;
@@ -65,6 +72,14 @@ const enrichBrief = (brief, patientText, messages) => {
       : uncoveredAreas.slice(0, 4).map((area) => `Please confirm ${area.toLowerCase()}.`),
     generatedAt: new Date(),
     conversationTurns: messages.filter((item) => item.role === "patient").length,
+    isDraft: true,
+    requiresClinicianApproval: true,
+    disclaimer: CLINICAL_SAFETY_DISCLAIMER,
+    provenance: brief.provenance || createAiProvenance({
+      provider: process.env.GEMINI_API_KEY ? "google_gemini" : "deterministic_rules",
+      model: "gemini-2.5-flash",
+      fallbackUsed: !process.env.GEMINI_API_KEY,
+    }),
   };
 };
 
@@ -147,14 +162,28 @@ export const startOpdTriage = async (req, res) => {
     const token = await loadPatientToken(req.params.tokenId, req.auth.id);
     if (!token) return res.status(404).json({ message: "OPD token not found for this patient" });
 
-    const state = { messages: [{ role: "agent", text: fallbackQuestion(0), createdAt: new Date() }] };
+    const User = (await import("../model/user.js")).default;
+    const user = await User.findById(req.auth.id);
+    const consent = checkAiConsent({ user, explicitConsent: req.body?.aiConsent });
+
+    const state = {
+      messages: [{ role: "agent", text: fallbackQuestion(0), createdAt: new Date() }],
+      aiConsentRevoked: !consent.consentGranted,
+    };
     await getRedis().set(triageKey(token._id), JSON.stringify(state), "EX", TRIAGE_TTL_SECONDS);
 
     token.aiTriage.status = "in_progress";
     token.aiTriage.messages = state.messages;
     await token.save();
 
-    res.status(200).json({ message: state.messages[0].text, isBriefReady: false, token });
+    res.status(200).json({
+      message: state.messages[0].text,
+      isBriefReady: false,
+      token,
+      consentGranted: consent.consentGranted,
+      fallbackActive: !consent.consentGranted,
+      fallbackReason: consent.reason || null,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message || "Unable to start OPD triage" });
   }

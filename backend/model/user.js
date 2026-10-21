@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema(
     },
     authVersion: { type: Number, default: 0 },
     careIdentityRevision: { type: Number, default: 0 },
+    aiConsent: { type: Boolean, default: true },
 		gender: {
 			type: String,
 			enum: ["male", "female", "other"],

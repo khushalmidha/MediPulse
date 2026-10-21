@@ -8,12 +8,16 @@ import {
   generateDeterministicSoapFallback,
   getAiSystemAudit,
   evaluateTriageRedFlag,
+  checkAiConsent,
+  createAiProvenance,
+  invokeClinicalAiProvider,
+  runHonestEvaluationSuite,
   CLINICIAN_EVALUATION_FIXTURES,
   CLINICAL_SAFETY_DISCLAIMER,
   FORECAST_PLANNING_DISCLAIMER,
 } from "../services/aiReliabilityService.js";
 
-test("P18: AI reliability, truthful claims, schema validation, and fallback safeguards", async (t) => {
+test("P18 / AG14: AI reliability, truthful claims, boundary safeguards, and honest evaluation", async (t) => {
   await t.test("bounded timeout returns fast results and falls back on slow promises without hanging", async () => {
     // Fast promise
     const fastPromise = Promise.resolve("quick_ai_response");
@@ -93,6 +97,8 @@ test("P18: AI reliability, truthful claims, schema validation, and fallback safe
     assert.equal(fallback.isDraft, true);
     assert.equal(fallback.clinicianApproved, false);
     assert.equal(fallback.disclaimer, CLINICAL_SAFETY_DISCLAIMER);
+    assert.ok(fallback.provenance);
+    assert.equal(fallback.provenance.fallbackUsed, true);
   });
 
   await t.test("clinician evaluation fixtures verify red-flag detection and routine triage", () => {
@@ -121,6 +127,82 @@ test("P18: AI reliability, truthful claims, schema validation, and fallback safe
     const routineResult = evaluateTriageRedFlag(routineFixture.input);
     assert.equal(routineResult.triggersRedFlag, routineFixture.expectedTriage.triggersRedFlag);
     assert.equal(routineResult.urgencyLevel, routineFixture.expectedTriage.minimumUrgency);
+  });
+
+  await t.test("consent check detects revoked patient consent and missing voice consent", () => {
+    const granted = checkAiConsent({ user: { aiConsent: true }, appointment: { aiConsent: true } });
+    assert.equal(granted.consentGranted, true);
+
+    const revokedUser = checkAiConsent({ user: { aiConsent: false } });
+    assert.equal(revokedUser.consentGranted, false);
+    assert.equal(revokedUser.reason, "user_consent_revoked");
+
+    const revokedAppointment = checkAiConsent({ appointment: { aiConsent: false } });
+    assert.equal(revokedAppointment.consentGranted, false);
+    assert.equal(revokedAppointment.reason, "appointment_consent_revoked");
+
+    const deniedExplicit = checkAiConsent({ explicitConsent: false });
+    assert.equal(deniedExplicit.consentGranted, false);
+    assert.equal(deniedExplicit.reason, "explicit_consent_denied");
+  });
+
+  await t.test("boundary caller invokeClinicalAiProvider handles timeout, malformed response, and revoked consent", async () => {
+    // 1. Revoked consent
+    const revokedResult = await invokeClinicalAiProvider({
+      user: { aiConsent: false },
+      fallbackGenerator: (reason) => ({ fallback: true, reason }),
+    });
+    assert.equal(revokedResult.fallbackActive, true);
+    assert.equal(revokedResult.reason, "user_consent_revoked");
+    assert.equal(revokedResult.provenance.consentVerified, false);
+
+    // 2. Timeout
+    const timeoutResult = await invokeClinicalAiProvider({
+      user: { aiConsent: true },
+      timeoutMs: 30,
+      providerCall: () => new Promise((resolve) => setTimeout(() => resolve("slow"), 200)),
+      fallbackGenerator: (reason) => ({ fallback: true, reason }),
+    });
+    assert.equal(timeoutResult.fallbackActive, true);
+    assert.equal(timeoutResult.reason, "timeout");
+    assert.equal(timeoutResult.provenance.fallbackUsed, true);
+
+    // 3. Malformed response
+    const malformedResult = await invokeClinicalAiProvider({
+      user: { aiConsent: true },
+      timeoutMs: 500,
+      providerCall: () => Promise.resolve("INVALID NOT JSON"),
+      schemaValidator: (raw) => JSON.parse(raw),
+      fallbackGenerator: (reason) => ({ fallback: true, reason }),
+    });
+    assert.equal(malformedResult.fallbackActive, true);
+    assert.equal(malformedResult.reason, "malformed_response");
+    assert.equal(malformedResult.provenance.fallbackUsed, true);
+  });
+
+  await t.test("honest evaluation suite exercises all fixtures through the real deterministic / provider boundary", async () => {
+    const report = await runHonestEvaluationSuite();
+    assert.ok(report.results.length >= 6);
+    assert.equal(report.summary.allPassed, true);
+    assert.equal(report.summary.failed, 0);
+
+    const chestPain = report.results.find((r) => r.fixtureId === "EVAL-001-CHEST-PAIN");
+    assert.ok(chestPain);
+    assert.equal(chestPain.passed, true);
+    assert.equal(chestPain.bypassedProvider, true);
+    assert.equal(chestPain.evaluatedUrgency, "EMERGENCY");
+
+    const consentRevoked = report.results.find((r) => r.fixtureId === "EVAL-004-CONSENT-REVOKED");
+    assert.ok(consentRevoked);
+    assert.equal(consentRevoked.passed, true);
+    assert.equal(consentRevoked.fallbackActive, true);
+    assert.equal(consentRevoked.reason, "user_consent_revoked");
+
+    const timeoutCase = report.results.find((r) => r.fixtureId === "EVAL-005-TIMEOUT-SIMULATION");
+    assert.ok(timeoutCase);
+    assert.equal(timeoutCase.passed, true);
+    assert.equal(timeoutCase.fallbackActive, true);
+    assert.equal(timeoutCase.reason, "timeout");
   });
 
   await t.test("AI system capabilities audit truthfully exposes active vs missing external services", () => {

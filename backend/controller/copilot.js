@@ -1,5 +1,10 @@
 import { afterVisitCommit } from "../services/visitTransitions.js";
-import { withBoundedTimeout } from "../services/aiReliabilityService.js";
+import {
+  withBoundedTimeout,
+  checkAiConsent,
+  createAiProvenance,
+  CLINICAL_SAFETY_DISCLAIMER,
+} from "../services/aiReliabilityService.js";
 import { clinicalRevision, clinicalNotes, notesHash, checkClinicalEdit, commitClinicalEdit } from "../services/clinicalWrites.js";
 import mongoose from "mongoose";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -235,7 +240,31 @@ Decide whether tools are needed. If nothing actionable, return [].`,
   ];
 
   const model = buildModel();
-  let result = await model.generateContent({ contents });
+  let result;
+  try {
+    result = await withBoundedTimeout(
+      model.generateContent({ contents }),
+      6000,
+      null
+    );
+    if (!result) {
+      console.warn("Copilot agent timed out, using fallback analysis");
+      return fallbackAnalyze({
+        appointmentId,
+        transcriptChunk,
+        allMentionedMeds,
+        allMentionedSymptoms,
+      });
+    }
+  } catch (error) {
+    console.warn("Copilot agent call failed, using fallback analysis:", error.message);
+    return fallbackAnalyze({
+      appointmentId,
+      transcriptChunk,
+      allMentionedMeds,
+      allMentionedSymptoms,
+    });
+  }
   let response = result.response;
   let toolSuggestions = [];
   let toolCallCount = 0;
@@ -280,8 +309,17 @@ Decide whether tools are needed. If nothing actionable, return [].`,
       });
     }
 
-    result = await model.generateContent({ contents });
-    response = result.response;
+    try {
+      result = await withBoundedTimeout(
+        model.generateContent({ contents }),
+        6000,
+        null
+      );
+      if (!result) break;
+      response = result.response;
+    } catch {
+      break;
+    }
   }
 
   const finalSuggestions = parseJsonArray(response.text?.() || "").map(normalizeSuggestion);
@@ -313,16 +351,37 @@ const analyzeChunk = async (req, res) => {
     if (!chunk) return res.status(200).json({ suggestions: [], toolCallCount: 0 });
 
     const fullTranscript = await appendTranscript(appointmentId, chunk);
-    const suggestions = await callAgent({
-      appointmentId,
-      transcriptChunk: chunk,
-      fullTranscript,
-      isFirstChunk,
-      allMentionedMeds,
-      allMentionedSymptoms,
+    const consent = checkAiConsent({
+      appointment: access.appointment,
+      explicitConsent: access.appointment.voiceConsentRecorded,
     });
 
-    const normalized = suggestions.filter((suggestion) => suggestion.message).map(normalizeSuggestion);
+    const suggestions = !consent.consentGranted
+      ? await fallbackAnalyze({
+          appointmentId,
+          transcriptChunk: chunk,
+          allMentionedMeds,
+          allMentionedSymptoms,
+        })
+      : await callAgent({
+          appointmentId,
+          transcriptChunk: chunk,
+          fullTranscript,
+          isFirstChunk,
+          allMentionedMeds,
+          allMentionedSymptoms,
+        });
+
+    const normalized = suggestions.filter((suggestion) => suggestion.message).map((s) => ({
+      ...normalizeSuggestion(s),
+      provenance: createAiProvenance({
+        provider: consent.consentGranted && process.env.GEMINI_API_KEY ? "google_gemini" : "deterministic_rules",
+        model: "gemini-2.5-flash",
+        consentVerified: consent.consentGranted,
+        fallbackUsed: !consent.consentGranted || !process.env.GEMINI_API_KEY,
+        fallbackReason: !consent.consentGranted ? consent.reason : (!process.env.GEMINI_API_KEY ? "provider_not_configured" : null),
+      }),
+    }));
     if (normalized.length) {
       const stored = await readSuggestions(appointmentId);
       await saveSuggestions(appointmentId, [...stored, ...normalized]);
@@ -375,8 +434,24 @@ const generateSoap = async (req, res) => {
     }), 7000, null);
     if (!soapNote || ["subjective", "objective", "assessment", "plan"].some(key => typeof soapNote[key] !== "string" || soapNote[key].length > 12000)) return res.status(503).json({ message: "SOAP draft unavailable. Your saved clinical record is unchanged." });
 
-    const draft = { ...soapNote, generatedAt: new Date(), generatedBy: "ai-copilot", version: revision + 1,
-      sourceNotesHash: notesHash(doctorNotes), isDraft: true, clinicianApproved: false };
+    const provenance = createAiProvenance({
+      provider: process.env.GEMINI_API_KEY ? "google_gemini" : "deterministic_rules",
+      model: "gemini-2.5-flash",
+      consentVerified: access.appointment.voiceConsentRecorded !== false,
+      fallbackUsed: !process.env.GEMINI_API_KEY,
+    });
+
+    const draft = {
+      ...soapNote,
+      generatedAt: new Date(),
+      generatedBy: "ai-copilot",
+      version: revision + 1,
+      sourceNotesHash: notesHash(doctorNotes),
+      isDraft: true,
+      clinicianApproved: false,
+      disclaimer: CLINICAL_SAFETY_DISCLAIMER,
+      provenance,
+    };
     const changed = await commitClinicalEdit({ appointment: access.appointment, revision, actorId: req.auth.id,
       fields: { soapNote: draft, doctorNotes }, unset: doctorNotes !== (access.appointment.doctorNotes || "") ? ["receiptText", "receiptGeneratedAt"] : [], reason: "soap-draft" });
     access.appointment = changed;

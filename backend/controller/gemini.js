@@ -3,6 +3,7 @@ import { loadRuntimeEnv } from "../util/runtimeEnv.js";
 import {
   withBoundedTimeout,
   generateDeterministicSoapFallback,
+  createAiProvenance,
   CLINICAL_SAFETY_DISCLAIMER,
 } from "../services/aiReliabilityService.js";
 
@@ -46,13 +47,30 @@ const generateGeminiText = async (prompt, type = "general") => {
 
 /**
  * POST /gemini/chat
- * Body: { prompt: string, type: "general" | "doctor" | "community" }
+ * Body: { prompt: string, type: "general" | "doctor" | "community", consent?: boolean }
  */
 const geminiChat = async (req, res) => {
   try {
-    const { prompt, type } = req.body;
+    const { prompt, type, consent } = req.body;
     if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       return res.status(400).json({ message: "Prompt is required" });
+    }
+
+    if (consent === false) {
+      return res.status(200).json({
+        text: "AI processing consent was not granted. Healthcare and booking operations remain fully operational.",
+        isDraft: true,
+        consentGranted: false,
+        fallbackActive: true,
+        disclaimer: CLINICAL_SAFETY_DISCLAIMER,
+        provenance: createAiProvenance({
+          provider: "deterministic_rules",
+          model: "rule-engine-v1",
+          consentVerified: false,
+          fallbackUsed: true,
+          fallbackReason: "explicit_consent_denied",
+        }),
+      });
     }
 
     const safePrompt = prompt.trim().slice(0, 1000);
@@ -63,7 +81,13 @@ const geminiChat = async (req, res) => {
     return res.status(200).json({
       text,
       isDraft: true,
-      disclaimer: "Assistive AI output for information only. Not a medical diagnosis.",
+      disclaimer: CLINICAL_SAFETY_DISCLAIMER,
+      provenance: createAiProvenance({
+        provider: "google_gemini",
+        model: "gemini-2.5-flash",
+        consentVerified: true,
+        fallbackUsed: false,
+      }),
     });
   } catch (error) {
     console.error("Gemini API error:", error?.message || error);

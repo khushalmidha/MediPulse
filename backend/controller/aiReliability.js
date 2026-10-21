@@ -5,6 +5,10 @@ import {
   validateAiBriefSchema,
   generateDeterministicSoapFallback,
   withBoundedTimeout,
+  evaluateTriageRedFlag,
+  checkAiConsent,
+  createAiProvenance,
+  runHonestEvaluationSuite,
 } from "../services/aiReliabilityService.js";
 
 /**
@@ -29,31 +33,72 @@ export const getEvaluationFixtures = async (req, res) => {
 
 /**
  * POST /api/ai/evaluate-case
- * Evaluates a patient intake case with data minimization and deterministic safety nets.
+ * Evaluates a patient intake case with data minimization, consent checks, and deterministic safety nets.
  */
 export const evaluateAiCase = async (req, res) => {
-  const { input } = req.body;
+  const { input, explicitConsent } = req.body;
   if (!input) {
     return res.status(400).json({ message: "Intake input is required" });
   }
 
-  // 1. Apply data minimization
+  // 1. Consent verification
+  const consent = checkAiConsent({ explicitConsent: explicitConsent !== undefined ? explicitConsent : input.aiConsent });
+  if (!consent.consentGranted) {
+    return res.status(200).json({
+      evaluatedAt: new Date(),
+      consentGranted: false,
+      fallbackActive: true,
+      reason: consent.reason,
+      recommendedUrgency: "ROUTINE",
+      isDraft: true,
+      requiresClinicianApproval: true,
+      disclaimer: "Deterministic guidance: AI consent not granted or was revoked.",
+      provenance: createAiProvenance({
+        provider: "deterministic_rules",
+        model: "rule-engine-v1",
+        consentVerified: false,
+        fallbackUsed: true,
+        fallbackReason: consent.reason,
+      }),
+    });
+  }
+
+  // 2. Apply data minimization
   const minimized = minimizePatientContext(input);
 
-  // 2. Check for red flags deterministically
-  const redFlagKeywords = ["chest pain", "breathing difficulty", "stroke", "unconscious", "profuse bleeding", "heart attack"];
-  const lowerText = String(minimized.chiefComplaint || "").toLowerCase();
-  const hasRedFlag = redFlagKeywords.some((kw) => lowerText.includes(kw));
+  // 3. Check for red flags deterministically
+  const redFlag = evaluateTriageRedFlag(minimized);
 
   const evaluationResult = {
     evaluatedAt: new Date(),
     minimizedInput: minimized,
-    isEmergencyRedFlag: hasRedFlag,
-    recommendedUrgency: hasRedFlag ? "EMERGENCY" : "ROUTINE",
+    consentGranted: true,
+    isEmergencyRedFlag: redFlag.triggersRedFlag,
+    recommendedUrgency: redFlag.urgencyLevel,
     isDraft: true,
     requiresClinicianApproval: true,
     disclaimer: "AI evaluation draft for intake guidance only. Not a medical diagnosis.",
+    provenance: createAiProvenance({
+      provider: redFlag.triggersRedFlag ? "deterministic_emergency_rules" : "rule-engine-v1",
+      model: "rule-engine-v1",
+      consentVerified: true,
+      fallbackUsed: redFlag.triggersRedFlag,
+    }),
   };
 
   return res.status(200).json(evaluationResult);
+};
+
+/**
+ * POST /api/ai/evaluate-suite
+ * Runs the honest evaluation suite over the actual deterministic / provider boundary.
+ */
+export const evaluateEvaluationSuite = async (req, res) => {
+  try {
+    const report = await runHonestEvaluationSuite();
+    return res.status(200).json(report);
+  } catch (error) {
+    console.error("Evaluation suite execution failed:", error);
+    return res.status(500).json({ message: "Failed to execute evaluation suite", error: error.message });
+  }
 };
