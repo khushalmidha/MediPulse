@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG10",
+  "startWith": "AG11",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -608,7 +608,7 @@
     {
       "id": "AG10",
       "title": "Atomic hospital-admin password setup and registration replacement",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG00"
@@ -631,7 +631,32 @@
         "Injected transaction failure cannot consume proof without setting the password; no token/password leaks."
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
-      "track": "outpatient_pilot"
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG10 atomic hospital-admin password setup and registration replacement, 21 October 2026",
+        "hospitalAdminSetupIntegration": {
+          "passed": 12,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendIntegrationRunner": {
+          "passed": 287,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 168,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 58,
+          "failed": 0,
+          "skipped": 0
+        },
+        "build": "passed",
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG11",

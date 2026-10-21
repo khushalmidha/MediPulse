@@ -440,14 +440,23 @@ Reject: ${rejectUrl || "Not available"}`,
   });
 };
 
-const sendHospitalApprovedMail = async ({ to, hospitalName, adminName, hospitalId, loginUrl, email, password }) => {
+const sendHospitalApprovedMail = async ({ to, hospitalName, adminName, hospitalId, loginUrl, email, password, setupUrl }) => {
   const from = process.env.MAIL_FROM || process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL;
 
-  await sendMail({
-    from,
-    to,
-    subject: `${hospitalName} is approved on MediPulse`,
-    text: `Hi ${adminName || "there"},
+  const textBody = setupUrl
+    ? `Hi ${adminName || "there"},
+
+Your hospital ${hospitalName} has been approved on MediPulse.
+
+To complete workspace activation and create your administrator password, please visit:
+${setupUrl}
+
+Hospital ID: ${hospitalId}
+Email: ${email}
+Note: This secure setup link expires in 48 hours.
+
+MediPulse`
+    : `Hi ${adminName || "there"},
 
 Your hospital ${hospitalName} has been approved on MediPulse.
 
@@ -458,8 +467,26 @@ ${password ? `Password: ${password}` : "Password: Use the password you created d
 
 After signing in, change your password from the staff account settings when available.
 
-MediPulse`,
-    html: `
+MediPulse`;
+
+  const htmlBody = setupUrl
+    ? `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">Hospital approved</h2>
+        <p>Hi ${adminName || "there"},</p>
+        <p><strong>${hospitalName}</strong> has been approved on MediPulse.</p>
+        <div style="margin: 18px 0; padding: 16px; border-radius: 10px; background: #f8fafc; border: 1px solid #e5e7eb;">
+          <p style="margin: 0 0 8px;"><strong>Hospital ID:</strong> ${hospitalId}</p>
+          <p style="margin: 0 0 8px;"><strong>Email:</strong> ${email}</p>
+          <p style="margin: 0;"><strong>Activation:</strong> Please create your administrator password using the secure setup link below.</p>
+        </div>
+        <p style="margin: 24px 0;">
+          <a href="${setupUrl}" style="display: inline-block; padding: 12px 18px; border-radius: 8px; background: #2563eb; color: #ffffff; text-decoration: none; font-weight: 700;">Set Admin Password &amp; Activate</a>
+        </p>
+        <p style="color: #6b7280; font-size: 13px;">This setup link expires in 48 hours.</p>
+      </div>
+    `
+    : `
       <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
         <h2 style="margin: 0 0 12px;">Hospital approved</h2>
         <p>Hi ${adminName || "there"},</p>
@@ -474,7 +501,14 @@ MediPulse`,
         </p>
         <p style="color: #6b7280;">You can change the password later from staff account settings.</p>
       </div>
-    `,
+    `;
+
+  await sendMail({
+    from,
+    to,
+    subject: `${hospitalName} is approved on MediPulse`,
+    text: textBody,
+    html: htmlBody,
   });
 };
 

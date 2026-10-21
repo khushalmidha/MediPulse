@@ -20,3 +20,10 @@ export const signupPayload = form => Object.fromEntries(Object.entries(form).fil
 
 // The invite endpoint uses a truthy fallback before Number(); "0" preserves an explicit zero.
 export const invitationDoctorProfile = form => ({ specialization: form.specialization, qualification: form.qualification, ...(form.experience !== "" ? { experience: String(form.experience) } : {}) });
+
+export const adminSetupPayload = form => {
+  if (!form?.token || typeof form.token !== "string") throw new Error("Setup token is required.");
+  if (!form?.password || form.password.length < 8) throw new Error("Password must be at least 8 characters long.");
+  if (form.confirmPassword !== undefined && form.password !== form.confirmPassword) throw new Error("Passwords do not match.");
+  return { token: form.token.trim(), adminPassword: form.password, name: String(form.name || "").trim() };
+};

@@ -1869,6 +1869,77 @@ Implemented deterministic queue ordering across all consumers (`{ priority: -1, 
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG10 — Atomic hospital-admin password setup and registration replacement (21 October 2026)
+
+Baseline: following AG09 verification.
+Implemented atomic hospital-admin password setup and proof consumption wrapped in multi-document transactions (`moneyTransaction`), replaced plaintext AES-256-GCM encrypted password writes during hospital registration/approval with secure 48-hour expiring setup links, preserved legacy ciphertext decryption backward compatibility for existing records, added product host routing for `/staff/setup` and `/hospital/setup` across patient, staff, and care/company hosts, created dedicated token verification and password creation UI conforming to design tokens, and verified race serialization, expiry handling, injected fault rollback, and authentication via comprehensive integration tests.
+
+### Implemented changes
+
+- **Atomic Password Setup & Setup Link Consumption (`backend/services/saasOperationsService.js`)**:
+  - `verifyAdminSetupLink(token)`:
+    - Resolves token hash via SHA-256 and finds the corresponding `Hospital` record with valid future `setupExpiresAt`.
+    - Returns minimal, privacy-safe metadata (`name`, `slug`, `type`, `email`) for the setup UI without leaking tokens, hashes, passwords, or internal fields.
+    - Fails with HTTP 410 Gone for expired links, and HTTP 400 Bad Request for malformed/already-consumed links.
+  - `consumeAdminSetupLink({ token, adminPassword, name, _faultInject })`:
+    - Validates minimum 8-character password length and non-empty token.
+    - Executes inside a multi-document replica set transaction (`moneyTransaction`).
+    - Atomically finds and consumes the setup proof on `Hospital`:
+      - Query: `{ _id: hospital._id, "onboarding.setupTokenHash": tokenHash, "onboarding.setupExpiresAt": { $gt: new Date() } }`.
+      - Update: `$unset: { "onboarding.setupTokenHash": 1, "onboarding.setupExpiresAt": 1 }`, `$set: { "onboarding.completedAt": new Date(), status: "active" }`.
+      - If no document matched (already consumed or expired), aborts transaction with HTTP 409 Conflict.
+    - Synchronizes `HospitalStaff` admin record within the same transaction:
+      - Assigns plain `adminPassword` to `staff.password`, enabling Mongoose `pre("save")` hook to hash via `bcrypt.hash(..., 12)` and increment `authVersion` without double-hashing.
+      - Sets `inviteStatus: "accepted"`, updates admin display name, and sets `joinedAt`.
+      - If no staff admin record exists, instantiates a new `HospitalStaff` with role `HOSPITAL_ADMIN` and `authVersion: 1`.
+    - Supports `_faultInject` simulation (`beforeStaffSave`, `afterStaffSave`) to prove multi-document atomicity and rollback.
+    - Invalidates public hospital cache on commit via `invalidatePublicHospitalCache`.
+- **Session Issuance & API Controller (`backend/controller/saasOperations.js`)**:
+  - Updated `postConsumeSetupLink`:
+    - Calls `consumeAdminSetupLink` with `_faultInject` support.
+    - Automatically issues staff session cookie via `issueSession(req, res, result.staff, "staff")` and returns CSRF token for seamless login transition upon completing setup.
+- **Registration & Decision Email Replacement (`backend/controller/hospital.js` & `backend/util/mailer.js`)**:
+  - `registerHospital`:
+    - Removed AES-256-GCM encryption writes (`initialAdminPasswordEncrypted`, `initialAdminPasswordIv`, `initialAdminPasswordTag`) from `hospital.onboarding`.
+    - Avoids storing reversible password ciphertext in MongoDB.
+  - `sendHospitalDecisionMail`:
+    - On `"approve"` decision:
+      - Inspects legacy ciphertext presence (`onboarding.initialAdminPasswordEncrypted`).
+      - If legacy ciphertext exists, preserves backward compatibility via `decryptAdminPassword`.
+      - If no ciphertext exists (all new registrations), generates a 48-hour expiring setup link via `createAdminSetupLink` and emails `setupUrl` without plain passwords.
+  - `sendHospitalApprovedMail` (`backend/util/mailer.js`):
+    - When `setupUrl` is provided, emails an action button/link to activate the hospital portal and set the admin password, completely omitting plaintext credentials.
+- **Host Route Aliases (`backend/routes/hospital.js` & `backend/routes/user.js`)**:
+  - Mounted alias endpoints:
+    - `GET /api/hospitals/staff/setup/verify/:token` -> `getVerifySetupLink`
+    - `POST /api/hospitals/staff/setup/consume` -> `postConsumeSetupLink`
+    - `GET /api/user/staff/setup/verify/:token` -> `getVerifySetupLink`
+    - `POST /api/user/staff/setup/consume` -> `postConsumeSetupLink`
+    - `POST /api/user/staff/setup` -> `postConsumeSetupLink`
+- **Frontend Setup Page & Host Mounting (`frontend/src/pages/HospitalAdminSetup.jsx` & `frontend/src/App.jsx`)**:
+  - Created `HospitalAdminSetup.jsx` conforming to MediPulse visual design tokens:
+    - Parses setup token from URL query string (`?token=...`) or path params.
+    - Performs public metadata verification against `/api/saas/setup-link/verify/:token`.
+    - Shows clear feedback for loading, expired (HTTP 410), or invalid links.
+    - Password form enforces minimum 8 characters, confirmation matching, and strength indicators.
+    - On submission, posts to setup consumption endpoint, receiving session and navigating directly to Hospital Admin Dashboard.
+  - Mounted `/staff/setup` and `/hospital/setup` across all 3 product host shells (`patient`, `staff`, `care`/`company`) in `frontend/src/App.jsx`.
+- **Frontend Form Validation & Unit Tests (`frontend/src/utils/accountForms.js` & `frontend/e2e/account-forms.unit.mjs`)**:
+  - Added `adminSetupPayload` helper with unit test coverage:
+    - Validates token presence, password minimum length (8 chars), and confirmation match.
+
+### Executed checks and limits
+
+- **Hospital admin setup integration suite**: **12/12 passed**, zero failures/skips, **4.59 s** (`backend/tests/integration/hospital-admin-setup.test.js`).
+  - Covers setup fixture creation, 48-hour expiring setup link generation with token hash, public minimal non-sensitive metadata verification, 410 Gone expiry rejection, injected transaction failure rollback, concurrent single-winner consume serialization race, replay rejection, successful `staffLogin` authentication with updated password and rejection of bad password, new hospital registration omission of encrypted fields, legacy ciphertext preservation/decryption, and `/api/user/staff/setup` alias routing.
+- **Full integration runner**: **287/287 passed**, zero failures/skips, **436.97 s** (`node scripts/testIntegration.js`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **43.74 s** (`npm test`).
+- **Frontend unit tests**: **58/58 passed**, zero failures/skips, **400 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **30.54 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
 
 
 

@@ -21,6 +21,8 @@ import {
   sendStaffRemovalOtpMail,
   sendStaffInviteMail,
 } from "../util/mailer.js";
+import bcrypt from "bcryptjs";
+import { createAdminSetupLink } from "../services/saasOperationsService.js";
 
 const hashValue = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
 const secretKey = (purpose) =>
@@ -329,7 +331,6 @@ const registerHospital = async (req, res) => {
   }
 
   const slug = await generateHospitalSlug(name);
-  const encryptedAdminPassword = encryptAdminPassword(adminPassword);
   const hospital = await Hospital.create({
     name: cleanString(name),
     slug,
@@ -345,12 +346,11 @@ const registerHospital = async (req, res) => {
       trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
     onboarding: {
-      initialAdminPasswordEncrypted: encryptedAdminPassword.encrypted,
-      initialAdminPasswordIv: encryptedAdminPassword.iv,
-      initialAdminPasswordTag: encryptedAdminPassword.tag,
+      registeredAt: new Date(),
     },
   });
 
+  const passwordHash = adminPassword ? await bcrypt.hash(String(adminPassword), 12) : undefined;
   const admin = await HospitalStaff.create({
     hospitalId: hospital._id,
     name: cleanString(adminName),
@@ -358,7 +358,7 @@ const registerHospital = async (req, res) => {
     phone,
     role: "HOSPITAL_ADMIN",
     userId: req.auth?.role === "user" ? req.auth.id : undefined,
-    password: adminPassword,
+    password: passwordHash,
     inviteStatus: "accepted",
     joinedAt: new Date(),
   });
@@ -840,13 +840,30 @@ const sendHospitalDecisionMail = async ({ hospital, action }) => {
   if (!admin?.email) return;
 
   if (action === "approve") {
-    let password = decryptAdminPassword(hospital);
-    if (!password) {
-      password = generateTemporaryPassword();
-      admin.password = password;
-      await admin.save();
+    const legacyPassword = decryptAdminPassword(hospital);
+    if (legacyPassword) {
+      await sendHospitalApprovedMail({
+        to: admin.email,
+        hospitalName: hospital.name,
+        adminName: admin.name,
+        hospitalId: hospital._id.toString(),
+        loginUrl: `${buildFrontendUrl()}/login`,
+        email: admin.email,
+        password: legacyPassword,
+      });
+
+      await Hospital.findByIdAndUpdate(hospital._id, {
+        $unset: {
+          "onboarding.initialAdminPasswordEncrypted": 1,
+          "onboarding.initialAdminPasswordIv": 1,
+          "onboarding.initialAdminPasswordTag": 1,
+        },
+        $set: { "onboarding.approvalCredentialsSentAt": new Date() },
+      });
+      return;
     }
 
+    const link = await createAdminSetupLink(hospital._id, buildFrontendUrl());
     await sendHospitalApprovedMail({
       to: admin.email,
       hospitalName: hospital.name,
@@ -854,16 +871,11 @@ const sendHospitalDecisionMail = async ({ hospital, action }) => {
       hospitalId: hospital._id.toString(),
       loginUrl: `${buildFrontendUrl()}/login`,
       email: admin.email,
-      password,
+      setupUrl: link.setupUrl,
     });
 
     await Hospital.findByIdAndUpdate(hospital._id, {
-      $unset: {
-        "onboarding.initialAdminPasswordEncrypted": 1,
-        "onboarding.initialAdminPasswordIv": 1,
-        "onboarding.initialAdminPasswordTag": 1,
-      },
-      $set: { "onboarding.approvalCredentialsSentAt": new Date() },
+      $set: { "onboarding.approvalSetupLinkSentAt": new Date() },
     });
     return;
   }

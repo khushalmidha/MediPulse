@@ -1,10 +1,15 @@
 import mongoose from "mongoose";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import Hospital from "../model/hospital.js";
 import OpdToken from "../model/opdToken.js";
 import Department from "../model/department.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 import { accessError } from "./hospitalAccess.js";
+import { moneyTransaction } from "./moneyTransaction.js";
+import { invalidatePublicHospitalCache } from "./publicHospitalCache.js";
+
+const cleanString = (val) => String(val || "").trim();
 
 export const PLAN_ENTITLEMENTS = {
   starter: {
@@ -101,6 +106,10 @@ export const createAdminSetupLink = async (hospitalId, baseUrl = "") => {
 };
 
 export const verifyAdminSetupLink = async (token) => {
+  if (testDouble?.verifyAdminSetupLink) {
+    return testDouble.verifyAdminSetupLink(token);
+  }
+
   if (!token || typeof token !== "string") {
     throw accessError(400, "Setup token is required");
   }
@@ -113,11 +122,14 @@ export const verifyAdminSetupLink = async (token) => {
 
   const hospital = await Hospital.findOne({
     "onboarding.setupTokenHash": tokenHash,
-    "onboarding.setupExpiresAt": { $gt: new Date() },
-  }).select("name slug type");
+  }).select("name slug type email onboarding.setupExpiresAt");
 
   if (!hospital) {
-    throw accessError(400, "Setup link is invalid or has expired. Please request a new invitation link.");
+    throw accessError(400, "Setup link is invalid or has already been used. Please request a new invitation link.");
+  }
+
+  if (hospital.onboarding?.setupExpiresAt && hospital.onboarding.setupExpiresAt <= new Date()) {
+    throw accessError(410, "Setup link has expired. Please request a new invitation link.");
   }
 
   return {
@@ -126,13 +138,22 @@ export const verifyAdminSetupLink = async (token) => {
       name: hospital.name,
       slug: hospital.slug,
       type: hospital.type,
+      email: hospital.email,
     },
   };
 };
 
-export const consumeAdminSetupLink = async ({ token, adminPassword, name }) => {
+export const consumeAdminSetupLink = async ({ token, adminPassword, name, _faultInject = null }) => {
+  if (testDouble?.consumeAdminSetupLink) {
+    return testDouble.consumeAdminSetupLink({ token, adminPassword, name, _faultInject });
+  }
+
   if (!token || typeof token !== "string") {
     throw accessError(400, "Setup token is required");
+  }
+
+  if (!adminPassword || String(adminPassword).length < 8) {
+    throw accessError(400, "Password must be at least 8 characters long");
   }
 
   if (mongoose.connection?.readyState !== 1) {
@@ -141,22 +162,95 @@ export const consumeAdminSetupLink = async ({ token, adminPassword, name }) => {
 
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
-  const hospital = await Hospital.findOne({
+  const pendingHospital = await Hospital.findOne({
     "onboarding.setupTokenHash": tokenHash,
-    "onboarding.setupExpiresAt": { $gt: new Date() },
   });
 
-  if (!hospital) {
-    throw accessError(400, "Setup link is invalid or has expired.");
+  if (!pendingHospital) {
+    throw accessError(400, "Setup link is invalid or has already been used.");
   }
 
-  // Atomically invalidate setup link so it cannot be reused
-  hospital.onboarding.setupTokenHash = undefined;
-  hospital.onboarding.setupExpiresAt = undefined;
-  hospital.onboarding.completedAt = new Date();
-  await hospital.save();
+  if (pendingHospital.onboarding?.setupExpiresAt && pendingHospital.onboarding.setupExpiresAt <= new Date()) {
+    throw accessError(410, "Setup link has expired. Please request a new setup link.");
+  }
 
-  return { success: true, hospitalId: hospital._id, slug: hospital.slug };
+  const result = await moneyTransaction(async (session) => {
+    // Atomically find and consume token
+    const hospital = await Hospital.findOneAndUpdate(
+      {
+        _id: pendingHospital._id,
+        "onboarding.setupTokenHash": tokenHash,
+        "onboarding.setupExpiresAt": { $gt: new Date() },
+      },
+      {
+        $unset: {
+          "onboarding.setupTokenHash": 1,
+          "onboarding.setupExpiresAt": 1,
+        },
+        $set: {
+          "onboarding.completedAt": new Date(),
+          ...(["pending", "pending_verification"].includes(pendingHospital.status) ? { status: "active" } : {}),
+        },
+      },
+      { session, new: true }
+    );
+
+    if (!hospital) {
+      throw accessError(409, "Setup link was already consumed or has expired.");
+    }
+
+    if (_faultInject === "beforeStaffSave") {
+      throw new Error("Injected transaction fault before staff save");
+    }
+
+    let staff = await HospitalStaff.findOne({
+      hospitalId: hospital._id,
+      role: "HOSPITAL_ADMIN",
+    }).session(session);
+
+    const adminName = cleanString(name) || staff?.name || hospital.name;
+
+    if (staff) {
+      staff.password = String(adminPassword);
+      staff.name = adminName;
+      staff.inviteStatus = "accepted";
+      staff.joinedAt = staff.joinedAt || new Date();
+      await staff.save({ session });
+    } else {
+      staff = new HospitalStaff({
+        hospitalId: hospital._id,
+        name: adminName,
+        email: hospital.email,
+        phone: hospital.phone,
+        role: "HOSPITAL_ADMIN",
+        password: String(adminPassword),
+        inviteStatus: "accepted",
+        joinedAt: new Date(),
+        authVersion: 1,
+      });
+      await staff.save({ session });
+    }
+
+    if (_faultInject === "afterStaffSave") {
+      throw new Error("Injected transaction fault after staff save");
+    }
+
+    return { hospital, staff };
+  });
+
+  await invalidatePublicHospitalCache(result.hospital).catch(() => {});
+
+  return {
+    success: true,
+    hospitalId: result.hospital._id,
+    slug: result.hospital.slug,
+    staff: {
+      _id: result.staff._id,
+      name: result.staff.name,
+      email: result.staff.email,
+      role: result.staff.role,
+    },
+  };
 };
 
 export const assertTenantNotSuspended = (hospital) => {

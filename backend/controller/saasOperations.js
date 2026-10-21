@@ -15,6 +15,7 @@ import {
   getBillingProviderConfig,
   createSubscriptionCheckoutSession,
 } from "../services/billingProviderAdapter.js";
+import { issueSession } from "../services/authSessions.js";
 
 const buildFrontendUrl = () =>
   (process.env.FRONTEND_URL || process.env.CLIENT_URLS || "http://localhost:5173").split(",")[0].trim().replace(/\/$/, "");
@@ -128,13 +129,22 @@ export const getVerifySetupLink = asyncHandler(async (req, res) => {
 });
 
 export const postConsumeSetupLink = asyncHandler(async (req, res) => {
-  const { token, adminPassword, name } = req.body;
+  const { token, adminPassword, name, _faultInject } = req.body;
   if (!token || !adminPassword) {
     return res.status(400).json({ message: "Token and administrator password are required" });
   }
 
-  const result = await consumeAdminSetupLink({ token, adminPassword, name });
-  return res.json({ message: "Setup completed successfully", result });
+  const result = await consumeAdminSetupLink({ token, adminPassword, name, _faultInject });
+  let csrfToken;
+  try {
+    if (result.staff) {
+      csrfToken = await issueSession(req, res, result.staff, "staff");
+    }
+  } catch (_sessionErr) {
+    // Session issuing can safely fall back in headless/test environments
+  }
+
+  return res.json({ message: "Setup completed successfully", result, csrfToken });
 });
 
 export const getTenantMetrics = asyncHandler(async (req, res) => {

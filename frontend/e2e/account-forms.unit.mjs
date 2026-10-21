@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { invitationDoctorProfile, profileDraft, profilePayload, signupPayload, phoneValid, staffDestination } from "../src/utils/accountForms.js";
+import { invitationDoctorProfile, profileDraft, profilePayload, signupPayload, phoneValid, staffDestination, adminSetupPayload } from "../src/utils/accountForms.js";
 const doctor = { firstName: "Fixture", lastName: "Doctor", gender: "other", experience: { years: 0, expertise: "General Medicine", qualification: "Recorded qualification" }, clinic: { name: "Fixture Clinic", location: "Fixture", pin: 123456, phoneNumber: 9876543210 }, consultationFee: 0 };
 test("profile drafts retain recorded zero values", () => { const draft = profileDraft(doctor); assert.equal(draft.years, "0"); assert.equal(draft.consultationFee, "0"); });
 test("doctor updates preserve unedited nested professional and clinic information", () => { const payload = profilePayload({ ...profileDraft(doctor), bio: "Updated", consultationFee: "125.55" }, doctor, "doctor"); assert.equal(payload.experience.qualification, doctor.experience.qualification); assert.equal(payload.clinic.pin, doctor.clinic.pin); assert.equal(payload.clinic.phoneNumber, doctor.clinic.phoneNumber); assert.equal(payload.consultationFee, 125.55); });
@@ -12,3 +12,11 @@ test("phone validation matches existing 10-digit contracts", () => { assert.equa
 test("staff roles open their operational workspace", () => { for(const role of ["NURSE", "RECEPTIONIST"]) assert.equal(staffDestination({ role }), "/hospital/nursing-station"); assert.equal(staffDestination({ role: "DOCTOR" }), "/hospital/doctor-opd"); assert.equal(staffDestination({ role: "HOSPITAL_ADMIN" }), "/hospital/admin"); assert.equal(staffDestination({ role: "LAB_TECH" }), "/hospital/laboratory"); });
 
 test("invitation experience preserves explicit zero through the existing fallback", () => { const body = invitationDoctorProfile({ specialization: "General Medicine", qualification: "Recorded", experience: "0" }); assert.equal(Number(body.experience || 5), 0); assert.equal(Object.hasOwn(invitationDoctorProfile({ experience: "" }), "experience"), false); });
+
+test("admin setup payload validates token, minimum password length and matching confirmation", () => {
+  assert.throws(() => adminSetupPayload({ token: "", password: "password123" }), /Setup token is required/);
+  assert.throws(() => adminSetupPayload({ token: "tok_123", password: "short" }), /Password must be at least 8 characters/);
+  assert.throws(() => adminSetupPayload({ token: "tok_123", password: "validPassword123", confirmPassword: "mismatchPassword" }), /Passwords do not match/);
+  const valid = adminSetupPayload({ token: "tok_123", password: "validPassword123", confirmPassword: "validPassword123", name: "  Dr. Jane Admin  " });
+  assert.deepEqual(valid, { token: "tok_123", adminPassword: "validPassword123", name: "Dr. Jane Admin" });
+});

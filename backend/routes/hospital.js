@@ -78,4 +78,14 @@ hospitalRouter.get("/:id/kiosk-display", asyncRoute(async (req, res) => {
   res.json({ kiosk });
 }));
 
+hospitalRouter.get("/staff/setup/verify/:token", asyncRoute(async (req, res) => {
+  const { verifyAdminSetupLink } = await import("../services/saasOperationsService.js");
+  const verification = await verifyAdminSetupLink(req.params.token);
+  return res.json({ message: "Setup link is valid", hospital: verification.hospital });
+}));
+hospitalRouter.post("/staff/setup/consume", asyncRoute(async (req, res) => {
+  const { postConsumeSetupLink } = await import("../controller/saasOperations.js");
+  return postConsumeSetupLink(req, res);
+}));
+
 export default hospitalRouter;

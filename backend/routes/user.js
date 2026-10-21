@@ -34,6 +34,19 @@ userRouter.post("/forgot-password/reset", asyncHandler(resetPasswordWithOtp));
 userRouter.post("/staff/login", asyncHandler(staffLogin));
 userRouter.post("/staff/set-password", asyncHandler(staffSetPassword));
 userRouter.patch("/staff/password", validateStaff, asyncHandler(staffChangePassword));
+userRouter.get("/staff/setup/verify/:token", asyncHandler(async (req, res) => {
+  const { verifyAdminSetupLink } = await import("../services/saasOperationsService.js");
+  const verification = await verifyAdminSetupLink(req.params.token);
+  return res.json({ message: "Setup link is valid", hospital: verification.hospital });
+}));
+userRouter.post("/staff/setup/consume", asyncHandler(async (req, res) => {
+  const { postConsumeSetupLink } = await import("../controller/saasOperations.js");
+  return postConsumeSetupLink(req, res);
+}));
+userRouter.post("/staff/setup", asyncHandler(async (req, res) => {
+  const { postConsumeSetupLink } = await import("../controller/saasOperations.js");
+  return postConsumeSetupLink(req, res);
+}));
 
 // userRouter.get("/:id", userValidation, asyncHandler(getUserById));
 userRouter.delete("/:id", userValidation, asyncHandler(deleteUserById));

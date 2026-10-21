@@ -21,7 +21,7 @@ This review starts from `565134c2` and includes the AG00 fixes delivered with th
 | Pharmacy | Qualified transactional dispensing/returns/batch receipts and replay UI exist. AG01 establishes creation key and verification token named indexes. AG06 establishes retry-safe transactional creation. AG07 implements clinician prescription composer with resilient command key recovery. AG08 implements patient released documents and fulfillment status | Hospital-admin setup: AG10 |
 | Patient records / ticket | Family/history and hospital visit pages, patient lab/prescription API projections, visit care packet with download/print, pure JS QR matrix generator, and privacy-safe authorized ticket scanning are verified locally (AG08, AG09) | Hospital-admin setup: AG10 |
 | Staff invitation | StaffAcceptInvite actually sets a password and handles expiry; it exists | Keep separate from the broken hospital-admin setup journey |
-| Hospital-admin setup | Setup-link API/helper and operations UI exist | consumeAdminSetupLink only clears the token and marks completion; it does not set an admin password. Generated /staff/setup has no App route. New registration/approval still encrypts/decrypts passwords: AG10 |
+| Hospital-admin setup | Expiring 48h setup links, atomic single-winner proof consumption, bcrypt password setting, authVersion increment, registration AES removal, legacy ciphertext preservation, multi-host /staff/setup UI and alias routes are verified locally (AG10) | Entitlements and activation callers: AG11 |
 | Entitlements / activation | Plan/limit helpers exist | checkStaffLimit/checkDepartmentLimit have tests but no actual mutation callers; activation needs real tenant progress: AG11 |
 | Independent practice | Practice settings endpoints, doctor profiles and scheduling foundation exist | Verification/publication/eligibility and publishing UI need completion; settings fallback can falsely report verified and converts zero fees to 500: AG12 |
 | Communities / events | Membership/organizer checks and announcement/report/moderation/preference endpoints exist | Pagination, full moderation UI, typed/race-safe preferences and actual reminder/preference delivery: AG13 |
@@ -30,6 +30,8 @@ This review starts from `565134c2` and includes the AG00 fixes delivered with th
 | Enterprise HIMS | ENTERPRISE_PLAN exists | IPD/ADT/beds, inpatient medication/nursing, theatre/emergency, revenue/procurement and interfaces require approved requirements and real implementation: AG17-AG22 |
 
 ## Evidence and limits
+
+Fresh AG10 acceptance: 12 hospital admin setup integration cases, 287 integration runner cases, 168 backend unit and 58 frontend unit checks; frontend build cleanly verified against local MongoDB replica set and Redis. Details in WORK_LOG.
 
 Fresh AG09 acceptance: 9 queue order/kiosk/ETA integration cases, 8 queue controls cases, 275 integration runner cases, 168 backend unit and 57 frontend unit checks; frontend build cleanly verified against local MongoDB replica set and Redis. Details in WORK_LOG.
 
