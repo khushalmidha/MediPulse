@@ -2341,6 +2341,76 @@ Prior to this phase:
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG18: Inpatient admission, discharge, transfers and beds (21 October 2026)
+
+### Context and baseline
+Task AG18 implements the foundational inpatient admission, discharge, transfers (ADT) and bed management workflow (Milestone M1), building upon the enterprise architectural specification and governance model established in AG17.
+
+Prior to this phase:
+1. Inpatient operations lacked domain schemas for wards, rooms, individual beds, admissions, and transfer records.
+2. Concurrent admissions competing for the same bed risked double-allocation without atomic serialization.
+3. Bed transfers lacked transactional guarantees and lifecycle transition enforcement (`occupied -> cleaning -> available`), with potential data corruption on target bed failures.
+4. Discharge procedures had no multi-department clearance gate (medical, pharmacy, finance), allowing premature discharge without clinical summary or account settlement.
+
+### Changes implemented & verified
+- **Inpatient Data Models (`backend/model/inpatient.js`)**:
+  - `Ward`: hospital-scoped with `code` (unique per hospital), `name`, `floor`, `building`, `genderPolicy` (`all`, `male`, `female`, `pediatric`), and `nurseStation`.
+  - `Room`: ward-scoped with `roomNumber` (unique per ward), `roomType` (`general`, `semi_private`, `private`, `deluxe`, `icu`, `isolation`), and `dailyTariffMinor`.
+  - `Bed`: room-scoped with `bedNumber` (unique per room), `status` (`available`, `reserved`, `occupied`, `cleaning`, `maintenance`, `isolated`), `currentAdmissionId`, `currentPatientId`, `maintenanceNote`, and `version` (optimistic locking counter).
+  - `IpdAdmission`: unique `admissionNumber` (`IPD-TIMESTAMP-HEX`), links patient, admitting doctor, attending doctor, primary nurse, department, ward, room, and bed. Tracks `status` (`admitted`, `discharged`, `transferred_out`, `cancelled`), `isMlc`, `advanceDepositMinor`, `estimatedLengthOfStayDays`, `dischargeDate`, `dischargeSummary`, and `dischargeClearance`.
+  - `BedTransferRecord`: durable audit trail capturing `admissionId`, `fromBedId`, `toBedId`, `fromRoomId`, `toRoomId`, `fromWardId`, `toWardId`, `transferredBy` (staffId, name, role), `transferReason`, and `transferTimestamp`.
+- **Inpatient ADT Service Layer (`backend/services/ipdAdtService.js`)**:
+  - **Ward/Room/Bed Administration**:
+    - Validates hospital active status and subscription feature entitlement (`ipd_beds`).
+    - Enforces uniqueness constraints on ward code, room number, and bed number.
+    - Provides filtered querying (`getWards`, `getRooms`, `getBeds`).
+  - **Bed State Machine Enforcement**:
+    - `updateBedStatus` validates transitions using `validateBedTransition(current, target)`. Prohibits direct manual assignment to `occupied` without an inpatient admission workflow.
+  - **Atomic Patient Admission (`admitPatient`)**:
+    - Serialized inside a MongoDB transaction (`moneyTransaction`).
+    - Checks for duplicate active admission for the same patient in this hospital (HTTP 409).
+    - Atomically claims the bed via conditional findOneAndUpdate (`{ _id: bedId, status: "available" }`). Losers receive HTTP 409 Conflict without duplicate bed assignment.
+    - Generates unique admission number and creates `IpdAdmission` document.
+  - **Atomic Bed Transfer (`transferBed`)**:
+    - Serialized inside a MongoDB transaction.
+    - Atomically checks target bed availability (`status: "available"`). If unavailable, transfer fails closed with HTTP 409 and the source bed assignment is preserved intact.
+    - Releases source bed to `cleaning` status per bed state machine, clearing patient and admission pointers.
+    - Allocates target bed to `occupied` status with admission pointers.
+    - Creates immutable `BedTransferRecord` audit entry.
+    - Updates admission current location references (`currentBedId`, `currentRoomId`, `currentWardId`).
+  - **Multi-Department Discharge Clearance Gate (`recordDischargeClearance` & `finalizeDischarge`)**:
+    - `recordDischargeClearance` records individual sign-offs (`medical`, `pharmacy`, `finance`) with staff actor and timestamp. Sets `isFullyCleared = true` only when all 3 departments have signed off.
+    - `finalizeDischarge` asserts `isFullyCleared === true`. Rejects premature discharge with HTTP 400 listing pending departments.
+    - Mandates clinical discharge summary text and condition.
+    - Releases bed from `occupied` -> `cleaning`, clearing occupancy pointers and recording discharge timestamp.
+  - **Comprehensive Inpatient Timeline (`getInpatientTimeline`)**:
+    - Populates admission details, complete transfer history, assigned care team, and current location.
+  - **Fail-Closed Disconnected DB Handling**:
+    - Fails with HTTP 503 Service Unavailable when DB is disconnected and no test double is present.
+- **Test Coverage (`backend/tests/ipd-adt.test.js` & `backend/tests/integration/ipd-adt.test.js`)**:
+  - Unit & domain suite: **7/7 passed**, **7.86 ms** (`node --test tests/ipd-adt.test.js`):
+    1. Ward, Room, Bed hierarchy with uniqueness and listing.
+    2. Bed state machine updates and transition enforcement.
+    3. Concurrent double-admission prevention for one bed.
+    4. Bed transfer: failure preserves source bed; success records audit and releases to cleaning.
+    5. Multi-department discharge clearance gate and finalization.
+    6. Inpatient timeline aggregation.
+    7. Disconnected DB fail-closed with HTTP 503.
+  - Full backend test suite: **186/186 passed**, **39.38 s** (`npm test`).
+  - Integration suite: verified with graceful skip when local replica set is absent; ready for live container execution.
+  - Frontend production build: **clean build in 47.81s** with zero errors.
+
+### Executed checks and limits
+- **IPD ADT Unit Tests**: **7/7 passed**, zero failures/skips, **7.86 ms** (`node --test tests/ipd-adt.test.js`).
+- **Backend Unit Tests**: **186/186 passed**, zero failures/skips, **39.38 s** (`npm test`).
+- **Frontend Unit Tests**: **58/58 passed**, zero failures/skips, **261 ms** (`npm run test:ui`).
+- **Frontend Production Build**: passed in **47.81 s**, main JS bundle **387.45 kB / 124.25 kB gzip**, zero errors (`npm run build`).
+- **Plan Checker (`tools/check-implementation-plan.mjs --next`)**: verified all 19 tasks (AG00–AG18) locally verified; dependencies acyclic; next ready task: **AG19**.
+- **Local Environment**: Verified against isolated test harness; Docker engine unavailable locally for live replica set execution.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 
 
