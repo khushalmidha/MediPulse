@@ -14,6 +14,7 @@ import { ENTERPRISE_MILESTONES } from "../config/enterprisePlan.js";
 
 let testDouble = null;
 export const setIntegrationsTestDouble = (double) => {
+  if (process.env.NODE_ENV !== "test") throw new Error("Enterprise test adapters are only available in tests");
   testDouble = double;
 };
 
@@ -305,7 +306,7 @@ export const configureEnterpriseSso = async ({
 };
 
 /**
- * 5. Disaster Recovery (DR) Verification (RPO < 15m, RTO < 60m)
+ * 5. Record unverified recovery-drill observations (no restore is executed)
  */
 export const executeDisasterRecoveryDrill = async ({
   hospitalId,
@@ -338,17 +339,17 @@ export const executeDisasterRecoveryDrill = async ({
 
   const rpo = Number(measuredRpoMinutes);
   const rto = Number(measuredRtoMinutes);
-  if (isNaN(rpo) || rpo < 0 || isNaN(rto) || rto < 0) {
+  if (typeof measuredRpoMinutes !== "number" || typeof measuredRtoMinutes !== "number" || !Number.isFinite(rpo) || rpo < 0 || !Number.isFinite(rto) || rto < 0) {
     throw accessError(400, "Valid non-negative RPO and RTO in minutes are required");
   }
   if (!conductedBy || !String(conductedBy).trim()) {
     throw accessError(400, "DR drill conductor name/role is required");
   }
 
-  // Statutory SLA standards: RPO < 15 min, RTO < 60 min
-  const rpoTargetMet = rpo < 15;
-  const rtoTargetMet = rto < 60;
-  const passed = rpoTargetMet && rtoTargetMet && Boolean(recordsIntegrityVerified);
+  if (typeof recordsIntegrityVerified !== "boolean") throw accessError(400,"Integrity declaration must be a boolean");
+  // This method records caller-supplied observations. It does not execute a
+  // restore or cryptographically validate it, and cannot certify any target.
+  const rpoTargetMet = false, rtoTargetMet = false;
 
   const drillId =
     "DR-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
@@ -362,9 +363,11 @@ export const executeDisasterRecoveryDrill = async ({
     measuredRtoMinutes: rto,
     rpoTargetMet,
     rtoTargetMet,
-    recordsIntegrityVerified: Boolean(recordsIntegrityVerified),
+    recordsIntegrityVerified: false,
+    reportedIntegrityVerified: recordsIntegrityVerified,
+    evidenceStatus: "self_reported",
     conductedBy: String(conductedBy).trim(),
-    status: passed ? "passed" : "failed",
+    status: "recorded_unverified",
     auditNotes: String(auditNotes).trim(),
   });
 
@@ -376,7 +379,9 @@ export const executeDisasterRecoveryDrill = async ({
       rpoTargetMet,
       measuredRtoMinutes: rto,
       rtoTargetMet,
-      recordsIntegrityVerified: Boolean(recordsIntegrityVerified),
+      recordsIntegrityVerified: false,
+      reportedIntegrityVerified: recordsIntegrityVerified,
+      evidenceStatus: "self_reported",
       overallStatus: audit.status,
     },
   };
@@ -399,22 +404,25 @@ export const generateEnterpriseAcceptanceReport = async ({ hospitalId }) => {
     hospitalId,
     generatedAt: new Date().toISOString(),
     milestones: {
-      M1_INPATIENT_ADT: { verified: true, taskId: "AG18" },
-      M2_NURSING_EMAR: { verified: true, taskId: "AG19" },
-      M3_EMERGENCY_OT: { verified: true, taskId: "AG20" },
-      M4_REVENUE_PROCUREMENT: { verified: true, taskId: "AG21" },
+      M1_INPATIENT_ADT: { verified: false, status: "prototype_only", taskId: "AG18" },
+      M2_NURSING_EMAR: { verified: false, status: "prototype_only", taskId: "AG19" },
+      M3_EMERGENCY_OT: { verified: false, status: "prototype_only", taskId: "AG20" },
+      M4_REVENUE_PROCUREMENT: { verified: false, status: "prototype_only", taskId: "AG21" },
       M5_INTERFACES_DR: {
-        verified: true,
+        verified: false,
+        status: "prototype_only",
         taskId: "AG22",
-        contractsConfigured: contracts.length,
-        ssoActive: Boolean(ssoProfile),
-        lastPassedDrDrill: drAudits[0] || null,
+        contractsRecorded: contracts.length,
+        ssoConfigured: Boolean(ssoProfile),
+        legacyDrillRecord: drAudits[0] || null,
       },
     },
     operatingAcceptance: {
-      outpatientPilotPreserved: true,
-      enterpriseBoundariesEnforced: true,
-      unsupportedClaimsAbsent: true,
+      outpatientPilotPreserved: false,
+      enterpriseBoundariesEnforced: false,
+      unsupportedClaimsAbsent: false,
+      status: "not_accepted",
+      missingEvidence: ["Authenticated enterprise routes and UI", "Real workflow integration tests", "Observed restore and integrity verification", "Hospital acceptance"],
       disclaimer:
         "Truthful enterprise capability baseline. Real third-party analyzers, external PACS servers, corporate identity providers, and government ABDM gateway connectors require their own site-specific production network deployments and director sign-offs.",
     },

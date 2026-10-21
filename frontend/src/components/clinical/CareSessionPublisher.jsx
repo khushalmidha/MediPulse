@@ -11,7 +11,6 @@ export default function CareSessionPublisher({ hospital = false, onPublished }) 
   const staff = auth.staffUser;
   const hospitalId = staff?.hospitalId || auth.staffHospital?._id;
   const staffDoctorId = staff?._id || staff?.id;
-  const doctorId = hospital ? staffDoctorId : auth.user?._id;
 
   const today = new Date().toISOString().slice(0, 10);
   const [open, setOpen] = useState(false);

@@ -552,6 +552,8 @@ export const exportTenantConfiguration = async ({ hospitalId }) => {
     hospital,
     departments,
     staffDirectorySummary: staff,
-    retentionPolicy: "HIPAA_and_NDHM_compliant_operational_export",
+    retentionPolicy: "not_configured",
+    exportScope: "tenant_configuration_only",
+    regulatoryReview: "not_verified",
   };
 };

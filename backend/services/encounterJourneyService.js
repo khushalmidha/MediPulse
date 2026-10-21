@@ -786,7 +786,14 @@ export const getEncounterCustodyDetails = async ({ encounterId, hospitalId }) =>
   };
 };
 
+// No verified phone-delivery provider is implemented. Never claim delivery or
+// issue/redeem synthetic authorization outside the isolated test environment.
+const requireClaimDelivery = () => {
+  if (process.env.NODE_ENV !== "test") throw accessError(503,"Walk-in account verification is not configured. Contact hospital reception for assistance.");
+};
+
 export const requestClaimOtp = async ({ encounterId, userId, phone, familyMemberId, otp }) => {
+  requireClaimDelivery();
   if (!userId) throw accessError(401, "Sign in is required to claim a visit");
   const encounter = await EncounterJourney.findById(encounterId);
   if (!encounter) throw accessError(404, "Encounter journey not found");
@@ -865,11 +872,12 @@ export const requestClaimOtp = async ({ encounterId, userId, phone, familyMember
     message: `Verification OTP sent to ${maskedPhone}`,
     expiresAt,
     maskedPhone,
-    ...(process.env.NODE_ENV === "test" || !process.env.NODE_ENV ? { devOtp: generatedOtp } : {}),
+    ...(process.env.NODE_ENV === "test" ? { devOtp: generatedOtp } : {}),
   };
 };
 
 export const verifyClaimOtp = async ({ encounterId, userId, otp }) => {
+  requireClaimDelivery();
   if (!userId) throw accessError(401, "Sign in is required to verify claim");
   if (!otp || (typeof otp !== "string" && typeof otp !== "number")) {
     throw accessError(400, "OTP is required");
@@ -899,7 +907,7 @@ export const verifyClaimOtp = async ({ encounterId, userId, otp }) => {
 
   // Atomically mark OTP challenge consumed
   const consumed = await EncounterClaimChallenge.findOneAndUpdate(
-    { _id: challengeId, attempts: { $lt: 5 }, consumedAt: null, expiresAt: { $gt: now } },
+    { _id: challengeId, kind: "otp", otpHash: hashed, attempts: { $lt: 5 }, consumedAt: null, expiresAt: { $gt: now } },
     { $set: { consumedAt: now } },
     { new: true }
   );
@@ -937,6 +945,7 @@ export const linkWalkInToAccount = async ({
   claimProof,
   familyMemberId,
 }) => {
+  requireClaimDelivery();
   if (!userId) throw accessError(401, "Sign in is required to link a visit");
   if (!claimProof || typeof claimProof !== "string" || !claimProof.trim()) {
     throw accessError(400, "Claim proof is required to link a walk-in visit to an account");
@@ -961,6 +970,10 @@ export const linkWalkInToAccount = async ({
   const targetEncounterId = encounterId || proof.encounterId;
   if (String(proof.encounterId) !== String(targetEncounterId)) {
     throw accessError(403, "Claim proof belongs to a different encounter");
+  }
+
+  if (familyMemberId !== undefined && String(familyMemberId || "") !== String(proof.familyMemberId || "")) {
+    throw accessError(403,"Claim proof belongs to a different patient or family member");
   }
 
   // If already consumed, check if this is an idempotent replay by the same user

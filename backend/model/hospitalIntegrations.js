@@ -126,7 +126,9 @@ const disasterRecoveryAuditSchema = new mongoose.Schema(
     rtoTargetMet: { type: Boolean, required: true },
     recordsIntegrityVerified: { type: Boolean, required: true },
     conductedBy: { type: String, required: true, trim: true },
-    status: { type: String, enum: ["passed", "failed"], required: true, index: true },
+    status: { type: String, enum: ["passed", "failed", "recorded_unverified"], required: true, index: true },
+    reportedIntegrityVerified: Boolean,
+    evidenceStatus: { type: String, enum: ["self_reported"] },
     auditNotes: { type: String, default: "" },
   },
   { timestamps: true }

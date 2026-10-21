@@ -177,3 +177,21 @@ test("patient routes fit mobile, tablet and desktop and support dark theme", asy
   await button(page, "Use dark theme").click(); await expect(button(page, "Use light theme")).toBeVisible(); await page.screenshot({ path: info.outputPath("review-dark.png"), fullPage: true });
   const radio = page.getByRole("radio", { name: "Doctor quality 1 out of 5", exact: true }); await radio.focus(); await page.keyboard.press("ArrowRight"); await expect(page.getByRole("radio", { name: "Doctor quality 2 out of 5", exact: true })).toBeChecked();
 });
+
+
+test("refreshing a record clears its earlier packet while the replacement is pending", async ({ page }) => {
+  let calls = 0, release;
+  await page.route(browserApi + "/api/patients/me/visits/" + visitId + "/packet", async route => {
+    calls++;
+    if (calls === 1) return route.fulfill({ json: { packet: { soapSummary: { subjective: "EARLIER SYNTHETIC PACKET" } } } });
+    await new Promise(resolve => { release = resolve; });
+    await route.fulfill({ json: { packet: { soapSummary: { subjective: "REFRESHED SYNTHETIC PACKET" } } } });
+  });
+  await open(page, "/health-records"); await button(page, "Open record: Synthetic hospital record").click();
+  await expect(page.getByText("EARLIER SYNTHETIC PACKET", { exact: false })).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(() => Boolean(release)).toBe(true);
+  await expect(page.getByText("EARLIER SYNTHETIC PACKET", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("Loading released visit documents...", { exact: true })).toBeVisible();
+  release(); await expect(page.getByText("REFRESHED SYNTHETIC PACKET", { exact: false })).toBeVisible();
+});

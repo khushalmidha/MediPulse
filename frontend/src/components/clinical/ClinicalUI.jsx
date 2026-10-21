@@ -1,8 +1,8 @@
 /* eslint-disable react/prop-types */
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
-import { Activity, AlertTriangle, CheckCircle2, Clock3, FlaskConical, Pill, Plus, RefreshCcw, Stethoscope, Trash2, UsersRound } from "lucide-react";
+import { Activity, AlertTriangle, Clock3, FlaskConical, Pill, Plus, RefreshCcw, Stethoscope, Trash2, UsersRound } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { BACKEND_URL } from "../../utils";
 import { Banner, Button, Card, Dialog, EmptyState, Field, LoadingState, StatusBadge } from "../ui";
@@ -76,22 +76,27 @@ export function ActiveConsultation({ visit, hospital, disabled, refresh, onDirty
   const [confirm, setConfirm] = useState(false), [aiPrompt, setAiPrompt] = useState("Suggest focused consultation questions and red flags"), [suggestion, setSuggestion] = useState(""), [contextBrief, setContextBrief] = useState(null);
   const task = useFormTask(), dirty = notes !== saved;
 
-  const loadClinicalData = async () => {
+  const clinicalLoad = useRef({sequence:0,controller:null});
+  const loadClinicalData = useCallback(async () => {
     if (!hospital || !visit._id) return;
+    clinicalLoad.current.controller?.abort();
+    const controller=new AbortController(), sequence=++clinicalLoad.current.sequence;clinicalLoad.current.controller=controller;
+    const config={withCredentials:true,signal:controller.signal,timeout:15000};
     try {
       const [deptRes, catRes, invRes, labRes, rxRes, critRes] = await Promise.allSettled([
-        axios.get(`${BACKEND_URL}/api/opd/${visit.hospitalId}/service-departments`, { withCredentials: true }),
-        axios.get(`${BACKEND_URL}/api/labs/catalog`, { withCredentials: true }),
-        axios.get(`${BACKEND_URL}/api/pharmacy/inventory`, { withCredentials: true }),
-        axios.get(`${BACKEND_URL}/api/labs/orders?tokenId=${visit._id}`, { withCredentials: true }),
-        axios.get(`${BACKEND_URL}/api/pharmacy/prescriptions?tokenId=${visit._id}`, { withCredentials: true }),
-        axios.get(`${BACKEND_URL}/api/labs/orders?critical=pending`, { withCredentials: true }),
+        axios.get(`${BACKEND_URL}/api/opd/${visit.hospitalId}/service-departments`, config),
+        axios.get(`${BACKEND_URL}/api/labs/catalog`, config),
+        axios.get(`${BACKEND_URL}/api/pharmacy/inventory`, config),
+        axios.get(`${BACKEND_URL}/api/labs/orders?tokenId=${visit._id}`, config),
+        axios.get(`${BACKEND_URL}/api/pharmacy/prescriptions?tokenId=${visit._id}`, config),
+        axios.get(`${BACKEND_URL}/api/labs/orders?critical=pending`, config),
       ]);
+      if(controller.signal.aborted || sequence!==clinicalLoad.current.sequence)return;
       if (deptRes.status === "fulfilled") {
         const sDepts = deptRes.value.data?.serviceDepartments || { lab: [], pharmacy: [] };
         setServiceDepts(sDepts);
-        if (sDepts.lab?.length && !selectedLabDept) setSelectedLabDept(String(sDepts.lab[0]._id));
-        if (sDepts.pharmacy?.length && !selectedPharmacyDept) setSelectedPharmacyDept(String(sDepts.pharmacy[0]._id));
+        if (sDepts.lab?.length) setSelectedLabDept(previous=>previous || String(sDepts.lab[0]._id));
+        if (sDepts.pharmacy?.length) setSelectedPharmacyDept(previous=>previous || String(sDepts.pharmacy[0]._id));
       }
       if (catRes.status === "fulfilled") { setCatalog(catRes.value.data?.catalog || []); setCatalogError(""); }
       else if (catRes.reason?.response?.status === 403) setCatalogError("Access to laboratory catalog is restricted for your role.");
@@ -103,9 +108,9 @@ export function ActiveConsultation({ visit, hospital, disabled, refresh, onDirty
     } catch {
       // Ignored
     }
-  };
+  }, [hospital,visit._id,visit.hospitalId]);
 
-  useEffect(() => { loadClinicalData(); }, [hospital, visit._id, visit.hospitalId]);
+  useEffect(() => { const load=clinicalLoad.current;void loadClinicalData();return()=>load.controller?.abort(); }, [loadClinicalData]);
 
   useEffect(() => { if ((Number.isInteger(visit.revision) ? visit.revision : 0) < writeRevision.current) return; if (incoming !== baseline.current) { if (current.current === baseline.current) setNotes(incoming); else if (current.current !== incoming) setConflict(true); baseline.current = incoming; setSaved(incoming); } }, [incoming, visit.revision]);
   useEffect(() => { onDirty(dirty); return () => onDirty(false); }, [dirty, onDirty]);
@@ -343,7 +348,7 @@ export function ActiveConsultation({ visit, hospital, disabled, refresh, onDirty
             <div key={order._id} className="mp-order-card">
               <div>
                 <p className="mp-eyebrow">Lab Order · {order.accessionBarcode || order._id}</p>
-                <strong>{order.tests?.map(t => t.name || t.code).join(", ")}</strong>
+                <strong>{order.tests?.map(t => t.testName || t.testCode).join(", ")}</strong>
                 <p>Status: <StatusBadge status={order.orderStatus} /></p>
                 {order.clinicalNotes && <p className="mp-field-hint">Notes: {order.clinicalNotes}</p>}
               </div>

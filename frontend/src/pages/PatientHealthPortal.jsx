@@ -20,15 +20,16 @@ function RecordsWorkspace() {
   const members = overlay?.items || family.data?.items || [], archived = overlay?.archivedItems || family.data?.archivedItems || [], recordMembers = [...members, ...archived], items = timeline.data?.items || [], filtered = filterRecords(items, filters), pages = Math.max(1, Math.ceil(filtered.length / 8)), currentPage = Math.min(page, pages), selected = items.find(item => recordKey(item) === selectedKey);
   useEffect(() => { setSelectedKey(null); setPacket(null); }, [user?._id]);
   useEffect(() => {
-    if (!selectedKey || !selected || selected.type !== "opd_token") { setPacket(null); return; }
+    if (!selectedKey || !selected || selected.type !== "opd_token") { setPacket(null); setPacketLoading(false); return; }
     let disposed = false;
-    setPacketLoading(true);
-    axios.get(`${BACKEND_URL}/api/patients/me/visits/${selected.id}/packet`, { withCredentials: true })
+    const controller = new AbortController();
+    setPacket(null); setPacketLoading(true);
+    axios.get(`${BACKEND_URL}/api/patients/me/visits/${selected.id}/packet`, { withCredentials: true, signal: controller.signal, timeout: 15000 })
       .then(res => { if (!disposed) setPacket(res.data?.packet || null); })
       .catch(() => { if (!disposed) setPacket(null); })
       .finally(() => { if (!disposed) setPacketLoading(false); });
-    return () => { disposed = true; };
-  }, [selectedKey, selected?.id]);
+    return () => { disposed = true; controller.abort(); };
+  }, [selectedKey, selected]);
   const denied = [timeline, hospitals, family].some(resource => [401, 403, 404].includes(resource.errorStatus)) || [401, 403, 404].includes(task.feedback?.status);
   const refresh = () => { setOverlay(null); timeline.refresh(); hospitals.refresh(); family.refresh(); };
   const update = key => event => { setFilters(previous => ({ ...previous, [key]: event.target.value })); setPage(1); };

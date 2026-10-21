@@ -1,94 +1,69 @@
 # MediPulse - Antigravity / agent handoff
 
-Updated 21 October 2026. **Do not restart from Gemini's old completion claims.** The full implementation is not finished. AG00 repairs two fresh audit defects and establishes this resumable plan; AG01-AG22 are explicit remaining work, with the enterprise track separated from the outpatient pilot.
+Updated **22 October 2026**, independent review of Antigravity's AG22 revision `694fdb8d`. The 22-phase delivery added useful outpatient code, but **the whole project is not finished**. This review fixes confirmed security/QR/lifecycle/claim defects and reopens unsupported completion states. Read `docs/ANTIGRAVITY_FINAL_REVIEW.md` before continuing.
 
-## Paste this into Antigravity
+## Paste into Antigravity
 
 ```text
-Continue the existing MediPulse project. Read AGENTS.md, docs/IMPLEMENTATION_STATUS.md and docs/IMPLEMENTATION_TASKS.json, then the Common instructions in docs/MEDIPULSE_CODEX_PROMPTS.md. Inspect git status and preserve unrelated changes. Use node tools/check-implementation-plan.mjs --next to load only the next task instead of pasting the whole ledger.
+Continue the existing MediPulse checkout on main. Read AGENTS.md, docs/ANTIGRAVITY_FINAL_REVIEW.md, docs/IMPLEMENTATION_STATUS.md and the Common instructions in docs/MEDIPULSE_CODEX_PROMPTS.md. Inspect git status and preserve unrelated changes. Run node tools/check-implementation-plan.mjs --next and load only the selected task.
 
-Start at the ledger's startWith task, or the first pending task whose dependencies are verified_local. Verify its source evidence; implement the actual backend/persistence/frontend workflow and acceptance checks. Work through dependency-ready tasks, committing and pushing each completed phase to main as Khushal Midha <khushalmidha24@gmail.com>, without Codex coauthors or force push. Do not replace the repository or reimplement completed booking/session/payment/call safeguards.
+Next is AG05, not AG22: walk-in account claim is deliberately disabled outside isolated tests because no verified phone-delivery provider exists. Never remove containment just to make the demo pass. Implement the approved real delivery contract, server-generated OTP and delivery/failure evidence with recorded-phone/patient/family binding, expiry/attempt/resend race handling and real-router tests. Provider activation and production data execution need separate exact approval. If the provider contract is unavailable, record the blocker and keep the safe containment.
 
-Use isolated local synthetic databases and the checked-in browser runner. Bind HTTP tests/fixtures to the actual mounts in backend/index.js and the correct account/staff CSRF scope. Do not mark features complete because a route, dashboard or plan exists. Report actual executed checks and unresolved failures.
+AG16 release reconciliation is open. AG17-AG22 are unapproved requirements and unmounted service/model prototypes, not finished enterprise modules. Their five actual Mongo integration files fail fixture setup and are not in the registered runner. Unit suites that replace service behavior do not verify the real service. Approve hospital policies, complete one vertical workflow, repair fixtures and test actual authorization/transactions/UI before mounting or marking complete. Caller-reported DR figures and configured SSO/LIS/PACS rows are not proof of restoration or working integrations.
 
-Preserve every existing patient/payment/history/archive/credential/wallet record. Do not execute production database/index/seed changes, activate a provider, send mail, change DNS or use deployment consoles without the exact separate approval required by Common. Git commit/push authorization is already granted. Labs allow collection before billing; verifier approval must be explicit and the reviewer independent of the result author. Keep clinical outputs draft until qualified version/source-bound review; demo credits remain visibly separate from real money.
+Use the actual mounts in backend/index.js and correct account/staff CSRF/session scope. Keep existing booking/money/clinical safeguards, draft/source/version review, neutral/deep-teal tokens and shared doctor-name formatting. Labs allow collection before billing and require explicitly approved independent verification. Preserve all patient/payment/history/archive/credential/wallet records. No production DB/index/seed/provider/mail/DNS/deployment-console operation without Common's separate approval. Git commits/pushes to main are already authorized as Khushal Midha <khushalmidha24@gmail.com>, without Codex coauthors or force push.
 
-After each phase update its ledger status, verification evidence, WORK_LOG and implementation status. If context/credits end, record the precise checkpoint and next command before stopping. Continue toward the complete requested product; do not claim full launch readiness while any required task/acceptance remains open.
+After each bounded phase update its ledger status, WORK_LOG and implementation status with actual commands/results, then commit/push. Do not clear pending work by redefining completion. If interrupted, record the exact checkpoint and next safe command.
 ```
 
-## Repository and current checkpoint
+## Checkpoint and evidence
 
-- Windows workspace parent: `C:\Users\khush\OneDrive\Desktop\MediPulse`. **Actual Git root is its child `MediPulse`**. Run root commands there; backend/frontend commands in the named package directory. Other machines should use their own checkout root.
-- Branch: main. Published baseline entering this audit: `565134c2` (hospital pause), preceded by `9c573488` (appointment clinical writes). This handoff and AG00 fixes are in a later commit; use `git log -3` for the current exact hash. Verify working state instead of assuming these historical hashes are HEAD.
-- AG00 code/checks are complete locally: real copilot mount/account CSRF, alternate consultation-record CAS/history, accurate implementation status/inventory/ledger and portable browser runner. Next: **AG01**, then AG02-AG04 for the encounter foundation; independent AG10 can be implemented as another bounded phase.
-- The ledger has **23 tasks**: AG00 verified locally; AG01-AG16 remaining outpatient/release work; AG17-AG22 enterprise requirements and implementation. Dependencies and acceptance are in JSON, not an inferred percentage.
-
-## Source of truth
-
-1. IMPLEMENTATION_STATUS: honest module-by-module implemented/partial/missing boundaries.
-2. IMPLEMENTATION_TASKS: exact ordered work, dependencies, source files and completion criteria.
-3. IMPLEMENTATION_INVENTORY: generated navigation map of actual server mounts/routes and frontend paths. Regex extraction is a navigation aid; inspect computed/inline routes manually.
-4. WORK_LOG: revision-scoped checks, failures, migrations and publication evidence. Read the relevant recent sections, not the entire repository history on every turn.
-5. ASTRA_IMPLEMENTATION_PLAN / ENTERPRISE_PLAN: product direction and expansion requirements; their existence is not evidence of completed code. LAUNCH_REPORT preserves real release gates.
+- Actual Git root is the workspace's child `MediPulse`; root commands run there. Use `git log -3` for the published review commit and `git status --short` before editing.
+- Ledger: 23 tasks; **15 retain verified_local evidence, AG05 and AG17-AG22 pending, AG16 implemented_pending_final_checks**. Verified_local is not production or hospital acceptance.
+- QR replacement passed independent decoding; claim containment, family binding, stale packet/clinical read cleanup and truthful enterprise/tenant export metadata are recorded in the final review.
+- Generated IMPLEMENTATION_INVENTORY: 25 mounts, 244 route declarations, 70 frontend route declarations. Regex output is navigation only, not completeness evidence.
+- WORK_LOG keeps historical phase claims; the latest independent review supersedes unsupported all-complete assertions.
 
 ## Reproduce local checks
 
-Prerequisites: installed package dependencies, Docker Desktop running, a local Mongo replica set and Redis; Playwright browser installed. Use the project's lockfiles. Do not run a local application with a production DATABASE_URL or start seed/provider consumers just to get test data.
+Prerequisites: Node 24 LTS, installed locked dependencies, Playwright Chromium, local Mongo replica set and Redis. `npm run dev` now uses native Node watch instead of nodemon; startLocal still validates the isolated medipulse_dev target. Never load a production environment into these commands or start seed/provider consumers for fixtures.
 
-From repository root in PowerShell:
+From root (PowerShell):
 
 ```powershell
-docker compose up -d mongo redis mongo-init
+docker compose up -d mongo redis
 $env:TEST_DATABASE_URL='mongodb://127.0.0.1:27017/medipulse_test?replicaSet=rs0&directConnection=true'
 $env:TEST_REDIS_URL='redis://127.0.0.1:6379/15'
 node tools/check-implementation-plan.mjs --next
 node tools/implementation-inventory.mjs --write
 ```
 
+For a fresh local Mongo volume, initialize the replica set using the documented local compose initializer first. The review reused the existing local rs0. Integration tests create random disposable synthetic databases and disable outgoing providers/mail.
+
 From backend:
 
 ```powershell
 npm test
 npm run test:integration
+node --import ./tests/bootstrap.js --test tests/claim-security-boundary.test.js tests/enterprise-acceptance-boundary.test.js tests/integration/encounter-walkin-claim.test.js
 ```
 
-For the current clinical contract only, from backend:
-
-```powershell
-node --import ./tests/bootstrap.js --test tests/integration/clinical-writes.test.js
-```
+The registered integration runner excludes the five enterprise files. The explicit audit command and its **five setup failures** are in ANTIGRAVITY_FINAL_REVIEW.md. Do not claim those passed or skipped merely because the runner is green.
 
 From frontend:
 
 ```powershell
 npm run test:ui
 npm run build
-npx eslint src/components/clinical/ClinicalUI.jsx src/utils/sessionScope.js --max-warnings 0
 ```
 
-From repository root, the reproducible targeted browser subset:
+From root:
 
 ```powershell
-node tools/run-browser-checks.mjs --grep 'SOAP draft requires|delayed earlier'
+node tools/run-browser-checks.mjs --grep 'SOAP draft requires|delayed earlier|queue pause|pausing the hospital|both participants|clinical pages fit'
+node tools/run-browser-checks.mjs --grep 'old account responses|record errors are independent|patient routes fit|hospital visit deep links|refreshing a record clears'
 ```
 
-Or `node tools/run-browser-checks.mjs` for the full repository browser suite. The full command is available, **not claimed to have been run during this audit**. Use only one browser suite at a time: fixtures share local ports/state. Keep app/spec source unchanged during a run. The runner copies real specs/support files and links src/node_modules into a fresh private temp directory outside OneDrive, imports the actual repository Playwright config and starts the real frontend/synthetic fixture server. It does not log in to production. Artifacts remain at the printed private path; they are not committed. Chromium is the default; an optional browser-channel override can reproduce the documented Edge synthetic-camera issue, not certify physical-camera behavior.
+Run **one browser command at a time**; keep app/spec files unchanged until completion. The runner copies real specs and links the app/dependencies in a private directory outside OneDrive; it uses synthetic local fixtures, never production login. Current targeted results are in the review. The full browser command is available but was not run during this independent review; synthetic media does not certify real cameras/TURN.
 
-If services are unavailable, fix the local prerequisite or report the exact blocker; never fall back to a production URI. Integration tests use random disposable local databases and disabled provider/mail configuration. Production migration scripts have a different approval boundary.
-
-## Preserve these known constraints
-
-- Source-bound tenant/department/patient/family/actor authorization, transaction-safe booking/refunds, schema readiness and recovery archives are intentional. Never remove them to make a demo pass.
-- /api/copilot uses account-doctor auth; /api/opd-ai uses staff auth. A fixture mounted at an invented alias can hide a real UI failure. AG00 now tests the actual copilot mount and header.
-- Both appointment notes and /doctor/appointments/:id/consultation-records must use clinicalWrites. Completed note corrections require a separate reviewed amendment; recommendations cannot fabricate a booked/completed follow-up.
-- Encounter transition/handoff/refuse/link-account currently return explicit 503 containment. Replace that only when the corresponding AG02-AG05 identity/revision/proof/recipient checks and UI are complete.
-- Lab result workflows and pharmacy fulfillment are repaired, **initial order creation still needs AG06**. Do not mistake transactional dispensing for transactional prescription creation.
-- StaffAcceptInvite works; hospital-admin consumeAdminSetupLink does not set a password, and /staff/setup is not implemented. AG10 is real missing work.
-- Hospital pause is durable and start-enforced. Priority fields in the old override are not modeled or used in ordering; kiosk still needs service-date/timezone/doctor grouping. AG09 is partial, not complete.
-- Use shared neutral/deep-teal tokens, semantic status colors, accessible forms/dialogs and shared doctor-name formatting. Keep zero values and unknown clinical/location states truthful.
-- Existing approved demo identities/history are preserved. Any new production graph needs an exact manifest and recovery plan; do not reconstruct or reset owner accounts from chat or commit credentials.
-- Live frontend/backend parity, actual mail and physical-device/cross-network TURN acceptance remain external checks. Public liveness or an old frontend build is not proof that an authenticated clinical flow works.
-
-## End-of-phase / interruption checkpoint
-
-Record task ID, base/current commit, changed files, invariant/decision, exact completed checks and failures, local-only migration needs, outstanding approval if any, and the next safe command. Update the task status and evidence, commit/push authorized code, and preserve a dirty-worktree note if interruption prevented publication. Never mark a task complete solely to clear the pending list.
+Production release still needs the exact deployed pair, approved schema/data inspection, observed delivery/recovery, physical device acceptance and owner sign-off. No production operation occurred in this review.

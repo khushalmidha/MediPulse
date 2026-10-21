@@ -17,6 +17,7 @@ import { assertTenantNotSuspended, checkFeatureEntitlement } from "./saasOperati
 
 let testDouble = null;
 export const setRevenueStockTestDouble = (double) => {
+  if (process.env.NODE_ENV !== "test") throw new Error("Enterprise test adapters are only available in tests");
   testDouble = double;
 };
 

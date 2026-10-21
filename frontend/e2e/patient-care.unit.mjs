@@ -110,3 +110,10 @@ test("actor-switch disposal prevents previous patient records from showing on se
   assert.equal(activePacket, null);
 });
 
+
+
+test("QR encoding rejects oversized payloads instead of silently truncating tickets",async()=>{
+ const {generateQrMatrix,generateQrSvgString}=await import("../src/utils/qrCode.js");
+ assert.throws(()=>generateQrMatrix("x".repeat(1025)),/too long/);
+ const svg=generateQrSvgString('<script>synthetic</script>');assert.ok(!svg.includes("<script>"));assert.ok(svg.includes('xmlns="http://www.w3.org/2000/svg"'));
+});

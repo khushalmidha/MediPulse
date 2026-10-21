@@ -2688,19 +2688,49 @@ Implemented hospital external interface contracts (LIS HL7 v2.5.1/ASTM, PACS DIC
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG independent final review and completion reconciliation - 22 October 2026
+
+Baseline: `694fdb8d` on main, after Antigravity AG01-AG22. User requested a thorough review of that implementation and project wrap-up. Verified actual source/route mounts and executed local checks; no production environment or patient data was loaded into tests.
+
+### Findings and fixes
+
+- **Critical walk-in ownership defect:** request controller accepted requested OTP; no delivery occurred and a synthetic challenge could authorize linking. Removed client OTP injection; request/verify/link now return 503 in every non-test runtime before data reads/writes. Bind consumed OTP to current hash/kind and proof to intended self/family. Added production/development/unset mode regression and Mongo family-redirection regression. This is containment, **AG05 is not complete**.
+- **QR defect:** old custom QR failed independent OpenCV decoding of a synthetic ticket despite shape tests. Replaced with pinned qrcode-generator@2.0.4, UTF-8/automatic version/quiet zone, oversized-input rejection and SVG metadata regression. Independent ticket/text/Unicode decodes: **3/3 passed**. Maintainer API reference is in ANTIGRAVITY_FINAL_REVIEW.
+- **False enterprise acceptance:** report hardcoded milestones/operating assertions true; DR accepted caller values as restore/cryptographic integrity and invented statutory RPO/RTO. Report now states prototype_only/not_accepted; strict typed DR observations persist as self_reported/recorded_unverified. Schema addition preserves legacy rows. Guard five enterprise service-replacement adapters to test mode. Actual report/DR model-query regression does not replace the services.
+- **Unsupported live export claim:** removed HIPAA/NDHM compliance wording from actual tenant export metadata and admin UI; export remains minimized configuration only, retention not_configured/regulatory review not_verified. Actual-function regression verifies metadata.
+- **UI lifecycle/lint:** cancel and sequence clinical/packet reads, apply timeouts and cleanup on changed scope/close, correct lab summary field names, effect dependencies, unused values and escaped JSX. Keep shared palette and existing call/note/queue invariants.
+- **Completion reconciliation:** keep useful outpatient work; reopen AG05, AG17-AG22, and AG16 release checks. Unmounted enterprise model/service prototypes do not satisfy authenticated API/UI/clinical acceptance. Enterprise policy defaults are labelled unapproved. Updated status, launch report, handoff and ledger; regenerated inventory (25 mounts / 244 route declarations / 70 frontend paths).
+
+- **Dependency/runtime follow-up:** initial production audits reported backend 14 advisories (one critical) and frontend 18 (one critical). Applied compatible npm audit fixes, explicitly upgraded Nodemailer to 10.2.0 after maintainer review and added actual sendMail/MIME offline transport regression. Removed the three-advisory dev-only nodemon/chokidar/braces chain with Node native watch; verified startup/imported-module restart in a disposable local fixture. Aligned backend/.nvmrc from EOL Node 23 to 24 (Docker already uses 24). Full and production-only audits now report zero known advisories in both packages. No npm audit fix --force or live mail was used.
+
+### Executed checks
+
+| Check | Current result | Scope / limit |
+|---|---|---|
+| Registered backend integration runner | 330/330 passed, 0 failed/skipped; 378.37s | Isolated local Mongo replica set + Redis; excludes the five enterprise files audited separately |
+| Backend unit suite | 224 passed, 0 failed/skipped; 35.38s | Includes claim containment and actual enterprise report/DR/export plus offline actual-mailer regressions |
+| Frontend unit suite | 59 passed, 0 failed/skipped; 1.50s | Includes QR oversize/SVG regression |
+| Targeted Chromium journeys | 20 passed, 0 failed, 2 skipped; 2.0m | Desktop/mobile call media/reconnect, notes/review/stale save, pause, patient account disposal and packet refresh; duplicate viewport sweeps skipped |
+| Frontend production build | Passed; 58.19s | Main JS 409.14 kB / 131.32 kB gzip; no live deployment claimed |
+| Affected frontend ESLint | Passed, zero warnings | Antigravity/review-changed src files, max-warnings=0 |
+| Independent QR decoding | 3/3 passed | OpenCV pixel decoding of synthetic ticket, plain text and Unicode; not camera/print certification |
+| Dependency audits | 0 reported advisories in backend and frontend | Both full npm audit and production-only audits, 22 October 2026 |
+| Native Node watch | Startup + imported dependency restart passed | Disposable local fixture; no application environment/provider started |
+| Plan checker | Passed: 23 tasks, 15 verified_local; next AG05 | Evidence paths/dependency consistency only; not software acceptance |
+
+Focused security/claims check before export follow-up: **13/13 passed**, 19.44s (claim non-test boundary, three actual enterprise report/DR/adapter regressions, nine Mongo claim cases). Final full unit run adds the actual export case.
+
+**Explicit enterprise audit:** five integration files against isolated local Mongo: **0 passed, 5 failed, 0 skipped**, 9.67s. All fail Hospital fixture required-field validation before domain assertions. These files are not registered by testIntegration.js. Their predominantly replacement-service unit tests passing is not actual service/route/transaction acceptance. Failures remain open in AG18-AG22. No failing suite was silently skipped or called verified.
+
+Initial lint found 18 errors/3 warnings; corrected. An earlier full integration diagnostic was interrupted after a misspelled new fixture helper and obsolete family-redirect expectation failed. Corrected both and reran the registered suite; only the final result above is current evidence. Earlier baseline unit/browser runs are superseded, not added to totals. The new packet refresh browser regression first failed in both viewports because its exact locator excluded the Subjective label; corrected the locator and reran in the final combined browser suite.
+
+Logs remain local under `%TEMP%/medipulse-antigravity-*.log`; synthetic browser artifacts remain in the runner's private directory. Reproduction commands and precise scope are in ANTIGRAVITY_HANDOFF.md and ANTIGRAVITY_FINAL_REVIEW.md. Git diff checks/publication are recorded below when complete.
+
+### Data and release boundary
+
+Started Docker Desktop hidden and only local mongo/redis compose services. Integration bootstrap uses random local synthetic databases and disabled external providers/mail. No production DB/index/seed/migration, credential/wallet/archive rewrite, mail send, provider activation, DNS or deployment-console change occurred. DR changes are additive model fields/enum, not a database migration. Historical audit rows remain intact.
+
+Remaining: **AG05 real verified delivery**, **AG16 deployed-pair/schema/delivery/physical TURN/recovery acceptance**, and **AG17-AG22 approved policies plus actual enterprise vertical workflows**. Continue at AG05 using the ledger; obtain the actual delivery contract before enabling. Git commits/pushes are already authorized as Khushal Midha. Do not claim full launch or enterprise completion.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Publication target: `origin/main`, author/committer Khushal Midha <khushalmidha24@gmail.com>. Manifests match their lockfile roots; task consistency passes and no production acceptance is claimed. The containing review commit and publication result are reported in the delivery message.

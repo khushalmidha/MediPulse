@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { ArrowRight, Building2, CalendarDays, RefreshCcw, Printer, Link2, MapPin, FileText, QrCode, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Building2, CalendarDays, RefreshCcw, Printer, Link2, MapPin, FileText } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
 import { useHospitalBrand } from "../../components/ProductShell";
@@ -23,8 +23,15 @@ export default function PatientVisits({ slug }) {
   const [activePacket, setActivePacket] = useState(null);
   const [packetLoading, setPacketLoading] = useState(false);
   const [packetError, setPacketError] = useState("");
-  const [linkingVisitId, setLinkingVisitId] = useState(null);
   const [linkFeedback, setLinkFeedback] = useState("");
+
+  const packetRequest = useRef({sequence:0,controller:null});
+  useEffect(() => {
+    setVisits([]); setLoadedOwner(null); setActiveTicket(null); setActivePacket(null); setPacketError(""); setPacketLoading(false);
+    setError(""); setRefreshedAt(null); setLoading(Boolean(isAuth && role === "user" && ownerId)); setClaimDialogVisit(null); setLinkFeedback("");
+    const request=packetRequest.current;request.sequence++; request.controller?.abort();
+    return () => {request.sequence++;request.controller?.abort();};
+  }, [ownerId,slug,isAuth,role,tokenId]);
 
   useEffect(() => {
     if (!isAuth || role !== "user" || !ownerId) {
@@ -33,12 +40,6 @@ export default function PatientVisits({ slug }) {
       setActiveTicket(null);
       setActivePacket(null);
       return undefined;
-    }
-    if (loadedOwner && loadedOwner !== ownerId) {
-      setVisits([]);
-      setLoadedOwner(null);
-      setActiveTicket(null);
-      setActivePacket(null);
     }
     let disposed = false, sequence = 0;
     const refresh = async () => {
@@ -86,16 +87,17 @@ export default function PatientVisits({ slug }) {
   const visible = loadedOwner === ownerId ? (tokenId ? visits.filter((visit) => visit._id === tokenId) : visits) : [];
 
   const openPacketModal = async (visit) => {
-    setActivePacket(null);
-    setPacketLoading(true);
-    setPacketError("");
+    packetRequest.current.controller?.abort();
+    const controller=new AbortController(), sequence=++packetRequest.current.sequence;
+    packetRequest.current.controller=controller;
+    setActivePacket(null); setPacketLoading(true); setPacketError("");
     try {
-      const res = await axios.get(`${BACKEND_URL}/api/patients/me/visits/${visit._id}/packet`, { withCredentials: true });
-      setActivePacket(res.data?.packet || null);
+      const res = await axios.get(`${BACKEND_URL}/api/patients/me/visits/${visit._id}/packet`, { withCredentials: true,signal:controller.signal,timeout:15000 });
+      if(!controller.signal.aborted && sequence===packetRequest.current.sequence)setActivePacket(res.data?.packet || null);
     } catch (err) {
-      setPacketError(err.response?.data?.message || "Unable to load released visit documents.");
+      if(!controller.signal.aborted && sequence===packetRequest.current.sequence)setPacketError(err.response?.data?.message || "Unable to load released visit documents.");
     } finally {
-      setPacketLoading(false);
+      if(!controller.signal.aborted && sequence===packetRequest.current.sequence)setPacketLoading(false);
     }
   };
 
@@ -407,7 +409,7 @@ export default function PatientVisits({ slug }) {
       {(activePacket || packetLoading || packetError) && (
         <Dialog
           open={Boolean(activePacket || packetLoading || packetError)}
-          onClose={() => { setActivePacket(null); setPacketError(""); }}
+          onClose={() => { packetRequest.current.sequence++;packetRequest.current.controller?.abort();setPacketLoading(false);setActivePacket(null); setPacketError(""); }}
           title={`Visit Care Packet · ${activePacket?.displayToken || "Hospital Consultation"}`}
         >
           <div className="mp-stack" style={{ padding: "12px 0", maxHeight: "75vh", overflowY: "auto" }}>

@@ -2,15 +2,17 @@
 
 **Document Version:** 2.0.0  
 **Date:** 21 October 2026  
-**Status:** Approved Architectural Specification & Milestone Definition  
-**Authors:** MediPulse Engineering, Clinical Informatics & Enterprise Architecture  
+**Status:** UNAPPROVED PROPOSAL - independent review reopened AG17-AG22 on 22 October 2026
+**Review ownership:** Hospital owner, qualified clinical reviewers and legal/privacy reviewers not yet recorded
 **Execution Context:** Task AG17 / Enterprise Hospital Track (AG17–AG22)
 
 ---
 
+> Independent review: this document and `backend/config/enterprisePlan.js` contain unreviewed candidate policies, clinical thresholds and retention values. They are not statutory/clinical authority, certification, or proof of working enterprise modules. Do not apply them to treatment, record deletion or production acceptance. See ANTIGRAVITY_FINAL_REVIEW.md.
+
 ## 1. Executive Summary & Purpose
 
-MediPulse has completed and verified its core outpatient (OPD), telemedicine, diagnostic laboratory, pharmacy fulfillment, and multi-tenant SaaS foundation (Phases AG00 through AG16). The platform provides:
+MediPulse has an implemented outpatient foundation with local regression evidence. AG05 and AG16 remain open; enterprise policy and operating acceptance are not established. Implemented outpatient areas include:
 - Deterministic, atomic OPD queue and capacity scheduling with real-time Socket.IO synchronization.
 - Clinician documentation, revision-locked draft SOAP notes, and encounter journey tracking (AG00, AG02, AG03, AG07, AG08).
 - Continuous patient queue tracking and privacy-safe hospital waiting room kiosk displays (AG09).
@@ -25,7 +27,7 @@ This document establishes the **Enterprise Hospital Expansion Specification** fo
 
 ---
 
-## 2. Operating Jurisdiction, Statutory Framework & Data Retention
+## 2. Proposed jurisdiction and retention - qualified review required
 
 ### 2.1 Primary Operating Jurisdiction: India
 
@@ -217,7 +219,7 @@ Prior to operational deployment of any Inpatient module, the following qualified
 
 ## 6. Outpatient Release Boundary Affirmation
 
-The outpatient pilot foundation (Tasks AG00 through AG16) remains production-ready and structurally isolated:
-- Core booking, queuing, video calls, consultation notes, laboratory accessioning, pharmacy dispensing, and SaaS tenant activation are fully functional.
+The outpatient candidate retains existing functionality, but production acceptance is open (AG05/AG16):
+- Existing outpatient implementations require the release reconciliation and observed operating checks in LAUNCH_REPORT.md.
 - The enterprise expansion (AG18–AG22) builds upon this foundation additively without modifying existing outpatient routes, database schemas, or validation invariants.
 - No planning document or schema proposal shall be misrepresented as active clinical certification or live payment gateway integration without real external merchant onboarding and clinical director sign-off.

@@ -299,13 +299,13 @@ export default function SaaSOperationsConsole() {
               </Button>
             </Card>
 
-            {/* Compliance Export */}
+            {/* Tenant configuration export */}
             <Card>
               <h2 style={{ fontSize: 16, display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <Download size={18} style={{ color: "var(--mp-teal)" }} /> Tenant Export & Data Retention
+                <Download size={18} style={{ color: "var(--mp-teal)" }} /> Tenant Configuration Export
               </h2>
               <p style={{ fontSize: 13, color: "var(--mp-text-muted)", marginBottom: 16 }}>
-                Export tenant operational configurations, department directories, and public profiles in accordance with HIPAA / NDHM standards.
+                Export hospital settings, department information and staff role summaries. Patient records and staff contact details are excluded.
               </p>
               <Button
                 variant="secondary"
@@ -322,7 +322,7 @@ export default function SaaSOperationsConsole() {
           {exportData && (
             <Card>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h3 style={{ margin: 0 }}>Compliance Export Generated ({exportData.retentionPolicy})</h3>
+                <h3 style={{ margin: 0 }}>Tenant Configuration Export Generated</h3>
                 <Button variant="ghost" onClick={() => setExportData(null)}>Close</Button>
               </div>
               <pre

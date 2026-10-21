@@ -1,7 +1,9 @@
 /**
  * MediPulse Enterprise Hospital Expansion Configuration & Governance
  * 
- * Defines statutory retention rules, enterprise milestone definitions,
+ * UNAPPROVED PROTOTYPE: policy values below are not verified statutory or
+ * clinical requirements. Do not use them for treatment, deletion or compliance.
+ * Defines proposed retention rules, enterprise milestone definitions,
  * bed state machines, nursing NEWS2 early warning scoring, emergency triage scales,
  * and surgical safety stages for Tasks AG17 through AG22.
  */

@@ -783,7 +783,7 @@ useEffect(() => {
               {reportTarget?.author_name || "Member"}:
             </span>{" "}
             <span className="text-gray-600 dark:text-slate-400 italic">
-              "{reportTarget?.content}"
+              &quot;{reportTarget?.content}&quot;
             </span>
           </div>
           <Field label="Reason for report (required)" hint="Explain why this violates community guidelines (max 500 characters)">
@@ -854,10 +854,10 @@ useEffect(() => {
                 <div className="p-2.5 bg-white dark:bg-slate-950 rounded border border-gray-200 dark:border-slate-800 text-sm">
                   {item.isRemoved ? (
                     <span className="italic text-gray-400">
-                      Original: "{item.originalContent || item.content}" (Currently removed)
+                      Original: &quot;{item.originalContent || item.content}&quot; (Currently removed)
                     </span>
                   ) : (
-                    <span>"{item.content}"</span>
+                    <span>&quot;{item.content}&quot;</span>
                   )}
                 </div>
                 <div className="space-y-1">

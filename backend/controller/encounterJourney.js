@@ -139,7 +139,6 @@ export const requestClaimChallenge = async (req, res) => {
     userId,
     phone: req.body.phone,
     familyMemberId: req.body.familyMemberId,
-    otp: req.body.otp,
   });
 
   res.json(result);

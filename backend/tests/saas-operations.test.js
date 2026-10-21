@@ -59,7 +59,7 @@ test("P17: SaaS onboarding, plan entitlements, tenant suspension, and operationa
       hospital: { name: "Sample Hospital", slug: "sample-hosp" },
       departments: [],
       staffDirectorySummary: [],
-      retentionPolicy: "HIPAA_and_NDHM_compliant_operational_export",
+      retentionPolicy: "not_configured",
     }),
   });
 

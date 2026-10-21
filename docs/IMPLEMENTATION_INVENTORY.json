@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "generatedAt": "2026-10-20T21:21:47.645Z",
-  "reviewBaseline": "565134c2b385cbedd720c11bc2f30dd8204679d6",
+  "generatedAt": "2026-10-21T21:01:22.319Z",
+  "reviewBaseline": "694fdb8de4f7191c95ac7d8535e6d12eebc2bc98",
   "limitations": [
     "Regex-extracted route/navigation inventory; computed paths and inline app handlers require manual review.",
     "Routes and files existing do not establish working authorization, persistence, UI or deployment.",
@@ -272,13 +272,46 @@
     },
     {
       "method": "GET",
+      "localPath": "/staff/setup/verify/:token",
+      "paths": [
+        "/user/staff/setup/verify/:token",
+        "/api/auth/staff/setup/verify/:token"
+      ],
+      "file": "backend/routes/user.js",
+      "line": 37,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/staff/setup/consume",
+      "paths": [
+        "/user/staff/setup/consume",
+        "/api/auth/staff/setup/consume"
+      ],
+      "file": "backend/routes/user.js",
+      "line": 42,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/staff/setup",
+      "paths": [
+        "/user/staff/setup",
+        "/api/auth/staff/setup"
+      ],
+      "file": "backend/routes/user.js",
+      "line": 46,
+      "contained": false
+    },
+    {
+      "method": "GET",
       "localPath": "/:id",
       "paths": [
         "/user/:id",
         "/api/auth/:id"
       ],
       "file": "backend/routes/user.js",
-      "line": 38,
+      "line": 51,
       "contained": false
     },
     {
@@ -289,7 +322,7 @@
         "/api/auth/:id"
       ],
       "file": "backend/routes/user.js",
-      "line": 39,
+      "line": 52,
       "contained": false
     },
     {
@@ -300,7 +333,7 @@
         "/api/auth"
       ],
       "file": "backend/routes/user.js",
-      "line": 40,
+      "line": 53,
       "contained": false
     },
     {
@@ -311,7 +344,7 @@
         "/api/auth"
       ],
       "file": "backend/routes/user.js",
-      "line": 41,
+      "line": 54,
       "contained": false
     },
     {
@@ -322,7 +355,7 @@
         "/api/auth"
       ],
       "file": "backend/routes/user.js",
-      "line": 42,
+      "line": 55,
       "contained": false
     },
     {
@@ -482,7 +515,7 @@
         "/community"
       ],
       "file": "backend/routes/community.js",
-      "line": 22,
+      "line": 26,
       "contained": false
     },
     {
@@ -492,7 +525,7 @@
         "/community/create"
       ],
       "file": "backend/routes/community.js",
-      "line": 23,
+      "line": 27,
       "contained": false
     },
     {
@@ -502,7 +535,7 @@
         "/community/user"
       ],
       "file": "backend/routes/community.js",
-      "line": 24,
+      "line": 28,
       "contained": false
     },
     {
@@ -512,7 +545,7 @@
         "/community/join"
       ],
       "file": "backend/routes/community.js",
-      "line": 25,
+      "line": 29,
       "contained": false
     },
     {
@@ -522,47 +555,47 @@
         "/community/leave"
       ],
       "file": "backend/routes/community.js",
-      "line": 26,
-      "contained": false
-    },
-    {
-      "method": "POST",
-      "localPath": "/:id/announcements",
-      "paths": [
-        "/community/:id/announcements"
-      ],
-      "file": "backend/routes/community.js",
-      "line": 28,
-      "contained": false
-    },
-    {
-      "method": "GET",
-      "localPath": "/:id/announcements",
-      "paths": [
-        "/community/:id/announcements"
-      ],
-      "file": "backend/routes/community.js",
-      "line": 29,
-      "contained": false
-    },
-    {
-      "method": "POST",
-      "localPath": "/:id/messages/:messageId/report",
-      "paths": [
-        "/community/:id/messages/:messageId/report"
-      ],
-      "file": "backend/routes/community.js",
       "line": 30,
       "contained": false
     },
     {
-      "method": "DELETE",
-      "localPath": "/:id/messages/:messageId",
+      "method": "GET",
+      "localPath": "/:id/members",
       "paths": [
-        "/community/:id/messages/:messageId"
+        "/community/:id/members"
       ],
       "file": "backend/routes/community.js",
-      "line": 31,
+      "line": 32,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/:id/reports",
+      "paths": [
+        "/community/:id/reports"
+      ],
+      "file": "backend/routes/community.js",
+      "line": 33,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/messages/:messageId/dismiss",
+      "paths": [
+        "/community/:id/messages/:messageId/dismiss"
+      ],
+      "file": "backend/routes/community.js",
+      "line": 34,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/:id/preferences",
+      "paths": [
+        "/community/:id/preferences"
+      ],
+      "file": "backend/routes/community.js",
+      "line": 35,
       "contained": false
     },
     {
@@ -572,7 +605,47 @@
         "/community/:id/preferences"
       ],
       "file": "backend/routes/community.js",
-      "line": 32,
+      "line": 36,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/announcements",
+      "paths": [
+        "/community/:id/announcements"
+      ],
+      "file": "backend/routes/community.js",
+      "line": 38,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/:id/announcements",
+      "paths": [
+        "/community/:id/announcements"
+      ],
+      "file": "backend/routes/community.js",
+      "line": 39,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/messages/:messageId/report",
+      "paths": [
+        "/community/:id/messages/:messageId/report"
+      ],
+      "file": "backend/routes/community.js",
+      "line": 40,
+      "contained": false
+    },
+    {
+      "method": "DELETE",
+      "localPath": "/:id/messages/:messageId",
+      "paths": [
+        "/community/:id/messages/:messageId"
+      ],
+      "file": "backend/routes/community.js",
+      "line": 41,
       "contained": false
     },
     {
@@ -582,7 +655,7 @@
         "/community/:id"
       ],
       "file": "backend/routes/community.js",
-      "line": 33,
+      "line": 42,
       "contained": false
     },
     {
@@ -982,7 +1055,7 @@
         "/api/hospitals"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 42,
+      "line": 43,
       "contained": false
     },
     {
@@ -992,7 +1065,7 @@
         "/api/hospitals/admin/all"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 43,
+      "line": 44,
       "contained": false
     },
     {
@@ -1002,7 +1075,7 @@
         "/api/hospitals/admin/:id/action"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 44,
+      "line": 45,
       "contained": false
     },
     {
@@ -1012,7 +1085,7 @@
         "/api/hospitals/admin/:id/verify"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 45,
+      "line": 46,
       "contained": false
     },
     {
@@ -1022,7 +1095,7 @@
         "/api/hospitals/admin/platform-stats"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 46,
+      "line": 47,
       "contained": false
     },
     {
@@ -1032,7 +1105,7 @@
         "/api/hospitals/register"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 48,
+      "line": 49,
       "contained": false
     },
     {
@@ -1042,7 +1115,7 @@
         "/api/hospitals/:id/profile"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 49,
+      "line": 50,
       "contained": false
     },
     {
@@ -1052,7 +1125,7 @@
         "/api/hospitals/:id/departments"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 50,
+      "line": 51,
       "contained": false
     },
     {
@@ -1062,7 +1135,7 @@
         "/api/hospitals/:id/departments/:deptId"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 51,
+      "line": 52,
       "contained": false
     },
     {
@@ -1072,7 +1145,7 @@
         "/api/hospitals/:id/staff/invite"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 52,
+      "line": 53,
       "contained": false
     },
     {
@@ -1082,7 +1155,7 @@
         "/api/hospitals/:id/staff/:staffId/invite/resend"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 53,
+      "line": 54,
       "contained": false
     },
     {
@@ -1092,7 +1165,7 @@
         "/api/hospitals/:id/staff/:staffId/remove/request-otp"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 54,
+      "line": 55,
       "contained": false
     },
     {
@@ -1102,7 +1175,7 @@
         "/api/hospitals/:id/staff/:staffId/admin-access"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 55,
+      "line": 56,
       "contained": false
     },
     {
@@ -1112,7 +1185,7 @@
         "/api/hospitals/:id/staff/:staffId"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 56,
+      "line": 57,
       "contained": false
     },
     {
@@ -1122,7 +1195,7 @@
         "/api/hospitals/:id/staff/invite/accept"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 57,
+      "line": 58,
       "contained": false
     },
     {
@@ -1132,7 +1205,7 @@
         "/api/hospitals/:id/staff"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 58,
+      "line": 59,
       "contained": false
     },
     {
@@ -1142,7 +1215,7 @@
         "/api/hospitals/:id/analytics"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 59,
+      "line": 60,
       "contained": false
     },
     {
@@ -1152,7 +1225,7 @@
         "/api/hospitals/:id/admin-profile"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 60,
+      "line": 61,
       "contained": false
     },
     {
@@ -1162,7 +1235,7 @@
         "/api/hospitals/:id/website/custom-domain"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 61,
+      "line": 62,
       "contained": false
     },
     {
@@ -1172,7 +1245,7 @@
         "/api/hospitals/:id/website/verify-domain"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 62,
+      "line": 63,
       "contained": false
     },
     {
@@ -1182,21 +1255,11 @@
         "/api/hospitals/:id/website/custom-domain"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 63,
+      "line": 64,
       "contained": false
     },
     {
       "method": "GET",
-      "localPath": "/:id/locations",
-      "paths": [
-        "/api/hospitals/:id/locations"
-      ],
-      "file": "backend/routes/hospital.js",
-      "line": 65,
-      "contained": false
-    },
-    {
-      "method": "POST",
       "localPath": "/:id/locations",
       "paths": [
         "/api/hospitals/:id/locations"
@@ -1206,13 +1269,33 @@
       "contained": false
     },
     {
+      "method": "POST",
+      "localPath": "/:id/locations",
+      "paths": [
+        "/api/hospitals/:id/locations"
+      ],
+      "file": "backend/routes/hospital.js",
+      "line": 67,
+      "contained": false
+    },
+    {
+      "method": "PATCH",
+      "localPath": "/:id/locations/:locationId",
+      "paths": [
+        "/api/hospitals/:id/locations/:locationId"
+      ],
+      "file": "backend/routes/hospital.js",
+      "line": 68,
+      "contained": false
+    },
+    {
       "method": "GET",
       "localPath": "/resolve-host",
       "paths": [
         "/api/hospitals/resolve-host"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 68,
+      "line": 70,
       "contained": false
     },
     {
@@ -1222,7 +1305,7 @@
         "/api/hospitals/:slug"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 69,
+      "line": 71,
       "contained": false
     },
     {
@@ -1232,7 +1315,7 @@
         "/api/hospitals/:slug/doctors"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 70,
+      "line": 72,
       "contained": false
     },
     {
@@ -1242,7 +1325,7 @@
         "/api/hospitals/:slug/queue-status"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 71,
+      "line": 73,
       "contained": false
     },
     {
@@ -1252,7 +1335,37 @@
         "/api/hospitals/:id/kiosk-display"
       ],
       "file": "backend/routes/hospital.js",
-      "line": 72,
+      "line": 74,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/staff/setup/verify/:token",
+      "paths": [
+        "/api/hospitals/staff/setup/verify/:token"
+      ],
+      "file": "backend/routes/hospital.js",
+      "line": 81,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/staff/setup/consume",
+      "paths": [
+        "/api/hospitals/staff/setup/consume"
+      ],
+      "file": "backend/routes/hospital.js",
+      "line": 86,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/:hospitalId/service-departments",
+      "paths": [
+        "/api/opd/:hospitalId/service-departments"
+      ],
+      "file": "backend/routes/opd.js",
+      "line": 35,
       "contained": false
     },
     {
@@ -1262,7 +1375,7 @@
         "/api/opd/:hospitalId/:departmentId/book"
       ],
       "file": "backend/routes/opd.js",
-      "line": 31,
+      "line": 36,
       "contained": false
     },
     {
@@ -1272,7 +1385,7 @@
         "/api/opd/:hospitalId/:departmentId/token"
       ],
       "file": "backend/routes/opd.js",
-      "line": 32,
+      "line": 37,
       "contained": false
     },
     {
@@ -1282,7 +1395,7 @@
         "/api/opd/:hospitalId/:doctorId/queue"
       ],
       "file": "backend/routes/opd.js",
-      "line": 33,
+      "line": 38,
       "contained": false
     },
     {
@@ -1292,7 +1405,7 @@
         "/api/opd/tokens/:tokenId/check-in"
       ],
       "file": "backend/routes/opd.js",
-      "line": 34,
+      "line": 39,
       "contained": false
     },
     {
@@ -1302,7 +1415,7 @@
         "/api/opd/tokens/:tokenId/vitals"
       ],
       "file": "backend/routes/opd.js",
-      "line": 35,
+      "line": 40,
       "contained": false
     },
     {
@@ -1312,7 +1425,7 @@
         "/api/opd/tokens/:tokenId/start-consultation"
       ],
       "file": "backend/routes/opd.js",
-      "line": 36,
+      "line": 41,
       "contained": false
     },
     {
@@ -1322,7 +1435,37 @@
         "/api/opd/tokens/:tokenId/complete"
       ],
       "file": "backend/routes/opd.js",
-      "line": 37,
+      "line": 42,
+      "contained": false
+    },
+    {
+      "method": "PATCH",
+      "localPath": "/tokens/:tokenId/notes",
+      "paths": [
+        "/api/opd/tokens/:tokenId/notes"
+      ],
+      "file": "backend/routes/opd.js",
+      "line": 43,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/tokens/:tokenId/generate-soap",
+      "paths": [
+        "/api/opd/tokens/:tokenId/generate-soap"
+      ],
+      "file": "backend/routes/opd.js",
+      "line": 44,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/tokens/:tokenId/soap-note/approve",
+      "paths": [
+        "/api/opd/tokens/:tokenId/soap-note/approve"
+      ],
+      "file": "backend/routes/opd.js",
+      "line": 45,
       "contained": false
     },
     {
@@ -1332,7 +1475,7 @@
         "/api/opd/tokens/:tokenId/no-show"
       ],
       "file": "backend/routes/opd.js",
-      "line": 38,
+      "line": 46,
       "contained": false
     },
     {
@@ -1342,7 +1485,7 @@
         "/api/opd/:hospitalId/my-token"
       ],
       "file": "backend/routes/opd.js",
-      "line": 39,
+      "line": 47,
       "contained": false
     },
     {
@@ -1352,7 +1495,7 @@
         "/api/opd/tokens/:tokenId/live-timeline"
       ],
       "file": "backend/routes/opd.js",
-      "line": 41,
+      "line": 49,
       "contained": false
     },
     {
@@ -1362,7 +1505,7 @@
         "/api/opd/tokens/:tokenId/priority-override"
       ],
       "file": "backend/routes/opd.js",
-      "line": 71,
+      "line": 79,
       "contained": false
     },
     {
@@ -1372,7 +1515,7 @@
         "/api/opd/queue/pause"
       ],
       "file": "backend/routes/opd.js",
-      "line": 90,
+      "line": 100,
       "contained": false
     },
     {
@@ -1382,7 +1525,7 @@
         "/api/opd/queue/resume"
       ],
       "file": "backend/routes/opd.js",
-      "line": 100,
+      "line": 112,
       "contained": false
     },
     {
@@ -1542,7 +1685,7 @@
         "/api/patients/me/health-timeline"
       ],
       "file": "backend/routes/patientPortal.js",
-      "line": 13,
+      "line": 14,
       "contained": false
     },
     {
@@ -1552,7 +1695,7 @@
         "/api/patients/me/hospitals"
       ],
       "file": "backend/routes/patientPortal.js",
-      "line": 14,
+      "line": 15,
       "contained": false
     },
     {
@@ -1562,7 +1705,7 @@
         "/api/patients/me/family"
       ],
       "file": "backend/routes/patientPortal.js",
-      "line": 15,
+      "line": 16,
       "contained": false
     },
     {
@@ -1572,7 +1715,7 @@
         "/api/patients/me/family"
       ],
       "file": "backend/routes/patientPortal.js",
-      "line": 16,
+      "line": 17,
       "contained": false
     },
     {
@@ -1582,7 +1725,17 @@
         "/api/patients/me/family/:memberId"
       ],
       "file": "backend/routes/patientPortal.js",
-      "line": 17,
+      "line": 18,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/me/visits/:id/packet",
+      "paths": [
+        "/api/patients/me/visits/:id/packet"
+      ],
+      "file": "backend/routes/patientPortal.js",
+      "line": 19,
       "contained": false
     },
     {
@@ -1657,12 +1810,52 @@
     },
     {
       "method": "GET",
+      "localPath": "/custody/worklist",
+      "paths": [
+        "/api/encounters/custody/worklist"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 36,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/scan/:qrPayload",
+      "paths": [
+        "/api/encounters/scan/:qrPayload"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 39,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/scan",
+      "paths": [
+        "/api/encounters/scan"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 40,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/resolve-ticket/:qrPayload",
+      "paths": [
+        "/api/encounters/resolve-ticket/:qrPayload"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 41,
+      "contained": false
+    },
+    {
+      "method": "GET",
       "localPath": "/:id/guidance",
       "paths": [
         "/api/encounters/:id/guidance"
       ],
       "file": "backend/routes/encounter.js",
-      "line": 24,
+      "line": 44,
       "contained": false
     },
     {
@@ -1672,7 +1865,17 @@
         "/api/encounters/:id/ticket"
       ],
       "file": "backend/routes/encounter.js",
-      "line": 25,
+      "line": 45,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/:id/custody",
+      "paths": [
+        "/api/encounters/:id/custody"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 46,
       "contained": false
     },
     {
@@ -1682,8 +1885,28 @@
         "/api/encounters/:id/transition"
       ],
       "file": "backend/routes/encounter.js",
-      "line": 28,
-      "contained": true
+      "line": 49,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/file/register",
+      "paths": [
+        "/api/encounters/:id/file/register"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 52,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/register-file",
+      "paths": [
+        "/api/encounters/:id/register-file"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 53,
+      "contained": false
     },
     {
       "method": "POST",
@@ -1692,8 +1915,28 @@
         "/api/encounters/:id/handoff"
       ],
       "file": "backend/routes/encounter.js",
-      "line": 29,
-      "contained": true
+      "line": 54,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/accept-handoff",
+      "paths": [
+        "/api/encounters/:id/accept-handoff"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 55,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/handoff/accept",
+      "paths": [
+        "/api/encounters/:id/handoff/accept"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 56,
+      "contained": false
     },
     {
       "method": "POST",
@@ -1702,8 +1945,58 @@
         "/api/encounters/:id/refuse"
       ],
       "file": "backend/routes/encounter.js",
-      "line": 30,
-      "contained": true
+      "line": 57,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/handoff/refuse",
+      "paths": [
+        "/api/encounters/:id/handoff/refuse"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 58,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/claim-challenge",
+      "paths": [
+        "/api/encounters/:id/claim-challenge"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 61,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/request-claim-otp",
+      "paths": [
+        "/api/encounters/:id/request-claim-otp"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 62,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/verify-claim",
+      "paths": [
+        "/api/encounters/:id/verify-claim"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 63,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/:id/verify-claim-otp",
+      "paths": [
+        "/api/encounters/:id/verify-claim-otp"
+      ],
+      "file": "backend/routes/encounter.js",
+      "line": 64,
+      "contained": false
     },
     {
       "method": "POST",
@@ -1712,8 +2005,8 @@
         "/api/encounters/:id/link-account"
       ],
       "file": "backend/routes/encounter.js",
-      "line": 31,
-      "contained": true
+      "line": 65,
+      "contained": false
     },
     {
       "method": "GET",
@@ -1992,7 +2285,7 @@
         "/api/saas/setup-link/verify/:token"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 27,
+      "line": 28,
       "contained": false
     },
     {
@@ -2002,7 +2295,7 @@
         "/api/saas/setup-link/consume"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 28,
+      "line": 29,
       "contained": false
     },
     {
@@ -2012,7 +2305,7 @@
         "/api/saas/billing/status"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 31,
+      "line": 32,
       "contained": false
     },
     {
@@ -2022,7 +2315,7 @@
         "/api/saas/billing/checkout"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 32,
+      "line": 33,
       "contained": false
     },
     {
@@ -2032,7 +2325,7 @@
         "/api/saas/tenants"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 35,
+      "line": 36,
       "contained": false
     },
     {
@@ -2042,7 +2335,7 @@
         "/api/saas/tenants/:id/subscription"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 36,
+      "line": 37,
       "contained": false
     },
     {
@@ -2052,7 +2345,7 @@
         "/api/saas/tenants/:id/suspend"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 37,
+      "line": 38,
       "contained": false
     },
     {
@@ -2062,7 +2355,7 @@
         "/api/saas/tenants/:id/unsuspend"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 38,
+      "line": 39,
       "contained": false
     },
     {
@@ -2072,7 +2365,17 @@
         "/api/saas/tenants/:id/setup-link"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 39,
+      "line": 40,
+      "contained": false
+    },
+    {
+      "method": "PATCH",
+      "localPath": "/doctors/:id/verify-credentials",
+      "paths": [
+        "/api/saas/doctors/:id/verify-credentials"
+      ],
+      "file": "backend/routes/saasOperations.js",
+      "line": 43,
       "contained": false
     },
     {
@@ -2082,7 +2385,7 @@
         "/api/saas/tenants/:id"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 42,
+      "line": 46,
       "contained": false
     },
     {
@@ -2092,7 +2395,7 @@
         "/api/saas/tenants/:id/metrics"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 43,
+      "line": 47,
       "contained": false
     },
     {
@@ -2102,7 +2405,7 @@
         "/api/saas/tenants/:id/support-tickets"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 44,
+      "line": 48,
       "contained": false
     },
     {
@@ -2112,7 +2415,7 @@
         "/api/saas/tenants/:id/export"
       ],
       "file": "backend/routes/saasOperations.js",
-      "line": 45,
+      "line": 49,
       "contained": false
     },
     {
@@ -2122,7 +2425,7 @@
         "/api/ai/audit"
       ],
       "file": "backend/routes/aiReliability.js",
-      "line": 6,
+      "line": 11,
       "contained": false
     },
     {
@@ -2132,7 +2435,7 @@
         "/api/ai/fixtures"
       ],
       "file": "backend/routes/aiReliability.js",
-      "line": 7,
+      "line": 12,
       "contained": false
     },
     {
@@ -2142,7 +2445,17 @@
         "/api/ai/evaluate-case"
       ],
       "file": "backend/routes/aiReliability.js",
-      "line": 8,
+      "line": 13,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/evaluate-suite",
+      "paths": [
+        "/api/ai/evaluate-suite"
+      ],
+      "file": "backend/routes/aiReliability.js",
+      "line": 14,
       "contained": false
     },
     {
@@ -2310,338 +2623,379 @@
     {
       "path": "/",
       "file": "frontend/src/App.jsx",
-      "line": 58
-    },
-    {
-      "path": "/login",
-      "file": "frontend/src/App.jsx",
-      "line": 59
-    },
-    {
-      "path": "/signup",
-      "file": "frontend/src/App.jsx",
-      "line": 60
-    },
-    {
-      "path": "/dashboard",
-      "file": "frontend/src/App.jsx",
-      "line": 61
-    },
-    {
-      "path": "/visits",
-      "file": "frontend/src/App.jsx",
-      "line": 62
-    },
-    {
-      "path": "/visits/:tokenId",
-      "file": "frontend/src/App.jsx",
       "line": 63
     },
     {
-      "path": "/kiosk",
+      "path": "/login",
       "file": "frontend/src/App.jsx",
       "line": 64
     },
     {
-      "path": "/reservations/:reservationId",
+      "path": "/signup",
       "file": "frontend/src/App.jsx",
       "line": 65
     },
     {
-      "path": "/profile/edit",
+      "path": "/dashboard",
       "file": "frontend/src/App.jsx",
       "line": 66
     },
     {
-      "path": "/review",
+      "path": "/visits",
       "file": "frontend/src/App.jsx",
       "line": 67
     },
     {
-      "path": "/privacy",
+      "path": "/visits/:tokenId",
       "file": "frontend/src/App.jsx",
       "line": 68
     },
     {
-      "path": "/terms",
-      "file": "frontend/src/App.jsx",
-      "line": 68
-    },
-    {
-      "path": "*",
+      "path": "/kiosk",
       "file": "frontend/src/App.jsx",
       "line": 69
     },
     {
-      "path": "/",
+      "path": "/reservations/:reservationId",
       "file": "frontend/src/App.jsx",
-      "line": 73
-    },
-    {
-      "path": "/hospital",
-      "file": "frontend/src/App.jsx",
-      "line": 73
-    },
-    {
-      "path": "/login",
-      "file": "frontend/src/App.jsx",
-      "line": 74
-    },
-    {
-      "path": "/hospital/login",
-      "file": "frontend/src/App.jsx",
-      "line": 75
-    },
-    {
-      "path": "/hospital/signup",
-      "file": "frontend/src/App.jsx",
-      "line": 76
-    },
-    {
-      "path": "/signup/hospital-admin",
-      "file": "frontend/src/App.jsx",
-      "line": 77
-    },
-    {
-      "path": "/hospital/admin",
-      "file": "frontend/src/App.jsx",
-      "line": 78
-    },
-    {
-      "path": "/hospital/operations",
-      "file": "frontend/src/App.jsx",
-      "line": 79
-    },
-    {
-      "path": "/hospital/saas",
-      "file": "frontend/src/App.jsx",
-      "line": 80
-    },
-    {
-      "path": "/hospital/doctor-opd",
-      "file": "frontend/src/App.jsx",
-      "line": 81
-    },
-    {
-      "path": "/hospital/nursing-station",
-      "file": "frontend/src/App.jsx",
-      "line": 82
-    },
-    {
-      "path": "/hospital/reception",
-      "file": "frontend/src/App.jsx",
-      "line": 83
-    },
-    {
-      "path": "/hospital/staff-communication",
-      "file": "frontend/src/App.jsx",
-      "line": 84
-    },
-    {
-      "path": "/hospital/laboratory",
-      "file": "frontend/src/App.jsx",
-      "line": 85
-    },
-    {
-      "path": "/hospital/lab",
-      "file": "frontend/src/App.jsx",
-      "line": 86
-    },
-    {
-      "path": "/hospital/pharmacy",
-      "file": "frontend/src/App.jsx",
-      "line": 87
-    },
-    {
-      "path": "/staff/accept-invite",
-      "file": "frontend/src/App.jsx",
-      "line": 88
-    },
-    {
-      "path": "*",
-      "file": "frontend/src/App.jsx",
-      "line": 89
-    },
-    {
-      "path": "/",
-      "file": "frontend/src/App.jsx",
-      "line": 95
-    },
-    {
-      "path": "/signup",
-      "file": "frontend/src/App.jsx",
-      "line": 96
-    },
-    {
-      "path": "/signup/:type",
-      "file": "frontend/src/App.jsx",
-      "line": 97
-    },
-    {
-      "path": "/signup/hospital-admin",
-      "file": "frontend/src/App.jsx",
-      "line": 98
-    },
-    {
-      "path": "/review",
-      "file": "frontend/src/App.jsx",
-      "line": 99
-    },
-    {
-      "path": "/triage/:appointmentId",
-      "file": "frontend/src/App.jsx",
-      "line": 100
-    },
-    {
-      "path": "/smart-booking",
-      "file": "frontend/src/App.jsx",
-      "line": 101
-    },
-    {
-      "path": "/health-records",
-      "file": "frontend/src/App.jsx",
-      "line": 102
-    },
-    {
-      "path": "/hospitals",
-      "file": "frontend/src/App.jsx",
-      "line": 103
-    },
-    {
-      "path": "/kiosk/:slug",
-      "file": "frontend/src/App.jsx",
-      "line": 104
-    },
-    {
-      "path": "/hospitals/:slug/*",
-      "file": "frontend/src/App.jsx",
-      "line": 105
-    },
-    {
-      "path": "/login",
-      "file": "frontend/src/App.jsx",
-      "line": 106
-    },
-    {
-      "path": "/dashboard",
-      "file": "frontend/src/App.jsx",
-      "line": 107
+      "line": 70
     },
     {
       "path": "/profile/edit",
       "file": "frontend/src/App.jsx",
-      "line": 108
+      "line": 71
     },
     {
-      "path": "/chat",
+      "path": "/review",
       "file": "frontend/src/App.jsx",
-      "line": 109
+      "line": 72
     },
     {
-      "path": "/doctorsProfile/:id",
+      "path": "/staff/setup",
       "file": "frontend/src/App.jsx",
-      "line": 110
-    },
-    {
-      "path": "/appointment/book/:doctorId",
-      "file": "frontend/src/App.jsx",
-      "line": 111
-    },
-    {
-      "path": "/my-appointments",
-      "file": "frontend/src/App.jsx",
-      "line": 112
-    },
-    {
-      "path": "/appointments/current/:appointmentId",
-      "file": "frontend/src/App.jsx",
-      "line": 113
-    },
-    {
-      "path": "/appointments/reservations/:reservationId",
-      "file": "frontend/src/App.jsx",
-      "line": 114
-    },
-    {
-      "path": "/doctor/appointments",
-      "file": "frontend/src/App.jsx",
-      "line": 115
-    },
-    {
-      "path": "/communities",
-      "file": "frontend/src/App.jsx",
-      "line": 116
-    },
-    {
-      "path": "/events",
-      "file": "frontend/src/App.jsx",
-      "line": 117
-    },
-    {
-      "path": "/events/past",
-      "file": "frontend/src/App.jsx",
-      "line": 118
-    },
-    {
-      "path": "/wallet/transactions",
-      "file": "frontend/src/App.jsx",
-      "line": 119
-    },
-    {
-      "path": "/wallet/refunds",
-      "file": "frontend/src/App.jsx",
-      "line": 120
-    },
-    {
-      "path": "/wallet/notifications",
-      "file": "frontend/src/App.jsx",
-      "line": 121
-    },
-    {
-      "path": "/admin/virtual-payments",
-      "file": "frontend/src/App.jsx",
-      "line": 122
-    },
-    {
-      "path": "/doctors",
-      "file": "frontend/src/App.jsx",
-      "line": 123
-    },
-    {
-      "path": "/about",
-      "file": "frontend/src/App.jsx",
-      "line": 124
+      "line": 73
     },
     {
       "path": "/privacy",
       "file": "frontend/src/App.jsx",
-      "line": 125
+      "line": 74
     },
     {
       "path": "/terms",
       "file": "frontend/src/App.jsx",
-      "line": 126
-    },
-    {
-      "path": "/cookiepolicy",
-      "file": "frontend/src/App.jsx",
-      "line": 127
+      "line": 75
     },
     {
       "path": "*",
       "file": "frontend/src/App.jsx",
+      "line": 76
+    },
+    {
+      "path": "/",
+      "file": "frontend/src/App.jsx",
+      "line": 89
+    },
+    {
+      "path": "/hospital",
+      "file": "frontend/src/App.jsx",
+      "line": 90
+    },
+    {
+      "path": "/login",
+      "file": "frontend/src/App.jsx",
+      "line": 91
+    },
+    {
+      "path": "/hospital/login",
+      "file": "frontend/src/App.jsx",
+      "line": 92
+    },
+    {
+      "path": "/hospital/signup",
+      "file": "frontend/src/App.jsx",
+      "line": 93
+    },
+    {
+      "path": "/signup/hospital-admin",
+      "file": "frontend/src/App.jsx",
+      "line": 94
+    },
+    {
+      "path": "/hospital/admin",
+      "file": "frontend/src/App.jsx",
+      "line": 95
+    },
+    {
+      "path": "/hospital/operations",
+      "file": "frontend/src/App.jsx",
+      "line": 96
+    },
+    {
+      "path": "/hospital/saas",
+      "file": "frontend/src/App.jsx",
+      "line": 97
+    },
+    {
+      "path": "/hospital/doctor-opd",
+      "file": "frontend/src/App.jsx",
+      "line": 98
+    },
+    {
+      "path": "/hospital/nursing-station",
+      "file": "frontend/src/App.jsx",
+      "line": 99
+    },
+    {
+      "path": "/hospital/reception",
+      "file": "frontend/src/App.jsx",
+      "line": 100
+    },
+    {
+      "path": "/hospital/staff-communication",
+      "file": "frontend/src/App.jsx",
+      "line": 101
+    },
+    {
+      "path": "/hospital/laboratory",
+      "file": "frontend/src/App.jsx",
+      "line": 102
+    },
+    {
+      "path": "/hospital/lab",
+      "file": "frontend/src/App.jsx",
+      "line": 103
+    },
+    {
+      "path": "/hospital/pharmacy",
+      "file": "frontend/src/App.jsx",
+      "line": 104
+    },
+    {
+      "path": "/staff/accept-invite",
+      "file": "frontend/src/App.jsx",
+      "line": 105
+    },
+    {
+      "path": "/staff/setup",
+      "file": "frontend/src/App.jsx",
+      "line": 106
+    },
+    {
+      "path": "/hospital/setup",
+      "file": "frontend/src/App.jsx",
+      "line": 107
+    },
+    {
+      "path": "*",
+      "file": "frontend/src/App.jsx",
+      "line": 108
+    },
+    {
+      "path": "/",
+      "file": "frontend/src/App.jsx",
+      "line": 120
+    },
+    {
+      "path": "/signup",
+      "file": "frontend/src/App.jsx",
+      "line": 121
+    },
+    {
+      "path": "/signup/:type",
+      "file": "frontend/src/App.jsx",
+      "line": 122
+    },
+    {
+      "path": "/signup/hospital-admin",
+      "file": "frontend/src/App.jsx",
+      "line": 123
+    },
+    {
+      "path": "/review",
+      "file": "frontend/src/App.jsx",
+      "line": 124
+    },
+    {
+      "path": "/triage/:appointmentId",
+      "file": "frontend/src/App.jsx",
+      "line": 125
+    },
+    {
+      "path": "/smart-booking",
+      "file": "frontend/src/App.jsx",
+      "line": 126
+    },
+    {
+      "path": "/health-records",
+      "file": "frontend/src/App.jsx",
+      "line": 127
+    },
+    {
+      "path": "/hospitals",
+      "file": "frontend/src/App.jsx",
       "line": 128
+    },
+    {
+      "path": "/kiosk/:slug",
+      "file": "frontend/src/App.jsx",
+      "line": 129
+    },
+    {
+      "path": "/hospitals/:slug/*",
+      "file": "frontend/src/App.jsx",
+      "line": 130
+    },
+    {
+      "path": "/login",
+      "file": "frontend/src/App.jsx",
+      "line": 131
+    },
+    {
+      "path": "/dashboard",
+      "file": "frontend/src/App.jsx",
+      "line": 132
+    },
+    {
+      "path": "/profile/edit",
+      "file": "frontend/src/App.jsx",
+      "line": 133
+    },
+    {
+      "path": "/chat",
+      "file": "frontend/src/App.jsx",
+      "line": 134
+    },
+    {
+      "path": "/doctorsProfile/:id",
+      "file": "frontend/src/App.jsx",
+      "line": 135
+    },
+    {
+      "path": "/appointment/book/:doctorId",
+      "file": "frontend/src/App.jsx",
+      "line": 136
+    },
+    {
+      "path": "/my-appointments",
+      "file": "frontend/src/App.jsx",
+      "line": 137
+    },
+    {
+      "path": "/appointments/current/:appointmentId",
+      "file": "frontend/src/App.jsx",
+      "line": 138
+    },
+    {
+      "path": "/appointments/reservations/:reservationId",
+      "file": "frontend/src/App.jsx",
+      "line": 139
+    },
+    {
+      "path": "/doctor/appointments",
+      "file": "frontend/src/App.jsx",
+      "line": 140
+    },
+    {
+      "path": "/communities",
+      "file": "frontend/src/App.jsx",
+      "line": 141
+    },
+    {
+      "path": "/events",
+      "file": "frontend/src/App.jsx",
+      "line": 142
+    },
+    {
+      "path": "/events/past",
+      "file": "frontend/src/App.jsx",
+      "line": 143
+    },
+    {
+      "path": "/wallet/transactions",
+      "file": "frontend/src/App.jsx",
+      "line": 144
+    },
+    {
+      "path": "/wallet/refunds",
+      "file": "frontend/src/App.jsx",
+      "line": 145
+    },
+    {
+      "path": "/wallet/notifications",
+      "file": "frontend/src/App.jsx",
+      "line": 146
+    },
+    {
+      "path": "/admin/virtual-payments",
+      "file": "frontend/src/App.jsx",
+      "line": 147
+    },
+    {
+      "path": "/doctors",
+      "file": "frontend/src/App.jsx",
+      "line": 148
+    },
+    {
+      "path": "/about",
+      "file": "frontend/src/App.jsx",
+      "line": 149
+    },
+    {
+      "path": "/staff/setup",
+      "file": "frontend/src/App.jsx",
+      "line": 150
+    },
+    {
+      "path": "/hospital/setup",
+      "file": "frontend/src/App.jsx",
+      "line": 151
+    },
+    {
+      "path": "/privacy",
+      "file": "frontend/src/App.jsx",
+      "line": 152
+    },
+    {
+      "path": "/terms",
+      "file": "frontend/src/App.jsx",
+      "line": 153
+    },
+    {
+      "path": "/cookiepolicy",
+      "file": "frontend/src/App.jsx",
+      "line": 154
+    },
+    {
+      "path": "*",
+      "file": "frontend/src/App.jsx",
+      "line": 155
     }
   ],
   "checks": {
     "integration": [
       "backend/tests/integration/astra-access.test.js",
+      "backend/tests/integration/clinical-ai-boundary.test.js",
+      "backend/tests/integration/clinical-hospital-ordering.test.js",
       "backend/tests/integration/clinical-order-access.test.js",
+      "backend/tests/integration/clinical-order-creation.test.js",
+      "backend/tests/integration/clinical-schema.test.js",
       "backend/tests/integration/clinical-writes.test.js",
+      "backend/tests/integration/community-moderation-preferences.test.js",
+      "backend/tests/integration/emergency-theatre.test.js",
+      "backend/tests/integration/encounter-custody.test.js",
+      "backend/tests/integration/encounter-recovery.test.js",
+      "backend/tests/integration/encounter-stage-destination.test.js",
+      "backend/tests/integration/encounter-walkin-claim.test.js",
       "backend/tests/integration/family-identity.test.js",
       "backend/tests/integration/foxo-demo.test.js",
+      "backend/tests/integration/hospital-admin-setup.test.js",
+      "backend/tests/integration/hospital-integrations.test.js",
+      "backend/tests/integration/hospital-revenue-stock.test.js",
+      "backend/tests/integration/independent-practice-publication.test.js",
+      "backend/tests/integration/ipd-adt.test.js",
       "backend/tests/integration/lab-transactions.test.js",
       "backend/tests/integration/local-stack.test.js",
+      "backend/tests/integration/nursing-care.test.js",
       "backend/tests/integration/p03-queues.test.js",
       "backend/tests/integration/p04-money.test.js",
       "backend/tests/integration/p05-sessions.test.js",
@@ -2649,8 +3003,11 @@
       "backend/tests/integration/p07-products.test.js",
       "backend/tests/integration/p09-scheduling.test.js",
       "backend/tests/integration/p23-demo-recovery.test.js",
+      "backend/tests/integration/patient-released-documents.test.js",
       "backend/tests/integration/pharmacy-transactions.test.js",
-      "backend/tests/integration/queue-controls.test.js"
+      "backend/tests/integration/queue-controls.test.js",
+      "backend/tests/integration/queue-order-kiosk-eta.test.js",
+      "backend/tests/integration/saas-entitlements-activation.test.js"
     ],
     "browser": [
       "frontend/e2e/accounts.spec.js",

@@ -488,6 +488,7 @@ test("AG05: family member linking links valid family member and rejects foreign 
     encounterId: journey._id,
     userId: patientUser1._id,
     phone: "9876543210",
+    familyMemberId: validFamilyId,
   });
   const ver1 = await verifyClaimOtp({
     encounterId: journey._id,
@@ -502,7 +503,7 @@ test("AG05: family member linking links valid family member and rejects foreign 
       claimProof: ver1.claimProof,
       familyMemberId: foreignFamilyId,
     }),
-    (err) => err.status === 400 && /Invalid family member/.test(err.message)
+    (err) => err.status === 403 && /different patient or family member/.test(err.message)
   );
 
   // Valid family member succeeds using the unconsumed proof from the rolled-back attempt
@@ -554,4 +555,15 @@ test("AG05: non-walk-in encounter claim is rejected with 400 Bad Request", async
     }),
     (err) => err.status === 400 && /not booked as a walk-in/.test(err.message)
   );
+});
+
+
+test("AG05 review: claim proof cannot be redirected to another valid family identity",async()=>{
+ const {journey}=await createWalkInFixture();
+ const challenge=await requestClaimOtp({encounterId:journey._id,userId:patientUser1._id,phone:"9876543210"});
+ const verified=await verifyClaimOtp({encounterId:journey._id,userId:patientUser1._id,otp:challenge.devOtp});
+ await assert.rejects(linkWalkInToAccount({encounterId:journey._id,userId:patientUser1._id,claimProof:verified.claimProof,familyMemberId:patientUser1.familyMembers[0]._id}),error=>error.status===403);
+ assert.equal((await EncounterJourney.findById(journey._id)).linkedUserId,undefined);
+ const proofHash=crypto.createHash("sha256").update(verified.claimProof).digest("hex");
+ assert.equal((await EncounterClaimChallenge.findById("claim_proof:"+proofHash)).consumedAt,null);
 });

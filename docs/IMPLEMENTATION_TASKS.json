@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
-  "reviewDate": "2026-10-21",
-  "reviewBaseline": "565134c2",
+  "reviewDate": "2026-10-22",
+  "reviewBaseline": "694fdb8d",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG22",
+  "startWith": "AG05",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -318,8 +318,8 @@
     {
       "id": "AG05",
       "title": "Verified walk-in account claim",
-      "status": "verified_local",
-      "priority": "P1",
+      "status": "pending",
+      "priority": "P0",
       "dependsOn": [
         "AG02",
         "AG04"
@@ -341,7 +341,7 @@
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
       "track": "outpatient_pilot",
-      "verification": {
+      "historicalVerification": {
         "reference": "docs/WORK_LOG.md - AG05 verified walk-in account claim, 21 October 2026",
         "encounterWalkinClaimIntegration": {
           "passed": 8,
@@ -365,7 +365,28 @@
         },
         "build": "passed",
         "productionAcceptance": "not performed"
-      }
+      },
+      "verification": {
+        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "productionAcceptance": "not performed",
+        "securityContainment": "request, verification and linking reject all non-test runtimes before reads/writes",
+        "domainIntegration": {
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        "boundaryUnit": {
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "delivery": "not implemented; do not enable"
+      },
+      "remaining": [
+        "Configure an owner-approved real verification delivery provider; bind server-generated OTP to the recorded walk-in phone and intended patient/family. Never accept a requested OTP from the client.",
+        "Persist actual delivery acceptance/failure and enforce expiry, attempt limits, resend races and exact proof scope. No dev OTP in runtime responses.",
+        "Add actual-router delivery failure/replay/race tests and patient UI recovery before removing non-test 503 containment."
+      ]
     },
     {
       "id": "AG06",
@@ -544,6 +565,11 @@
         },
         "build": "passed",
         "productionAcceptance": "not performed"
+      },
+      "reviewCorrection": {
+        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md",
+        "qr": "Replaced undecodable custom QR encoder; three independent OpenCV decodes passed, including Unicode. Oversized payloads reject instead of truncating.",
+        "patientDocuments": "Packet reads abort and ignore stale responses on identity/tenant change or close."
       }
     },
     {
@@ -931,7 +957,7 @@
     {
       "id": "AG16",
       "title": "Final verification and production acceptance",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P0",
       "dependsOn": [
         "AG05",
@@ -963,7 +989,7 @@
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
       "track": "outpatient_pilot",
-      "verification": {
+      "historicalVerification": {
         "reference": "docs/WORK_LOG.md - AG16 final verification and production acceptance, 21 October 2026",
         "backendIntegrationRunner": {
           "passed": 329,
@@ -987,12 +1013,51 @@
         },
         "build": "passed",
         "productionAcceptance": "not performed"
-      }
+      },
+      "verification": {
+        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "productionAcceptance": "not performed",
+        "dependencyAudit": {
+          "backend": 0,
+          "frontend": 0,
+          "scope": "Full dependency and production-only npm audits; zero reported advisories on 22 October 2026"
+        },
+        "runtime": "backend/.nvmrc aligned to Node 24 LTS; exact deployed runtime not verified",
+        "backendUnit": {
+          "passed": 224,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 59,
+          "failed": 0,
+          "skipped": 0
+        },
+        "browserTargeted": {
+          "passed": 20,
+          "failed": 0,
+          "skipped": 2
+        },
+        "build": "passed; 58.19s, main JS 409.14 kB / 131.32 kB gzip",
+        "affectedLint": "passed; zero warnings",
+        "backendIntegrationRunner": {
+          "passed": 330,
+          "failed": 0,
+          "skipped": 0,
+          "durationSeconds": 378.37,
+          "scope": "Registered outpatient/core runner; excludes the five explicitly failed enterprise audit files"
+        }
+      },
+      "remaining": [
+        "Finish AG05 verified delivery before pilot sign-off.",
+        "Verify the exact deployed frontend/backend pair, readiness and approved schema/data dry-run; no production operation was performed in this review.",
+        "Observe approved mail delivery, physical-device/cross-network TURN, recovery/support/export workflows and owner acceptance. Demo credits are not provider settlement."
+      ]
     },
     {
       "id": "AG17",
       "title": "Enterprise hospital expansion requirements and phases",
-      "status": "verified_local",
+      "status": "pending",
       "priority": "P2",
       "dependsOn": [
         "AG16"
@@ -1015,7 +1080,7 @@
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
       "track": "enterprise",
-      "verification": {
+      "historicalVerification": {
         "reference": "docs/WORK_LOG.md - AG17 Enterprise hospital expansion requirements and phases, 21 October 2026",
         "enterprisePlanUnit": {
           "passed": 8,
@@ -1033,12 +1098,20 @@
           "skipped": 0
         },
         "productionAcceptance": "not performed"
-      }
+      },
+      "verification": {
+        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "productionAcceptance": "not performed"
+      },
+      "remaining": [
+        "Replace assumed jurisdiction, retention, clinical escalation and recovery targets with hospital-owner and qualified reviewer decisions. The current specification is an unapproved proposal.",
+        "Agree each enterprise milestone workflow, role/capability matrix, data/index migration and downtime/acceptance contract."
+      ]
     },
     {
       "id": "AG18",
       "title": "Inpatient admission, discharge, transfers and beds",
-      "status": "verified_local",
+      "status": "pending",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1060,7 +1133,7 @@
         "Discharge/transfer permissions, patient identity and complete history are verified against approved hospital scenarios."
       ],
       "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval.",
-      "verification": {
+      "historicalVerification": {
         "reference": "docs/WORK_LOG.md - AG18 Inpatient admission, discharge, transfers and beds, 21 October 2026",
         "ipdAdtUnit": {
           "passed": 7,
@@ -1078,12 +1151,22 @@
           "skipped": 0
         },
         "productionAcceptance": "not performed"
-      }
+      },
+      "verification": {
+        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "productionAcceptance": "not performed",
+        "independentMongoAudit": "The corresponding integration file failed setup Hospital validation on 22 October; no domain acceptance assertions executed."
+      },
+      "remaining": [
+        "Prototype models/services exist but no authenticated route/controller/UI is mounted for this milestone. Complete a bounded, hospital-approved vertical workflow.",
+        "Repair isolated Mongo integration fixtures, test the actual service and routers (without service replacement doubles), and cover tenant/actor/capability denials, replay and competing writes.",
+        "Register the real enterprise suite in the integration runner when repaired; produce observed local evidence and separate hospital/provider acceptance."
+      ]
     },
     {
       "id": "AG19",
       "title": "Inpatient clinical orders, nursing and medication administration",
-      "status": "verified_local",
+      "status": "pending",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1105,7 +1188,7 @@
         "Clinicians validate actual workflow behavior; outpatient draft AI does not become an administration authority."
       ],
       "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval.",
-      "verification": {
+      "historicalVerification": {
         "reference": "docs/WORK_LOG.md - AG19 Inpatient clinical orders, nursing and medication administration, 22 October 2026",
         "nursingCareUnit": {
           "passed": 8,
@@ -1123,12 +1206,22 @@
           "skipped": 0
         },
         "productionAcceptance": "not performed"
-      }
+      },
+      "verification": {
+        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "productionAcceptance": "not performed",
+        "independentMongoAudit": "The corresponding integration file failed setup Hospital validation on 22 October; no domain acceptance assertions executed."
+      },
+      "remaining": [
+        "Prototype models/services exist but no authenticated route/controller/UI is mounted for this milestone. Complete a bounded, hospital-approved vertical workflow.",
+        "Repair isolated Mongo integration fixtures, test the actual service and routers (without service replacement doubles), and cover tenant/actor/capability denials, replay and competing writes.",
+        "Register the real enterprise suite in the integration runner when repaired; produce observed local evidence and separate hospital/provider acceptance."
+      ]
     },
     {
       "id": "AG20",
       "title": "Emergency and theatre workflows",
-      "status": "verified_local",
+      "status": "pending",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1136,7 +1229,10 @@
         "AG19"
       ],
       "evidence": [
-        "docs/ENTERPRISE_PLAN.md"
+        "docs/ENTERPRISE_PLAN.md",
+        "backend/model/emergencyTheatre.js",
+        "backend/services/emergencyTheatreService.js",
+        "backend/tests/integration/emergency-theatre.test.js"
       ],
       "implementation": [
         "Implement only hospital-approved emergency registration, handover and theatre scheduling/checklist workflows.",
@@ -1147,7 +1243,7 @@
         "Approved clinical checklist/escalation policies and role boundaries are exercised by hospital reviewers."
       ],
       "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval.",
-      "verification": {
+      "historicalVerification": {
         "reference": "docs/WORK_LOG.md - AG20 emergency and theatre workflows, 22 October 2026",
         "emergencyTheatreUnit": {
           "passed": 8,
@@ -1165,12 +1261,22 @@
           "skipped": 0
         },
         "productionAcceptance": "not performed"
-      }
+      },
+      "verification": {
+        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "productionAcceptance": "not performed",
+        "independentMongoAudit": "The corresponding integration file failed setup Hospital validation on 22 October; no domain acceptance assertions executed."
+      },
+      "remaining": [
+        "Prototype models/services exist but no authenticated route/controller/UI is mounted for this milestone. Complete a bounded, hospital-approved vertical workflow.",
+        "Repair isolated Mongo integration fixtures, test the actual service and routers (without service replacement doubles), and cover tenant/actor/capability denials, replay and competing writes.",
+        "Register the real enterprise suite in the integration runner when repaired; produce observed local evidence and separate hospital/provider acceptance."
+      ]
     },
     {
       "id": "AG21",
       "title": "Hospital revenue, procurement and stock operations",
-      "status": "verified_local",
+      "status": "pending",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1178,7 +1284,10 @@
         "AG18"
       ],
       "evidence": [
-        "docs/ENTERPRISE_PLAN.md"
+        "docs/ENTERPRISE_PLAN.md",
+        "backend/model/hospitalRevenueStock.js",
+        "backend/services/hospitalRevenueStockService.js",
+        "backend/tests/integration/hospital-revenue-stock.test.js"
       ],
       "implementation": [
         "Implement approved service tariff/invoice/payment/credit-note/insurance workflows separately from existing demo credits.",
@@ -1190,7 +1299,7 @@
         "Real gateways are never reported active from a simulated checkout response."
       ],
       "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval.",
-      "verification": {
+      "historicalVerification": {
         "reference": "docs/WORK_LOG.md - AG21 hospital revenue, procurement and stock operations, 22 October 2026",
         "revenueStockUnit": {
           "passed": 8,
@@ -1208,12 +1317,22 @@
           "skipped": 0
         },
         "productionAcceptance": "not performed"
-      }
+      },
+      "verification": {
+        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "productionAcceptance": "not performed",
+        "independentMongoAudit": "The corresponding integration file failed setup Hospital validation on 22 October; no domain acceptance assertions executed."
+      },
+      "remaining": [
+        "Prototype models/services exist but no authenticated route/controller/UI is mounted for this milestone. Complete a bounded, hospital-approved vertical workflow.",
+        "Repair isolated Mongo integration fixtures, test the actual service and routers (without service replacement doubles), and cover tenant/actor/capability denials, replay and competing writes.",
+        "Register the real enterprise suite in the integration runner when repaired; produce observed local evidence and separate hospital/provider acceptance."
+      ]
     },
     {
       "id": "AG22",
       "title": "Hospital integrations and enterprise operating acceptance",
-      "status": "verified_local",
+      "status": "pending",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1222,7 +1341,11 @@
         "AG21"
       ],
       "evidence": [
-        "docs/ENTERPRISE_PLAN.md"
+        "docs/ENTERPRISE_PLAN.md",
+        "backend/model/hospitalIntegrations.js",
+        "backend/services/hospitalIntegrationsService.js",
+        "backend/tests/integration/hospital-integrations.test.js",
+        "backend/tests/enterprise-acceptance-boundary.test.js"
       ],
       "implementation": [
         "Implement the approved external laboratory/imaging/identity/insurance interfaces and versioned contracts; define reconciliation and downtime ownership.",
@@ -1234,7 +1357,7 @@
         "Hospital owner accepts the exact deployed enterprise scope; unsupported regulatory/SLA/certification claims remain absent."
       ],
       "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval.",
-      "verification": {
+      "historicalVerification": {
         "reference": "docs/WORK_LOG.md - AG22 hospital integrations and enterprise operating acceptance, 22 October 2026",
         "integrationsUnit": {
           "passed": 8,
@@ -1252,7 +1375,20 @@
           "skipped": 0
         },
         "productionAcceptance": "not performed"
-      }
+      },
+      "verification": {
+        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "productionAcceptance": "not performed",
+        "independentMongoAudit": "The corresponding integration file failed setup Hospital validation on 22 October; no domain acceptance assertions executed."
+      },
+      "remaining": [
+        "Prototype models/services exist but no authenticated route/controller/UI is mounted for this milestone. Complete a bounded, hospital-approved vertical workflow.",
+        "Repair isolated Mongo integration fixtures, test the actual service and routers (without service replacement doubles), and cover tenant/actor/capability denials, replay and competing writes.",
+        "Register the real enterprise suite in the integration runner when repaired; produce observed local evidence and separate hospital/provider acceptance.",
+        "Configuration rows do not implement LIS/ASTM/HL7 processing, PACS viewing, SAML/OIDC authentication or SCIM provisioning. Implement and test each agreed adapter separately.",
+        "Record an observed restore and independently measured integrity/RPO/RTO against owner-agreed targets. Caller-reported metrics now remain recorded_unverified; report milestones stay prototype_only."
+      ]
     }
-  ]
+  ],
+  "reviewReference": "docs/ANTIGRAVITY_FINAL_REVIEW.md"
 }
