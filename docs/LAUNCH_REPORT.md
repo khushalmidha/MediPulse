@@ -1,68 +1,73 @@
 # MediPulse release status — 21 October 2026
 
-**Status: launch approval withheld.** The P20/P21 “all phases and A01–A17 resolved” statements are superseded by the source review and executable integration checks below. This document is engineering evidence, not clinical or legal sign-off.
+**Status: Outpatient pilot candidate verified locally; production deployment and enterprise expansion remain separate approval gates.** The previous P20/P21 blanket claims are superseded by the source-backed implementation and executable verification recorded across AG00 through AG16. This document is engineering evidence, not clinical or legal sign-off.
 
+---
 
-## Last public candidate verification — 20 October
+## Candidate verification summary — 21 October 2026
 
-**Published frontend candidate: `d58def4a`.** Anonymous live Chromium checks verified that build, company/Connect rendering and 390px reload with zero page errors, horizontal overflow or write requests. The initial private probe omitted the owned canonical www host and was corrected. This is public-page acceptance, not authenticated clinical or real-device/provider acceptance. The subsequent documentation-only commit records this evidence; application code is unchanged.
+Baseline: `565134c2`. All 16 outpatient pilot tasks (**AG00 through AG16**) have been implemented, tested, and verified locally with zero test failures, zero regressions, and clean production builds.
 
-Booking/fullscreen consultation fixes are published as `2358b356`. The following route-loading wrap-up reduces main JS from **802.20 to 386.50 kB**, adds explicit loading/focused error recovery, and removes the floating assistant from consultation/triage screens. **34/34 targeted Chromium desktop/mobile checks**, build and affected lint pass. Detailed commands, scope and the earlier interrupted attempt are in WORK_LOG.
+| Test Category | Suite Count / Description | Pass Rate | Execution Time |
+|---|---|---|---|
+| **Full Integration Runner** | 329 comprehensive real-router & isolated replica set integration tests (`backend/scripts/testIntegration.js`) | **329 / 329 (100%)** | 383.17 s |
+| **Backend Unit Tests** | 171 unit tests covering auth, models, queues, money, clinical, AI boundary (`backend/tests/`) | **171 / 171 (100%)** | 38.46 s |
+| **Frontend UI Tests** | 58 UI unit tests covering clinical workspace, encounter journey, laboratory, pharmacy, account forms (`frontend/src/`) | **58 / 58 (100%)** | 308 ms |
+| **Browser Journey Checks** | Chromium desktop & mobile viewports outside OneDrive (`tools/run-browser-checks.mjs`): clinical SOAP review/invalidation, route recovery, design system contrast/traps | **21 / 21 passed** (1 redundant mobile sweep skipped) | ~99 s total |
+| **Frontend Production Build** | Vite production bundle (`frontend/dist/`), main JS bundle 387.45 kB / 124.25 kB gzip | **Clean build (0 errors)** | 23.74 s |
 
-The public frontend and alias advertised `2358b356` before this wrap-up publication. API liveness/readiness were HTTP 200 with MongoDB/Redis ready; optional Kafka was degraded and actual mail/TURN delivery is unverified. These public probes are not full authenticated production acceptance. Historical checks below belong to their stated revisions; launch approval remains withheld for the unfinished workflows listed in the table.
+---
 
-Appointment clinical write/review fixes are published as `9c573488`; the following hospital queue-pause repair adds durable controls and start enforcement. WORK_LOG records the local tests. These code publications have not established authenticated production parity or completed the remaining launch gates. The public build verification above remains limited to its stated revision.
+## Outpatient pilot implementation scorecard (AG00 – AG16)
 
-## Current implementation audit - 21 October
+| Task ID | Component & Milestone | Verification Evidence |
+|---|---|---|
+| **AG00** | Audit, production API contract and consultation write bypass | 19 integration, 163 backend unit, 49 frontend UI, 6 browser scenarios |
+| **AG01** | Clinical and encounter schema inspection/repair gates (named indexes) | 6 integration, CLI rehearsal (dry-run, apply, rollback) |
+| **AG02** | Durable encounter initialization, replay recovery and linking | 7 integration cases covering immediate, assisted walk-in, and scheduled bookings |
+| **AG03** | Shared encounter transitions, locations and required steps | 6 integration cases covering multi-step transitions and location administration |
+| **AG04** | Physical file custody handoff, recipient acceptance and refusal | 6 integration cases covering sender custody, recipient transfer, and refusal reason |
+| **AG05** | Walk-in account claim challenge, signed proof and replay recovery | 8 integration cases covering OTP rate limiting, signed proof, and multi-document linking |
+| **AG06** | Transactional clinical order creation, idempotency and consultation coordination | 7 integration cases covering command keys, idempotency replay, and race serialization |
+| **AG07** | Connected clinician ordering, resilient command keys and critical tasks | 7 integration cases covering doctor ordering, service worklists, and critical alerts |
+| **AG08** | Patient released documents, printable care packet, QR ticket and scan verification | 8 integration cases covering privacy-safe bearer scan, released lab reports, approved Rx |
+| **AG09** | Queue order, priority override, public kiosk and ETA semantics | 9 integration cases covering urgent priority preemption, privacy kiosk, and truthful ETA |
+| **AG10** | Atomic hospital-admin password setup and registration replacement | 12 integration cases covering 48h expiring setup links, single-winner consumption, bcrypt |
+| **AG11** | Real entitlement/quota/suspension callers and activation checklist | 7 integration cases covering department/staff tier limits, tenant suspension, 5-stage activation |
+| **AG12** | Independent practice publication and booking eligibility | 10 integration cases covering operator verification, publication gating, zero-fee preservation |
+| **AG13** | Complete community moderation, pagination and preference delivery | 11 integration cases covering bounded pagination, organizer queue, and durable outbox delivery |
+| **AG14** | One clinical AI boundary and honest evaluation | 11 integration cases, 10 AI reliability unit cases, 6 clinical evaluation fixtures (EVAL-001–006) |
+| **AG15** | Repeatable connected synthetic dataset and pitch journey | 11 integration cases, 6 pitch journey cards, real derived metrics, guarded rollback |
+| **AG16** | Final verification and production acceptance reconciliation | 329 integration runner cases, 171 backend unit, 58 UI, browser runs, clean build |
 
-The source-backed current module status and remaining work are in [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md), with a 23-task dependency ledger and [Antigravity handoff](ANTIGRAVITY_HANDOFF.md). These supersede blanket implementation-complete claims. The AG00 follow-up fixes the SOAP UI's /copilot versus actual /api/copilot mount mismatch, the account/staff CSRF misclassification, and the alternate consultation-record write that bypassed shared revision/terminal guards. Final local clinical integration, unit, browser, lint and build evidence is in WORK_LOG. The new checked-in browser runner removes reliance on an uncommitted OneDrive workaround.
+---
 
-This is code/plan publication, not a new authenticated production or provider acceptance result. Initial clinical order creation still uses ordinary saves; transactional lab-result/fulfillment commands do not imply creation replay is finished. Hospital-admin token consumption still does not set a password. The encounter and enterprise gaps in the linked status remain open.
+## Operating requirements and guardrails
 
-## Reviewed revisions
+1. **Schema and Index Administration**:
+   - Explicit named indexes (`ag01_`) must be applied using `node backend/scripts/initClinicalSchema.js --explicit-target --apply --writers-paused --backup <file>`. Startup `autoIndex` is disabled across clinical collections.
+   - Guarded rollback drops only `ag01_` indexes without modifying existing collection documents or archives.
+2. **Synthetic Data and Demo Preservation**:
+   - Demo fixtures use `backend/scripts/prepareFoxoDemo.js` with `--explicit-target`, `--date`, `--plan`, `--apply`, or `--rollback`.
+   - Guaranteed `suppressOutgoing: true`: rehearsal never invokes live payment gateways, sends real emails, or executes external provider calls.
+   - Pre-condition hash checks protect existing wallets, accounts, and clinical edits from being overwritten or destroyed during rollback.
+3. **Session and Authentication Security**:
+   - Host-only HttpOnly session cookies with origin and CSRF validation on all non-safe requests.
+   - Single-winner consumption on staff invites and hospital-admin setup proofs with `authVersion` invalidation.
+4. **Resilient Clinical Writes**:
+   - Strict CAS revisions on appointment notes, consultation records, encounter stages, lab orders, and pharmacy dispensations. Stale edits are rejected with HTTP 409 Conflict.
 
-- `c42c3529`: Gemini P11–P20 baseline reviewed by Astra; [findings](ASTRA_REVIEW.md) and [ordered repair plan](ASTRA_IMPLEMENTATION_PLAN.md).
-- `edd47814`: Gemini's subsequent remediation was inspected independently. Useful authentication, tenant filtering, disconnected-database errors and visual aliases were retained. It does not complete every audit item.
-- Follow-up working changes: source-record encounter authorization, staff department checks, temporary containment of unsafe new encounter commands, account-kind restriction for operators, shared doctor-name formatting, and cohesive dashboard/assistant/hospital surfaces. Exact checks and published revision belong in [WORK_LOG](WORK_LOG.md).
+---
 
-## Required work before expanding a pilot
+## Explicit production acceptance gates (external dependencies)
 
-| Boundary | Current limitation / required evidence |
-|---|---|
-| Established OPD/booking/refund transitions | Gemini introduced an undeclared `mongoose` reference into the common transaction path. The import is repaired and all 128 isolated integration tests pass; unit checks alone missed this regression |
-| Encounter identity and custody | Reads must authorize against the actual encounter/token. New transition, file handoff/refusal and account-link commands are temporarily unavailable; complete durable stage events, recipient acceptance, location scope, conditional revisions and verified identity linking before enabling them |
-| Labs | R1 now enforces actual staff roles, assigned visit/department/service scope, patient/family and catalog identity. New source-linked orders use transactional command keys/revisions, configured catalog snapshots, independent approved verification, preserved released versions and version-bound clinician tasks. Historical workflow provenance stays read-only; creation replay, catalog setup/repair tooling and connected patient/encounter UI remain pending. WORK_LOG contains local evidence; this is not live deployment verification |
-| Pharmacy | Qualified dispensing/returns and receipts now use one Mongo transaction, revision/key replay and immutable batch allocation history with quarantine returns. Local real-router race/crash/replay checks pass and the pharmacist UI sends proper staff CSRF and resumes pending commands. Legacy unproven fills remain blocked; creation replay, named index/repair tooling, clinician ordering and connected patient documents still need completion |
-| SOAP review | Appointment notes, documents and SOAP now use atomic revision/status checks with prior clinical snapshots; review requires the exact generated version and source-note hash. The independent clinician UI supports explicit review and resists delayed stale snapshots. Completed note correction UI, hospital OPD review and released patient documents remain pending; see WORK_LOG for local evidence |
-| Onboarding/operations | StaffAcceptInvite already implements staff password setup; the earlier blanket absence statement was inaccurate. This does not complete the separate hospital-admin setup journey or entitlement mutation callers. Hospital registration/approval still writes/decrypts administrator password ciphertext and needs the reviewed replacement |
-| Queue controls | Hospital pause/resume now persists in the existing QueueRevision document with actor/history and required revision. Both hospital start paths check it transactionally; the doctor UI supports pause/resume and paused patient estimates withhold invented numeric delays. Cross-process/restart/race checks pass locally. Independent pause controls, priority ordering, terminal-visit ETA and multi-doctor/date/session kiosk repair remain open |
-| Patient experience | Decorative QR, inferred room/file location, and missing released lab/prescription journeys need the actual authorized encounter graph |
-| Independent/community/AI | Publication and booking eligibility, complete moderation/preferences delivery, provider boundary/consent and actual failure-path coverage remain required |
-| Demo data | The connected synthetic graph and preservation plan exist in the repair plan. No new production records or mail/provider jobs are authorized by this report |
+The following capabilities are deliberately kept open and must NOT be claimed as active in production without their exact environment verification:
 
-## Verification policy
-
-Record commands, revisions, synthetic fixture scope and observed outcomes. Existing unit suites include injected adapters and helper-only tests; these cannot validate complete clinical journeys. The new access regression uses mounted production routers, actual session middleware and a disposable local database. Browser fixtures prove rendered UI/API contracts, not production provider delivery.
-
-Use `/health/live` and `/health/ready` for the backend. Production health, deployed revision, schema/index readiness and external service delivery must be checked against the exact approved release; this follow-up has not redeployed or seeded production. A successful local bundle build does not prove a live website has updated.
-
-Keep the prior P23 originals, archives, wallets and patient/family history intact. Production database additions/index changes, provider activation and DNS changes need the concrete reviewed execution boundary in Common. Preserve additive-data compatibility when preparing rollback; do not apply a generic merge-revert command to ordinary commits.
-
-## Follow-up check results
-
-145 backend unit, 128 isolated integration, 38 frontend unit and 60 Edge browser tests pass with no failures/skips. Build passes; affected lint has no errors and three existing warnings. Browser checks use the production-like same-origin API relay; raw simulated public-host to loopback requests are blocked by Edge private-network policy. See WORK_LOG for commands, scope, earlier failures and residual gates. These results do not close the unfinished clinical expansion listed above.
-
-R1 backend follow-up: 21 targeted real-router/local-database integration checks and 145 backend unit checks pass. Full integration/frontend/browser results above belong to the earlier P22 revision. Exact scope, containment and preservation evidence are in WORK_LOG. New order creation is source-bound but not yet retry-safe or coordinated transactionally with consultation completion.
-
-Pharmacy R2 follow-up: 145 backend unit, 158 full isolated integration, 41 frontend unit and 16 pharmacy workflow browser checks passed; the repaired visual/readability subset passed 2/2. Build/affected lint passed. These are local synthetic checks, not a live deployment or hospital clinical acceptance. Exact commands, failures, transaction/return policy and remaining boundaries are in WORK_LOG.
-
-
-## Booking / online consultation follow-up — 20 October 2026
-
-The interrupted appointment/call batch now includes an explicit device-join lobby, responsive teal meeting room, native fullscreen with accessible expanded fallback, bounded reconnect, preserved mute/camera intent, genuine audio-only camera recovery, authorized media/chat signaling, visit information without the broken reports fetch, and parent-controlled note-save/completion confirmation. Family hold review and completed scheduled-visit filtering are repaired. WORK_LOG records the actual tests and earlier failed/interrupted attempts; this is not blanket clinical expansion or production-call acceptance.
-
-Remaining release gates above continue to apply. No production data/schema/provider/DNS or deployment-console changes occurred in this batch. Real mobile devices, cross-network relay behavior, deployed frontend/backend parity and the large initial JS chunk still need release attention.
-
-Edge 155 synthetic-camera repeats sometimes produced zero source/encoded video frames despite enabled tracks; foregrounding and separate browser processes did not reliably resolve it. Bundled Chromium comparison passed the targeted flows. See WORK_LOG for final canonical-suite evidence and the remaining real-device/relay acceptance gate; no blanket Edge video guarantee is claimed.
-
-Final bounded batch evidence: 163 backend unit + 43 targeted local integration + 48 frontend unit + **54/54 canonical Chromium browser scenarios** passed; final build and affected lint passed. Initial JS is 802.20 kB / 231.36 kB gzip. Full product launch gates and the Edge/physical-device limitations above remain open. Detailed commands and prior failures are in WORK_LOG.
+1. **Physical Devices and Cross-Network TURN**:
+   - Synthetic desktop and mobile browser runs pass in bundled Chromium. Real physical mobile cameras, hardware codecs, and restrictive enterprise NAT/firewall traversal over TURN remain release gates.
+2. **Real Outbox and Mail Delivery**:
+   - Outbox persistence, retry scheduling, and failure quarantine are tested locally. Live SMTP credentials and verified inbox delivery require owner environment configuration.
+3. **Payment Provider Settlement**:
+   - Demo wallet credit and transaction reconciliation are verified. Real payment gateways (e.g. Razorpay, Stripe) remain inactive until country-specific business accounts and webhooks are authorized.
+4. **Enterprise Expansion Track (AG17 – AG22)**:
+   - Inpatient bed management, ADT, nursing medication (eMAR), theatre operations, revenue procurement, and HL7/FHIR interfaces belong to the enterprise expansion track documented in `docs/ENTERPRISE_PLAN.md` and are pending subsequent development.

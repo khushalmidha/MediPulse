@@ -2236,6 +2236,53 @@ Prior to this enhancement:
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG16: Final verification and production acceptance reconciliation (21 October 2026)
+
+### Context and baseline
+Task AG16 completes the final verification and production acceptance reconciliation for the entire outpatient product foundation (tasks AG00 through AG16).
+Prior to this reconciliation:
+1. Individual milestone tasks had localized verification, but a full holistic reconciliation of all 16 outpatient milestones, end-to-end integration passes, and browser journey suites needed recording.
+2. Operating requirements covering schema administration, synthetic fixture rehearsal, outbox event suppression, session security, and data deletion needed consolidation.
+3. Explicit production acceptance gates (physical devices/TURN, live mail delivery, payment settlement, and enterprise expansion AG17–AG22) required truthful boundaries without unsupported completion claims.
+
+### Changes implemented & verified
+- **Consolidated Outpatient Milestone State (`docs/IMPLEMENTATION_TASKS.json`)**:
+  - Reconciled tasks AG00 through AG16 as `verified_local`.
+  - Advanced next active milestone to `AG17` (Enterprise hospital expansion requirements and phases).
+- **Release Report Update (`docs/LAUNCH_REPORT.md`)**:
+  - Documented the verified outpatient candidate across all 16 tasks.
+  - Specified exact operating guidelines:
+    - CLI schema inspection and additive application (`initClinicalSchema.js`) without auto-indexing.
+    - Deterministic synthetic demo fixtures (`prepareFoxoDemo.js`) with guaranteed `suppressOutgoing: true`.
+    - Host-only HttpOnly session cookies with CSRF validation.
+    - CAS revisions on notes, orders, and fulfillment.
+  - Documented explicit residual release gates:
+    - Real physical camera hardware and mobile cross-network TURN connectivity.
+    - Verified inbox delivery via production SMTP credentials.
+    - Country-specific commercial payment gateway integration.
+    - Separately planned Enterprise expansion (AG17–AG22: IPD, ADT, beds, OT, procurement, revenue, insurance, enterprise interfaces).
+- **Comprehensive Candidate Verification**:
+  - Re-executed full integration runner (`testIntegration.js`) covering all 30+ integration test files.
+  - Re-executed backend unit test runner (`npm test`).
+  - Re-executed frontend unit test suite (`npm run test:ui`).
+  - Executed portable browser checks outside OneDrive (`tools/run-browser-checks.mjs`):
+    - Clinical workspace: SOAP explicit version review and note edit invalidation.
+    - Clinical workspace: delayed earlier save snapshot CAS safety.
+    - Route recovery: deep-link isolation and keyboard-accessible error reload.
+    - Design system: responsive shells at 360px/tablet/desktop, dialog keyboard traps, and contrast compliance.
+  - Executed clean frontend production build (`npm run build`).
+
+### Executed checks and limits
+- **Full Backend Integration Runner**: **329/329 passed**, zero failures/skips, **383.17 s** (`backend/scripts/testIntegration.js`).
+- **Backend Unit Tests**: **171/171 passed**, zero failures/skips, **38.46 s** (`npm test`).
+- **Frontend Unit Tests**: **58/58 passed**, zero failures/skips, **308 ms** (`npm run test:ui`).
+- **Browser Journey Checks**: **21 passed, 1 skipped** (redundant mobile viewport sweep), **99.8 s** total (`tools/run-browser-checks.mjs`).
+- **Frontend Production Build**: passed in **23.74 s**, main JS bundle **387.45 kB / 124.25 kB gzip**, zero errors (`npm run build`).
+- **Local Environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 
 
