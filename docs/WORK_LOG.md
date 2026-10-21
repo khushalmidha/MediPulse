@@ -2176,6 +2176,67 @@ Prior to this repair:
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG15: Repeatable connected synthetic dataset and pitch journey (21 October 2026)
+
+### Context and baseline
+Task AG15 delivers a fully connected, deterministic, repeatable synthetic dataset and pitch journey across the outpatient care graph (P23 / A07 / R9 / AG15).
+Prior to this enhancement:
+1. `backend/services/foxoDemo.js` populated an isolated demo child ("Aarav") with three visits, but lacked connected clinical diagnostics (lab orders), pharmacy fulfillment, physical file custody tracking, or multi-stage guidance.
+2. Clinical lab orders and pharmacy dispensing workflows were disconnected from the demo child's visits, preventing end-to-end rehearsal of specimen processing, report release, and partial medication fulfillment.
+3. Demonstration pitch cards did not link directly to live persisted database records, and operational statistics were not derived from actual entities.
+4. A safe, guarded rollback capability with plan integrity verification, writer pause enforcement, and preservation of later clinical edits was missing from the service and CLI.
+
+### Changes implemented
+- **Connected Entities in Versioned Graph (`backend/services/foxoDemo.js`)**:
+  - Connected hospital roles: Attending paediatrician (`DOCTOR`), `NURSE` (intake vitals & file transfer), `LAB_TECHNICIAN` / `PATHOLOGIST` (specimen accession, verification, and report release), and `PHARMACIST` (prescription verification, batch allocation, and partial dispensing).
+  - Diagnostic Lab Order (`LabOrder`): connected to Visit 1 (cough / fever investigation); includes accession barcode `DEMO-BARCODE-001`, status `"released"`, CBC and CRP inflammatory parameter snapshots, normal reference ranges, versioned verified report (`reportVersion: 1`), and structured audit trail.
+  - Connected Prescription (`Prescription`): connected to Visit 1; includes verification token `DEMO-RX-VERIFY-001`, status `"partially_dispensed"`, partial fulfillment operation allocating 6/10 doses of Amoxicillin 250mg suspension from batch `BATCH-AMOX-2026A`, tracking remaining unfulfilled balance, with Saline nasal drops pending.
+  - Multi-Stage Encounter Journey (`EncounterJourney`): includes required steps (`["reception", "vitals", "consultation", "diagnostics", "pharmacy"]`), complete stage history, destination guidance (`Paediatric OPD Room 102`), scannable QR ticket payload (`DEMO-TICKET-AARAV-002`), and physical paper file custody handoff history across reception, nurse, doctor, and medical records archive with recipient acknowledgement.
+  - Follow-up continuity: Visit 1 clinician notes recommend a one-week follow-up; Visit 2 is an explicit `follow_up` token confirming symptom resolution and acute episode discharge.
+  - Manifest & Suppression: provides a structured manifest with `suppressOutgoing: true`, guaranteeing zero outgoing email, SMS, payment gateway, or provider calls during rehearsal.
+- **Pitch Journey Narrative Cards (`generatePitchCards`)**:
+  - Implemented 6 structured pitch journey cards:
+    1. `pitch-card-01-discovery-booking`: Family discovery and appointment booking for child Aarav.
+    2. `pitch-card-02-reception-guidance`: Reception arrival, QR destination guidance, and physical file custody handoff.
+    3. `pitch-card-03-clinical-consultation`: Paediatrician consultation, structured clinical notes, and follow-up advice.
+    4. `pitch-card-04-lab-investigation`: Specimen collection, laboratory processing, and released CBC/CRP report.
+    5. `pitch-card-05-pharmacy-fulfillment`: Pharmacist verification, batch allocation, and partial Amoxicillin dispensing with remaining balance tracking.
+    6. `pitch-card-06-care-packet-dashboard`: Patient health timeline, printable care packet, and operational clinic metrics derived from actual database records.
+  - Every card contains verifiable references (`records`) linking to actual generated documents (`appointmentIds`, `tokenIds`, `encounterJourneyId`, `labOrderId`, `prescriptionId`).
+- **Real Derived Operational Metrics (`deriveDemoMetrics`)**:
+  - Computes counts directly from entity arrays (`completedVisits: 3`, `followUpVisits: 1`, `releasedLabs: 1`, `partialPrescriptions: 1`, `physicalFilesTracked: 1`), ensuring zero fabricated or hardcoded dashboard metrics.
+- **Guarded Rollback (`rollbackFoxoDemo`)**:
+  - Atomically removes records created by this exact `runId` inside a MongoDB transaction.
+  - Enforces preconditions: requires explicit approval, paused writers, verified backup, matching plan hash, and verifies that no seeded record was modified since creation (`foxoHash(actual) === foxoHash(document)`), aborting immediately to protect subsequent clinical edits.
+  - Restores patient family members and care identity revision.
+- **CLI Tool Enhancement (`backend/scripts/prepareFoxoDemo.js`)**:
+  - Added `--rollback` flag requiring `--plan`, `--backup`, and `--writers-paused`.
+  - Enriched dry-run inspection output reporting family profiles, completed visits, lab orders, prescriptions, total linked documents, and pitch cards.
+- **Integration Test Suite (`backend/tests/integration/foxo-demo.test.js`)**:
+  - Expanded to 11 comprehensive subtests asserting read-only inspection, atomic application, credential/wallet preservation, exact replay safety, refusal on subsequent clinical modifications, tamper detection, failure rollback, collision refusal, archived family protection, pitch card record links, derived operational metrics, and guarded rollback clean-up.
+
+### Executed checks and limits
+- **Connected Foxo demo integration suite**: **11/11 passed**, zero failures/skips, **7.75 s** (`backend/tests/integration/foxo-demo.test.js`):
+  1. Plan is read-only and links confirmed roles without publishing or verifying doctors.
+  2. Atomic apply preserves originals/credentials/financial data and patient timeline deduplicates three linked family visits.
+  3. Replay never duplicates history; later clinical edits are retained and refused.
+  4. Source changes and plan tampering fail without partial additions.
+  5. Failure after all inserts rolls back family, identity revision and visits.
+  6. Missing approval, ambiguous staff, invalid dates and token collisions are refused.
+  7. An archived synthetic family is never silently recreated or unarchived.
+  8. Concurrent applies commit one graph and replay the other without duplicates.
+  9. Pitch journey cards link to actual related records, derive metrics, and suppress outgoing providers.
+  10. Guarded rollback removes all seeded records, restores family profile and identity revision, and preserves original data.
+  11. Rollback refuses if clinical records were modified after apply or if approvals are missing.
+- **Full Backend Integration Suite**: **329/329 passed**, zero failures/skips, **383.17 s** (`backend/scripts/testIntegration.js`).
+- **Backend Unit Tests**: **171/171 passed**, zero failures/skips, **38.46 s** (`npm test`).
+- **Frontend Unit Tests**: **58/58 passed**, zero failures/skips, **308 ms** (`npm run test:ui`).
+- **Frontend Production Build**: passed in **23.74 s**, zero errors (`npm run build`).
+- **Local Environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 
 

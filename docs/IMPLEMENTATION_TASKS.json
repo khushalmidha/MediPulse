@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG15",
+  "startWith": "AG16",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -876,7 +876,7 @@
     {
       "id": "AG15",
       "title": "Repeatable connected synthetic dataset and pitch journey",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "dependsOn": [
         "AG08",
@@ -888,6 +888,7 @@
         "docs/ASTRA_IMPLEMENTATION_PLAN.md",
         "backend/services/foxoDemo.js",
         "backend/services/demoRecovery.js",
+        "backend/scripts/prepareFoxoDemo.js",
         "backend/tests/integration/foxo-demo.test.js"
       ],
       "implementation": [
@@ -900,7 +901,32 @@
         "Owner-approved existing history/accounts/credentials/wallets remain unchanged; production additions need a new exact plan."
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
-      "track": "outpatient_pilot"
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG15 repeatable connected synthetic dataset and pitch journey, 21 October 2026",
+        "foxoDemoIntegration": {
+          "passed": 11,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendIntegrationRunner": {
+          "passed": 329,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 171,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 58,
+          "failed": 0,
+          "skipped": 0
+        },
+        "build": "passed",
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG16",
