@@ -1679,5 +1679,65 @@ Implemented retry-safe, transactional creation commands for laboratory orders an
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG07 - Connected clinician ordering and hospital note review - 21 October 2026
+
+Baseline: following AG06 verification.
+Implemented connected hospital clinician lab and prescription composers, resilient pending command keys with idempotent recovery across response loss, hospital-token note/SOAP review with actor/version/source binding, ordered care worklists, and version-bound critical lab acknowledgement within the consultation workspace.
+
+### Implemented changes
+
+- **Hospital Token Schema & Notes/SOAP Binding**:
+  - `backend/model/opdToken.js`:
+    - Added `soapNote` embedded subdocument schema (`subjective`, `objective`, `assessment`, `plan`, `generatedAt`, `approvedAt`, `approvedBy`, `version`, `model`) and `clinicalHistory` array for auditable revision history.
+  - `backend/services/hospitalAccess.js`:
+    - Added `"soapNote"` to `visitForStaff` field projection for clinical staff (doctors, nurses, department heads).
+  - `backend/services/clinicalWrites.js`:
+    - Implemented `checkTokenClinicalEdit` and `commitTokenClinicalEdit` enforcing active doctor assignment, valid revision CAS, status guard (rejects `"completed"`, `"cancelled"`, `"transferred"` with 409 Conflict), and atomic snapshot commits.
+  - `backend/controller/opdToken.js`:
+    - Added `saveTokenNotes`: saves clinician notes/diagnosis with revision CAS, records history, and invalidates approved SOAP if clinical notes change.
+    - Added `generateTokenSoap`: generates structured SOAP draft with deterministic fallback, version increment, and draft status.
+    - Added `approveTokenSoap`: commits version-bound SOAP approval recording clinician actor and timestamp.
+    - Added `getServiceDepartments`: exposes active laboratory and pharmacy departments scoped to the hospital for clinician ordering.
+  - `backend/routes/opd.js`:
+    - Mounted `GET /:hospitalId/service-departments`, `PATCH /tokens/:tokenId/notes`, `POST /tokens/:tokenId/generate-soap`, and `POST /tokens/:tokenId/soap-note/approve`.
+  - `backend/services/clinicalOrderAccess.js`:
+    - Added `tokenId` and `encounterJourneyId` query filters to `listClinicalRecords` for consultation-scoped ordered worklists.
+- **Clinician Workspace UI & Resilient Composers**:
+  - `frontend/src/components/clinical/ClinicalUI.jsx`:
+    - Added note saving, AI SOAP draft generation, and draft approval using staff session CSRF on hospital tokens.
+    - Built hospital clinician lab test composer fetching active laboratory service departments and versioned catalog items.
+    - Built prescription composer fetching active pharmacy departments and active inventory items.
+    - Implemented durable pending command keys in `sessionStorage` (`mp_lab_key_${visit._id}`, `mp_rx_key_${visit._id}`) that persist across page reloads/network failures and idempotently recover the created order.
+    - Embedded ordered work list showing consultation orders (labs, prescriptions) with live fulfillment and verification badges.
+    - Added Critical Laboratory Value Alert banner with immediate version-bound clinician acknowledgement action.
+  - `frontend/src/components/clinical/clinical.css`:
+    - Added styling for `.mp-clinical-orders`, `.mp-clinical-composer`, `.mp-critical-alert`, and `.mp-order-card`.
+- **Test Infrastructure & Verification**:
+  - `backend/tests/integration/clinical-hospital-ordering.test.js`:
+    - 7 comprehensive integration tests verifying:
+      1. Service departments discovery filters active departments by `LAB_TECH` and `PHARMACIST` staff roles.
+      2. Hospital token notes require assigned doctor, valid revision CAS, and update clinical snapshot.
+      3. Parallel hospital note saves yield one winner and preserve revision serializability.
+      4. Hospital SOAP draft generation, versioning, note invalidation, and version-bound approval.
+      5. Terminal hospital token status (`completed`, `cancelled`) rejects note and SOAP edits with 409 Conflict.
+      6. Connected clinician ordering: hospital doctor orders lab test and prescription for family patient and service worklists receive them once with replay recovery.
+      7. Version-bound critical lab acknowledgement task in consultation workspace.
+  - `backend/scripts/testIntegration.js`:
+    - Registered `clinical-hospital-ordering.test.js` in integration runner.
+  - `frontend/e2e/clinical-workspace.unit.mjs`:
+    - Added unit tests for SOAP draft invalidation on note modification, durable pending command keys across response loss, and critical lab alert detection.
+
+### Executed checks and limits
+
+- **Clinical hospital ordering integration suite**: **7/7 passed**, zero failures/skips, **8.62 s** (`backend/tests/integration/clinical-hospital-ordering.test.js`).
+- **Full integration runner**: **258/258 passed**, zero failures/skips, **280.83 s** (`npm run test:integration`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **39.24 s** (`npm test`).
+- **Frontend unit tests**: **53/53 passed**, zero failures/skips, **303 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **9.91 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against live local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 

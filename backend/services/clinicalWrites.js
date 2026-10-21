@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import Appointment from "../model/appointment.js";
+import OpdToken from "../model/opdToken.js";
 import { accessError } from "./hospitalAccess.js";
 
 export const clinicalRevision = value => {
@@ -32,5 +33,28 @@ export async function commitClinicalEdit({ appointment, revision, actorId, field
   if (!changed) throw accessError(409, "Visit changed. Refresh and reconcile your draft before saving.");
   return changed;
 }
+
+export const checkTokenClinicalEdit = (token, revision, completed = false) => {
+  clinicalRevision(revision);
+  if (!token || !["in_consultation", ...(completed ? ["completed"] : [])].includes(token.status)) throw accessError(409, "This visit is not eligible for this clinical edit.");
+  if ((token.revision || 0) !== revision) throw accessError(409, "Visit changed. Refresh and reconcile your draft before saving.");
+};
+
+export async function commitTokenClinicalEdit({ token, revision, actorId, fields, unset = [], reason, completed = false, condition = {} }) {
+  checkTokenClinicalEdit(token, revision, completed);
+  const prior = token.toObject ? token.toObject() : token;
+  const filter = { _id: token._id, doctorId: token.doctorId?._id || token.doctorId,
+    status: token.status, ...condition, ...(revision === 0 ? { $or: [{ revision: 0 }, { revision: { $exists: false } }] } : { revision }) };
+  const update = { $set: fields, $inc: { revision: 1 }, $push: { clinicalHistory: {
+    revision, consultationNotes: prior.consultationNotes || "", diagnosis: prior.diagnosis || "", soapNote: prior.soapNote || null,
+    actorId, reason, recordedAt: new Date(),
+  } } };
+  if (unset.length) update.$unset = Object.fromEntries(unset.map(key => [key, ""]));
+  const changed = await OpdToken.findOneAndUpdate(filter, update, { new: true, runValidators: true });
+  if (!changed) throw accessError(409, "Visit changed. Refresh and reconcile your draft before saving.");
+  return changed;
+}
+
 export const invalidateSoap = () => ({ "soapNote.isDraft": true, "soapNote.clinicianApproved": false });
-export const soapApprovalFields = ["soapNote.approvedBy", "soapNote.approvedAt"];
+export const soapApprovalFields = ["soapNote.approvedBy", "soapNote.approvedByName", "soapNote.approvedAt"];
+

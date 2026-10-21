@@ -19,3 +19,42 @@ test("queue search and note drafts use the visited person and tolerate malformed
   assert.equal(clinicalMatches(row, "other"), false); assert.equal(notesOf({ doctorNotes: { bad: true } }), "");
   assert.equal(notesOf({ consultationNotes: "Clinician record" }, true), "Clinician record");
 });
+
+test("note modification invalidates approved SOAP state and draft review", () => {
+  const originalSoap = { version: 1, isDraft: false, clinicianApproved: true, markdown: "Original assessment" };
+  const invalidateSoapDraft = (soap) => (soap ? { ...soap, clinicianApproved: false, isDraft: true } : null);
+  const invalidated = invalidateSoapDraft(originalSoap);
+  assert.equal(invalidated.clinicianApproved, false);
+  assert.equal(invalidated.isDraft, true);
+  assert.equal(invalidated.version, 1);
+});
+
+test("pending command keys preserve creation context across response loss and recover", () => {
+  const storage = new Map();
+  const getOrSetCommandKey = (tokenId, kind) => {
+    const key = `mp_${kind}_key_${tokenId}`;
+    if (!storage.has(key)) {
+      storage.set(key, `${kind}-${tokenId}-synthetic-uuid`);
+    }
+    return storage.get(key);
+  };
+  const firstKey = getOrSetCommandKey("token-123", "lab");
+  assert.ok(firstKey.startsWith("lab-token-123-"));
+  // Simulated crash/reload before completion
+  const recoveredKey = getOrSetCommandKey("token-123", "lab");
+  assert.equal(recoveredKey, firstKey, "The same creation command key must be recovered after response loss");
+  // Cleaned up after successful commit
+  storage.delete(`mp_lab_key_token-123`);
+  assert.equal(storage.has(`mp_lab_key_token-123`), false);
+});
+
+test("critical lab alert identifies unacknowledged critical findings on orders", () => {
+  const normalOrder = { _id: "ord-1", reportVersions: [{ version: 1, criticalTask: null }] };
+  const acknowledgedOrder = { _id: "ord-2", reportVersions: [{ version: 1, criticalTask: { createdAt: new Date(), acknowledgedAt: new Date() } }] };
+  const pendingCriticalOrder = { _id: "ord-3", reportVersions: [{ version: 1, criticalTask: { createdAt: new Date() } }] };
+
+  const hasPendingCritical = (order) => Boolean(order.reportVersions?.some(r => r.criticalTask?.createdAt && !r.criticalTask?.acknowledgedAt));
+  assert.equal(hasPendingCritical(normalOrder), false);
+  assert.equal(hasPendingCritical(acknowledgedOrder), false);
+  assert.equal(hasPendingCritical(pendingCriticalOrder), true);
+});

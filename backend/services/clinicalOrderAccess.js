@@ -81,10 +81,18 @@ export async function loadClinicalRecord(Model, id, hospitalId, actor, kind, rol
 
 export async function listClinicalRecords(Model, staff, kind, query) {
   const filter = { hospitalId: staff.hospitalId };
-  for (const field of ["status", "barcode"]) {
+  for (const field of ["status", "barcode", "tokenId", "encounterJourneyId"]) {
     if (query[field] !== undefined && (typeof query[field] !== "string" || query[field].length > 100)) {
       throw accessError(400, "Invalid clinical worklist filter");
     }
+  }
+  if (query.tokenId) {
+    requireRecordId(query.tokenId, "visit token");
+    filter.tokenId = query.tokenId;
+  }
+  if (query.encounterJourneyId) {
+    requireRecordId(query.encounterJourneyId, "encounter");
+    filter.encounterJourneyId = query.encounterJourneyId;
   }
   if (staff.role === "DOCTOR") {
     const reviewDepartments = kind === "lab" ? labReviewDepartments(await clinicalStaff(staff, staff.hospitalId)) : [];

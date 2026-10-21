@@ -36,7 +36,7 @@ export const visitForStaff = (token, staff) => {
     "vitalsCompletedAt", "consultationStartedAt", "consultationEndedAt", "estimatedWaitMinutes",
     "paymentStatus", "paymentAmount", "paymentMode", "appointmentId", "createdAt", "updatedAt", "queueKey", "practiceKey", "serviceDate", "sessionId", "timezone", "revision", "visitMode", "scheduleReservationId", "scheduleSessionId", "scheduledStart", "scheduledEnd"];
   if (canAccessVisit(staff, token, { clinical: true })) {
-    fields.push("chiefComplaint", "vitals", "aiTriage", "consultationNotes", "diagnosis", "followUpDate");
+    fields.push("chiefComplaint", "vitals", "aiTriage", "consultationNotes", "diagnosis", "followUpDate", "soapNote");
   }
   const view = Object.fromEntries(fields.filter((key) => token[key] !== undefined).map((key) => [key, token[key]]));
   if (token.patientInfo) view.patientInfo = Object.fromEntries(["name", "phone", "age", "gender", "isWalkIn"]

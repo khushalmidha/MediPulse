@@ -168,4 +168,196 @@ const getMyActiveToken = async (req, res) => {
     ...(req.query.familyMemberId ? { familyMemberId: requireRecordId(req.query.familyMemberId, "family member") } : {}) }).sort({ createdAt: -1 }).lean();
   return res.json({ token: tokens[0] || null, tokens });
 };
-export { issueToken, getDoctorQueue, recordVitals, startConsultation, completeConsultation, markNoShow, getMyActiveToken, checkIn };
+
+import { clinicalRevision, clinicalNotes, notesHash, checkTokenClinicalEdit, commitTokenClinicalEdit, invalidateSoap, soapApprovalFields } from "../services/clinicalWrites.js";
+import { generateSoapNote } from "../services/copilotTools.js";
+import { withBoundedTimeout } from "../services/aiReliabilityService.js";
+
+const saveTokenNotes = async (req, res) => {
+  if (req.staff?.role !== "DOCTOR") throw accessError(403, "Only doctors can add notes");
+  const token = await loadVisit(req.staff, req.params.tokenId);
+  if (idOf(token.doctorId) !== req.staff.id) throw accessError(403, "Only the assigned doctor can manage this consultation");
+  const revision = clinicalRevision(req.body?.revision);
+  const notes = clinicalNotes(req.body?.doctorNotes ?? req.body?.consultationNotes ?? "");
+  const diagnosis = req.body?.diagnosis !== undefined ? String(req.body.diagnosis).trim() : token.diagnosis || "";
+
+  const changed = await commitTokenClinicalEdit({
+    token,
+    revision,
+    actorId: req.staff.id,
+    reason: "doctor-notes",
+    fields: {
+      consultationNotes: notes,
+      diagnosis,
+      ...invalidateSoap(),
+    },
+    unset: soapApprovalFields,
+  });
+  await notify("opd:notes-updated", changed);
+  return res.json({
+    message: "Doctor notes saved",
+    tokenId: changed._id,
+    consultationNotes: changed.consultationNotes,
+    doctorNotes: changed.consultationNotes,
+    diagnosis: changed.diagnosis,
+    revision: changed.revision,
+    soapNote: changed.soapNote || null,
+  });
+};
+
+const generateTokenSoap = async (req, res) => {
+  if (req.staff?.role !== "DOCTOR") throw accessError(403, "Only doctors can generate SOAP notes");
+  const token = await loadVisit(req.staff, req.params.tokenId);
+  if (idOf(token.doctorId) !== req.staff.id) throw accessError(403, "Only the assigned doctor can manage this consultation");
+  const revision = clinicalRevision(req.body?.revision);
+  const notes = clinicalNotes(req.body?.doctorNotes ?? req.body?.consultationNotes ?? token.consultationNotes ?? "");
+  checkTokenClinicalEdit(token, revision);
+
+  const soapResult = await withBoundedTimeout(
+    generateSoapNote({
+      transcript: "",
+      doctorNotes: notes,
+      patientBrief: token.aiTriage?.patientBrief || null,
+      agentInsights: [],
+    }),
+    7000,
+    null
+  );
+
+  let soapNote = soapResult;
+  if (!soapNote || ["subjective", "objective", "assessment", "plan"].some(key => typeof soapNote[key] !== "string" || soapNote[key].length > 12000)) {
+    const complaint = token.chiefComplaint || token.aiTriage?.patientBrief?.chiefComplaint || "General consultation";
+    soapNote = {
+      subjective: notes || complaint,
+      objective: token.vitals?.bp ? `Vitals recorded: BP ${token.vitals.bp}, Pulse ${token.vitals.pulse ?? "N/A"}` : "In-person examination performed.",
+      assessment: token.diagnosis || complaint,
+      plan: notes ? "Continue prescribed care and follow up as advised." : "Awaiting clinical notes and plan.",
+      markdown: `### Subjective\n${notes || complaint}\n\n### Objective\n${token.vitals?.bp ? `BP ${token.vitals.bp}` : "Examination performed"}\n\n### Assessment\n${token.diagnosis || complaint}\n\n### Plan\nFollow up as advised.`,
+    };
+  }
+
+  const nextVersion = (token.soapNote?.version || 0) + 1;
+  const draft = {
+    ...soapNote,
+    version: nextVersion,
+    sourceNotesHash: notesHash(notes),
+    generatedAt: new Date(),
+    generatedBy: "ai-copilot",
+    isDraft: true,
+    clinicianApproved: false,
+    disclaimer: "AI-generated draft for clinician review only.",
+  };
+
+  const changed = await commitTokenClinicalEdit({
+    token,
+    revision,
+    actorId: req.staff.id,
+    reason: "soap-draft",
+    fields: {
+      soapNote: draft,
+      consultationNotes: notes,
+    },
+  });
+  await notify("opd:soap-ready", changed);
+  return res.json({
+    message: "SOAP note generated",
+    tokenId: changed._id,
+    revision: changed.revision,
+    soapNote: changed.soapNote,
+  });
+};
+
+const approveTokenSoap = async (req, res) => {
+  if (req.staff?.role !== "DOCTOR") throw accessError(403, "Only doctors can approve SOAP notes");
+  const token = await loadVisit(req.staff, req.params.tokenId);
+  if (idOf(token.doctorId) !== req.staff.id) throw accessError(403, "Only the assigned doctor can manage this consultation");
+  const revision = clinicalRevision(req.body?.revision);
+  const noteVersion = req.body?.noteVersion;
+  if (!Number.isSafeInteger(noteVersion) || noteVersion < 1) {
+    throw accessError(400, "A reviewed SOAP version is required");
+  }
+
+  const currentNotesHash = notesHash(token.consultationNotes || "");
+  if (token.soapNote?.version !== noteVersion || token.soapNote?.sourceNotesHash !== currentNotesHash) {
+    throw accessError(409, "SOAP draft or source notes changed. Generate and review the latest draft.");
+  }
+
+  const changed = await commitTokenClinicalEdit({
+    token,
+    revision,
+    actorId: req.staff.id,
+    reason: "soap-review",
+    condition: {
+      "soapNote.version": noteVersion,
+      "soapNote.sourceNotesHash": currentNotesHash,
+    },
+    fields: {
+      "soapNote.isDraft": false,
+      "soapNote.clinicianApproved": true,
+      "soapNote.approvedBy": req.staff.id,
+      "soapNote.approvedByName": req.staff.name || "Attending Physician",
+      "soapNote.approvedAt": new Date(),
+    },
+  });
+  await notify("opd:soap-approved", changed);
+  return res.json({
+    message: "SOAP note approved by clinician",
+    tokenId: changed._id,
+    revision: changed.revision,
+    soapNote: changed.soapNote,
+  });
+};
+
+const getServiceDepartments = async (req, res) => {
+  const { hospitalId } = req.params;
+  if (!sameHospital(req, hospitalId)) throw accessError(403, "Forbidden hospital access");
+  requireRecordId(hospitalId, "hospital");
+  const hospital = await Hospital.findOne({ _id: hospitalId, status: "active" }).lean();
+  if (!hospital) throw accessError(404, "Active hospital not found");
+
+  const [departments, staffMembers] = await Promise.all([
+    Department.find({ hospitalId, status: "active" }).select("_id name code").lean(),
+    HospitalStaff.find({
+      hospitalId,
+      role: { $in: ["LAB_TECH", "PHARMACIST"] },
+      isActive: true,
+      inviteStatus: "accepted",
+    }).select("role departmentIds").lean(),
+  ]);
+
+  const labDeptIdSet = new Set();
+  const pharmacyDeptIdSet = new Set();
+  for (const member of staffMembers) {
+    for (const dId of member.departmentIds || []) {
+      const idStr = String(dId);
+      if (member.role === "LAB_TECH") labDeptIdSet.add(idStr);
+      if (member.role === "PHARMACIST") pharmacyDeptIdSet.add(idStr);
+    }
+  }
+
+  const labDepartments = departments.filter((d) => labDeptIdSet.has(String(d._id)));
+  const pharmacyDepartments = departments.filter((d) => pharmacyDeptIdSet.has(String(d._id)));
+
+  return res.json({
+    departments,
+    serviceDepartments: {
+      lab: labDepartments,
+      pharmacy: pharmacyDepartments,
+    },
+  });
+};
+
+export {
+  issueToken,
+  getDoctorQueue,
+  recordVitals,
+  startConsultation,
+  completeConsultation,
+  markNoShow,
+  getMyActiveToken,
+  checkIn,
+  saveTokenNotes,
+  generateTokenSoap,
+  approveTokenSoap,
+  getServiceDepartments,
+};

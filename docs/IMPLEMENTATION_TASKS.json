@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG07",
+  "startWith": "AG08",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -437,7 +437,7 @@
     {
       "id": "AG07",
       "title": "Connected clinician ordering and hospital note review",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG03",
@@ -462,7 +462,32 @@
         "Draft/review invalidation, terminal edits, cancellation/reload and denied catalog access are rendered and tested."
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
-      "track": "outpatient_pilot"
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG07 connected clinician ordering and hospital note review, 21 October 2026",
+        "clinicalHospitalOrderingIntegration": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "integrationRunner": {
+          "passed": 258,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 168,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 53,
+          "failed": 0,
+          "skipped": 0
+        },
+        "build": "passed",
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG08",

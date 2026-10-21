@@ -26,3 +26,10 @@
 .mp-clinical-row .mp-actions { flex-shrink:0; }
 .mp-clinical-page .mp-card { min-width:0; }
 @media (max-width:760px) { .mp-clinical-header, .mp-clinical-visit-heading, .mp-clinical-row { flex-direction:column; } .mp-clinical-columns, .mp-clinical-controls { grid-template-columns:minmax(0,1fr); } .mp-clinical-row .mp-actions { width:100%; } .mp-clinical-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.mp-clinical-orders { margin-top: 20px; display: grid; gap: 16px; }
+.mp-clinical-composer { background: var(--mp-surface-muted); border: 1px solid var(--mp-border); border-radius: var(--mp-radius); padding: 16px; display: grid; gap: 12px; }
+.mp-clinical-composer summary { min-height: 44px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.mp-clinical-item-row { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.mp-critical-alert { border: 2px solid #ef4444; background: #fef2f2; border-radius: var(--mp-radius); padding: 16px; margin-bottom: 16px; color: #991b1b; }
+.mp-critical-alert h4 { margin: 0 0 6px; color: #b91c1c; display: flex; align-items: center; gap: 8px; }
+.mp-order-card { border: 1px solid var(--mp-border); border-radius: var(--mp-radius); padding: 12px; background: var(--mp-surface); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
