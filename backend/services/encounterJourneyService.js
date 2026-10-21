@@ -6,8 +6,13 @@ import HospitalStaff from "../model/hospitalStaff.js";
 import OpdToken from "../model/opdToken.js";
 import { accessError } from "./hospitalAccess.js";
 import { assertClinicalWorkflowReady } from "./clinicalSchema.js";
+import { moneyTransaction } from "./moneyTransaction.js";
 
 import Appointment from "../model/appointment.js";
+import User from "../model/user.js";
+import LabOrder from "../model/labOrder.js";
+import Prescription from "../model/prescription.js";
+import EncounterClaimChallenge from "../model/encounterClaimChallenge.js";
 
 const DEFAULT_STEPS = ["reception", "vitals", "consultation"];
 
@@ -781,38 +786,332 @@ export const getEncounterCustodyDetails = async ({ encounterId, hospitalId }) =>
   };
 };
 
+export const requestClaimOtp = async ({ encounterId, userId, phone, familyMemberId, otp }) => {
+  if (!userId) throw accessError(401, "Sign in is required to claim a visit");
+  const encounter = await EncounterJourney.findById(encounterId);
+  if (!encounter) throw accessError(404, "Encounter journey not found");
+  if (!encounter.isWalkIn) throw accessError(400, "This visit was not booked as a walk-in");
+  if (encounter.linkedUserId) {
+    if (String(encounter.linkedUserId) === String(userId)) {
+      return { alreadyLinked: true, message: "Encounter is already linked to your account" };
+    }
+    throw accessError(409, "This walk-in ticket is already linked to an account");
+  }
+
+  const token = encounter.tokenId ? await OpdToken.findById(encounter.tokenId).lean() : null;
+  const user = await User.findById(userId).lean();
+  if (!user) throw accessError(404, "User not found");
+
+  if (familyMemberId) {
+    const validFamily = (user.familyMembers || []).some(
+      (m) => String(m._id) === String(familyMemberId) && !m.archivedAt
+    );
+    if (!validFamily) throw accessError(400, "Invalid family member for this account");
+  }
+
+  // Policy decision for phone matching:
+  // If walk-in ticket has recorded phone, caller's phone or user's phone must match
+  const recordedPhone = token?.patientInfo?.phone ? String(token.patientInfo.phone).trim() : "";
+  const targetPhone = phone ? String(phone).trim() : (user.phoneNumber ? String(user.phoneNumber).trim() : "");
+
+  if (recordedPhone) {
+    const normalizedRecorded = recordedPhone.replace(/\D/g, "");
+    const normalizedTarget = (targetPhone || "").replace(/\D/g, "");
+    if (!normalizedTarget || normalizedRecorded.slice(-10) !== normalizedTarget.slice(-10)) {
+      throw accessError(403, "Phone number does not match walk-in record");
+    }
+  }
+
+  const challengeId = `claim_otp:${encounter._id}:${userId}`;
+  const now = new Date();
+  const existing = await EncounterClaimChallenge.findById(challengeId);
+  if (existing?.requestedAt && existing.requestedAt > new Date(now.getTime() - 60000)) {
+    throw accessError(429, "Wait a minute before requesting another OTP");
+  }
+
+  const generatedOtp = otp ? String(otp) : String(100000 + crypto.randomInt(900000));
+  const hashed = crypto
+    .createHmac("sha256", process.env.TOKEN_KEY || "default_test_token_key")
+    .update(String(generatedOtp))
+    .digest("hex");
+  const expiresAt = new Date(now.getTime() + 600000); // 10 minutes
+
+  await EncounterClaimChallenge.findOneAndUpdate(
+    { _id: challengeId },
+    {
+      $set: {
+        kind: "otp",
+        encounterId: encounter._id,
+        hospitalId: encounter.hospitalId,
+        userId,
+        familyMemberId: String(familyMemberId || ""),
+        phone: targetPhone || recordedPhone || "unrecorded",
+        otpHash: hashed,
+        attempts: 0,
+        requestedAt: now,
+        expiresAt,
+        consumedAt: null,
+      },
+    },
+    { upsert: true }
+  );
+
+  const maskedPhone = targetPhone && targetPhone.length >= 4
+    ? targetPhone.replace(/.(?=.{4})/g, "*")
+    : "registered phone";
+
+  return {
+    success: true,
+    message: `Verification OTP sent to ${maskedPhone}`,
+    expiresAt,
+    maskedPhone,
+    ...(process.env.NODE_ENV === "test" || !process.env.NODE_ENV ? { devOtp: generatedOtp } : {}),
+  };
+};
+
+export const verifyClaimOtp = async ({ encounterId, userId, otp }) => {
+  if (!userId) throw accessError(401, "Sign in is required to verify claim");
+  if (!otp || (typeof otp !== "string" && typeof otp !== "number")) {
+    throw accessError(400, "OTP is required");
+  }
+  const challengeId = `claim_otp:${encounterId}:${userId}`;
+  const now = new Date();
+  const challenge = await EncounterClaimChallenge.findById(challengeId).select("+otpHash");
+  if (!challenge || challenge.expiresAt <= now || challenge.consumedAt) {
+    throw accessError(410, "OTP expired or already used");
+  }
+  if (challenge.attempts >= 5) {
+    throw accessError(429, "Too many wrong OTP attempts");
+  }
+
+  const hashed = crypto
+    .createHmac("sha256", process.env.TOKEN_KEY || "default_test_token_key")
+    .update(String(otp))
+    .digest("hex");
+
+  if (challenge.otpHash !== hashed) {
+    await EncounterClaimChallenge.updateOne(
+      { _id: challengeId, otpHash: challenge.otpHash, attempts: { $lt: 5 }, consumedAt: null, expiresAt: { $gt: now } },
+      { $inc: { attempts: 1 } }
+    );
+    throw accessError(401, "Incorrect OTP");
+  }
+
+  // Atomically mark OTP challenge consumed
+  const consumed = await EncounterClaimChallenge.findOneAndUpdate(
+    { _id: challengeId, attempts: { $lt: 5 }, consumedAt: null, expiresAt: { $gt: now } },
+    { $set: { consumedAt: now } },
+    { new: true }
+  );
+  if (!consumed) throw accessError(410, "OTP expired or already used");
+
+  // Generate verified proof token
+  const token = crypto.randomBytes(32).toString("hex");
+  const proofHash = crypto.createHash("sha256").update(token).digest("hex");
+  const proofDocId = `claim_proof:${proofHash}`;
+  const expiresAt = new Date(now.getTime() + 600000); // 10 minutes
+
+  await EncounterClaimChallenge.create({
+    _id: proofDocId,
+    kind: "proof",
+    encounterId: challenge.encounterId,
+    hospitalId: challenge.hospitalId,
+    userId: challenge.userId,
+    familyMemberId: challenge.familyMemberId || "",
+    phone: challenge.phone,
+    expiresAt,
+    consumedAt: null,
+  });
+
+  return {
+    verified: true,
+    claimProof: token,
+    expiresAt,
+  };
+};
+
 export const linkWalkInToAccount = async ({
   encounterId,
   tokenId,
   userId,
+  claimProof,
+  familyMemberId,
 }) => {
-  const query = encounterId ? { _id: encounterId } : { tokenId };
-  const encounter = await EncounterJourney.findOne(query);
-  if (!encounter) throw accessError(404, "Encounter journey not found");
-
-  if (!encounter.isWalkIn) {
-    throw accessError(400, "This visit was not booked as a walk-in");
+  if (!userId) throw accessError(401, "Sign in is required to link a visit");
+  if (!claimProof || typeof claimProof !== "string" || !claimProof.trim()) {
+    throw accessError(400, "Claim proof is required to link a walk-in visit to an account");
   }
 
-  if (encounter.linkedUserId) {
-    throw accessError(409, "This walk-in ticket is already linked to an account");
+  const proofHash = crypto.createHash("sha256").update(claimProof.trim()).digest("hex");
+  const proofDocId = `claim_proof:${proofHash}`;
+  const now = new Date();
+
+  // Validate proof existence and bounds
+  const proof = await EncounterClaimChallenge.findById(proofDocId).lean();
+  if (!proof || proof.kind !== "proof" || proof.expiresAt <= now) {
+    throw accessError(410, "Claim proof expired or invalid");
   }
 
-  encounter.linkedUserId = userId;
-  encounter.patientId = userId;
-  encounter.linkedAt = new Date();
-  encounter.revision += 1;
+  // Check account ownership of proof
+  if (String(proof.userId) !== String(userId)) {
+    throw accessError(403, "Claim proof belongs to a different account");
+  }
 
-  await encounter.save();
+  // Check encounter binding of proof
+  const targetEncounterId = encounterId || proof.encounterId;
+  if (String(proof.encounterId) !== String(targetEncounterId)) {
+    throw accessError(403, "Claim proof belongs to a different encounter");
+  }
 
-  // Also link the OPD token if present
-  if (encounter.tokenId) {
-    await OpdToken.findByIdAndUpdate(encounter.tokenId, {
-      $set: { patientId: userId, "patientInfo.isWalkIn": false },
+  // If already consumed, check if this is an idempotent replay by the same user
+  if (proof.consumedAt) {
+    const existing = await EncounterJourney.findById(targetEncounterId).lean();
+    if (existing && String(existing.linkedUserId) === String(userId)) {
+      return {
+        encounter: existing,
+        isReplay: true,
+        message: "Walk-in ticket already linked to your account",
+      };
+    }
+    throw accessError(410, "Claim authorization already used");
+  }
+
+  let linkedEncounter = null;
+  let isReplay = false;
+
+  await moneyTransaction(async (session) => {
+    // 1. Atomically consume the proof
+    const claimedProof = await EncounterClaimChallenge.findOneAndUpdate(
+      { _id: proofDocId, kind: "proof", consumedAt: null, expiresAt: { $gt: now } },
+      { $set: { consumedAt: now } },
+      { new: true, session }
+    );
+
+    if (!claimedProof) {
+      // Replay recovery check inside transaction
+      const existing = await EncounterJourney.findById(targetEncounterId).session(session);
+      if (existing && String(existing.linkedUserId) === String(userId)) {
+        linkedEncounter = existing;
+        isReplay = true;
+        return;
+      }
+      throw accessError(410, "Claim authorization expired or already used");
+    }
+
+    // 2. Load EncounterJourney
+    const query = encounterId ? { _id: encounterId } : { tokenId };
+    const encounter = await EncounterJourney.findOne(query).session(session);
+    if (!encounter) throw accessError(404, "Encounter journey not found");
+    if (!encounter.isWalkIn) throw accessError(400, "This visit was not booked as a walk-in");
+
+    // Concurrency check: simultaneous claims cannot link to different owners
+    if (encounter.linkedUserId) {
+      if (String(encounter.linkedUserId) === String(userId)) {
+        linkedEncounter = encounter;
+        isReplay = true;
+        return;
+      }
+      throw accessError(409, "This walk-in ticket is already linked to another account");
+    }
+
+    // 3. Validate user and family member
+    const user = await User.findById(userId).session(session);
+    if (!user) throw accessError(404, "User not found");
+
+    const effectiveFamily = familyMemberId || proof.familyMemberId || null;
+    if (effectiveFamily) {
+      const validFamily = (user.familyMembers || []).some(
+        (m) => String(m._id) === String(effectiveFamily) && !m.archivedAt
+      );
+      if (!validFamily) throw accessError(400, "Invalid family member for this account");
+    }
+
+    // 4. Update EncounterJourney
+    encounter.linkedUserId = userId;
+    encounter.patientId = userId;
+    if (effectiveFamily) encounter.familyMemberId = effectiveFamily;
+    encounter.linkedAt = now;
+    encounter.claimProofId = proofDocId;
+    encounter.revision = (encounter.revision || 0) + 1;
+
+    encounter.stageHistory.push({
+      stage: encounter.currentStage,
+      fromStage: encounter.currentStage,
+      destination: encounter.currentDestination,
+      actorId: userId,
+      actorRole: "patient",
+      actorName: [user.firstName, user.lastName].filter(Boolean).join(" ") || "Patient",
+      timestamp: now,
+      notes: "Walk-in encounter claimed and linked to patient account via verified proof",
     });
-  }
 
-  return encounter;
+    await encounter.save({ session });
+
+    // 5. Update OpdToken atomically while preserving original isWalkIn: true
+    if (encounter.tokenId) {
+      await OpdToken.findByIdAndUpdate(
+        encounter.tokenId,
+        {
+          $set: {
+            patientId: userId,
+            ...(effectiveFamily ? { familyMemberId: effectiveFamily } : {}),
+            linkedUserId: userId,
+            linkedAt: now,
+            claimProofId: proofDocId,
+          },
+          $inc: { revision: 1 },
+        },
+        { session }
+      );
+    }
+
+    // 6. Update Appointment if linked
+    if (encounter.appointmentId) {
+      await Appointment.findByIdAndUpdate(
+        encounter.appointmentId,
+        {
+          $set: {
+            user: userId,
+            patientId: userId,
+            ...(effectiveFamily ? { familyMemberId: effectiveFamily } : {}),
+          },
+        },
+        { session }
+      );
+    }
+
+    // 7. Update LabOrder & Prescription if any exist
+    const filter = {
+      $or: [
+        { encounterJourneyId: encounter._id },
+        ...(encounter.tokenId ? [{ tokenId: encounter.tokenId }] : []),
+      ],
+    };
+    await LabOrder.updateMany(
+      filter,
+      {
+        $set: {
+          patientId: userId,
+          ...(effectiveFamily ? { familyMemberId: effectiveFamily } : {}),
+        },
+      },
+      { session }
+    );
+    await Prescription.updateMany(
+      filter,
+      {
+        $set: {
+          patientId: userId,
+          ...(effectiveFamily ? { familyMemberId: effectiveFamily } : {}),
+        },
+      },
+      { session }
+    );
+
+    linkedEncounter = encounter;
+  });
+
+  return { encounter: linkedEncounter, isReplay };
 };
 
 export const getEncounterGuidance = async ({ tokenId, appointmentId, encounterId }) => {

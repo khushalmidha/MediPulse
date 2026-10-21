@@ -58,19 +58,78 @@ export default function PatientVisits({ slug }) {
     scheduled.refresh();
   };
 
+  const [claimDialogVisit, setClaimDialogVisit] = useState(null);
+  const [claimStep, setClaimStep] = useState("init");
+  const [claimOtp, setClaimOtp] = useState("");
+  const [claimPhone, setClaimPhone] = useState("");
+  const [claimFamilyId, setClaimFamilyId] = useState("");
+  const [claimError, setClaimError] = useState("");
+  const [claimLoading, setClaimLoading] = useState(false);
+  const [claimNotice, setClaimNotice] = useState("");
+
   const visible = loadedOwner === ownerId ? (tokenId ? visits.filter((visit) => visit._id === tokenId) : visits) : [];
 
-  const handleLinkWalkIn = async (visitId) => {
-    setLinkingVisitId(visitId);
-    setLinkFeedback("");
+  const openClaimModal = (visit) => {
+    setClaimDialogVisit(visit);
+    setClaimStep("init");
+    setClaimOtp("");
+    setClaimPhone(visit.patientInfo?.phone || (user?.phoneNumber ? String(user.phoneNumber) : ""));
+    setClaimFamilyId("");
+    setClaimError("");
+    setClaimNotice("");
+  };
+
+  const handleRequestOtp = async () => {
+    if (!claimDialogVisit) return;
+    setClaimLoading(true);
+    setClaimError("");
     try {
-      await axios.post(`${BACKEND_URL}/api/encounters/${visitId}/link-account`, {}, { withCredentials: true });
-      setLinkFeedback("Walk-in visit linked successfully to your account!");
+      const res = await axios.post(
+        `${BACKEND_URL}/api/encounters/${claimDialogVisit._id}/claim-challenge`,
+        {
+          phone: claimPhone || undefined,
+          familyMemberId: claimFamilyId || undefined,
+        },
+        { withCredentials: true }
+      );
+      setClaimNotice(res.data?.message || "Verification code sent!");
+      setClaimStep("otp_sent");
+    } catch (err) {
+      setClaimError(err.response?.data?.message || "Could not request verification code.");
+    } finally {
+      setClaimLoading(false);
+    }
+  };
+
+  const handleVerifyAndLink = async () => {
+    if (!claimDialogVisit || !claimOtp) return;
+    setClaimLoading(true);
+    setClaimError("");
+    try {
+      const verifyRes = await axios.post(
+        `${BACKEND_URL}/api/encounters/${claimDialogVisit._id}/verify-claim`,
+        { otp: claimOtp },
+        { withCredentials: true }
+      );
+      const claimProof = verifyRes.data?.claimProof;
+      if (!claimProof) throw new Error("Could not obtain verified claim proof.");
+
+      const linkRes = await axios.post(
+        `${BACKEND_URL}/api/encounters/${claimDialogVisit._id}/link-account`,
+        {
+          claimProof,
+          familyMemberId: claimFamilyId || undefined,
+        },
+        { withCredentials: true }
+      );
+
+      setLinkFeedback(linkRes.data?.message || "Walk-in visit linked successfully to your account!");
+      setClaimDialogVisit(null);
       refreshAll();
     } catch (err) {
-      setLinkFeedback(err.response?.data?.message || "Could not link walk-in visit to account.");
+      setClaimError(err.response?.data?.message || err.message || "Could not link walk-in visit to account.");
     } finally {
-      setLinkingVisitId(null);
+      setClaimLoading(false);
     }
   };
 
@@ -249,8 +308,7 @@ export default function PatientVisits({ slug }) {
                         <Button
                           variant="secondary"
                           size="small"
-                          disabled={linkingVisitId === visit._id}
-                          onClick={() => handleLinkWalkIn(visit._id)}
+                          onClick={() => openClaimModal(visit)}
                         >
                           <Link2 size={15} /> Link to My Account
                         </Button>
@@ -308,6 +366,136 @@ export default function PatientVisits({ slug }) {
                 Close
               </Button>
             </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Walk-in Account Claim Modal */}
+      {claimDialogVisit && (
+        <Dialog
+          open={Boolean(claimDialogVisit)}
+          onClose={() => setClaimDialogVisit(null)}
+          title={`Claim Walk-in Visit #${claimDialogVisit.displayToken || claimDialogVisit.tokenNumber}`}
+        >
+          <div className="mp-stack" style={{ padding: "8px 0" }}>
+            <p className="mp-field-hint">
+              Link this hospital walk-in ticket to your patient account to track consultation progress, view prescriptions, and access test results.
+            </p>
+
+            {claimError && <Banner tone="error">{claimError}</Banner>}
+            {claimNotice && <Banner tone="positive">{claimNotice}</Banner>}
+
+            <div style={{ background: "var(--mp-surface-subtle)", padding: 12, borderRadius: 8, fontSize: "0.9rem" }}>
+              <div><strong>Token:</strong> {claimDialogVisit.displayToken || `T${claimDialogVisit.tokenNumber}`}</div>
+              {claimDialogVisit.patientInfo?.name && (
+                <div><strong>Patient:</strong> {claimDialogVisit.patientInfo.name}</div>
+              )}
+              <div><strong>Service Date:</strong> {claimDialogVisit.serviceDate || "Today"}</div>
+            </div>
+
+            {user?.familyMembers && user.familyMembers.length > 0 && (
+              <div className="mp-form-field">
+                <label htmlFor="claim-family-select" style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                  Link visit to
+                </label>
+                <select
+                  id="claim-family-select"
+                  value={claimFamilyId}
+                  onChange={(e) => setClaimFamilyId(e.target.value)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    border: "1px solid var(--mp-border)",
+                    background: "var(--mp-surface)",
+                    color: "var(--mp-text)",
+                  }}
+                >
+                  <option value="">Myself ({user.firstName || "Account Owner"})</option>
+                  {user.familyMembers.map((fam) => (
+                    <option key={fam._id} value={fam._id}>
+                      {fam.name} ({fam.relation || "Family"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {claimStep === "init" ? (
+              <div className="mp-stack" style={{ gap: 12, marginTop: 8 }}>
+                <div className="mp-form-field">
+                  <label htmlFor="claim-phone-input" style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                    Verification Phone Number
+                  </label>
+                  <input
+                    id="claim-phone-input"
+                    type="tel"
+                    placeholder="10-digit mobile number"
+                    value={claimPhone}
+                    onChange={(e) => setClaimPhone(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--mp-border)",
+                      background: "var(--mp-surface)",
+                      color: "var(--mp-text)",
+                    }}
+                  />
+                  <span className="mp-field-hint" style={{ fontSize: "0.78rem" }}>
+                    Must match the contact number recorded during walk-in check-in.
+                  </span>
+                </div>
+
+                <div className="mp-actions" style={{ justifyContent: "flex-end", marginTop: 8 }}>
+                  <Button variant="secondary" onClick={() => setClaimDialogVisit(null)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleRequestOtp} disabled={claimLoading}>
+                    {claimLoading ? "Sending OTP..." : "Send Verification Code"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mp-stack" style={{ gap: 12, marginTop: 8 }}>
+                <div className="mp-form-field">
+                  <label htmlFor="claim-otp-input" style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                    Enter 6-Digit Code
+                  </label>
+                  <input
+                    id="claim-otp-input"
+                    type="text"
+                    maxLength={6}
+                    placeholder="e.g. 123456"
+                    value={claimOtp}
+                    onChange={(e) => setClaimOtp(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--mp-border)",
+                      background: "var(--mp-surface)",
+                      color: "var(--mp-text)",
+                      letterSpacing: "4px",
+                      fontWeight: 700,
+                      fontSize: "1.1rem",
+                      textAlign: "center",
+                    }}
+                  />
+                </div>
+
+                <div className="mp-actions" style={{ justifyContent: "space-between", marginTop: 8 }}>
+                  <Button variant="ghost" size="small" onClick={() => setClaimStep("init")} disabled={claimLoading}>
+                    Change phone / resend
+                  </Button>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Button variant="secondary" onClick={() => setClaimDialogVisit(null)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleVerifyAndLink} disabled={claimLoading || claimOtp.length < 4}>
+                      {claimLoading ? "Linking..." : "Verify & Link Account"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </Dialog>
       )}

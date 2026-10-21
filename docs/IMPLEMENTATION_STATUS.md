@@ -15,8 +15,8 @@ This review starts from `565134c2` and includes the AG00 fixes delivered with th
 | Online calls | Join lobby, responsive fullscreen/fallback, mute/camera/reconnect, leave/rejoin and save-before-end are implemented | Physical-device/cross-network TURN and observed Edge synthetic-camera limitations remain release checks |
 | Appointment clinical notes / SOAP | Atomic revision/status writes, private prior snapshots, exact version/source review and UI are implemented | AG00 repairs the real copilot URL/CSRF and the alternate consultation-record bypass; completed amendments and hospital-specific review remain AG07 |
 | Hospital queue pause | Persistent QueueRevision state/history, scoped commands, paused start enforcement and doctor controls exist | Independent controls, actual priority ordering, terminal ETA and kiosk timezone/session/doctor correctness: AG09 |
-| Encounter journey | Read authorization, named-index/provenance inspection, AG02 transactional/idempotent encounter initialization, AG03 source-driven stage/destination transitions/location administration, and AG04 physical file custody tracking/refusal are verified locally | Walk-in account claim: AG05 |
-| Walk-in claim | A route and patient button exist | Route is deliberately disabled; proof and atomic cross-record linking are missing: AG05 |
+| Encounter journey | Read authorization, named-index/provenance inspection, AG02 transactional/idempotent encounter initialization, AG03 source-driven stage/destination transitions/location administration, AG04 physical file custody tracking/refusal, and AG05 verified walk-in account claim are verified locally | Connected clinician/patient UI & records: AG07-AG08 |
+| Walk-in claim | Verified claim challenge OTP, cryptographically signed claim proof with attempt/expiry bounds, atomic multi-document linking, replay recovery, and patient claim UI are implemented (AG05) | Patient document packet and ticket QR encoder: AG08 |
 | Labs | Staff catalog/results worklist, transactional versioned result workflow, approved independent verification, release/amendment and critical tasks exist. AG01 establishes creation key and accession barcode named indexes | Initial createLabOrder still performs a normal save after nontransactional source checks; creation replay/complete coordination and connected clinician/patient UI: AG06-AG08 |
 | Pharmacy | Qualified transactional dispensing/returns/batch receipts and replay UI exist. AG01 establishes creation key and verification token named indexes | Initial createPrescription still uses a normal save; clinician composition, creation replay, patient documents: AG06-AG08 |
 | Patient records / ticket | Family/history and hospital visit pages, patient lab/prescription API projections exist | Patient UI does not yet connect the released lab/prescription packet; displayed QR is not a working encoder/resolver; unknown destinations may be inferred: AG08 |
@@ -30,6 +30,8 @@ This review starts from `565134c2` and includes the AG00 fixes delivered with th
 | Enterprise HIMS | ENTERPRISE_PLAN exists | IPD/ADT/beds, inpatient medication/nursing, theatre/emergency, revenue/procurement and interfaces require approved requirements and real implementation: AG17-AG22 |
 
 ## Evidence and limits
+
+Fresh AG05 acceptance: 8 encounter walk-in claim integration cases, 8 astra access cases, 168 backend unit and 50 frontend unit checks; frontend build cleanly verified against local MongoDB replica set and Redis. Details in WORK_LOG.
 
 Fresh AG04 acceptance: 6 encounter custody integration cases, 8 astra access cases, 236 backend unit and integration cases, 50 frontend unit checks; frontend build cleanly verified against local MongoDB replica set and Redis. Details in WORK_LOG.
 

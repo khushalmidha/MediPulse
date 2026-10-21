@@ -14,6 +14,7 @@ const encounterJourneySchema = new mongoose.Schema(
     isWalkIn: { type: Boolean, default: false },
     linkedUserId: { type: objectId, ref: "user" },
     linkedAt: Date,
+    claimProofId: { type: String },
     ticketNumber: { type: String, required: true },
     qrPayload: { type: String },
 

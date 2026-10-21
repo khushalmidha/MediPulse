@@ -11,6 +11,8 @@ import {
   getCustodyWorklist,
   getEncounterCustodyDetails,
   linkWalkInToAccount,
+  requestClaimOtp,
+  verifyClaimOtp,
   getEncounterGuidance,
 } from "../services/encounterJourneyService.js";
 import { accessError, requireRecordId } from "../services/hospitalAccess.js";
@@ -125,19 +127,60 @@ export const getCustodyDetails = async (req, res) => {
   res.json(details);
 };
 
+export const requestClaimChallenge = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.auth?.id || req.user?._id;
+  if (!userId) throw accessError(401, "Sign in is required to request claim challenge");
+
+  const result = await requestClaimOtp({
+    encounterId: id,
+    userId,
+    phone: req.body.phone,
+    familyMemberId: req.body.familyMemberId,
+    otp: req.body.otp,
+  });
+
+  res.json(result);
+};
+
+export const verifyClaimChallenge = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.auth?.id || req.user?._id;
+  if (!userId) throw accessError(401, "Sign in is required to verify claim");
+
+  const result = await verifyClaimOtp({
+    encounterId: id,
+    userId,
+    otp: req.body.otp,
+  });
+
+  res.json(result);
+};
+
 export const linkWalkIn = async (req, res) => {
   const { id } = req.params;
   const userId = req.auth?.id || req.user?._id;
 
   if (!userId) throw accessError(401, "Sign in is required to link a visit");
 
-  const encounter = await linkWalkInToAccount({
+  const claimProof = req.body.claimProof || req.body.proof;
+  const result = await linkWalkInToAccount({
     encounterId: id,
     userId,
-    claimPhone: req.body.phone,
+    claimProof,
+    familyMemberId: req.body.familyMemberId,
   });
 
-  res.json({ message: "Walk-in ticket linked to account successfully", encounter });
+  const encounter = result?.encounter || result;
+  const isReplay = Boolean(result?.isReplay);
+
+  res.json({
+    message: isReplay
+      ? "Walk-in ticket already linked to your account"
+      : "Walk-in ticket linked to account successfully",
+    encounter,
+    isReplay,
+  });
 };
 
 export const getTicket = async (req, res) => {

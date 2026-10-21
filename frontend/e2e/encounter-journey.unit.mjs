@@ -32,10 +32,16 @@ export function formatFileCustody(file) {
   };
 }
 
-export function validateWalkInLinking(token, user) {
+export function validateWalkInLinking(token, user, options = {}) {
   if (!token?.isWalkIn) return { allowed: false, reason: "Not a walk-in token" };
   if (token.linkedUserId) return { allowed: false, reason: "Already linked to an account" };
   if (!user?._id) return { allowed: false, reason: "Authentication required" };
+  if (options.claimProofRequired && (!options.claimProof || !options.claimProof.trim())) {
+    return { allowed: false, reason: "Claim proof is required" };
+  }
+  if (options.expiresAt && new Date(options.expiresAt) <= new Date()) {
+    return { allowed: false, reason: "Claim proof expired" };
+  }
   return { allowed: true, userId: user._id };
 }
 
@@ -108,9 +114,23 @@ test("P12: Encounter guidance formatting, custody fallback and walk-in linking",
     const user = { _id: "usr_001" };
     const walkInToken = { isWalkIn: true, linkedUserId: null };
 
-    const result = validateWalkInLinking(walkInToken, user);
+    const result = validateWalkInLinking(walkInToken, user, { claimProofRequired: true, claimProof: "proof_123" });
     assert.equal(result.allowed, true);
     assert.equal(result.userId, "usr_001");
+
+    // Missing claim proof is blocked
+    const missingProof = validateWalkInLinking(walkInToken, user, { claimProofRequired: true, claimProof: "" });
+    assert.equal(missingProof.allowed, false);
+    assert.equal(missingProof.reason, "Claim proof is required");
+
+    // Expired claim proof is blocked
+    const expiredProof = validateWalkInLinking(walkInToken, user, {
+      claimProofRequired: true,
+      claimProof: "proof_123",
+      expiresAt: new Date(Date.now() - 5000),
+    });
+    assert.equal(expiredProof.allowed, false);
+    assert.equal(expiredProof.reason, "Claim proof expired");
 
     // Double linking is blocked
     const alreadyLinkedToken = { isWalkIn: true, linkedUserId: "usr_001" };

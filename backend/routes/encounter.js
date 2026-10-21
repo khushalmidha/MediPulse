@@ -9,6 +9,9 @@ import {
   refuseHandoff,
   getCustodyWorklistController,
   getCustodyDetails,
+  requestClaimChallenge,
+  verifyClaimChallenge,
+  linkWalkIn,
 } from "../controller/encounterJourney.js";
 import validateStaff from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
@@ -48,7 +51,11 @@ encounterRouter.post("/:id/handoff/accept", validateStaff, asyncRoute(acceptHand
 encounterRouter.post("/:id/refuse", validateStaff, asyncRoute(refuseHandoff));
 encounterRouter.post("/:id/handoff/refuse", validateStaff, asyncRoute(refuseHandoff));
 
-// AG05: walk-in link account retains explicit containment until its phase
-encounterRouter.post("/:id/link-account", userValidation, pendingEncounterRepair);
+// AG05: verified walk-in account claim
+encounterRouter.post("/:id/claim-challenge", userValidation, asyncRoute(requestClaimChallenge));
+encounterRouter.post("/:id/request-claim-otp", userValidation, asyncRoute(requestClaimChallenge));
+encounterRouter.post("/:id/verify-claim", userValidation, asyncRoute(verifyClaimChallenge));
+encounterRouter.post("/:id/verify-claim-otp", userValidation, asyncRoute(verifyClaimChallenge));
+encounterRouter.post("/:id/link-account", userValidation, asyncRoute(linkWalkIn));
 
 export default encounterRouter;

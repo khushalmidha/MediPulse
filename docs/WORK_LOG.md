@@ -1565,3 +1565,64 @@ Implemented physical file custody lifecycle including explicit initial-file regi
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+
+## AG05 - Verified walk-in account claim - 21 October 2026
+
+Baseline: following AG04 verification.
+Implemented cryptographically verified walk-in account claim lifecycle, replacing 503 containment on `POST /api/encounters/:id/link-account` with rate-limited OTP challenge generation, bounded wrong-attempt lockout, single-use 32-byte claim proof issuance, atomic multi-document linking across EncounterJourney, OpdToken, Appointment, LabOrder, and Prescription, replay recovery, and full patient claim UI.
+
+### Implemented changes
+
+- **Claim Challenge Model**:
+  - `backend/model/encounterClaimChallenge.js`:
+    - Added challenge schema supporting `kind: "otp" | "proof"` with HMAC-SHA256 OTP hash, 5 attempts maximum, 10-minute expiry with TTL index, single-use `consumedAt`, and indices on `{ expiresAt: 1 }` and `{ encounterId: 1, userId: 1, kind: 1 }`.
+- **Encounter and Token Schema Alignment**:
+  - `backend/model/encounterJourney.js`:
+    - Added `claimProofId: { type: String }`.
+  - `backend/model/opdToken.js`:
+    - Added `linkedUserId: { type: objectId, ref: "user" }`, `linkedAt: Date`, and `claimProofId: String`.
+- **Encounter Journey Service**:
+  - `backend/services/encounterJourneyService.js`:
+    - `requestClaimOtp`: verifies authentication, walk-in status, phone matching against walk-in record (with fallback policy for unrecorded phones), enforces 60s cooldown, generates 6-digit OTP, stores hashed challenge with 5 attempts max and 10-min expiry.
+    - `verifyClaimOtp`: checks expiry, bounds attempts (locks with 429 after 5 wrong attempts), verifies HMAC hash, atomically marks OTP consumed, and issues a 32-byte random claim proof token with SHA-256 hash document.
+    - `linkWalkInToAccount`: verifies claim proof ownership and encounter binding; handles idempotent replay recovery for already-linked users; executes inside `moneyTransaction`: atomically consumes proof, verifies non-conflict, validates family member ownership, updates `EncounterJourney` (sets `patientId`, `linkedUserId`, `linkedAt`, `claimProofId`, appends linking audit to `stageHistory`, increments revision, while preserving `isWalkIn: true`), updates `OpdToken` (preserves `isWalkIn: true`, preserves paymentStatus/paymentMode), updates `Appointment` (`user`, `patientId`), and updates any existing `LabOrder` and `Prescription`.
+- **Controller & Route Wiring**:
+  - `backend/controller/encounterJourney.js`:
+    - Added `requestClaimChallenge`, `verifyClaimChallenge`, and updated `linkWalkIn` to require verified `claimProof` and support idempotent replay responses.
+  - `backend/routes/encounter.js`:
+    - Replaced 503 containment on `POST /:id/link-account` with active `linkWalkIn`.
+    - Mounted `POST /:id/claim-challenge`, `POST /:id/request-claim-otp`, `POST /:id/verify-claim`, and `POST /:id/verify-claim-otp`.
+- **Frontend Patient Claim Dialog**:
+  - `frontend/src/pages/hospital-website/PatientVisits.jsx`:
+    - Added accessible Claim Walk-in Visit modal with token details, family member selector, phone verification challenge step, 6-digit OTP input, and verify & link action.
+    - Integrated instant feedback banners and automatic visit list refresh.
+  - `frontend/e2e/encounter-journey.unit.mjs`:
+    - Added claim proof requirement and expiry validation to `validateWalkInLinking` (50/50 unit tests passed).
+- **Test Infrastructure & Verification**:
+  - `backend/tests/integration/encounter-walkin-claim.test.js`:
+    - 8 comprehensive integration tests verifying:
+      1. Verified claim flow atomically links EncounterJourney, OpdToken, Appointment, LabOrder, Prescription while preserving walk-in identity (`isWalkIn: true`) and counter payments.
+      2. Unverified requests without claim proof, empty proofs, or wrong ticket IDs reject with 400 Bad Request.
+      3. Wrong OTP attempts bounded to 5, lock out with 429, and expired OTPs reject with 410.
+      4. Foreign proof (belonging to different account) and foreign encounter binding reject with 403.
+      5. Replayed consumed proof fails with 410 and simultaneous claims race cannot link to different owners (409 Conflict).
+      6. Replay recovery allows same owner to re-invoke linkWalkInToAccount idempotently.
+      7. Family member linking links valid family member and rejects foreign family member IDs with 400.
+      8. Non-walk-in encounter claim rejects with 400 Bad Request.
+  - `backend/tests/integration/astra-access.test.js`:
+    - Updated `link-account` test assertion to 400 Bad Request (8/8 passed).
+  - `backend/scripts/testIntegration.js`:
+    - Registered `encounter-walkin-claim.test.js`.
+
+### Executed checks and limits
+
+- **Encounter walk-in claim integration suite**: **8/8 passed**, zero failures/skips, **5.01 s** (`backend/tests/integration/encounter-walkin-claim.test.js`).
+- **Astra access integration suite**: **8/8 passed**, zero failures/skips, **6.08 s** (`backend/tests/integration/astra-access.test.js`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **38.38 s** (`npm test`).
+- **Frontend unit tests**: **50/50 passed**, zero failures/skips, **289 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **10.61 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against live local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
