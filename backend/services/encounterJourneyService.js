@@ -156,8 +156,8 @@ export const initializeEncounterJourney = async ({
           instructions: initialLocation.instructions || "Please report to the reception desk for check-in verification.",
         }
       : {
-          name: "Main Reception",
-          instructions: "Please report to the central hospital reception desk for check-in verification.",
+          name: "not recorded",
+          instructions: "Location not configured. Please consult hospital staff.",
         },
     stageHistory: [
       {
@@ -189,71 +189,161 @@ export const initializeEncounterJourney = async ({
   }
 };
 
+export const resolveDestinationForStage = async ({
+  hospitalId,
+  departmentId,
+  toStage,
+  locationId,
+  session,
+}) => {
+  if (locationId) {
+    const locQuery = HospitalLocation.findById(locationId);
+    if (session) locQuery.session(session);
+    const loc = await locQuery.lean();
+    if (!loc) throw accessError(404, "Destination location not found");
+    if (String(loc.hospitalId) !== String(hospitalId)) {
+      throw accessError(400, "Location does not belong to this hospital");
+    }
+    if (loc.status !== "active") {
+      throw accessError(400, "Destination location is inactive");
+    }
+    if (loc.departmentId && departmentId && String(loc.departmentId) !== String(departmentId)) {
+      throw accessError(400, "Location does not belong to the encounter department");
+    }
+    return {
+      locationId: loc._id,
+      name: loc.name,
+      building: loc.building,
+      floor: loc.floor,
+      roomNumber: loc.roomNumber,
+      instructions: loc.instructions || `Proceed to ${loc.name}`,
+    };
+  }
+
+  const targetService = STAGE_DESTINATION_SERVICE_MAP[toStage] || "consultation";
+  let loc = null;
+  if (departmentId) {
+    const deptQuery = HospitalLocation.findOne({
+      hospitalId,
+      departmentId,
+      serviceType: targetService,
+      status: "active",
+    });
+    if (session) deptQuery.session(session);
+    loc = await deptQuery.lean();
+  }
+  if (!loc) {
+    const hospQuery = HospitalLocation.findOne({
+      hospitalId,
+      serviceType: targetService,
+      status: "active",
+    });
+    if (session) hospQuery.session(session);
+    loc = await hospQuery.lean();
+  }
+
+  if (loc) {
+    return {
+      locationId: loc._id,
+      name: loc.name,
+      building: loc.building,
+      floor: loc.floor,
+      roomNumber: loc.roomNumber,
+      instructions: loc.instructions || `Proceed to ${loc.name}`,
+    };
+  }
+
+  return {
+    name: "not recorded",
+    instructions: "Location not configured. Please consult hospital staff.",
+  };
+};
+
 export const transitionEncounterStage = async ({
   encounterId,
+  hospitalId,
   toStage,
   actor,
   locationId,
   notes = "",
   overrideReason = "",
+  expectedRevision,
 }) => {
   const encounter = await EncounterJourney.findById(encounterId);
   if (!encounter) throw accessError(404, "Encounter journey not found");
 
+  if (hospitalId && String(encounter.hospitalId) !== String(hospitalId)) {
+    throw accessError(403, "You cannot modify encounters from another hospital");
+  }
+
+  if (expectedRevision !== undefined) {
+    if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
+      throw accessError(400, "Invalid encounter revision");
+    }
+    if ((encounter.revision || 0) !== expectedRevision) {
+      throw accessError(409, "Encounter changed; refresh before retrying");
+    }
+  }
+
   const fromStage = encounter.currentStage;
   if (fromStage === toStage) return encounter;
 
-  // Determine if transition is an override (skipping required steps)
-  const isOverride = Boolean(overrideReason);
-
-  // Find next destination based on stage
-  let nextDestLocation = null;
-  if (locationId) {
-    nextDestLocation = await HospitalLocation.findById(locationId).lean();
-  } else {
-    const targetService = STAGE_DESTINATION_SERVICE_MAP[toStage] || "consultation";
-    nextDestLocation = await HospitalLocation.findOne({
-      hospitalId: encounter.hospitalId,
-      departmentId: encounter.departmentId,
-      serviceType: targetService,
-      status: "active",
-    }).lean() || await HospitalLocation.findOne({
-      hospitalId: encounter.hospitalId,
-      serviceType: targetService,
-      status: "active",
-    }).lean();
+  if (["completed", "cancelled"].includes(fromStage)) {
+    throw accessError(409, "Cannot transition a completed or cancelled encounter");
   }
+
+  const STAGE_ORDER = ["booked", "checked_in", "reception", "vitals", "consultation", "diagnostics", "pharmacy", "completed"];
+  const fromIdx = STAGE_ORDER.indexOf(fromStage);
+  const toIdx = STAGE_ORDER.indexOf(toStage);
+
+  if (toIdx === -1 && toStage !== "cancelled") {
+    throw accessError(400, `Unknown target stage: ${toStage}`);
+  }
+
+  const required = encounter.requiredSteps || DEFAULT_STEPS;
+  let skippedRequired = false;
+  if (fromIdx !== -1 && toIdx !== -1) {
+    if (toIdx > fromIdx + 1) {
+      for (let i = fromIdx + 1; i < toIdx; i++) {
+        if (required.includes(STAGE_ORDER[i])) {
+          skippedRequired = true;
+          break;
+        }
+      }
+    } else if (toIdx < fromIdx) {
+      skippedRequired = true;
+    }
+  }
+
+  const hasReason = Boolean(overrideReason && overrideReason.trim());
+  if (skippedRequired && !hasReason) {
+    throw accessError(400, "Skipped required stages require an override reason");
+  }
+
+  const isOverride = hasReason || skippedRequired;
+
+  const nextDest = await resolveDestinationForStage({
+    hospitalId: encounter.hospitalId,
+    departmentId: encounter.departmentId,
+    toStage,
+    locationId,
+  });
 
   encounter.currentStage = toStage;
-  encounter.revision += 1;
-
-  if (nextDestLocation) {
-    encounter.currentDestination = {
-      locationId: nextDestLocation._id,
-      name: nextDestLocation.name,
-      building: nextDestLocation.building,
-      floor: nextDestLocation.floor,
-      roomNumber: nextDestLocation.roomNumber,
-      instructions: nextDestLocation.instructions || `Proceed to ${nextDestLocation.name}`,
-    };
-  } else {
-    encounter.currentDestination = {
-      name: "not recorded",
-      instructions: `Follow clinical staff directions for ${toStage}.`,
-    };
-  }
+  encounter.currentDestination = nextDest;
+  encounter.revision = (encounter.revision || 0) + 1;
 
   encounter.stageHistory.push({
     stage: toStage,
     fromStage,
     actorId: actor?._id || actor?.id,
-    actorRole: actor?.role || "SYSTEM",
-    actorName: actor?.name || actor?.firstName ? `${actor?.firstName || ""} ${actor?.lastName || ""}`.trim() : "Staff Member",
+    actorRole: actor?.role || "STAFF",
+    actorName: actor?.name || (actor?.firstName ? `${actor.firstName} ${actor.lastName || ""}`.trim() : "Staff Member"),
     timestamp: new Date(),
-    locationId: nextDestLocation?._id,
-    locationName: nextDestLocation?.name || "not recorded",
-    notes,
-    reason: overrideReason || undefined,
+    locationId: nextDest.locationId || undefined,
+    locationName: nextDest.name || "not recorded",
+    notes: notes || (isOverride ? `Override: ${overrideReason.trim()}` : `Transitioned to ${toStage}`),
+    reason: hasReason ? overrideReason.trim() : undefined,
     isOverride,
   });
 
@@ -412,7 +502,7 @@ export const getEncounterGuidance = async ({ tokenId, appointmentId, encounterId
       building: encounter.currentDestination?.building || "—",
       floor: encounter.currentDestination?.floor || "—",
       roomNumber: encounter.currentDestination?.roomNumber || "—",
-      instructions: encounter.currentDestination?.instructions || "Proceed to the destination indicated by hospital staff.",
+      instructions: encounter.currentDestination?.instructions || "Location not configured. Please consult hospital staff.",
     },
     physicalFile: {
       tracked: Boolean(encounter.physicalFile?.hasPhysicalFile),

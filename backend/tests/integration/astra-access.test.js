@@ -86,8 +86,9 @@ test("unlinked or contradictory encounter identity fails closed", async () => {
 });
 test("unsafe encounter commands return unavailable and preserve original records", async () => {
   const original = await EncounterJourney.findById(encounterId).lean();
-  for (const action of ["transition", "handoff", "refuse"]) assert.equal((await http("/api/encounters/" + encounterId + "/" + action, "admin", { toStage: "completed", toActorId: foreignStaff })).status, 503);
+  for (const action of ["handoff", "refuse"]) assert.equal((await http("/api/encounters/" + encounterId + "/" + action, "admin", { toStage: "completed", toActorId: foreignStaff })).status, 503);
   assert.equal((await http("/api/encounters/" + encounterId + "/link-account", "other", { phone: "1234567890" })).status, 503);
+  assert.equal((await http("/api/encounters/" + encounterId + "/transition", "admin", { toStage: "completed", toActorId: foreignStaff })).status, 400);
   assert.deepEqual(await EncounterJourney.findById(encounterId).lean(), original);
   assert.equal(String((await OpdToken.findById(tokenId)).patientId), String(owner));
 });

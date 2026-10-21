@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getGuidance,
   getTicket,
+  transitionStage,
 } from "../controller/encounterJourney.js";
 import validateStaff from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
@@ -23,9 +24,9 @@ const asyncRoute = (handler) => async (req, res, next) => {
 
 encounterRouter.get("/:id/guidance", patientOrStaffAuth, requireEncounterRead, asyncRoute(getGuidance));
 encounterRouter.get("/:id/ticket", patientOrStaffAuth, requireEncounterRead, asyncRoute(getTicket));
-// These new commands lack durable identity/recipient/CAS safeguards (A07/A08).
-// Keep established OPD transitions working; do not expose an unsafe claim repair.
-encounterRouter.post("/:id/transition", validateStaff, pendingEncounterRepair);
+// AG03: transition stage now has verified identity, destination, revision, and override rules.
+// Handoff/refuse (AG04) and link-account (AG05) retain explicit containment until their phases.
+encounterRouter.post("/:id/transition", validateStaff, asyncRoute(transitionStage));
 encounterRouter.post("/:id/handoff", validateStaff, pendingEncounterRepair);
 encounterRouter.post("/:id/refuse", validateStaff, pendingEncounterRepair);
 encounterRouter.post("/:id/link-account", userValidation, pendingEncounterRepair);

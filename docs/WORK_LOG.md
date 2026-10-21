@@ -1443,3 +1443,64 @@ Implemented transactional, idempotent encounter journey creation and restart/rep
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+
+## AG03 - Source-driven stages, destinations and location administration - 21 October 2026
+
+Baseline: following AG02 verification.
+Implemented source-driven encounter stage transitions, active tenant-scoped location destination resolution, administrative location registration/lifecycle management, truthful fallback instructions, and staff audit history.
+
+### Implemented changes
+
+- **Destination Resolution & Truthful Fallback**:
+  - `backend/services/encounterJourneyService.js`:
+    - Added `resolveDestinationForStage(hospitalId, departmentId, stage, explicitLocationId)` validating destination active status, tenant isolation (`hospitalId`), and department assignment. Rejects inactive or foreign-tenant locations.
+    - Replaced fabricated destination fallback `"Main Reception"` with `"not recorded"` and instructions `"Location not configured. Please consult hospital staff."` across journey initialization and patient guidance.
+    - Implemented `transitionEncounterStage`: enforces tenant scoping, `expectedRevision` optimistic locking, stage progression sequence validation (rejects skipped required stages unless an `overrideReason` is provided), terminal stage rejection (`completed`/`cancelled`), actor derivation/audit, destination binding, revision increment, and immutable append to `stageHistory`.
+- **Visit Transitions Synchronization**:
+  - `backend/services/visitTransitions.js`:
+    - Extended `transitionVisit` signature to accept `actor, locationId, notes, reason`.
+    - Integrated `resolveDestinationForStage` during visit state changes (`check_in`, `start`, `complete`).
+    - Automatically captures actor ID, role, and name; updates `encounter.currentDestination`; advances `currentStage`; increments `revision`; and appends to `stageHistory` while preserving all prior history.
+- **Location Administration & Controller Routing**:
+  - `backend/controller/encounterJourney.js`:
+    - Updated `transitionStage` to validate and require `expectedRevision`.
+    - Enhanced `getLocations` to support `includeInactive` and `status` query filters and populate `departmentId`.
+    - Hardened `createLocation` with hospital admin permission checks, tenant scoping, and department/serviceType validation.
+    - Implemented `updateLocation` supporting name, roomNumber, floor, building, serviceTypes, and active/inactive status toggles.
+  - `backend/routes/hospital.js`:
+    - Mounted `PATCH /:id/locations/:locationId` for authorized hospital location management.
+  - `backend/routes/encounter.js`:
+    - Replaced temporary 503 containment on `POST /:id/transition` with `asyncRoute(transitionStage)`.
+  - `backend/controller/opdToken.js`:
+    - Passed caller staff identity (`req.staff`), `locationId`, `notes`, and `reason` to `transitionVisit`.
+- **Hospital Admin UI**:
+  - `frontend/src/pages/HospitalAdminDashboard.jsx`:
+    - Added "Locations & Desks" administration tab and responsive table view.
+    - Added modal dialog for registering locations with department selection, room/floor/building inputs, and service types.
+    - Added toggle action to activate/deactivate desks/rooms with instant state reflection.
+- **Test Infrastructure & Registration**:
+  - `backend/tests/integration/encounter-stage-destination.test.js`:
+    - 6 comprehensive integration tests verifying:
+      1. Sequential check-in, vitals, start, and completion updating the same encounter once, advancing destination and preserving prior history.
+      2. Truthful unconfigured location fallback ("not recorded", "Location not configured. Please consult hospital staff.").
+      3. Rejection of foreign-tenant and inactive destination locations.
+      4. Rejection of skipped required stages without override reason, and acceptance with valid override audit.
+      5. Rejection of stale revisions (concurrency conflict) and transitions on terminal encounters.
+      6. Hospital location administration permissions, tenant isolation, and status updates.
+  - `backend/scripts/testIntegration.js`:
+    - Registered `encounter-stage-destination.test.js` in the multi-suite test runner.
+  - `backend/tests/integration/astra-access.test.js`:
+    - Updated to verify that implemented `transition` route rejects invalid/unsafe commands with 400 Bad Request and preserves records, while still testing 503 containment for pending `handoff`/`refuse`/`link-account`.
+
+### Executed checks and limits
+
+- **Encounter stage and destination integration suite**: **6/6 passed**, zero failures/skips, **7.21 s** (`backend/tests/integration/encounter-stage-destination.test.js`).
+- **Encounter recovery integration suite**: **7/7 passed**, zero failures/skips, **7.28 s** (`backend/tests/integration/encounter-recovery.test.js`).
+- **Astra access integration suite**: **8/8 passed**, zero failures/skips, **3.34 s** (`backend/tests/integration/astra-access.test.js`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **37.77 s** (`npm test`).
+- **Frontend unit tests**: **49/49 passed**, zero failures/skips, **323 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **31.74 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against live local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+

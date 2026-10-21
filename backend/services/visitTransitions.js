@@ -7,7 +7,7 @@ import OpdToken from "../model/opdToken.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 import Department from "../model/department.js";
 import EncounterJourney from "../model/encounterJourney.js";
-import { initializeEncounterJourney } from "./encounterJourneyService.js";
+import { initializeEncounterJourney, resolveDestinationForStage } from "./encounterJourneyService.js";
 import { accessError, idOf } from "./hospitalAccess.js";
 import { queueTransaction } from "./queueBooking.js";
 import { localServiceDate, requireQueueContext } from "./queueContext.js";
@@ -26,7 +26,7 @@ const transitions = {
   cancel: { token: ["refund_pending", "reserved", "waiting", "vitals_done", "no_show", "cancelled"], appointment: ["refund_pending", "queued", "cancelled"], toToken: "cancelled", toAppointment: "cancelled" },
 };
 
-export const transitionVisit = async ({ tokenId, appointmentId, action, expectedRevision, tokenFields = {}, appointmentFields = {}, now = new Date(), session: providedSession }) => {
+export const transitionVisit = async ({ tokenId, appointmentId, action, expectedRevision, tokenFields = {}, appointmentFields = {}, now = new Date(), session: providedSession, actor, locationId, notes, reason }) => {
   const rule = transitions[action];
   if (!rule) throw accessError(400, "Unknown visit transition");
   if (expectedRevision !== undefined && (!Number.isInteger(expectedRevision) || expectedRevision < 0)) throw accessError(400, "Invalid visit revision");
@@ -142,11 +142,36 @@ export const transitionVisit = async ({ tokenId, appointmentId, action, expected
           const fromStage = encounter.currentStage;
           encounter.currentStage = targetStage;
           encounter.revision = (encounter.revision || 0) + 1;
+
+          const actorObj = actor || (action === "start" || action === "complete"
+            ? { id: token?.doctorId || appointment?.doctor, role: "DOCTOR", name: "Attending Doctor" }
+            : action === "vitals"
+            ? { id: tokenFields?.vitals?.recordedBy, role: "NURSE", name: "Staff Nurse" }
+            : action === "check_in"
+            ? { id: token?.arrivedBy, role: "RECEPTIONIST", name: "Reception Staff" }
+            : { role: "SYSTEM", name: "System" });
+
+          const dest = await resolveDestinationForStage({
+            hospitalId: encounter.hospitalId,
+            departmentId: encounter.departmentId,
+            toStage: targetStage,
+            locationId,
+            session,
+          });
+          encounter.currentDestination = dest;
+
           encounter.stageHistory.push({
             stage: targetStage,
             fromStage,
+            actorId: actorObj.id || actorObj._id,
+            actorRole: actorObj.role || "STAFF",
+            actorName: actorObj.name || (actorObj.firstName ? `${actorObj.firstName} ${actorObj.lastName || ""}`.trim() : "Clinical Staff"),
             timestamp: now,
-            notes: `Stage updated on visit ${action}`,
+            locationId: dest.locationId || undefined,
+            locationName: dest.name || "not recorded",
+            notes: notes || `Stage updated on visit ${action}`,
+            reason: reason || undefined,
+            isOverride: false,
           });
           await encounter.save({ session });
         }

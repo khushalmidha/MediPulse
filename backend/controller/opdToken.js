@@ -130,8 +130,17 @@ const mutateToken = async (req, res, action) => {
     fields.consultationNotes = String(req.body.notes || "").trim(); fields.diagnosis = String(req.body.diagnosis || "").trim();
     if (req.body.followUpDate) { const date = new Date(req.body.followUpDate); if (Number.isNaN(date.getTime())) throw accessError(400, "Invalid follow-up date"); fields.followUpDate = date; }
   }
-  const changed = await transitionVisit({ tokenId: token._id, action, expectedRevision: req.body.revision, tokenFields: fields,
-    appointmentFields: action === "complete" ? { endedBy: "doctor" } : {} });
+  const changed = await transitionVisit({
+    tokenId: token._id,
+    action,
+    expectedRevision: req.body.revision,
+    tokenFields: fields,
+    appointmentFields: action === "complete" ? { endedBy: "doctor" } : {},
+    actor: req.staff,
+    locationId: req.body.locationId,
+    notes: req.body.notes,
+    reason: req.body.overrideReason || req.body.reason,
+  });
   const events = { start: "opd:consultation-started", complete: "opd:consultation-completed", vitals: "opd:vitals-ready", no_show: "opd:no-show", check_in: "opd:checked-in" };
   await notify(events[action], changed.token);
   if (changed.appointment && ["start", "complete", "no_show"].includes(action)) await afterVisitCommit(async () => {

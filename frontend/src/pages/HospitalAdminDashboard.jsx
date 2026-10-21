@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Droplets,
   Bed,
+  MapPin,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { clearSessionState } from "../utils/sessionHttp";
@@ -39,16 +40,28 @@ const HospitalAdminDashboard = () => {
   const [staff, setStaff] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [doctors, setDoctors] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [forecasts, setForecasts] = useState({ beds: null, blood: null });
   const [forecastLoading, setForecastLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  const [openModal, setOpenModal] = useState(""); // "department", "invite", "otp", "password"
+  const [openModal, setOpenModal] = useState(""); // "department", "location", "invite", "otp", "password"
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState("info");
   const showError = (text) => { setMessage(text); setMessageTone("error"); };
   const showSuccess = (text) => { setMessage(text); setMessageTone("info"); };
 
   const [department, setDepartment] = useState({ name: "", code: "", description: "", consultationFee: "" });
+  const [locationForm, setLocationForm] = useState({
+    name: "",
+    type: "room",
+    building: "",
+    floor: "",
+    roomNumber: "",
+    departmentId: "",
+    serviceType: "consultation",
+    instructions: "",
+  });
+  const [locationSubmitting, setLocationSubmitting] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [brandingForm, setBrandingForm] = useState({
@@ -93,6 +106,7 @@ const HospitalAdminDashboard = () => {
       setStaff([]);
       setDepartments([]);
       setDoctors([]);
+      setLocations([]);
       setForecasts({ beds: null, blood: null });
       setMessage("");
       setOpenModal("");
@@ -115,10 +129,11 @@ const HospitalAdminDashboard = () => {
   const loadPortal = useCallback(async () => {
     if (!hospitalId || !isStaffAuth) return;
     try {
-      const [analyticsRes, staffRes, profileRes] = await Promise.all([
+      const [analyticsRes, staffRes, profileRes, locationsRes] = await Promise.all([
         axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/analytics`, { withCredentials: true }),
         axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/staff`, { withCredentials: true }),
         axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/admin-profile`, { withCredentials: true }),
+        axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/locations?includeInactive=true`, { withCredentials: true }).catch(() => ({ data: { locations: [] } })),
       ]);
 
       const freshHospital = profileRes.data.hospital;
@@ -133,6 +148,7 @@ const HospitalAdminDashboard = () => {
       setStaff(staffRes.data.items || []);
       setDepartments(publicProfile?.departments || []);
       setDoctors(publicProfile?.doctors || []);
+      setLocations(locationsRes.data?.locations || []);
       setBrandingForm({
         tagline: freshHospital.branding?.tagline || "",
         about: freshHospital.branding?.about || "",
@@ -196,6 +212,65 @@ const HospitalAdminDashboard = () => {
     } catch (error) {
       const duplicate = error.response?.data?.message?.includes("duplicate") || error.response?.status === 409;
       showError(duplicate ? "Department code already exists for this hospital." : error.response?.data?.message || "Could not add department.");
+    }
+  };
+
+  const addLocation = async (event) => {
+    event.preventDefault();
+    if (!locationForm.name.trim()) {
+      showError("Location name is required.");
+      return;
+    }
+    setLocationSubmitting(true);
+    setMessage("");
+    try {
+      await axios.post(
+        `${BACKEND_URL}/api/hospitals/${hospitalId}/locations`,
+        {
+          name: locationForm.name.trim(),
+          type: locationForm.type,
+          building: locationForm.building.trim(),
+          floor: locationForm.floor.trim(),
+          roomNumber: locationForm.roomNumber.trim(),
+          departmentId: locationForm.departmentId || undefined,
+          serviceType: locationForm.serviceType,
+          instructions: locationForm.instructions.trim(),
+        },
+        { withCredentials: true },
+      );
+      setLocationForm({
+        name: "",
+        type: "room",
+        building: "",
+        floor: "",
+        roomNumber: "",
+        departmentId: "",
+        serviceType: "consultation",
+        instructions: "",
+      });
+      setOpenModal("");
+      showSuccess("Hospital location registered successfully.");
+      await loadPortal();
+    } catch (error) {
+      showError(error.response?.data?.message || "Could not register location.");
+    } finally {
+      setLocationSubmitting(false);
+    }
+  };
+
+  const toggleLocationStatus = async (loc) => {
+    setMessage("");
+    try {
+      const newStatus = loc.status === "active" ? "inactive" : "active";
+      await axios.patch(
+        `${BACKEND_URL}/api/hospitals/${hospitalId}/locations/${loc._id}`,
+        { status: newStatus },
+        { withCredentials: true },
+      );
+      showSuccess(`Location marked as ${newStatus}.`);
+      await loadPortal();
+    } catch (error) {
+      showError(error.response?.data?.message || "Could not update location status.");
     }
   };
 
@@ -390,6 +465,7 @@ const HospitalAdminDashboard = () => {
   const tabs = [
     ["overview", "Overview", LayoutDashboard],
     ["departments", "Departments", ClipboardList],
+    ["locations", "Locations & Desks", MapPin],
     ["staff", "Staff & Invites", Users],
     ["website", "Website & Branding", Globe2],
     ["forecast", "Demand Forecasting", TrendingUp],
@@ -587,6 +663,64 @@ const HospitalAdminDashboard = () => {
                   key: "status",
                   label: "Status",
                   render: (d) => <StatusBadge tone="positive">{d.status || "Active"}</StatusBadge>,
+                },
+              ]}
+            />
+          )}
+        </Card>
+      )}
+
+      {/* Locations Tab */}
+      {activeTab === "locations" && (
+        <Card>
+          <div className="mp-card-heading">
+            <div>
+              <h2>Hospital Locations & Service Desks</h2>
+              <p className="mp-field-hint" style={{ margin: 0 }}>Register validated service locations, rooms, and desks for patient encounter navigation.</p>
+            </div>
+            <Button onClick={() => setOpenModal("location")}>
+              <Plus size={16} /> Add Location
+            </Button>
+          </div>
+          {!locations.length ? (
+            <EmptyState title="No locations registered yet." action={<Button onClick={() => setOpenModal("location")}>Add Location</Button>}>
+              Register destinations like Reception Desks, Triage Stations, Doctor Chambers, and Pharmacy Counters.
+            </EmptyState>
+          ) : (
+            <DataTable
+              caption="Hospital locations"
+              rows={locations}
+              columns={[
+                { key: "name", label: "Location Name", render: (loc) => <strong>{loc.name}</strong> },
+                { key: "type", label: "Type", render: (loc) => <StatusBadge tone="neutral">{loc.type || "room"}</StatusBadge> },
+                {
+                  key: "serviceType",
+                  label: "Service Type",
+                  render: (loc) => <StatusBadge tone="accent">{loc.serviceType || "consultation"}</StatusBadge>,
+                },
+                {
+                  key: "department",
+                  label: "Department",
+                  render: (loc) => loc.departmentId?.name || "All Departments",
+                },
+                {
+                  key: "placement",
+                  label: "Building / Floor / Room",
+                  render: (loc) => [loc.building, loc.floor ? `Floor ${loc.floor}` : null, loc.roomNumber ? `Room ${loc.roomNumber}` : null].filter(Boolean).join(" · ") || "—",
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  render: (loc) => <StatusBadge tone={loc.status === "active" ? "positive" : "warning"}>{loc.status || "active"}</StatusBadge>,
+                },
+                {
+                  key: "action",
+                  label: "Action",
+                  render: (loc) => (
+                    <Button size="small" variant="secondary" onClick={() => toggleLocationStatus(loc)}>
+                      {loc.status === "active" ? "Deactivate" : "Activate"}
+                    </Button>
+                  ),
                 },
               ]}
             />
@@ -905,6 +1039,62 @@ const HospitalAdminDashboard = () => {
           <div className="mp-actions">
             <Button variant="secondary" onClick={() => setOpenModal("")}>Cancel</Button>
             <Button type="submit">Create Department</Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Add Location Dialog */}
+      <Dialog open={openModal === "location"} onClose={() => setOpenModal("")} title="Register Hospital Location / Destination">
+        <form onSubmit={addLocation} noValidate>
+          <div className="mp-form-grid">
+            <Field
+              label="Location Name"
+              required
+              placeholder="e.g. Reception Desk A, Chamber 102, Triage Room 1"
+              value={locationForm.name}
+              onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
+            />
+            <Field as="select" label="Location Type" value={locationForm.type} onChange={(e) => setLocationForm({ ...locationForm, type: e.target.value })}>
+              {["room", "desk", "station", "floor", "building"].map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+            </Field>
+            <Field as="select" label="Service Type" value={locationForm.serviceType} onChange={(e) => setLocationForm({ ...locationForm, serviceType: e.target.value })}>
+              {["reception", "registration", "vitals", "consultation", "lab", "pharmacy", "billing", "other"].map((s) => (
+                <option key={s} value={s}>{s.replace("_", " ").toUpperCase()}</option>
+              ))}
+            </Field>
+            <Field as="select" label="Department (Optional)" value={locationForm.departmentId} onChange={(e) => setLocationForm({ ...locationForm, departmentId: e.target.value })}>
+              <option value="">All Departments (General)</option>
+              {departments.map((d) => <option key={d._id} value={d._id}>{d.name} ({d.code})</option>)}
+            </Field>
+            <Field
+              label="Building"
+              placeholder="e.g. Block A, Main Wing"
+              value={locationForm.building}
+              onChange={(e) => setLocationForm({ ...locationForm, building: e.target.value })}
+            />
+            <Field
+              label="Floor"
+              placeholder="e.g. 1st Floor, Ground"
+              value={locationForm.floor}
+              onChange={(e) => setLocationForm({ ...locationForm, floor: e.target.value })}
+            />
+            <Field
+              label="Room Number"
+              placeholder="e.g. 102"
+              value={locationForm.roomNumber}
+              onChange={(e) => setLocationForm({ ...locationForm, roomNumber: e.target.value })}
+            />
+            <Field
+              as="textarea"
+              label="Patient Navigation Instructions"
+              placeholder="e.g. Take the west elevators to the 1st floor, turn right past the waiting area."
+              value={locationForm.instructions}
+              onChange={(e) => setLocationForm({ ...locationForm, instructions: e.target.value })}
+            />
+          </div>
+          <div className="mp-actions">
+            <Button variant="secondary" onClick={() => setOpenModal("")}>Cancel</Button>
+            <Button type="submit" disabled={locationSubmitting}>{locationSubmitting ? "Registering..." : "Register Location"}</Button>
           </div>
         </form>
       </Dialog>

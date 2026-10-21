@@ -33,6 +33,7 @@ import {
 import {
   getLocations,
   createLocation,
+  updateLocation,
 } from "../controller/encounterJourney.js";
 import validateStaff from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
@@ -64,6 +65,7 @@ hospitalRouter.delete("/:id/website/custom-domain", validateStaff, removeCustomD
 
 hospitalRouter.get("/:id/locations", validateStaff, getLocations);
 hospitalRouter.post("/:id/locations", validateStaff, createLocation);
+hospitalRouter.patch("/:id/locations/:locationId", validateStaff, updateLocation);
 
 hospitalRouter.get("/resolve-host", asyncRoute(resolveHospitalHost));
 hospitalRouter.get("/:slug", getHospitalProfile);
