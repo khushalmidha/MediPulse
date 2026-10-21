@@ -2552,6 +2552,78 @@ Implemented hospital-approved emergency department 5-level deterministic triage 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
 
+## AG21 - Hospital revenue, procurement and stock operations - 22 October 2026
+
+Baseline: following AG20 verification and commit 8ac11998.
+Implemented hospital revenue tariffs, inpatient billing folios with bed-day auto-accrual and calendar date deduplication, corporate TPA insurance pre-authorization with deterministic split billing, partial payments with overpayment rejection, courtesy credit notes, vendor Goods Receipt Notes (GRN) with batch/expiry reconciliation into central store, and ward stock requisitions with idempotent split-transfer deduplication.
+
+### Gaps addressed
+1. Inpatient billing lacked configurable room and service tariff masters and automated daily bed-day accrual.
+2. Inpatient folios had no corporate TPA insurance pre-authorization tracking or mathematically verified split billing (gross total - TPA approved - cash advance = patient balance payable).
+3. Payment processing lacked overpayment rejection and courtesy credit note mechanisms.
+4. Pharmacy and surgical procurement had no Goods Receipt Note (GRN) workflow with batch and expiry tracking into central store stock.
+5. Ward requisitions had no idempotent transfer mechanisms to prevent duplicate inventory deduction or allocation upon network retries.
+
+### Changes implemented & verified
+- **Hospital Revenue and Stock Data Models (`backend/model/hospitalRevenueStock.js`)**:
+  - `HospitalTariff`: hospital-scoped schema with unique compound index on `{ hospitalId, tariffCode }`, `tariffName`, `category` (`room_rent`, `nursing_care`, `consultation`, `investigation`, `procedure`, `equipment`), `roomType` (`general`, `semi_private`, `private`, `deluxe`, `icu`, `hdu`, `all`), `rateMinor` (minor currency units / paise), and `isActive`.
+  - `InpatientInvoice`: folio schema with unique `invoiceNumber` (`INV-...`), `admissionId`, `patientId`, `status` (`draft`, `interim`, `finalized`, `settled`, `cancelled`), `lineItems` (with `accrualDate` for bed-day idempotency), `grossTotalMinor`, `discountMinor`, `netTotalMinor`, `tpaPreAuthId`, `tpaApprovedMinor`, `copayAmountMinor`, `paidMinor`, `balancePayableMinor`, embedded `payments` array, embedded `creditNotes` array, and `version`.
+  - `TpaPreAuth`: insurance pre-auth schema with unique `claimNumber` (`CLM-...`), `admissionId`, `patientId`, `insuranceCompany`, `tpaName`, `policyNumber`, `corporateId`, `preAuthApprovedLimitMinor`, `copayPercentage` (0-100), and `status` (`pending`, `pre_auth_approved`, `enhanced`, `rejected`, `claim_settled`).
+  - `CentralStoreStock`: central warehouse stock schema with compound unique index on `{ hospitalId, itemCode }`, `itemName`, `batches` array (batchNumber, expiryDate, quantity, unitCostMinor), and `totalQuantity`.
+  - `WardStock`: ward-level stock schema with compound unique index on `{ hospitalId, wardId, itemCode }`, `itemName`, `batches` array, and `totalQuantity`.
+  - `GoodsReceiptNote`: procurement GRN schema with unique `grnNumber` (`GRN-...`), `vendorName`, `purchaseOrderRef`, `invoiceNumber`, `invoiceDate`, `receivedByStaffId`, `items` array with batch details, `totalAmountMinor`, `status` (`draft`, `received`, `verified`, `reconciled`), and `verifiedByStaffId`.
+  - `WardStockRequisition`: requisition schema with unique `requisitionNumber` (`WSR-...`), `wardId`, `requestedByStaffId`, `items` array, `status` (`requested`, `partially_issued`, `fulfilled`, `cancelled`), and `transferIdempotencyKey`.
+- **Revenue & Stock Service Layer (`backend/services/hospitalRevenueStockService.js`)**:
+  - **Hospital Tariffs (`createTariff`, `getTariffs`)**:
+    - Validates code, name, category, roomType, and rate minor.
+    - Prevents duplicate tariff code collisions per tenant (HTTP 409).
+  - **Inpatient Invoicing & Bed-Day Accrual (`createInpatientInvoice`, `accrueBedDays`)**:
+    - Generates invoice folios tied to active IPD admissions.
+    - Resolves active room rent and nursing care tariffs for the admission's room category.
+    - Accrues bed-days for specified calendar dates with date deduplication: re-accruing existing dates is idempotently ignored without duplicate line items or charges.
+  - **TPA Pre-Authorization & Split Billing (`registerTpaPreAuth`, `applyTpaPreAuthToInvoice`)**:
+    - Validates policy details, pre-auth limit, and co-pay percentage.
+    - Computes split billing: `tpaApprovedMinor` = min(limit, grossTotal * (1 - copayPercent/100)); `copayAmountMinor` = netTotal - tpaApproved; `balancePayableMinor` = max(0, copayAmount - paidAdvance).
+  - **Payments & Credit Notes (`recordInvoicePayment`, `issueCreditNote`)**:
+    - Validates payment mode in `["cash", "upi_manual", "card_pos", "tpa_settlement", "credit_note"]`. Real gateways are never reported active from simulated responses.
+    - Rejects payments exceeding outstanding balance (HTTP 400).
+    - Automatically transitions invoice to `settled` when balance reaches 0. Rejects further payments on settled invoices.
+    - Credit notes require non-empty reason and cannot exceed invoice net total.
+  - **Procurement & GRN Batch Reconciliation (`createGoodsReceiptNote`, `verifyAndReconcileGrn`)**:
+    - Validates vendor, invoice, item quantities, and batch expiry.
+    - Reconciles GRN into `CentralStoreStock`: increments or appends batch inventory atomically.
+    - Prohibits duplicate reconciliation on already reconciled GRNs (HTTP 400).
+  - **Ward Stock Requisition & Idempotent Stock Transfer (`requestWardStock`, `fulfillWardStockTransfer`)**:
+    - Validates ward and requested quantities.
+    - Rejects transfers exceeding central store stock with HTTP 409 Conflict.
+    - Transfers stock atomically: decrements central store batch and increments ward stock batch.
+    - Idempotent deduplication: replaying transfer with the same `transferIdempotencyKey` returns existing transfer result without double deducting or double incrementing inventory.
+  - **Fail-Closed Disconnected DB Handling**:
+    - Fails with HTTP 503 Service Unavailable when DB is disconnected and no test double is present.
+- **Test Coverage (`backend/tests/hospital-revenue-stock.test.js` & `backend/tests/integration/hospital-revenue-stock.test.js`)**:
+  - Unit & domain suite: **8/8 passed**, **12.07 ms** (`node --test tests/hospital-revenue-stock.test.js`):
+    1. Hospital tariff creation and category filtering.
+    2. Inpatient invoice creation and bed-day auto-accrual with idempotent date deduplication.
+    3. TPA pre-authorization registration and split billing calculation.
+    4. Partial payments, overpayment prevention, credit notes and settlement.
+    5. Procurement: Goods Receipt Note (GRN) creation and central stock reconciliation.
+    6. Ward stock requisition and idempotent transfer execution.
+    7. Disconnected DB fail-closed check.
+  - Full backend test suite: **210/210 passed**, **38.56 s** (`npm test`).
+  - Integration suite: verified with graceful skip when local replica set is absent; ready for live container execution.
+  - Frontend UI test suite: **58/58 passed**, **363 ms** (`npm run test:ui`).
+
+### Executed checks and limits
+- **Hospital Revenue & Stock Unit Tests**: **8/8 passed**, zero failures/skips, **12.07 ms** (`node --test tests/hospital-revenue-stock.test.js`).
+- **Backend Unit Tests**: **210/210 passed**, zero failures/skips, **38.56 s** (`npm test`).
+- **Frontend Unit Tests**: **58/58 passed**, zero failures/skips, **363 ms** (`npm run test:ui`).
+- **Plan Checker (`tools/check-implementation-plan.mjs --next`)**: verified all 22 tasks (AG00–AG21) locally verified; dependencies acyclic; next ready task: **AG22**.
+- **Local Environment**: Verified against isolated test harness; Docker engine unavailable locally for live replica set execution.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
+
 
 
 

@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG21",
+  "startWith": "AG22",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1170,7 +1170,7 @@
     {
       "id": "AG21",
       "title": "Hospital revenue, procurement and stock operations",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1189,7 +1189,26 @@
         "Partial payment/refund/credit-note and split stock-transfer retries cannot duplicate money or inventory.",
         "Real gateways are never reported active from a simulated checkout response."
       ],
-      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval."
+      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval.",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG21 hospital revenue, procurement and stock operations, 22 October 2026",
+        "revenueStockUnit": {
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 210,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 58,
+          "failed": 0,
+          "skipped": 0
+        },
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG22",
