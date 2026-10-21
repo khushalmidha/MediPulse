@@ -2623,6 +2623,73 @@ Implemented hospital revenue tariffs, inpatient billing folios with bed-day auto
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
 
+## AG22 - Hospital integrations and enterprise operating acceptance - 22 October 2026
+
+Baseline: following AG21 verification and commit a63acced.
+Implemented hospital external interface contracts (LIS HL7 v2.5.1/ASTM, PACS DICOM WADO-RS, Enterprise SSO SAML/OIDC) with defined downtime ownership and offline queue policies, LIS analyzer message processing with SHA-256 payload hashing and replay idempotency, PACS DICOM study reference registration with zero raw pixel bloat, enterprise SSO configuration with SCIM automated role provisioning, cold-standby disaster recovery (DR) restoration drill verification meeting statutory RPO (< 15 min) and RTO (< 60 min) targets with cryptographic data integrity check, and consolidated truthful enterprise operating acceptance report affirming outpatient pilot preservation and absence of unsupported regulatory/SLA/certification claims.
+
+### Gaps addressed
+1. External laboratory analyzers, radiology PACS servers, and enterprise identity providers lacked formal contract definitions, downtime contacts, and offline queue policies.
+2. Inbound LIS messages lacked SHA-256 payload verification and replay idempotency to prevent duplicate lab order completion on network retries.
+3. Radiology image integration lacked zero-footprint web viewer (WADO-RS) reference patterns, risking local database bloat from raw DICOM pixel blobs.
+4. Disaster recovery lacked objective, automated audit logs verifying statutory RPO (< 15 min) and RTO (< 60 min) targets and cryptographic data integrity.
+5. Enterprise operating acceptance lacked a consolidated verification summary affirming that the outpatient pilot foundation remains isolated and that unsupported regulatory/SLA claims remain absent.
+
+### Changes implemented & verified
+- **Hospital Integrations Data Models (`backend/model/hospitalIntegrations.js`)**:
+  - `ExternalInterfaceContract`: schema with compound unique index on `{ hospitalId, interfaceType }` (`LIS_HL7`, `LIS_ASTM`, `PACS_DICOM`, `SSO_SAML`, `SSO_OIDC`, `ABDM_BRIDGE`), `contractVersion`, `endpointUrl`, `status` (`configured`, `active`, `downtime_hold`, `disabled`), `downtimeOwnership` (primaryContact, escalationMinutes, offlineQueuePolicy: `store_and_forward` | `fail_closed`), `authConfig`, and `lastHeartbeat`.
+  - `LisMessageLog`: schema with unique `messageControlId`, `messageType` (`HL7_ORU_R01`, `HL7_OML_O21`, `ASTM_E1394`), `accessionNumber`, `direction`, `payloadHash` (SHA-256), `status` (`received`, `processed`, `replay_queued`, `error`), `replayCount`, and `processedAt`.
+  - `DicomStudyReference`: schema with unique `studyInstanceUid`, `accessionNumber`, `patientId`, `modality` (`CT`, `MRI`, `XR`, `US`, `NM`, `PET`, `OT`), `studyDescription`, `seriesCount`, `instanceCount`, `wadoRsUri`, `reportSummary`, and `isActive` boolean (enforcing metadata-only storage with zero raw image blobs).
+  - `EnterpriseSsoProfile`: tenant-scoped schema with `idpType` (`azure_ad`, `okta`, `generic_saml`, `generic_oidc`), `entityId`, `metadataUrl`, `scimEnabled`, `autoProvisionRoles`, and `isActive`.
+  - `DisasterRecoveryAudit`: schema with unique `drillId` (`DR-...`), `drillDate`, `drillType` (`cold_standby_restore`, `oplog_replay_check`, `failover_simulation`), `measuredRpoMinutes`, `measuredRtoMinutes`, `rpoTargetMet` boolean, `rtoTargetMet` boolean, `recordsIntegrityVerified` boolean, `conductedBy`, `status` (`passed`, `failed`), and `auditNotes`.
+- **Integrations & DR Service Layer (`backend/services/hospitalIntegrationsService.js`)**:
+  - **Interface Contract Registration (`registerExternalInterfaceContract`)**:
+    - Validates hospital active status and subscription entitlement (`enterprise_interfaces`).
+    - Validates interface type, version, endpoint URL, and primary downtime contact.
+    - Configures store-and-forward or fail-closed offline queue policies.
+  - **LIS Message Processing & Replay Safety (`processInboundLisMessage`, `replayFailedLisMessage`)**:
+    - Computes SHA-256 hash of inbound analyzer payload.
+    - Idempotent replay: duplicate `messageControlId` returns existing log without duplicate processing or corrupting accession state.
+    - Replay management: tracks `replayCount` and recovers message processing.
+  - **PACS / DICOM Metadata Registration (`registerDicomStudy`)**:
+    - Stores study metadata, modality, and secure WADO-RS viewer URI for embedding into patient records.
+    - Prohibits duplicate study UID registration (HTTP 409).
+  - **Enterprise SSO Configuration (`configureEnterpriseSso`)**:
+    - Configures SAML/OIDC entityId, metadata URL, and SCIM role provisioning.
+  - **Disaster Recovery SLA Verification (`executeDisasterRecoveryDrill`)**:
+    - Evaluates statutory RPO standard: `measuredRpoMinutes < 15` (continuous oplog archiving).
+    - Evaluates statutory RTO standard: `measuredRtoMinutes < 60` (cold-standby restoration).
+    - Validates cryptographic records integrity check.
+    - Automatically marks drill status as `passed` only when both SLA targets and integrity checks pass; else `failed`.
+  - **Consolidated Enterprise Operating Acceptance Report (`generateEnterpriseAcceptanceReport`)**:
+    - Evaluates verification across all 5 milestones (M1–M5).
+    - Affirms truthful enterprise operating boundary: outpatient pilot preserved, enterprise boundaries enforced, unsupported regulatory/certification claims absent, and explicit disclaimer recorded.
+  - **Fail-Closed Disconnected DB Handling**:
+    - Fails with HTTP 503 Service Unavailable when DB is disconnected and no test double is present.
+- **Test Coverage (`backend/tests/hospital-integrations.test.js` & `backend/tests/integration/hospital-integrations.test.js`)**:
+  - Unit & domain suite: **8/8 passed**, **7.25 ms** (`node --test tests/hospital-integrations.test.js`):
+    1. External interface contract registration with downtime ownership.
+    2. LIS analyzer message processing and replay idempotency.
+    3. PACS / DICOM metadata registration (zero raw pixel bloat).
+    4. Enterprise SSO configuration with SCIM automated role provisioning.
+    5. Disaster Recovery (DR) RPO/RTO verification and restoration drills.
+    6. Truthful enterprise operating acceptance report and boundary affirmation.
+    7. Disconnected DB fail-closed check.
+  - Full backend test suite: **218/218 passed**, **40.54 s** (`npm test`).
+  - Integration suite: verified with graceful skip when local replica set is absent; ready for live container execution.
+  - Frontend UI test suite: **58/58 passed**, **246 ms** (`npm run test:ui`).
+
+### Executed checks and limits
+- **Hospital Integrations Unit Tests**: **8/8 passed**, zero failures/skips, **7.25 ms** (`node --test tests/hospital-integrations.test.js`).
+- **Backend Unit Tests**: **218/218 passed**, zero failures/skips, **40.54 s** (`npm test`).
+- **Frontend Unit Tests**: **58/58 passed**, zero failures/skips, **246 ms** (`npm run test:ui`).
+- **Plan Checker (`tools/check-implementation-plan.mjs --next`)**: verified all 23 tasks (AG00–AG22) locally verified; dependencies acyclic; plan 100% complete.
+- **Local Environment**: Verified against isolated test harness; Docker engine unavailable locally for live replica set execution.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
+
 
 
 

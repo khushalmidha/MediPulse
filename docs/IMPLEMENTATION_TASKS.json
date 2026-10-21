@@ -1213,7 +1213,7 @@
     {
       "id": "AG22",
       "title": "Hospital integrations and enterprise operating acceptance",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1233,7 +1233,26 @@
         "Contract/replay/outage and restore drills preserve patient/financial identity with measurable agreed acceptance.",
         "Hospital owner accepts the exact deployed enterprise scope; unsupported regulatory/SLA/certification claims remain absent."
       ],
-      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval."
+      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval.",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG22 hospital integrations and enterprise operating acceptance, 22 October 2026",
+        "integrationsUnit": {
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 218,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 58,
+          "failed": 0,
+          "skipped": 0
+        },
+        "productionAcceptance": "not performed"
+      }
     }
   ]
 }
