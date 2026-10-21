@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG06",
+  "startWith": "AG07",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -370,7 +370,7 @@
     {
       "id": "AG06",
       "title": "Retry-safe transactional creation of lab orders and prescriptions",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG01",
@@ -382,7 +382,8 @@
         "backend/services/clinicalOrderAccess.js",
         "backend/services/clinicalOrderItems.js",
         "backend/controller/lab.js",
-        "backend/controller/pharmacy.js"
+        "backend/controller/pharmacy.js",
+        "backend/tests/integration/clinical-order-creation.test.js"
       ],
       "implementation": [
         "Replace initial order.save/prescription.save with one creation command transaction and durable key/fingerprint.",
@@ -396,7 +397,42 @@
         "Foreign family/catalog/department and unproven legacy clinical records remain blocked."
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
-      "track": "outpatient_pilot"
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG06 retry-safe transactional creation of lab orders and prescriptions, 21 October 2026",
+        "clinicalOrderCreationIntegration": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "clinicalOrderAccessIntegration": {
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0
+        },
+        "clinicalSchemaIntegration": {
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        "integrationRunner": {
+          "passed": 251,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 168,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 50,
+          "failed": 0,
+          "skipped": 0
+        },
+        "build": "passed",
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG07",

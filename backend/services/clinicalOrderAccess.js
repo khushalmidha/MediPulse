@@ -113,21 +113,29 @@ export async function listClinicalRecords(Model, staff, kind, query) {
   return permitted;
 }
 
-export async function resolveClinicalCreation(input, kind) {
-  const staff = await clinicalStaff(input.actor, input.hospitalId);
+export async function resolveClinicalCreation(input, kind, { session = null } = {}) {
+  const staff = await clinicalStaff(input.actor, input.hospitalId, { session });
   if (staff.role !== "DOCTOR") throw accessError(403, "An assigned clinician must create this order");
   let tokenId = input.tokenId;
   if (!tokenId && input.encounterJourneyId) {
     requireRecordId(input.encounterJourneyId, "encounter");
-    const encounter = await EncounterJourney.findOne({ _id: input.encounterJourneyId, hospitalId: input.hospitalId }).lean();
+    const encounter = await EncounterJourney.findOne({ _id: input.encounterJourneyId, hospitalId: input.hospitalId }).session(session).lean();
     tokenId = encounter?.tokenId;
   }
   requireRecordId(tokenId, "visit token");
-  const token = await OpdToken.findOne({ _id: tokenId, hospitalId: staff.hospitalId }).lean();
+  const token = await OpdToken.findOne({ _id: tokenId, hospitalId: staff.hospitalId }).session(session).lean();
   if (!token) throw accessError(404, "Visit not found in this hospital");
   if (!same(token.doctorId, staff._id) || !departmentMember(staff, token.departmentId)
-    || !await validVisitReferences(token)) throw accessError(403, "Only the assigned visit doctor may order care");
+    || !await validVisitReferences(token, { session })) throw accessError(403, "Only the assigned visit doctor may order care");
   if (token.status !== "in_consultation") throw accessError(409, "Orders require an active consultation");
+  if (session) {
+    const locked = await OpdToken.findOneAndUpdate(
+      { _id: token._id, hospitalId: staff.hospitalId, status: "in_consultation" },
+      { $set: { updatedAt: new Date() } },
+      { session, new: true }
+    );
+    if (!locked) throw accessError(409, "Orders require an active consultation");
+  }
   for (const field of ["patientId", "familyMemberId", "departmentId", "personKey"]) {
     if (input[field] !== undefined && input[field] !== null && !same(input[field], token[field])) {
       throw accessError(403, "Supplied identity does not match this visit");
@@ -135,13 +143,13 @@ export async function resolveClinicalCreation(input, kind) {
   }
   const suppliedDoctor = input[doctorField(kind)];
   if (suppliedDoctor && !same(suppliedDoctor, staff._id)) throw accessError(403, "Supplied doctor is not the assigned clinician");
-  await checkPatient(token);
-  await checkEncounter(input.encounterJourneyId, token);
+  await checkPatient(token, session);
+  await checkEncounter(input.encounterJourneyId, token, session);
   if (!token.patientInfo?.name?.trim()) throw accessError(409, "Visit patient snapshot needs reviewed repair");
   const serviceDepartmentId = requireRecordId(input.serviceDepartmentId, "service department");
-  if (!await Department.exists({ _id: serviceDepartmentId, hospitalId: staff.hospitalId, status: "active" })
+  if (!await Department.exists({ _id: serviceDepartmentId, hospitalId: staff.hospitalId, status: "active" }).session(session)
     || !await HospitalStaff.exists({ hospitalId: staff.hospitalId, departmentIds: serviceDepartmentId,
-      role: serviceRole(kind), isActive: true, inviteStatus: "accepted" })) {
+      role: serviceRole(kind), isActive: true, inviteStatus: "accepted" }).session(session)) {
     throw accessError(403, "Choose an active department assigned to this care service");
   }
   return {

@@ -30,6 +30,7 @@ try {
     fileURLToPath(new URL("../tests/integration/encounter-stage-destination.test.js", import.meta.url)),
     fileURLToPath(new URL("../tests/integration/encounter-custody.test.js", import.meta.url)),
     fileURLToPath(new URL("../tests/integration/encounter-walkin-claim.test.js", import.meta.url)),
+    fileURLToPath(new URL("../tests/integration/clinical-order-creation.test.js", import.meta.url)),
     fileURLToPath(new URL("../tests/integration/foxo-demo.test.js", import.meta.url))], {
     stdio: "inherit", env: { ...process.env, TEST_DATABASE_URL: target.mongo, TEST_REDIS_URL: target.redis },
   });

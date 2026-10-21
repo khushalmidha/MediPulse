@@ -1,12 +1,36 @@
+import crypto from "node:crypto";
 import { resolveClinicalCreation } from "./clinicalOrderAccess.js";
 import { resolveClinicalItems, clinicalText } from "./clinicalOrderItems.js";
 import mongoose from "mongoose";
 import LabOrder from "../model/labOrder.js";
 import { accessError } from "./hospitalAccess.js";
 import { assertClinicalWorkflowReady } from "./clinicalSchema.js";
+import { moneyTransaction } from "./moneyTransaction.js";
 
 export { generateAccessionBarcode } from "./labWorkflow.js";
 import { labCommand } from "./labWorkflow.js";
+
+let testCreationFault = null;
+export function setLabCreationFault(callback) {
+  if (process.env.NODE_ENV !== "test") throw new Error("Creation fault injection is only available in tests");
+  testCreationFault = callback;
+}
+
+export function fingerprintLabOrder({ tokenId, encounterJourneyId, serviceDepartmentId, tests, clinicalNotes, patientId, familyMemberId }) {
+  const normalizedTests = (Array.isArray(tests) ? tests : []).map(t => ({
+    catalogId: String(t?.catalogId || ""),
+  })).sort((a, b) => a.catalogId.localeCompare(b.catalogId));
+  const payload = {
+    tokenId: tokenId ? String(tokenId) : "",
+    encounterJourneyId: encounterJourneyId ? String(encounterJourneyId) : "",
+    serviceDepartmentId: serviceDepartmentId ? String(serviceDepartmentId) : "",
+    patientId: patientId ? String(patientId) : "",
+    familyMemberId: familyMemberId ? String(familyMemberId) : "",
+    clinicalNotes: typeof clinicalNotes === "string" ? clinicalNotes.trim() : "",
+    tests: normalizedTests,
+  };
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+}
 
 export const createLabOrder = async ({
   hospitalId,
@@ -23,6 +47,10 @@ export const createLabOrder = async ({
   tests,
   clinicalNotes = "",
   actor,
+  creationKey,
+  requestKey,
+  key,
+  session: providedSession,
 }) => {
   if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
     await assertClinicalWorkflowReady({ workflow: "Laboratory" });
@@ -35,28 +63,88 @@ export const createLabOrder = async ({
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const context = await resolveClinicalCreation({ hospitalId, encounterJourneyId, tokenId, patientId, familyMemberId, personKey, departmentId, serviceDepartmentId, orderingDoctorId, actor }, "lab");
-  const resolvedItems = await resolveClinicalItems(hospitalId, tests, "lab");
-  const order = new LabOrder({
-    ...context,
-    clinicalNotes: clinicalText(clinicalNotes, "Clinical notes"),
-    tests: resolvedItems,
-    orderStatus: "ordered",
-    workflowVersion: 1,
-    auditHistory: [
-      {
-        stage: "ordered",
-        actorId: context.actor.id,
-        actorName: context.actor.name,
-        timestamp: new Date(),
-        notes: "Laboratory test order created",
-      },
-    ],
+  const effectiveKey = creationKey || requestKey || key;
+  if (effectiveKey !== undefined && effectiveKey !== null) {
+    if (typeof effectiveKey !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(effectiveKey)) {
+      throw accessError(400, "Invalid creation key");
+    }
+  }
+
+  const requestHash = fingerprintLabOrder({
+    tokenId,
+    encounterJourneyId,
+    serviceDepartmentId,
+    tests,
+    clinicalNotes,
+    patientId,
+    familyMemberId,
   });
 
-  await order.save();
+  if (effectiveKey) {
+    const existing = await LabOrder.findOne({ hospitalId, creationKey: effectiveKey });
+    if (existing) {
+      if (existing.requestHash === requestHash) {
+        existing.$locals = existing.$locals || {};
+        existing.$locals.replayed = true;
+        return existing;
+      }
+      throw accessError(409, "Creation key already used with different contents");
+    }
+  }
 
-  return order;
+  const execute = async (session) => {
+    if (effectiveKey) {
+      const existingInTx = await LabOrder.findOne({ hospitalId, creationKey: effectiveKey }).session(session);
+      if (existingInTx) {
+        if (existingInTx.requestHash === requestHash) {
+          existingInTx.$locals = existingInTx.$locals || {};
+          existingInTx.$locals.replayed = true;
+          return existingInTx;
+        }
+        throw accessError(409, "Creation key already used with different contents");
+      }
+    }
+
+    const context = await resolveClinicalCreation(
+      { hospitalId, encounterJourneyId, tokenId, patientId, familyMemberId, personKey, departmentId, serviceDepartmentId, orderingDoctorId, actor },
+      "lab",
+      { session }
+    );
+    const resolvedItems = await resolveClinicalItems(hospitalId, tests, "lab", { session });
+
+    const order = new LabOrder({
+      ...context,
+      clinicalNotes: clinicalText(clinicalNotes, "Clinical notes"),
+      tests: resolvedItems,
+      orderStatus: "ordered",
+      workflowVersion: 1,
+      workflowRevision: 0,
+      creationKey: effectiveKey || undefined,
+      requestHash,
+      auditHistory: [
+        {
+          stage: "ordered",
+          actorId: context.actor.id,
+          actorName: context.actor.name,
+          timestamp: new Date(),
+          notes: "Laboratory test order created",
+        },
+      ],
+    });
+
+    await order.save({ session });
+
+    if (process.env.NODE_ENV === "test" && testCreationFault) {
+      await testCreationFault("before_commit", { order, session });
+    }
+
+    return order;
+  };
+
+  if (providedSession) {
+    return await execute(providedSession);
+  }
+  return await moneyTransaction(execute);
 };
 
 export const clearOrderBilling = async input => {

@@ -67,6 +67,8 @@ export const postCreatePrescription = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
   if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
 
+  const creationKey = req.get("Idempotency-Key") || req.get("x-creation-key") || req.get("x-request-key") || req.body.creationKey || req.body.requestKey;
+
   const prescription = await createPrescription({
     hospitalId,
     encounterJourneyId: req.body.encounterJourneyId,
@@ -81,10 +83,17 @@ export const postCreatePrescription = asyncHandler(async (req, res) => {
     prescribingDoctorName: req.staff.name || "Attending Physician",
     diagnosis: req.body.diagnosis,
     items: req.body.items,
+    creationKey,
     actor: { id: req.staff.id, name: req.staff.name, role: req.staff.role },
   });
 
-  return res.status(201).json({ message: "Prescription approved by clinician", prescription });
+  const isReplayed = Boolean(prescription.$locals?.replayed);
+  const status = isReplayed ? 200 : 201;
+  return res.status(status).json({
+    message: isReplayed ? "Prescription replayed" : "Prescription approved by clinician",
+    prescription,
+    replayed: isReplayed,
+  });
 });
 
 export const listPrescriptions = asyncHandler(async (req, res) => {

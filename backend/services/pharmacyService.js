@@ -6,6 +6,7 @@ import crypto from "crypto";
 import Prescription from "../model/prescription.js";
 import { accessError } from "./hospitalAccess.js";
 import { assertClinicalWorkflowReady } from "./clinicalSchema.js";
+import { moneyTransaction } from "./moneyTransaction.js";
 
 export const generatePrescriptionToken = () => {
   return "RX-" + crypto.randomBytes(8).toString("hex").toUpperCase();
@@ -16,6 +17,31 @@ export const setPharmacyTestDouble = (adapter) => {
   if (process.env.NODE_ENV !== "test") throw new Error("Clinical test adapters are only available in tests");
   testDouble = adapter;
 };
+
+let testPharmacyCreationFault = null;
+export function setPharmacyCreationFault(callback) {
+  if (process.env.NODE_ENV !== "test") throw new Error("Creation fault injection is only available in tests");
+  testPharmacyCreationFault = callback;
+}
+
+export function fingerprintPrescription({ tokenId, encounterJourneyId, serviceDepartmentId, items, diagnosis, patientId, familyMemberId }) {
+  const normalizedItems = (Array.isArray(items) ? items : []).map(item => ({
+    inventoryId: String(item?.inventoryId || ""),
+    directions: typeof item?.directions === "string" ? item.directions.trim() : "",
+    durationDays: item?.durationDays,
+    quantityPrescribed: item?.quantityPrescribed,
+  })).sort((a, b) => a.inventoryId.localeCompare(b.inventoryId));
+  const payload = {
+    tokenId: tokenId ? String(tokenId) : "",
+    encounterJourneyId: encounterJourneyId ? String(encounterJourneyId) : "",
+    serviceDepartmentId: serviceDepartmentId ? String(serviceDepartmentId) : "",
+    patientId: patientId ? String(patientId) : "",
+    familyMemberId: familyMemberId ? String(familyMemberId) : "",
+    diagnosis: typeof diagnosis === "string" ? diagnosis.trim() : "",
+    items: normalizedItems,
+  };
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+}
 
 export const createPrescription = async ({
   hospitalId,
@@ -32,6 +58,10 @@ export const createPrescription = async ({
   diagnosis = "",
   items,
   actor,
+  creationKey,
+  requestKey,
+  key,
+  session: providedSession,
 }) => {
   if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
     await assertClinicalWorkflowReady({ workflow: "Pharmacy" });
@@ -60,31 +90,90 @@ export const createPrescription = async ({
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
 
-  const context = await resolveClinicalCreation({ hospitalId, encounterJourneyId, tokenId, patientId, familyMemberId, personKey, departmentId, serviceDepartmentId, prescribingDoctorId, actor }, "pharmacy");
-  const resolvedItems = await resolveClinicalItems(hospitalId, items, "pharmacy");
-  const verificationToken = generatePrescriptionToken();
+  const effectiveKey = creationKey || requestKey || key;
+  if (effectiveKey !== undefined && effectiveKey !== null) {
+    if (typeof effectiveKey !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(effectiveKey)) {
+      throw accessError(400, "Invalid creation key");
+    }
+  }
 
-  const prescription = new Prescription({
-    ...context,
-    diagnosis: clinicalText(diagnosis, "Diagnosis"),
-    status: "approved_by_doctor",
-    fulfillmentLedgerVersion: 1,
-    verificationToken,
-    items: resolvedItems,
-    auditHistory: [
-      {
-        stage: "approved_by_doctor",
-        actorId: context.actor.id,
-        actorName: context.actor.name,
-        timestamp: new Date(),
-        notes: `Prescription issued with ${items.length} medication items`,
-      },
-    ],
+  const requestHash = fingerprintPrescription({
+    tokenId,
+    encounterJourneyId,
+    serviceDepartmentId,
+    items,
+    diagnosis,
+    patientId,
+    familyMemberId,
   });
 
-  await prescription.save();
+  if (effectiveKey) {
+    const existing = await Prescription.findOne({ hospitalId, creationKey: effectiveKey });
+    if (existing) {
+      if (existing.requestHash === requestHash) {
+        existing.$locals = existing.$locals || {};
+        existing.$locals.replayed = true;
+        return existing;
+      }
+      throw accessError(409, "Creation key already used with different contents");
+    }
+  }
 
-  return prescription;
+  const execute = async (session) => {
+    if (effectiveKey) {
+      const existingInTx = await Prescription.findOne({ hospitalId, creationKey: effectiveKey }).session(session);
+      if (existingInTx) {
+        if (existingInTx.requestHash === requestHash) {
+          existingInTx.$locals = existingInTx.$locals || {};
+          existingInTx.$locals.replayed = true;
+          return existingInTx;
+        }
+        throw accessError(409, "Creation key already used with different contents");
+      }
+    }
+
+    const context = await resolveClinicalCreation(
+      { hospitalId, encounterJourneyId, tokenId, patientId, familyMemberId, personKey, departmentId, serviceDepartmentId, prescribingDoctorId, actor },
+      "pharmacy",
+      { session }
+    );
+    const resolvedItems = await resolveClinicalItems(hospitalId, items, "pharmacy", { session });
+    const verificationToken = generatePrescriptionToken();
+
+    const prescription = new Prescription({
+      ...context,
+      diagnosis: clinicalText(diagnosis, "Diagnosis"),
+      status: "approved_by_doctor",
+      fulfillmentLedgerVersion: 1,
+      fulfillmentRevision: 0,
+      verificationToken,
+      creationKey: effectiveKey || undefined,
+      requestHash,
+      items: resolvedItems,
+      auditHistory: [
+        {
+          stage: "approved_by_doctor",
+          actorId: context.actor.id,
+          actorName: context.actor.name,
+          timestamp: new Date(),
+          notes: `Prescription issued with ${items.length} medication items`,
+        },
+      ],
+    });
+
+    await prescription.save({ session });
+
+    if (process.env.NODE_ENV === "test" && testPharmacyCreationFault) {
+      await testPharmacyCreationFault("before_commit", { prescription, session });
+    }
+
+    return prescription;
+  };
+
+  if (providedSession) {
+    return await execute(providedSession);
+  }
+  return await moneyTransaction(execute);
 };
 
 export const dispensePrescription = async ({ prescriptionId, hospitalId, actor, dispenseItems, requestKey, expectedRevision }) => {

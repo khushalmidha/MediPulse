@@ -64,6 +64,8 @@ export const postCreateLabOrder = asyncHandler(async (req, res) => {
   const hospitalId = getHospitalIdFromReq(req);
   if (!hospitalId) return res.status(400).json({ message: "Hospital identifier is required" });
 
+  const creationKey = req.get("Idempotency-Key") || req.get("x-creation-key") || req.get("x-request-key") || req.body.creationKey || req.body.requestKey;
+
   const order = await createLabOrder({
     hospitalId,
     encounterJourneyId: req.body.encounterJourneyId,
@@ -78,10 +80,17 @@ export const postCreateLabOrder = asyncHandler(async (req, res) => {
     orderingDoctorName: req.staff.name || "Attending Physician",
     tests: req.body.tests,
     clinicalNotes: req.body.clinicalNotes,
+    creationKey,
     actor: { id: req.staff.id, name: req.staff.name, role: req.staff.role },
   });
 
-  return res.status(201).json({ message: "Laboratory order placed", order: labStaffView(order) });
+  const isReplayed = Boolean(order.$locals?.replayed);
+  const status = isReplayed ? 200 : 201;
+  return res.status(status).json({
+    message: isReplayed ? "Laboratory order replayed" : "Laboratory order placed",
+    order: labStaffView(order),
+    replayed: isReplayed,
+  });
 });
 
 export const listLabOrders = asyncHandler(async (req, res) => {

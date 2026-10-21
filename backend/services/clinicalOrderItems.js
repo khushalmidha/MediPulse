@@ -14,13 +14,13 @@ const whole = (value, label, max) => {
   return value;
 };
 
-export async function resolveClinicalItems(hospitalId, input, kind) {
+export async function resolveClinicalItems(hospitalId, input, kind, { session = null } = {}) {
   if (!Array.isArray(input) || input.length === 0 || input.length > 30) throw accessError(400, "Provide between one and thirty distinct care items");
   const key = kind === "lab" ? "catalogId" : "inventoryId";
   const ids = input.map(item => requireRecordId(item?.[key], key));
   if (new Set(ids).size !== ids.length) throw accessError(400, "Duplicate care items are not allowed");
   const Model = kind === "lab" ? LabTestCatalog : PharmacyInventory;
-  const records = await Model.find({ _id: { $in: ids }, hospitalId, isActive: true }).lean();
+  const records = await Model.find({ _id: { $in: ids }, hospitalId, isActive: true }).session(session).lean();
   if (records.length !== ids.length) throw accessError(403, "All care items must be active in this hospital catalog");
   const byId = new Map(records.map(record => [String(record._id), record]));
   if (kind === "lab" && new Set(records.map(record => record.code)).size !== records.length) throw accessError(409, "Colliding laboratory test codes require reviewed catalog repair");

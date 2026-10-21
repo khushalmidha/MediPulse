@@ -1625,4 +1625,59 @@ Implemented cryptographically verified walk-in account claim lifecycle, replacin
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG06 - Retry-safe transactional creation of lab orders and prescriptions - 21 October 2026
+
+Baseline: following AG05 verification.
+Implemented retry-safe, transactional creation commands for laboratory orders and pharmacy prescriptions, replacing uncoordinated `.save()` writes with atomic multi-document transactions, durable creation keys, deterministic request hashing, and session-bound validation serialized against consultation completion.
+
+### Implemented changes
+
+- **Session-Bound Validation and Consultation Serialization**:
+  - `backend/services/clinicalOrderAccess.js`:
+    - Updated `resolveClinicalCreation` to accept `{ session = null }`.
+    - Bound all context queries (`clinicalStaff`, `EncounterJourney.findOne`, `OpdToken.findOne`, `validVisitReferences`, `checkPatient`, `checkEncounter`, `Department.exists`, and `HospitalStaff.exists`) to `session`.
+    - Added atomic write-lock validation on `OpdToken`: `findOneAndUpdate({ _id: token._id, hospitalId: staff.hospitalId, status: "in_consultation" }, { $set: { updatedAt: new Date() } }, { session, new: true })`. If the consultation completed concurrently or previously, throws 409 Conflict ("Orders require an active consultation").
+  - `backend/services/clinicalOrderItems.js`:
+    - Updated `resolveClinicalItems` to accept `{ session = null }` and bound catalog and inventory queries using `.session(session)`.
+- **Transactional Creation Services**:
+  - `backend/services/labService.js`:
+    - Added `fingerprintLabOrder` to compute canonical SHA-256 fingerprint from normalized request payload (sorted catalog IDs, trimmed notes, token, department, and family identity).
+    - Added `setLabCreationFault` hook for testing transaction abort and rollback.
+    - Updated `createLabOrder`: validates creation key format; checks for existing order under `{ hospitalId, creationKey }` with idempotent replay vs 409 conflict; wraps creation in `moneyTransaction(async (session) => { ... })` (or external session); re-checks existing in transaction; resolves context and items within session; instantiates `LabOrder` with `creationKey`, `requestHash`, and `workflowRevision: 0`; saves within `session`; triggers fault hook if in test; returns order.
+  - `backend/services/pharmacyService.js`:
+    - Added `fingerprintPrescription` to compute canonical SHA-256 fingerprint from normalized request payload (sorted inventory IDs, directions, duration, quantities, trimmed diagnosis).
+    - Added `setPharmacyCreationFault` hook for testing transaction abort and rollback.
+    - Updated `createPrescription`: validates creation key format; checks for existing prescription under `{ hospitalId, creationKey }` with idempotent replay vs 409 conflict; wraps creation in `moneyTransaction(async (session) => { ... })` (or external session); re-checks existing in transaction; resolves context and items within session; instantiates `Prescription` with `creationKey`, `requestHash`, and `fulfillmentRevision: 0`; saves within `session`; triggers fault hook if in test; returns prescription.
+- **Controller Idempotency Wiring**:
+  - `backend/controller/lab.js`:
+    - Updated `postCreateLabOrder` to extract `creationKey` from headers (`Idempotency-Key`, `x-creation-key`, `x-request-key`) or body (`creationKey`, `requestKey`), and return HTTP 200 on replay / 201 on new order with `replayed: Boolean(order.$locals?.replayed)`.
+  - `backend/controller/pharmacy.js`:
+    - Updated `postCreatePrescription` to extract `creationKey` from headers or body, and return HTTP 200 on replay / 201 on new creation with `replayed: Boolean(prescription.$locals?.replayed)`.
+- **Integration Test Suite & Verification**:
+  - `backend/tests/integration/clinical-order-creation.test.js`:
+    - 7 comprehensive integration tests verifying:
+      1. Concurrent create with same idempotency key yields exactly 1 lab order, one request returns 201, one returns 200 with `replayed: true`, returning identical resource.
+      2. Concurrent create with same idempotency key yields exactly 1 prescription, one request returns 201, one returns 200 with `replayed: true`, returning identical resource.
+      3. Replaying creation key with changed payload (different tests, notes, items, or diagnosis) is rejected with 409 Conflict.
+      4. Fault/crash before commit rolls back cleanly with 0 documents persisted; retry with same key succeeds.
+      5. Ordering care on completed consultation is rejected with 409 Conflict and 0 records created.
+      6. Foreign family, inactive catalog, foreign catalog, and unassigned doctor remain blocked.
+      7. Concurrent create-versus-complete race serializes safely with no order on completed consultation.
+  - `backend/scripts/testIntegration.js`:
+    - Registered `clinical-order-creation.test.js` in integration test runner.
+
+### Executed checks and limits
+
+- **Clinical order creation integration suite**: **7/7 passed**, zero failures/skips, **7.56 s** (`backend/tests/integration/clinical-order-creation.test.js`).
+- **Clinical order access integration suite**: **13/13 passed**, zero failures/skips, **7.28 s** (`backend/tests/integration/clinical-order-access.test.js`).
+- **Clinical schema integration suite**: **6/6 passed**, zero failures/skips, **5.74 s** (`backend/tests/integration/clinical-schema.test.js`).
+- **Full integration runner**: **251/251 passed**, zero failures/skips, **313.59 s** (`node scripts/testIntegration.js`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **46.01 s** (`npm test`).
+- **Frontend unit tests**: **50/50 passed**, zero failures/skips, **518 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **37.42 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against live local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
