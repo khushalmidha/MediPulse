@@ -2282,6 +2282,66 @@ Prior to this reconciliation:
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG17: Enterprise hospital expansion requirements and phases (21 October 2026)
+
+### Context and baseline
+Task AG17 establishes the approved enterprise hospital expansion requirements, statutory data retention rules, milestone dependencies, clinical invariants, and feature entitlements for the enterprise inpatient track (AG17 through AG22), building upon the completed outpatient foundation (AG00–AG16).
+
+Prior to this phase:
+1. `docs/ENTERPRISE_PLAN.md` existed as a conceptual outline without executable domain definitions or deterministic clinical invariants.
+2. Inpatient admission, discharge, transfer (ADT), bed state machines, NEWS2 early warning scoring, and surgical safety checklists lacked executable specifications and unit verification.
+3. SaaS plan entitlements did not include explicit enterprise features (`ipd_beds`, `nursing_emar`, `emergency_theatre`, `enterprise_procurement`, `enterprise_interfaces`), leaving enterprise subscription boundaries undefined.
+4. Dependency ordering across milestones M1–M5 (AG18–AG22) required an enforceable prerequisite verification graph.
+
+### Changes implemented & verified
+- **Enterprise Configuration & Governance Model (`backend/config/enterprisePlan.js`)**:
+  - **Statutory Jurisdictions & Medical Record Retention**:
+    - Primary Indian jurisdiction: Clinical Establishments Act 2010, DPDPA 2023, ABDM guidelines, NABH 5th Edition standards, and NMC regulations.
+    - Statutory retention policies:
+      - Adult Inpatient: minimum 10 years from discharge.
+      - Pediatric Inpatient: until patient reaches age 21 (majority 18 + 3 years limitation) or 10 years, whichever is greater.
+      - Medico-Legal Cases (MLC): permanent retention until final judicial court disposal.
+      - Controlled Substances / Schedule X registers: minimum 2 years with dual-nurse verification.
+      - US / International parity rules (HIPAA 6y, pediatric to age 21).
+  - **Bed State Machine & Lifecycle Invariants**:
+    - Modeled statuses: `available`, `reserved`, `occupied`, `cleaning`, `maintenance`, `isolated`.
+    - Prohibited illegal bypass transitions (e.g. `occupied -> available` bypassing housekeeping `cleaning`, `cleaning -> occupied` bypassing inspection).
+    - Added `validateBedTransition(fromStatus, toStatus)` enforcing exact lifecycle rules.
+  - **Deterministic NEWS2 (National Early Warning Score) Calculation**:
+    - Modeled 7 clinical parameters: Respiration Rate, SpO2 (Scale 1), Supplemental O2, Systolic BP, Pulse / Heart Rate, Consciousness (AVPU), and Temperature.
+    - Escalation rules: Low (0-4), Low-Medium (single extreme parameter = 3), Medium (5-6, doctor escalation within 30 min), High (>= 7, Code Blue / MET emergency trigger).
+  - **Emergency Department 5-Level Triage**:
+    - Standardized ESI Levels 1 to 5: Resuscitation (0m), Emergent (10m), Urgent (30m), Less Urgent (60m), Non-Urgent (120m) with acuity colors.
+  - **WHO Surgical Safety Checklist Checkpoints**:
+    - Defined mandatory checkpoints across all 3 perioperative stages: Sign In (before induction), Time Out (before incision), and Sign Out (before leaving OR).
+  - **Milestone Dependency Graph & Validation**:
+    - Formalized milestones M1_IPD_ADT (AG18), M2_NURSING_EMAR (AG19), M3_EMERGENCY_OT (AG20), M4_REVENUE_PROCUREMENT (AG21), M5_INTERFACES_DR (AG22).
+    - Implemented `validateMilestonePrerequisites(milestoneKey, completedTaskIds)` guarding each milestone against incomplete prerequisites.
+- **SaaS Feature Entitlements (`backend/services/saasOperationsService.js`)**:
+  - Expanded `PLAN_ENTITLEMENTS.enterprise` with: `ipd_beds`, `nursing_emar`, `emergency_theatre`, `enterprise_procurement`, `enterprise_interfaces` alongside existing `multi_branch` and `custom_domain`.
+  - Guaranteed starter and growth tiers remain strictly restricted from enterprise inpatient modules.
+- **Enterprise Plan Specification Document (`docs/ENTERPRISE_PLAN.md`)**:
+  - Updated to Version 2.0.0 detailing executive summary, statutory framework, capabilities audit, phased roadmap (M1–M5), bed management, nursing flowsheet, emergency triage, and operating acceptance criteria.
+- **Unit Test Suite (`backend/tests/enterprise-plan.test.js`)**:
+  - Added 8 comprehensive unit tests verifying:
+    1. Statutory jurisdictions & medical record retention schedules (adult, pediatric, MLC permanent, controlled substances).
+    2. Bed state machine valid and prohibited transitions.
+    3. Deterministic NEWS2 calculation, multi-parameter escalation, and Code Blue triggers.
+    4. Emergency department 5-level triage and max wait targets.
+    5. WHO surgical safety checklist stages and checkpoints.
+    6. Enterprise milestone dependency graph and prerequisite validation.
+    7. SaaS enterprise plan feature entitlements and tier gating.
+
+### Executed checks and limits
+- **Enterprise Plan Unit Tests**: **8/8 passed**, zero failures/skips, **12.60 ms** (`node --test tests/enterprise-plan.test.js`).
+- **Backend Unit Tests**: **179/179 passed**, zero failures/skips, **39.61 s** (`npm test`).
+- **Frontend Unit Tests**: **58/58 passed**, zero failures/skips, **404 ms** (`npm run test:ui`).
+- **Plan Checker (`tools/check-implementation-plan.mjs --next`)**: verified all 18 tasks (AG00–AG17) locally verified; dependencies acyclic; next ready task: **AG18**.
+- **Local Environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 
 

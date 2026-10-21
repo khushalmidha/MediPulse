@@ -27,7 +27,20 @@ export const PLAN_ENTITLEMENTS = {
   enterprise: {
     maxStaff: 1000,
     maxDepartments: 100,
-    features: ["opd", "queue", "labs", "pharmacy", "analytics", "multi_branch", "custom_domain"],
+    features: [
+      "opd",
+      "queue",
+      "labs",
+      "pharmacy",
+      "analytics",
+      "multi_branch",
+      "custom_domain",
+      "ipd_beds",
+      "nursing_emar",
+      "emergency_theatre",
+      "enterprise_procurement",
+      "enterprise_interfaces",
+    ],
   },
 };
 
