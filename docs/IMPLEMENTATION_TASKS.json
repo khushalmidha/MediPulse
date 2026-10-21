@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG20",
+  "startWith": "AG21",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1128,7 +1128,7 @@
     {
       "id": "AG20",
       "title": "Emergency and theatre workflows",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1146,7 +1146,26 @@
         "Competing theatre/resource reservations and cancelled/rescheduled cases remain consistent.",
         "Approved clinical checklist/escalation policies and role boundaries are exercised by hospital reviewers."
       ],
-      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval."
+      "dataBoundary": "Requirements-first enterprise work; hospital clinical policies and exact production/provider execution require their own reviewed approval.",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG20 emergency and theatre workflows, 22 October 2026",
+        "emergencyTheatreUnit": {
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 202,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 58,
+          "failed": 0,
+          "skipped": 0
+        },
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG21",

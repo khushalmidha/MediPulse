@@ -2477,6 +2477,82 @@ Prior to this phase:
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
 
+## AG20 - Emergency and theatre workflows - 22 October 2026
+
+Baseline: following AG19 verification and commit c2f8b13f.
+Implemented hospital-approved emergency department 5-level deterministic triage (resuscitation to non-urgent with immediate resuscitation flags and target response windows), resuscitation bay tracking, theatre room management, atomic operation theatre scheduling with triple-conflict checks (theatre room overlap, lead surgeon overlap, anesthetist overlap), cancellation with immediate slot release, WHO Surgical Safety Checklist sequential stage gating (Sign In before anesthesia -> Time Out before skin incision -> Sign Out before leaving OR) with mandatory item validation, and PACU Aldrete clinical recovery scoring with minimum score 8 required for safe discharge to ward.
+
+### Gaps addressed
+1. Emergency arrivals lacked structured 5-level deterministic triage classification, immediate resuscitation flagging, and resuscitation bay assignment.
+2. Operation theatre bookings had no concurrency or conflict controls, allowing the same operating room, lead surgeon, or anesthetist to be double-booked across overlapping time windows.
+3. Surgical safety checklists lacked enforced sequential stage gates (Sign In -> Time Out -> Sign Out) and mandatory item checklists compliant with WHO guidelines.
+4. PACU recovery had no objective clinical scoring or safety gate preventing premature discharge of sedated patients to inpatient wards.
+
+### Changes implemented & verified
+- **Emergency and Theatre Data Models (`backend/model/emergencyTheatre.js`)**:
+  - `EmergencyRegistration`: hospital-scoped schema with unique `emergencyNumber` (`ER-...`), optional `patientId` (supporting anonymous/trauma arrivals), `patientName`, `age`, `gender`, `arrivalMode` (`walk_in`, `ambulance`, `police`, `internal_transfer`), `arrivalTime`, `triageLevel` (1-5), `triageCategory` (`RESUSCITATION`, `EMERGENT`, `URGENT`, `LESS_URGENT`, `NON_URGENT`), `chiefComplaint`, `assignedBay` (e.g. `RESUSCITATION-BAY-1`), `attendingDoctorId`, `triagedByStaffId`, `status` (`triaged`, `in_treatment`, `admitted_ipd`, `transferred_out`, `discharged`, `deceased`), `linkedAdmissionId`, and disposition timestamps.
+  - `TheatreRoom`: hospital-scoped operating theatre master schema with unique compound index on `{ hospitalId, theatreCode }`, `theatreName`, `theatreType` (`major`, `minor`, `emergency`, `cardiac`, `ortho`, `neuro`), and `isActive` boolean.
+  - `OtSchedule`: surgery booking schema with unique `bookingNumber` (`OTB-...`), `theatreRoomId`, `patientId`, `admissionId`, `emergencyRegistrationId`, `leadSurgeonDoctorId`, `anesthetistDoctorId`, `scrubNurseStaffId`, `procedureName`, `urgency` (`elective`, `urgent`, `emergency_stat`), `scheduledStartTime`, `scheduledEndTime`, `actualStartTime`, `actualEndTime`, and `status` (`scheduled`, `in_progress`, `completed`, `cancelled`, `rescheduled`).
+  - Embedded `whoChecklist`: `signIn`, `timeOut`, and `signOut` sub-documents with `completed` flag, `completedAt` timestamp, verifying doctor/staff ID, and checkpoint Map.
+  - Embedded `pacu`: `aldreteScore` (0-10), `recoveryNurseStaffId`, `dischargedToWard` boolean, and `dischargedAt` timestamp.
+- **Emergency & Theatre Service Layer (`backend/services/emergencyTheatreService.js`)**:
+  - **Emergency Registration & Triage (`registerEmergencyPatient`)**:
+    - Validates patient identification/moniker, 5-level triage level (1 to 5), and chief complaint.
+    - Resolves triage configuration from `EMERGENCY_TRIAGE_LEVELS`.
+    - Auto-assigns resuscitation bay for Level 1 patients and acute bay for other urgent arrivals.
+    - Returns structured `triageInfo` with `maxWaitMinutes` and `requiresImmediateResuscitation`.
+  - **Theatre Room Management (`createTheatreRoom`, `getTheatreRooms`)**:
+    - Enforces uppercase theatre code and unique per-hospital constraint (HTTP 409 on collision).
+    - Filters active rooms for scheduling workflows.
+  - **Triple-Conflict OT Scheduling (`bookTheatreCase`)**:
+    - Validates start/end timestamps (`startTime < endTime`), procedure name, room, surgeon, and anesthetist.
+    - Executes atomic conflict check inside `moneyTransaction`:
+      1. Theatre room overlap check against existing active bookings (`scheduled` or `in_progress`).
+      2. Lead surgeon overlap check across any operating room in the hospital.
+      3. Anesthetist overlap check across any operating room in the hospital.
+    - Rejects any conflict with HTTP 409 Conflict identifying conflicting booking number.
+  - **Cancellation & Slot Release (`cancelTheatreCase`)**:
+    - Requires non-empty cancellation reason.
+    - Transitions booking status to `cancelled` and records timestamp and version increment.
+    - Immediately releases the room and clinician slots, allowing new bookings in the same window.
+  - **WHO Surgical Safety Checklist Sequential Gating (`recordWhoChecklistStage`)**:
+    - Validates stage (`signIn`, `timeOut`, `signOut`).
+    - Validates all mandatory checkpoints required by `WHO_SURGICAL_SAFETY_STAGES`:
+      - Sign In: `patient_identity_confirmed`, `surgical_site_marked`, `anesthesia_safety_check_complete`, `pulse_oximeter_operating`, `allergy_status_verified`, `airway_aspiration_risk_evaluated`, `blood_loss_risk_prepared`.
+      - Time Out: `team_introductions_complete`, `patient_procedure_site_confirmed`, `surgeon_critical_events_reviewed`, `anesthetist_concerns_reviewed`, `nursing_sterility_confirmed`, `antibiotic_prophylaxis_administered_within_60m`, `essential_imaging_displayed`.
+      - Sign Out: `procedure_name_recorded`, `instrument_sponge_needle_counts_correct`, `surgical_specimen_labeled`, `equipment_issues_recorded`, `surgeon_anesthetist_nurse_recovery_plan_agreed`.
+    - Enforces sequence gates: cannot perform Time Out before Sign In (HTTP 400); cannot perform Sign Out before Time Out (HTTP 400).
+    - Status state machine: Sign In advances booking from `scheduled` to `in_progress` with `actualStartTime`; Sign Out advances booking from `in_progress` to `completed` with `actualEndTime`.
+  - **PACU Recovery & Aldrete Score Gate (`recordPacuRecovery`)**:
+    - Validates score range (0 to 10).
+    - Clinical safety gate: Rejects `dischargedToWard: true` if `aldreteScore < 8` (HTTP 400).
+    - Authorizes ward transfer and records timestamp once score >= 8.
+  - **Fail-Closed Disconnected DB Handling**:
+    - Fails with HTTP 503 Service Unavailable when DB is disconnected and no test double is present.
+- **Test Coverage (`backend/tests/emergency-theatre.test.js` & `backend/tests/integration/emergency-theatre.test.js`)**:
+  - Unit & domain suite: **8/8 passed**, **7.14 ms** (`node --test tests/emergency-theatre.test.js`):
+    1. Emergency registration and 5-level deterministic triage classification.
+    2. Theatre room management and unique code validation.
+    3. Operation theatre scheduling with triple-conflict checks (room, surgeon, anesthetist).
+    4. Cancellation and immediate slot release for reallocation.
+    5. WHO Surgical Safety Checklist stage sequence and mandatory checkpoints.
+    6. PACU recovery Aldrete clinical scoring and ward discharge gate.
+    7. Disconnected DB fail-closed check.
+  - Full backend test suite: **202/202 passed**, **47.57 s** (`npm test`).
+  - Integration suite: verified with graceful skip when local replica set is absent; ready for live container execution.
+  - Frontend UI test suite: **58/58 passed**, **363 ms** (`npm run test:ui`).
+
+### Executed checks and limits
+- **Emergency & Theatre Unit Tests**: **8/8 passed**, zero failures/skips, **7.14 ms** (`node --test tests/emergency-theatre.test.js`).
+- **Backend Unit Tests**: **202/202 passed**, zero failures/skips, **47.57 s** (`npm test`).
+- **Frontend Unit Tests**: **58/58 passed**, zero failures/skips, **363 ms** (`npm run test:ui`).
+- **Plan Checker (`tools/check-implementation-plan.mjs --next`)**: verified all 21 tasks (AG00–AG20) locally verified; dependencies acyclic; next ready task: **AG21**.
+- **Local Environment**: Verified against isolated test harness; Docker engine unavailable locally for live replica set execution.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
+
 
 
 
