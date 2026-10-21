@@ -15,6 +15,7 @@ import { moneyTransaction } from "./moneyTransaction.js";
 import { amountToMinor, fromMinor } from "../util/money.js";
 import { accessError, idOf } from "./hospitalAccess.js";
 import { localServiceDate, liveTokenStatuses, liveAppointmentStatuses } from "./queueContext.js";
+import { initializeEncounterJourney } from "./encounterJourneyService.js";
 
 const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value && typeof value === "object"
   ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])])) : value;
@@ -55,6 +56,23 @@ const resources = async (operation) => {
   }
   const token = operation.tokenId ? await OpdToken.findById(operation.tokenId) : null;
   const appointment = operation.appointmentId ? await Appointment.findById(operation.appointmentId) : null;
+  if (token && token.hospitalId && mongoose.connection?.readyState === 1) {
+    try {
+      await initializeEncounterJourney({
+        hospitalId: token.hospitalId,
+        departmentId: token.departmentId,
+        tokenId: token._id,
+        appointmentId: appointment?._id || token.appointmentId,
+        patientId: token.patientId,
+        familyMemberId: token.familyMemberId,
+        personKey: token.personKey || operation.recoveryData?.personKey,
+        isWalkIn: Boolean(token.patientInfo?.isWalkIn),
+        ticketNumber: token.displayToken || `T${token.tokenNumber}`,
+      });
+    } catch (err) {
+      console.error("Encounter replay repair notice:", err.message);
+    }
+  }
   if (operation.sourceOperationId) {
     const source = await BookingOperation.findById(operation.sourceOperationId);
     if (source?.state === "completed" && operation.state !== "completed") { operation.state = "completed"; await operation.save(); }
@@ -171,6 +189,20 @@ export const resumeQueueBooking = async (operationId) => {
     if (appointment) {
       const refundDueAt = autoRefundDeadline(appointment);
       if (refundDueAt) await Appointment.updateOne({ _id: appointment._id }, { $set: { refundDueAt } }, { session });
+    }
+    if (token && token.hospitalId) {
+      await initializeEncounterJourney({
+        hospitalId: token.hospitalId,
+        departmentId: token.departmentId,
+        tokenId: token._id,
+        appointmentId: appointment?._id || operation.appointmentId,
+        patientId: token.patientId,
+        familyMemberId: token.familyMemberId,
+        personKey,
+        isWalkIn: Boolean(token.patientInfo?.isWalkIn),
+        ticketNumber: token.displayToken || `T${token.tokenNumber}`,
+        session,
+      });
     }
     await recordVisitEvent({ token, appointment, action: "booked" }, session);
     operation.state = "completed"; operation.paymentId = payment?.transactionId;

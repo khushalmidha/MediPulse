@@ -7,6 +7,7 @@ import OpdToken from "../model/opdToken.js";
 import HospitalStaff from "../model/hospitalStaff.js";
 import Department from "../model/department.js";
 import EncounterJourney from "../model/encounterJourney.js";
+import { initializeEncounterJourney } from "./encounterJourneyService.js";
 import { accessError, idOf } from "./hospitalAccess.js";
 import { queueTransaction } from "./queueBooking.js";
 import { localServiceDate, requireQueueContext } from "./queueContext.js";
@@ -121,11 +122,39 @@ export const transitionVisit = async ({ tokenId, appointmentId, action, expected
     if (targetStage && mongoose.connection?.readyState === 1) {
       const matchCriteria = [...(token?._id ? [{ tokenId: token._id }] : []), ...(appointment?._id ? [{ appointmentId: appointment._id }] : [])];
       if (matchCriteria.length) {
-        await EncounterJourney.updateOne(
-          { $or: matchCriteria },
-          { $set: { currentStage: targetStage }, $inc: { revision: 1 } },
-          { session }
-        );
+        // AG02 encounter update
+        let encounter = await EncounterJourney.findOne({ $or: matchCriteria }).session(session);
+        if (!encounter && token && token.hospitalId) {
+          encounter = await initializeEncounterJourney({
+            hospitalId: token.hospitalId,
+            departmentId: token.departmentId,
+            tokenId: token._id,
+            appointmentId: appointment?._id || token.appointmentId,
+            patientId: token.patientId,
+            familyMemberId: token.familyMemberId,
+            personKey: token.personKey,
+            isWalkIn: Boolean(token.patientInfo?.isWalkIn),
+            ticketNumber: token.displayToken || `T${token.tokenNumber}`,
+            session,
+          });
+        }
+        if (encounter && encounter.currentStage !== targetStage) {
+          const fromStage = encounter.currentStage;
+          encounter.currentStage = targetStage;
+          encounter.revision = (encounter.revision || 0) + 1;
+          encounter.stageHistory.push({
+            stage: targetStage,
+            fromStage,
+            timestamp: now,
+            notes: `Stage updated on visit ${action}`,
+          });
+          await encounter.save({ session });
+        }
+
+
+
+
+
       }
     }
     return { token, appointment };

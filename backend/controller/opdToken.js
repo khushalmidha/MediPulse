@@ -59,20 +59,21 @@ const issueToken = async (req, res) => {
   const token = result.token;
   if (!result.replay) {
     await notify("opd:token-issued", token);
-    try {
-      await initializeEncounterJourney({
-        hospitalId: token.hospitalId,
-        departmentId: token.departmentId,
-        tokenId: token._id,
-        appointmentId: result.appointment?._id,
-        patientId: token.patientId,
-        familyMemberId: token.familyMemberId,
-        isWalkIn: Boolean(token.patientInfo?.isWalkIn),
-        ticketNumber: token.displayToken || `T${token.tokenNumber}`,
-      });
-    } catch (err) {
-      console.error("Encounter initialization notice:", err.message);
-    }
+  }
+  try {
+    await initializeEncounterJourney({
+      hospitalId: token.hospitalId,
+      departmentId: token.departmentId,
+      tokenId: token._id,
+      appointmentId: result.appointment?._id,
+      patientId: token.patientId,
+      familyMemberId: token.familyMemberId,
+      personKey: token.personKey,
+      isWalkIn: Boolean(token.patientInfo?.isWalkIn),
+      ticketNumber: token.displayToken || `T${token.tokenNumber}`,
+    });
+  } catch (err) {
+    console.error("Encounter initialization notice:", err.message);
   }
   if (result.appointment) await afterVisitCommit(async () => {
     const io = getIO();

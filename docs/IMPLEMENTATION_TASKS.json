@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG02",
+  "startWith": "AG03",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -140,7 +140,7 @@
     {
       "id": "AG02",
       "title": "Exactly one recoverable encounter for every hospital visit",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG01"
@@ -150,7 +150,8 @@
         "backend/controller/opdToken.js",
         "backend/services/queueBooking.js",
         "backend/services/scheduling.js",
-        "backend/services/visitTransitions.js"
+        "backend/services/visitTransitions.js",
+        "backend/tests/integration/encounter-recovery.test.js"
       ],
       "implementation": [
         "Replace read-then-create journey initialization with transaction/idempotency and source identity binding.",
@@ -162,7 +163,46 @@
         "A failed derived journey can be repaired on replay after restart without changing original history."
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
-      "track": "outpatient_pilot"
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG02 exactly one recoverable encounter for every hospital visit, 21 October 2026",
+        "encounterRecoveryIntegration": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "ag02UnitTest": {
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0
+        },
+        "clinicalSchemaIntegration": {
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        "clinicalWritesIntegration": {
+          "passed": 19,
+          "failed": 0,
+          "skipped": 0
+        },
+        "queueIntegration": {
+          "passed": 20,
+          "failed": 0,
+          "skipped": 0
+        },
+        "queueControlsIntegration": {
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 168,
+          "failed": 0,
+          "skipped": 0
+        },
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG03",

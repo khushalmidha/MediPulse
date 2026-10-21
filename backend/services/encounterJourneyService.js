@@ -6,6 +6,8 @@ import OpdToken from "../model/opdToken.js";
 import { accessError } from "./hospitalAccess.js";
 import { assertClinicalWorkflowReady } from "./clinicalSchema.js";
 
+import Appointment from "../model/appointment.js";
+
 const DEFAULT_STEPS = ["reception", "vitals", "consultation"];
 
 const STAGE_DESTINATION_SERVICE_MAP = {
@@ -26,51 +28,123 @@ export const initializeEncounterJourney = async ({
   appointmentId,
   patientId,
   familyMemberId,
+  personKey,
   isWalkIn = false,
   ticketNumber,
   requiredSteps,
-}) => {
+  session,
+} = {}) => {
   if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
     await assertClinicalWorkflowReady({ workflow: "Encounter" });
   }
 
   if (mongoose.connection?.readyState !== 1) return null;
 
-  let encounter = await EncounterJourney.findOne({
+  // Derive source identity from token or appointment if omitted
+  if (tokenId && (!hospitalId || !departmentId || !ticketNumber || !personKey)) {
+    const tokenQuery = OpdToken.findById(tokenId);
+    if (session) tokenQuery.session(session);
+    const tokenDoc = await tokenQuery.lean();
+    if (tokenDoc) {
+      hospitalId ||= tokenDoc.hospitalId;
+      departmentId ||= tokenDoc.departmentId;
+      patientId ||= tokenDoc.patientId;
+      familyMemberId ||= tokenDoc.familyMemberId;
+      personKey ||= tokenDoc.personKey;
+      isWalkIn = isWalkIn || Boolean(tokenDoc.patientInfo?.isWalkIn);
+      ticketNumber ||= tokenDoc.displayToken || `T${tokenDoc.tokenNumber}`;
+      appointmentId ||= tokenDoc.appointmentId;
+    }
+  }
+
+  if (appointmentId && (!hospitalId || !departmentId || !personKey)) {
+    const apptQuery = Appointment.findById(appointmentId);
+    if (session) apptQuery.session(session);
+    const apptDoc = await apptQuery.lean();
+    if (apptDoc) {
+      hospitalId ||= apptDoc.hospitalId;
+      departmentId ||= apptDoc.departmentId;
+      patientId ||= apptDoc.user;
+      familyMemberId ||= apptDoc.familyMemberId;
+      personKey ||= apptDoc.personKey;
+      tokenId ||= apptDoc.opdTokenId;
+    }
+  }
+
+  const query = {
     $or: [
       ...(tokenId ? [{ tokenId }] : []),
       ...(appointmentId ? [{ appointmentId }] : []),
     ],
-  });
+  };
 
-  if (encounter) return encounter;
+  if (!query.$or.length) return null;
+
+  let encounterQuery = EncounterJourney.findOne(query);
+  if (session) encounterQuery.session(session);
+  let encounter = await encounterQuery;
+
+  if (encounter) {
+    let modified = false;
+    if (tokenId && !encounter.tokenId) {
+      encounter.tokenId = tokenId;
+      modified = true;
+    }
+    if (appointmentId && !encounter.appointmentId) {
+      encounter.appointmentId = appointmentId;
+      modified = true;
+    }
+    if (personKey && !encounter.personKey) {
+      encounter.personKey = personKey;
+      modified = true;
+    }
+    if (patientId && !encounter.patientId) {
+      encounter.patientId = patientId;
+      modified = true;
+    }
+    if (familyMemberId && !encounter.familyMemberId) {
+      encounter.familyMemberId = familyMemberId;
+      modified = true;
+    }
+    if (modified) {
+      encounter.revision = (encounter.revision || 0) + 1;
+      await encounter.save(session ? { session } : undefined);
+    }
+    return encounter;
+  }
 
   const steps = Array.isArray(requiredSteps) && requiredSteps.length > 0 ? requiredSteps : DEFAULT_STEPS;
 
   // Find initial destination location (reception desk)
-  const initialLocation = await HospitalLocation.findOne({
+  const locQuery = HospitalLocation.findOne({
     hospitalId,
     serviceType: "reception",
     status: "active",
-  }).lean();
+  });
+  if (session) locQuery.session(session);
+  const initialLocation = await locQuery.lean();
 
   const qrPayload = crypto
     .createHash("sha256")
-    .update(`${hospitalId}:${ticketNumber}:${Date.now()}`)
+    .update(`${hospitalId}:${ticketNumber || "T000"}:${tokenId || appointmentId || Date.now()}`)
     .digest("hex")
     .substring(0, 24);
 
-  encounter = new EncounterJourney({
+  const initialStage = isWalkIn ? "checked_in" : "booked";
+  const stageNotes = isWalkIn ? "Walk-in encounter created at reception" : "Scheduled encounter confirmed";
+
+  const encounterData = {
     hospitalId,
     departmentId,
     tokenId,
     appointmentId,
     patientId,
     familyMemberId,
+    personKey,
     isWalkIn,
     ticketNumber: ticketNumber || "T000",
     qrPayload,
-    currentStage: isWalkIn ? "checked_in" : "booked",
+    currentStage: initialStage,
     requiredSteps: steps,
     currentDestination: initialLocation
       ? {
@@ -87,10 +161,10 @@ export const initializeEncounterJourney = async ({
         },
     stageHistory: [
       {
-        stage: isWalkIn ? "checked_in" : "booked",
+        stage: initialStage,
         fromStage: "none",
         timestamp: new Date(),
-        notes: isWalkIn ? "Walk-in encounter created at reception" : "Scheduled encounter confirmed",
+        notes: stageNotes,
       },
     ],
     physicalFile: {
@@ -99,10 +173,20 @@ export const initializeEncounterJourney = async ({
       handoffHistory: [],
     },
     revision: 0,
-  });
+  };
 
-  await encounter.save();
-  return encounter;
+  try {
+    const [created] = await EncounterJourney.create([encounterData], session ? { session } : undefined);
+    return created;
+  } catch (error) {
+    if (error.code === 11000) {
+      const fallbackQuery = EncounterJourney.findOne(query);
+      if (session) fallbackQuery.session(session);
+      const existing = await fallbackQuery;
+      if (existing) return existing;
+    }
+    throw error;
+  }
 };
 
 export const transitionEncounterStage = async ({
@@ -305,9 +389,18 @@ export const getEncounterGuidance = async ({ tokenId, appointmentId, encounterId
     ? { tokenId }
     : { appointmentId };
 
-  const encounter = await EncounterJourney.findOne(query)
+  let encounter = await EncounterJourney.findOne(query)
     .populate("currentDestination.locationId")
     .lean();
+
+  if (!encounter && (tokenId || appointmentId)) {
+    const repaired = await initializeEncounterJourney({ tokenId, appointmentId });
+    if (repaired) {
+      encounter = await EncounterJourney.findOne({ _id: repaired._id })
+        .populate("currentDestination.locationId")
+        .lean();
+    }
+  }
 
   if (!encounter) throw accessError(404, "Encounter not found");
 

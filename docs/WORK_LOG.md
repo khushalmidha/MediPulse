@@ -1408,3 +1408,38 @@ Implemented schema inspection, explicit named indexes, dry-run/additive apply an
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed. Startup `autoIndex` is disabled; duplicate records are preserved for operator review.
 
+
+## AG02 - Exactly one recoverable encounter for every hospital visit - 21 October 2026
+
+Baseline: following AG01 verification.
+Implemented transactional, idempotent encounter journey creation and restart/replay recovery bound to tenant, department, source tokens/appointments, and resolved person key.
+
+### Implemented changes
+
+- **Encounter Journey Model & Schema**:
+  - `backend/model/encounterJourney.js`: Added `personKey` string attribute to schema; confirmed `{ timestamps: true, autoIndex: false }` with explicit unique named partial indexes on `tokenId` and `appointmentId`.
+- **Transactional Journey Initialization & Idempotency**:
+  - `backend/services/encounterJourneyService.js`: Refactored `initializeEncounterJourney` to bind to MongoDB sessions when available (`session`). Derives missing tenant/department/personKey/ticket metadata from `OpdToken` or `Appointment` when partial inputs are provided. Employs duplicate key conflict catch (`error.code === 11000`) to transparently return the existing unique encounter document.
+  - Implemented automatic replay repair in `getEncounterGuidance`: if an encounter journey was omitted, crashed before insertion, or lost, guidance queries reconstruct and repair the encounter derived from the underlying authoritative visit records without modifying original token/appointment revision or creation timestamps.
+- **Queue Booking & Scheduling Binding**:
+  - `backend/services/queueBooking.js`: Bound `initializeEncounterJourney` within the `queueTransaction` for both initial booking creation and `resumeQueueBooking` replay flows. Replays and duplicate request keys resolve to the single canonical encounter and perform no second wallet debit.
+  - `backend/services/scheduling.js`: Added transactional encounter initialization in `confirmCareReservation` for scheduled hospital visits (`appointmentType: hospital_in_person`), creating exactly one encounter in `booked` stage, and preserving identity across reservation confirmation replays.
+  - `backend/controller/opdToken.js`: Ensured encounter initialization receives `personKey` and handles walk-ins with initial `checked_in` stage.
+- **Visit Transitions Synchronization**:
+  - `backend/services/visitTransitions.js`: Extended visit transitions (`check_in`, `start`, `complete`, etc.) to locate or repair missing encounters, atomically advance `currentStage`, increment `revision`, and append structured audit records to `stageHistory`.
+- **Test Infrastructure & Registration**:
+  - `backend/tests/ag02-encounter.test.js`: Verified schema property definitions, `autoIndex: false`, unique partial index metadata, and null handling when disconnected.
+  - `backend/tests/integration/encounter-recovery.test.js`: 7 comprehensive integration cases verifying single encounter creation, concurrent same-key idempotency with single fee debit, replayed booking identity preservation, restart recovery without altering token history, assisted walk-in initialization, scheduled appointment confirmation, and transition-driven on-the-fly encounter repair.
+  - `backend/scripts/testIntegration.js`: Registered `encounter-recovery.test.js` in the multi-suite integration test runner.
+
+### Executed checks and limits
+
+- **Encounter recovery integration suite**: **7/7 passed**, zero failures/skips, **7.65 s** (`backend/tests/integration/encounter-recovery.test.js`).
+- **AG02 unit test suite**: **2/2 passed**, zero failures/skips (`backend/tests/ag02-encounter.test.js`).
+- **Full backend integration runner**: **224/224 passed**, zero failures/skips, **312.35 s** (`node scripts/testIntegration.js` including clinical writes, clinical schema, queue controls, encounter recovery, foxo demo, order access, lab/pharmacy transactions, concurrency, payments, sessions, and durable events).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **78.01 s** (`npm test`).
+- **Frontend unit tests**: **49/49 passed**, zero failures/skips, **337 ms** (`npm run test:ui`).
+- **Local environment**: Verified against live local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+

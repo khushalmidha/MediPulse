@@ -10,6 +10,7 @@ const encounterJourneySchema = new mongoose.Schema(
     appointmentId: { type: objectId, ref: "Appointment" },
     patientId: { type: objectId, ref: "user" },
     familyMemberId: { type: objectId },
+    personKey: { type: String },
     isWalkIn: { type: Boolean, default: false },
     linkedUserId: { type: objectId, ref: "user" },
     linkedAt: Date,

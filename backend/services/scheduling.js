@@ -22,6 +22,7 @@ import { transitionVisit, afterVisitCommit } from "./visitTransitions.js";
 import { recordVisitEvent } from "./workflowEvents.js";
 import { sessionPlan, instant, withinChangePolicy } from "./schedulingPolicy.js";
 import { lockSchedule, doctorUnavailable, releaseReservation } from "./schedulingLifecycle.js";
+import { initializeEncounterJourney } from "./encounterJourneyService.js";
 
 const scheduleTransaction = async callback => {
   try { return await moneyTransaction(callback); } catch (error) { if (error.code === 11000) throw accessError(409, "A live booking already occupies this care session"); throw error; }
@@ -185,7 +186,30 @@ export const confirmCareReservation = async (req, now = new Date()) => {
   const result = await scheduleTransaction(async session => {
     const reservation = await ownedReservation(req, id, session), replay = await operationReplay(identity, session);
     if (replay) return { replay: true };
-    if (reservation.state === "confirmed") { await saveOperation(identity, id, session); return { replay: true }; }
+    if (reservation.state === "confirmed") {
+      if (reservation.tokenId && mongoose.connection?.readyState === 1) {
+        const care = await CareSession.findById(reservation.session).session(session);
+        if (care?.hospitalId) {
+          const token = await Token.findById(reservation.tokenId).session(session);
+          if (token) {
+            await initializeEncounterJourney({
+              hospitalId: care.hospitalId,
+              departmentId: care.departmentId,
+              tokenId: token._id,
+              appointmentId: reservation.appointmentId,
+              patientId: reservation.user,
+              familyMemberId: reservation.familyMemberId,
+              personKey: reservation.personKey,
+              isWalkIn: false,
+              ticketNumber: token.displayToken || `T${token.tokenNumber}`,
+              session,
+            });
+          }
+        }
+      }
+      await saveOperation(identity, id, session);
+      return { replay: true };
+    }
     if (reservation.state !== "held" || reservation.expiresAt <= now) throw accessError(409, "Hold expired or is no longer available");
     const care = await CareSession.findById(reservation.session).session(session);
     if (!care) throw accessError(409, "Reservation session requires review");
@@ -215,6 +239,18 @@ export const confirmCareReservation = async (req, now = new Date()) => {
         tokenNumber: number, displayToken: `${hospital.settings?.tokenPrefix || "T"}${String(number).padStart(3, "0")}`, date: new Date(care.serviceDate + "T00:00:00Z"),
         appointmentId, scheduleReservationId: reservation._id, scheduleSessionId: care._id, scheduledStart: reservation.startsAt, scheduledEnd: reservation.endsAt,
         status: "reserved", revision: 1, paymentStatus: reservation.feeMinor ? "paid" : "waived", paymentAmount: fromMinor(reservation.feeMinor), paymentMode: "wallet" }], { session });
+      await initializeEncounterJourney({
+        hospitalId: care.hospitalId,
+        departmentId: care.departmentId,
+        tokenId: token._id,
+        appointmentId,
+        patientId: reservation.user,
+        familyMemberId: reservation.familyMemberId,
+        personKey: reservation.personKey,
+        isWalkIn: false,
+        ticketNumber: token.displayToken || `T${token.tokenNumber}`,
+        session,
+      });
     }
     Object.assign(reservation, { state: "confirmed", appointmentId, tokenId, revision: reservation.revision + 1 }); await reservation.save({ session });
     await saveOperation(identity, id, session); await recordVisitEvent({ token, appointment, action: "booked" }, session);
