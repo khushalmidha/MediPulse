@@ -6,6 +6,7 @@ import Appointment from "../model/appointment.js";
 import OpdToken from "../model/opdToken.js";
 import BookingChallenge from "../model/bookingChallenge.js";
 import AuthChallenge from "../model/authChallenge.js";
+import Community from "../model/community.js";
 import { sendAppointmentOtpMail, sendPasswordResetOtpMail, sendAppointmentBookedMail, sendAppointmentRefundMail, sendMail } from "../util/mailer.js";
 import { processReviewRequest } from "./reviewRequestWorker.js";
 import { openSecret } from "./outbox.js";
@@ -54,6 +55,82 @@ export const deliverOutboxJob = async (job, io) => {
     if (appointment?.payment?.refundedAt) return sendAppointmentRefundMail({ ...mail, amount: appointment.payment.amount });
     return sendMail({ from: process.env.MAIL_FROM || process.env.SMTP_USER, to: patient.email,
       subject: "Your MediPulse visit status changed", text: `Your visit ${mail.appointmentId} was cancelled or marked as missed. Sign in to MediPulse for the latest status.` });
+  }
+  if (job.kind === "community.announcement") {
+    const community = await Community.findById(payload.communityId).lean();
+    if (!community) return { skipped: true };
+
+    const pref = (community.memberPreferences || []).find(p => String(p.memberId) === String(payload.memberId));
+    const emailPref = pref ? pref.emailNotifications : true;
+    const inAppPref = pref ? pref.inAppNotifications : true;
+
+    if (!emailPref && !inAppPref) return { skipped: true };
+
+    if (inAppPref && io) {
+      io.to(`user:${payload.memberId}`).emit("community:announcement", {
+        communityId: payload.communityId,
+        announcementTitle: payload.announcementTitle,
+        content: payload.content,
+      });
+      io.to(`doctor:${payload.memberId}`).emit("community:announcement", {
+        communityId: payload.communityId,
+        announcementTitle: payload.announcementTitle,
+        content: payload.content,
+      });
+    }
+
+    if (emailPref) {
+      const recipient = await User.findById(payload.memberId).select("email firstName lastName").lean()
+        || await Doctor.findById(payload.memberId).select("email firstName lastName").lean();
+      if (recipient?.email) {
+        await sendMail({
+          from: process.env.MAIL_FROM || process.env.SMTP_USER,
+          to: recipient.email,
+          subject: `Announcement: ${payload.announcementTitle} - ${payload.communityTitle}`,
+          text: `${payload.announcementTitle}\n\n${payload.content}\n\nPosted by ${payload.authorName || "Community Organizer"} in ${payload.communityTitle}.`,
+        });
+      }
+    }
+    return;
+  }
+  if (job.kind === "community.event_reminder") {
+    const community = await Community.findById(payload.communityId).lean();
+    if (!community) return { skipped: true };
+
+    const pref = (community.memberPreferences || []).find(p => String(p.memberId) === String(payload.memberId));
+    const emailPref = pref ? pref.emailNotifications : true;
+    const inAppPref = pref ? pref.inAppNotifications : true;
+
+    if (!emailPref && !inAppPref) return { skipped: true };
+
+    if (inAppPref && io) {
+      io.to(`user:${payload.memberId}`).emit("community:event_reminder", {
+        eventId: payload.eventId,
+        title: payload.eventTitle,
+        time: payload.eventTime,
+        communityId: payload.communityId,
+      });
+      io.to(`doctor:${payload.memberId}`).emit("community:event_reminder", {
+        eventId: payload.eventId,
+        title: payload.eventTitle,
+        time: payload.eventTime,
+        communityId: payload.communityId,
+      });
+    }
+
+    if (emailPref) {
+      const recipient = await User.findById(payload.memberId).select("email firstName lastName").lean()
+        || await Doctor.findById(payload.memberId).select("email firstName lastName").lean();
+      if (recipient?.email) {
+        await sendMail({
+          from: process.env.MAIL_FROM || process.env.SMTP_USER,
+          to: recipient.email,
+          subject: `Reminder: Upcoming Community Event - ${payload.eventTitle}`,
+          text: `Event: ${payload.eventTitle}\nTime: ${payload.eventTime}\nCommunity: ${payload.communityTitle}\nLocation: ${payload.location || "Online"}\n`,
+        });
+      }
+    }
+    return;
   }
   throw new Error("Unknown durable delivery kind");
 };

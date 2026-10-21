@@ -2062,6 +2062,65 @@ Prior to this repair:
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG13: Complete community moderation, pagination and preference delivery (21 October 2026)
+
+### Context and baseline
+Task AG13 addresses gaps in community moderation workflows, unbounded message and member queries, preference delivery, and audit trail preservation (P15 / A12 / MP09).
+Prior to this repair:
+1. Community messages (`GET /community/:id`) and members had unbounded history fetching without pagination or limit enforcement, allowing performance degradation and memory bloat.
+2. Member lists leaked sensitive internal subdocuments such as `memberPreferences` and internal moderation reports.
+3. Ordinary member responses could expose reported message metadata, including report counts, reporters, and moderation flags.
+4. Report workflows lacked reason validation, duplicate report prevention, and moderator dismissal capabilities.
+5. Content removal permanently destroyed evidence needed for clinician organizer review and compliance audit trails.
+6. Member notification preferences were untyped, race-prone, and not respected by actual background delivery jobs; announcement and event reminders either broadcast indiscriminately or lacked durable outbox execution.
+
+### Changes implemented
+- **Message Model (`backend/model/message.js`)**:
+  - Added fields: `reportsDismissed: { type: Boolean, default: false }`, `dismissedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }`, `dismissedAt: { type: Date }`.
+  - Added compound indexes: `{ community: 1, createdAt: 1 }` for bounded pagination, and `{ community: 1, 'reports.0': 1 }` for moderation queue filtering.
+- **Community Controller (`backend/controller/community.js`)**:
+  - `getAllMessages`: added pagination (`page`, `limit` bounded to 1-100, default 50). Sanitizes messages for ordinary members by stripping `reports`, `originalContent`, `moderatedBy`, `moderatedAt`, and `reportsDismissed`, while preserving full audit evidence for community organizers (doctors).
+  - `getCommunityMembers`: bounded/paginated member listing returning sanitized public fields (`_id`, `name`, `role`), strictly omitting `memberPreferences` and moderation records.
+  - `getCommunityReports`: organizer-only endpoint returning all reported messages with full evidence (`reportedBy`, `reason`, `reportedAt`, `originalContent`). Non-organizers receive HTTP 403.
+  - `reportMessage`: validates reason length (1-500 characters), prevents duplicate reporting by the same member (HTTP 409), and appends report details to `message.reports`.
+  - `moderateMessage`: organizer-only removal; replaces visible content with `[This message was removed by the doctor moderator]`, marks `isRemoved: true`, preserves `originalContent`, and populates `moderatedBy` and `moderatedAt`.
+  - `dismissReports`: organizer-only report dismissal; sets `reportsDismissed: true`, `dismissedBy`, and `dismissedAt` without modifying original content.
+  - `getPreferences`: returns caller's typed preferences `{ emailNotifications, inAppNotifications }`.
+  - `updatePreferences`: validates typed booleans (HTTP 400 on invalid types), updates preferences via atomic Mongo transaction to prevent concurrent race conditions.
+  - `postAnnouncement`: creates announcement document and enqueues durable outbox jobs of kind `community.announcement` for members with enabled notifications.
+- **Event Controller (`backend/controller/event.js`)**:
+  - `createEvent`: enqueues durable outbox jobs of kind `community.event_reminder` for community members adhering to their notification preferences.
+- **Outbox Delivery Service (`backend/services/outboxDelivery.js`)**:
+  - Implemented `community.announcement` handler: checks recipient preferences in `community.memberPreferences`. Emits `io.to("user:...").emit("community:announcement")` if `inAppNotifications !== false`; delivers email if `emailNotifications !== false`. Skips delivery if both are disabled.
+  - Implemented `community.event_reminder` handler: delivers event reminder sockets and emails respecting recipient preferences.
+- **Community Routes (`backend/routes/community.js`)**:
+  - Mounted `GET /:id/members`, `GET /:id/reports`, `POST /:id/messages/:messageId/dismiss`, `GET /:id/preferences`, `PUT /:id/preferences`.
+- **Frontend Chat & Moderation UI (`frontend/src/pages/Chat.jsx`)**:
+  - Header actions: added `Moderation Queue` button with badge (restricted to community doctor organizer) and `Notification Preferences` button.
+  - Message items: added hover `Flag` button for reporting non-user messages with inline removed message styling.
+  - Modals: added `ReportDialog` with reason validation, `ModerationDialog` displaying full evidence with Remove and Dismiss actions, and `PreferencesDialog` for managing in-app and email notification toggles.
+- **Integration Test Suite (`backend/tests/integration/community-moderation-preferences.test.js`)**:
+  - 11 comprehensive subtests covering message pagination, member list privacy, reporting validation, duplicate prevention, evidence restriction, organizer moderation, report dismissal, typed preferences, announcement outbox jobs, and event reminder outbox delivery.
+
+### Executed checks and limits
+- **Community moderation and preference integration suite**: **11/11 passed**, zero failures/skips, **2.32 s** (`backend/tests/integration/community-moderation-preferences.test.js`):
+  1. Bounded and paginated message history.
+  2. Bounded and paginated community member list with zero preference or report leakage.
+  3. Reporting a message with validation and duplicate prevention (HTTP 409).
+  4. Restricted evidence visibility: ordinary members never see reports.
+  5. Doctor organizer sees full report evidence in moderation queue.
+  6. Organizer moderation removes message, preserves audit evidence, and hides from members.
+  7. Organizer can dismiss false reports, keeping message active.
+  8. Typed and race-safe member notification preferences.
+  9. Durable outbox job generation on announcements adhering to member preferences.
+  10. Durable outbox job generation on events adhering to member preferences.
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **40.36 s** (`npm test`).
+- **Frontend unit tests**: **58/58 passed**, zero failures/skips, **327 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **10.27 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
 
 
 

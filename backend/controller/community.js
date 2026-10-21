@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { requireCommunityAccess, isCommunityOrganizer, communitySummary } from "../services/communityAccess.js";
 import { isRecordId } from "../services/hospitalAccess.js";
+import { enqueueJob } from "../services/outbox.js";
 import Community from "../model/community.js";
 import Message from "../model/message.js";
 import User from "../model/user.js";
@@ -13,6 +14,9 @@ const sanitizeMessage = (msg, isOrganizer) => {
 		delete doc.originalContent;
 		delete doc.moderatedBy;
 		delete doc.moderatedAt;
+		delete doc.reportsDismissed;
+		delete doc.dismissedBy;
+		delete doc.dismissedAt;
 	}
 	return doc;
 };
@@ -51,6 +55,65 @@ const getAllMessages = async (req, res) => {
 	return res.json(messages.map((m) => sanitizeMessage(m, isOrganizer)));
 };
 
+const getCommunityMembers = async (req, res) => {
+	const community = await requireCommunityAccess(req.params.id, req.auth);
+	const page = Math.max(1, Number(req.query.page) || 1);
+	const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+	const memberIds = community.members || [];
+	const totalMembers = memberIds.length;
+	const totalPages = Math.ceil(totalMembers / limit) || 1;
+	const slice = memberIds.slice((page - 1) * limit, page * limit);
+
+	const [users, doctors] = await Promise.all([
+		User.find({ _id: { $in: slice } }).select("firstName lastName role").lean(),
+		Doctor.find({ _id: { $in: slice } }).select("firstName lastName role").lean(),
+	]);
+
+	const map = new Map();
+	for (const u of users) {
+		map.set(String(u._id), {
+			_id: u._id,
+			name: [u.firstName, u.lastName].filter(Boolean).join(" ") || "Member",
+			role: "user",
+		});
+	}
+	for (const d of doctors) {
+		const name = [d.firstName, d.lastName].filter(Boolean).join(" ");
+		map.set(String(d._id), {
+			_id: d._id,
+			name: name ? `Dr. ${name}` : "Doctor",
+			role: "doctor",
+		});
+	}
+
+	// Sanitize output - never leak private member preferences or reports
+	const members = slice.map(id => map.get(String(id)) || { _id: id, name: "Member", role: "user" });
+
+	return res.json({
+		members,
+		pagination: {
+			page,
+			limit,
+			totalMembers,
+			totalPages,
+		}
+	});
+};
+
+const getCommunityReports = async (req, res) => {
+	const community = await requireCommunityAccess(req.params.id, req.auth);
+	if (!isCommunityOrganizer(community, req.auth)) {
+		return res.status(403).json({ message: "Only the doctor organizer can view moderation reports" });
+	}
+
+	const reports = await Message.find({
+		community: community._id,
+		"reports.0": { $exists: true },
+	}).sort({ "reports.reportedAt": -1, createdAt: -1 });
+
+	return res.json({ reports });
+};
+
 const getAllCommunities = async (_, res) => {
 	const communities = await Community.find({});
 	return res.json(communities.map(communitySummary));
@@ -77,7 +140,7 @@ const getAllDoctorCommunities = async (req, res) => {
 	} catch (err) {
 		return res.status(500).json({ message: err.message });
 	}
-}
+};
 
 const joinCommunity = async (req, res) => {
 	const { id } = req.body;
@@ -142,6 +205,7 @@ const postAnnouncement = async (req, res) => {
 	try {
 		await session.withTransaction(async () => {
 			announcementDoc = {
+				_id: new mongoose.Types.ObjectId(),
 				title: title.trim(),
 				content: content.trim(),
 				author: req.auth.id,
@@ -159,6 +223,29 @@ const postAnnouncement = async (req, res) => {
 				content: content.trim(),
 				isAnnouncement: true,
 			}], { session });
+
+			// Enqueue durable announcement outbox jobs for each member
+			const members = community.members || [];
+			for (const memberId of members) {
+				const pref = (community.memberPreferences || []).find(p => String(p.memberId) === String(memberId));
+				const emailPref = pref ? pref.emailNotifications : true;
+				const inAppPref = pref ? pref.inAppNotifications : true;
+				if (emailPref || inAppPref) {
+					await enqueueJob({
+						id: `announcement:${community._id}:${announcementDoc._id}:${memberId}`,
+						kind: "community.announcement",
+						payload: {
+							communityId: String(community._id),
+							communityTitle: community.title,
+							announcementId: String(announcementDoc._id),
+							announcementTitle: title.trim(),
+							content: content.trim(),
+							memberId: String(memberId),
+							authorName: req.auth.name || "Doctor Organizer",
+						}
+					}, session);
+				}
+			}
 		});
 	} finally {
 		await session.endSession();
@@ -175,20 +262,23 @@ const reportMessage = async (req, res) => {
 	const community = await requireCommunityAccess(req.params.id, req.auth);
 	const { messageId } = req.params;
 	const { reason } = req.body;
-	if (typeof reason !== "string" || !reason.trim()) {
-		return res.status(400).json({ message: "A valid reporting reason is required" });
+	if (typeof reason !== "string" || !reason.trim() || reason.trim().length > 500) {
+		return res.status(400).json({ message: "A valid reporting reason is required (1-500 characters)" });
 	}
 	const message = await Message.findOne({ _id: messageId, community: community._id });
 	if (!message) return res.status(404).json({ message: "Message not found" });
 
 	const alreadyReported = message.reports?.some((r) => String(r.reportedBy) === String(req.auth.id));
 	if (alreadyReported) {
-		return res.json({ message: "Message already reported for doctor review" });
+		return res.status(409).json({ message: "Message has already been reported by you" });
 	}
 
 	await Message.updateOne(
 		{ _id: messageId },
-		{ $push: { reports: { reportedBy: req.auth.id, reason: reason.trim(), reportedAt: new Date() } } }
+		{
+			$push: { reports: { reportedBy: req.auth.id, reason: reason.trim(), reportedAt: new Date() } },
+			$set: { reportsDismissed: false },
+		}
 	);
 	return res.json({ message: "Message reported for doctor review" });
 };
@@ -207,55 +297,111 @@ const moderateMessage = async (req, res) => {
 		{
 			$set: {
 				isRemoved: true,
-				originalContent: message.content,
+				originalContent: message.originalContent || message.content,
 				moderatedBy: req.auth.id,
 				moderatedAt: new Date(),
 				content: "[This message was removed by the doctor moderator]"
 			}
 		}
 	);
-	return res.json({ message: "Message removed by moderator" });
+	return res.json({ message: "Message removed by moderator", messageId });
+};
+
+const dismissReports = async (req, res) => {
+	const community = await requireCommunityAccess(req.params.id, req.auth);
+	if (!isCommunityOrganizer(community, req.auth)) {
+		return res.status(403).json({ message: "Only the doctor organizer can dismiss reports" });
+	}
+	const { messageId } = req.params;
+	const message = await Message.findOne({ _id: messageId, community: community._id });
+	if (!message) return res.status(404).json({ message: "Message not found" });
+
+	await Message.updateOne(
+		{ _id: messageId },
+		{
+			$set: {
+				reportsDismissed: true,
+				dismissedBy: req.auth.id,
+				dismissedAt: new Date(),
+			}
+		}
+	);
+	return res.json({ message: "Reports dismissed for this message", messageId });
+};
+
+const getPreferences = async (req, res) => {
+	const community = await requireCommunityAccess(req.params.id, req.auth);
+	const pref = (community.memberPreferences || []).find(
+		(p) => String(p.memberId) === String(req.auth.id)
+	);
+	return res.json({
+		emailNotifications: pref ? pref.emailNotifications : true,
+		inAppNotifications: pref ? pref.inAppNotifications : true,
+	});
 };
 
 const updatePreferences = async (req, res) => {
 	const community = await requireCommunityAccess(req.params.id, req.auth);
-	const { emailNotifications, inAppNotifications } = req.body;
-	const memberId = req.auth.id;
+	const { emailNotifications, inAppNotifications } = req.body || {};
 
-	const hasPref = (community.memberPreferences || []).some(
-		(p) => String(p.memberId) === String(memberId)
-	);
-
-	if (hasPref) {
-		await Community.updateOne(
-			{ _id: community._id, "memberPreferences.memberId": memberId },
-			{
-				$set: {
-					"memberPreferences.$.emailNotifications": Boolean(emailNotifications),
-					"memberPreferences.$.inAppNotifications": Boolean(inAppNotifications),
-				},
-			}
-		);
-	} else {
-		await Community.updateOne(
-			{ _id: community._id },
-			{
-				$push: {
-					memberPreferences: {
-						memberId,
-						emailNotifications: Boolean(emailNotifications),
-						inAppNotifications: Boolean(inAppNotifications),
-					},
-				},
-			}
-		);
+	if (emailNotifications !== undefined && typeof emailNotifications !== "boolean") {
+		return res.status(400).json({ message: "emailNotifications must be a boolean" });
+	}
+	if (inAppNotifications !== undefined && typeof inAppNotifications !== "boolean") {
+		return res.status(400).json({ message: "inAppNotifications must be a boolean" });
 	}
 
-	return res.json({ message: "Notification preferences updated" });
+	const session = await mongoose.startSession();
+	let savedPref;
+	try {
+		await session.withTransaction(async () => {
+			const comm = await Community.findById(community._id).session(session);
+			const memberId = req.auth.id;
+			const existing = (comm.memberPreferences || []).find(
+				(p) => String(p.memberId) === String(memberId)
+			);
+			const emailVal = typeof emailNotifications === "boolean" ? emailNotifications : (existing ? existing.emailNotifications : true);
+			const inAppVal = typeof inAppNotifications === "boolean" ? inAppNotifications : (existing ? existing.inAppNotifications : true);
+			savedPref = { emailNotifications: emailVal, inAppNotifications: inAppVal };
+
+			if (existing) {
+				await Community.updateOne(
+					{ _id: community._id, "memberPreferences.memberId": memberId },
+					{
+						$set: {
+							"memberPreferences.$.emailNotifications": emailVal,
+							"memberPreferences.$.inAppNotifications": inAppVal,
+						},
+					},
+					{ session }
+				);
+			} else {
+				await Community.updateOne(
+					{ _id: community._id },
+					{
+						$push: {
+							memberPreferences: {
+								memberId,
+								emailNotifications: emailVal,
+								inAppNotifications: inAppVal,
+							},
+						},
+					},
+					{ session }
+				);
+			}
+		});
+	} finally {
+		await session.endSession();
+	}
+
+	return res.json({ message: "Notification preferences updated", preferences: savedPref });
 };
 
 export {
 	getAllMessages,
+	getCommunityMembers,
+	getCommunityReports,
 	getAllCommunities,
 	createCommunity,
 	getAllUserCommunities,
@@ -266,5 +412,7 @@ export {
 	getAnnouncements,
 	reportMessage,
 	moderateMessage,
+	dismissReports,
+	getPreferences,
 	updatePreferences,
 };

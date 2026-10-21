@@ -7,7 +7,11 @@ import {
   Users,
   Menu,
   X,
-  MessageCircle
+  MessageCircle,
+  Bell,
+  Flag,
+  ShieldAlert,
+  AlertTriangle,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
@@ -15,6 +19,7 @@ import Voice from '../components/Voice'
 import { BACKEND_URL } from '../utils'
 import { getSocket } from '../socket'
 import { Link, useNavigate } from 'react-router-dom'
+import { Banner, Button, Dialog, Field } from '../components/ui'
 
 function Chat() {
   const { user, communities, isAuth } = useAuth()
@@ -29,6 +34,25 @@ function Chat() {
   const prevCommunityIdRef = useRef(null)
   const navigate = useNavigate()
   const socketRef = useRef(null)
+
+  // Report state
+  const [reportTarget, setReportTarget] = useState(null)
+  const [reportReason, setReportReason] = useState('')
+  const [reportFeedback, setReportFeedback] = useState(null)
+  const [reportBusy, setReportBusy] = useState(false)
+
+  // Moderation queue state
+  const [showModeration, setShowModeration] = useState(false)
+  const [moderationReports, setModerationReports] = useState([])
+  const [moderationLoading, setModerationLoading] = useState(false)
+  const [moderationFeedback, setModerationFeedback] = useState(null)
+
+  // Preferences state
+  const [showPreferences, setShowPreferences] = useState(false)
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [inAppNotifications, setInAppNotifications] = useState(true)
+  const [prefFeedback, setPrefFeedback] = useState(null)
+  const [prefBusy, setPrefBusy] = useState(false)
 
   useEffect(() => {
     if (!isAuth) navigate('/login')
@@ -126,6 +150,98 @@ function Chat() {
     const date = new Date(dateString)
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
+
+  const currComm = selectedCommunity !== null ? communities?.[selectedCommunity] : null;
+  const isOrganizer = Boolean(currComm && user?.role === "doctor" && (String(currComm.author?._id || currComm.author) === String(user?._id)));
+
+  const handleReport = async (e) => {
+    e.preventDefault();
+    if (!reportReason.trim() || !reportTarget || !currComm) return;
+    setReportBusy(true);
+    try {
+      await axios.post(
+        `${BACKEND_URL}/community/${currComm._id}/messages/${reportTarget._id}/report`,
+        { reason: reportReason.trim() },
+        { withCredentials: true }
+      );
+      setReportFeedback({ tone: "positive", message: "Message reported for doctor review." });
+      setTimeout(() => { setReportTarget(null); setReportFeedback(null); }, 1500);
+    } catch (err) {
+      setReportFeedback({ tone: "error", message: err.response?.data?.message || "Failed to submit report." });
+    } finally {
+      setReportBusy(false);
+    }
+  };
+
+  const loadModerationReports = async () => {
+    if (!currComm) return;
+    setModerationLoading(true);
+    setModerationFeedback(null);
+    try {
+      const res = await axios.get(`${BACKEND_URL}/community/${currComm._id}/reports`, { withCredentials: true });
+      setModerationReports(res.data.reports || []);
+    } catch (err) {
+      setModerationFeedback({ tone: "error", message: err.response?.data?.message || "Failed to load moderation reports." });
+    } finally {
+      setModerationLoading(false);
+    }
+  };
+
+  const handleModerateMessage = async (msgId) => {
+    if (!currComm) return;
+    try {
+      await axios.delete(`${BACKEND_URL}/community/${currComm._id}/messages/${msgId}`, { withCredentials: true });
+      setModerationFeedback({ tone: "positive", message: "Message removed by moderator." });
+      loadModerationReports();
+      setMessages(prev => prev.map(m => m._id === msgId ? { ...m, content: "[This message was removed by the doctor moderator]", isRemoved: true } : m));
+    } catch (err) {
+      setModerationFeedback({ tone: "error", message: err.response?.data?.message || "Failed to moderate message." });
+    }
+  };
+
+  const handleDismissReport = async (msgId) => {
+    if (!currComm) return;
+    try {
+      await axios.post(`${BACKEND_URL}/community/${currComm._id}/messages/${msgId}/dismiss`, {}, { withCredentials: true });
+      setModerationFeedback({ tone: "positive", message: "Reports dismissed for this message." });
+      loadModerationReports();
+    } catch (err) {
+      setModerationFeedback({ tone: "error", message: err.response?.data?.message || "Failed to dismiss report." });
+    }
+  };
+
+  const openPreferences = async () => {
+    if (!currComm) return;
+    setShowPreferences(true);
+    setPrefFeedback(null);
+    try {
+      const res = await axios.get(`${BACKEND_URL}/community/${currComm._id}/preferences`, { withCredentials: true });
+      setEmailNotifications(Boolean(res.data.emailNotifications));
+      setInAppNotifications(Boolean(res.data.inAppNotifications));
+    } catch {
+      setEmailNotifications(true);
+      setInAppNotifications(true);
+    }
+  };
+
+  const handleSavePreferences = async (e) => {
+    e.preventDefault();
+    if (!currComm) return;
+    setPrefBusy(true);
+    try {
+      await axios.put(
+        `${BACKEND_URL}/community/${currComm._id}/preferences`,
+        { emailNotifications, inAppNotifications },
+        { withCredentials: true }
+      );
+      setPrefFeedback({ tone: "positive", message: "Notification preferences saved." });
+      setTimeout(() => { setShowPreferences(false); setPrefFeedback(null); }, 1200);
+    } catch (err) {
+      setPrefFeedback({ tone: "error", message: err.response?.data?.message || "Failed to save preferences." });
+    } finally {
+      setPrefBusy(false);
+    }
+  };
 
   // Handle sending a message via Socket.IO (with REST fallback)
   const handleSendMessage = async (e) => {
@@ -413,10 +529,35 @@ useEffect(() => {
                 </div>
               </div>
             </div>
-            <div className="hidden md:flex items-center ml-2 flex-shrink-0">
-              <span className="px-3 py-1 bg-red-100 text-blue-800 rounded-full text-xs font-medium shadow-sm truncate max-w-[140px]">
-                {communities[selectedCommunity].category}
-              </span>
+            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+              {isOrganizer && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModeration(true);
+                    loadModerationReports();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-colors shadow-sm"
+                  title="Community Moderation Queue"
+                >
+                  <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="hidden sm:inline">Moderation</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={openPreferences}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-700 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors shadow-sm"
+                title="Notification Preferences"
+              >
+                <Bell className="w-4 h-4 text-gray-600 dark:text-slate-400" />
+                <span className="hidden sm:inline">Preferences</span>
+              </button>
+              <div className="hidden md:flex items-center">
+                <span className="px-3 py-1 bg-red-100 text-blue-800 rounded-full text-xs font-medium shadow-sm truncate max-w-[140px]">
+                  {communities[selectedCommunity].category}
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -557,7 +698,7 @@ useEffect(() => {
                                 : "bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200 rounded-tl-none border border-gray-200 dark:border-red-900/40 shadow-sm"
                             } relative group-hover:shadow-md transition-shadow max-w-full overflow-hidden`}
                           >
-                            <p className="whitespace-pre-wrap text-sm break-words">
+                            <p className={`whitespace-pre-wrap text-sm break-words ${message.isRemoved ? 'italic text-gray-400 dark:text-slate-500' : ''}`}>
                               {message.content}
                             </p>
                           </div>
@@ -566,6 +707,20 @@ useEffect(() => {
                           >
                             {formatMessageTime(message.createdAt || Date.now())}
                           </span>
+                          {!message.isUser && !message.isRemoved && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReportTarget(message);
+                                setReportReason('');
+                                setReportFeedback(null);
+                              }}
+                              className="text-xs text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 ml-1 rounded hover:bg-gray-100 dark:hover:bg-slate-800"
+                              title="Report message"
+                            >
+                              <Flag className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -611,6 +766,202 @@ useEffect(() => {
           </form>
         )}
       </div>
+
+      {/* Report Message Dialog */}
+      <Dialog
+        open={Boolean(reportTarget)}
+        onClose={() => setReportTarget(null)}
+        title="Report Message"
+        description="Notify community organizers about inappropriate content or guideline violations."
+      >
+        <form onSubmit={handleReport} className="space-y-4">
+          {reportFeedback && (
+            <Banner tone={reportFeedback.tone}>{reportFeedback.message}</Banner>
+          )}
+          <div className="p-3 bg-gray-50 dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 text-xs">
+            <span className="font-semibold text-gray-700 dark:text-slate-300">
+              {reportTarget?.author_name || "Member"}:
+            </span>{" "}
+            <span className="text-gray-600 dark:text-slate-400 italic">
+              "{reportTarget?.content}"
+            </span>
+          </div>
+          <Field label="Reason for report (required)" hint="Explain why this violates community guidelines (max 500 characters)">
+            <textarea
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500"
+              rows={3}
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              placeholder="e.g., Harassment, misleading medical advice, spam..."
+              maxLength={500}
+              required
+            />
+          </Field>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setReportTarget(null)}
+              disabled={reportBusy}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="destructive" disabled={reportBusy || !reportReason.trim()}>
+              {reportBusy ? "Submitting..." : "Submit Report"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Moderation Queue Dialog (Organizer Only) */}
+      <Dialog
+        open={showModeration}
+        onClose={() => setShowModeration(false)}
+        title="Community Moderation Queue"
+        description="Review reported messages with full evidence and resolve reports."
+      >
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+          {moderationFeedback && (
+            <Banner tone={moderationFeedback.tone}>{moderationFeedback.message}</Banner>
+          )}
+          {moderationLoading ? (
+            <p className="text-sm text-gray-500 py-4 text-center">Loading reported messages...</p>
+          ) : moderationReports.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">
+              <ShieldAlert className="w-10 h-10 mx-auto text-green-500 mb-2 opacity-80" />
+              <p className="font-medium text-gray-700 dark:text-slate-300">No active reports</p>
+              <p className="text-xs text-gray-500">Community feed is clean and within guidelines.</p>
+            </div>
+          ) : (
+            moderationReports.map((item) => (
+              <div
+                key={item._id}
+                className="p-3.5 border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-slate-900 rounded-lg space-y-2"
+              >
+                <div className="flex justify-between items-start text-xs">
+                  <div>
+                    <span className="font-semibold text-gray-800 dark:text-slate-200">
+                      {item.author?.name || "Author"}
+                    </span>
+                    <span className="text-gray-400 ml-2">
+                      {formatMessageTime(item.createdAt)}
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                    {item.reportCount || item.reports?.length || 1} report(s)
+                  </span>
+                </div>
+                <div className="p-2.5 bg-white dark:bg-slate-950 rounded border border-gray-200 dark:border-slate-800 text-sm">
+                  {item.isRemoved ? (
+                    <span className="italic text-gray-400">
+                      Original: "{item.originalContent || item.content}" (Currently removed)
+                    </span>
+                  ) : (
+                    <span>"{item.content}"</span>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold text-gray-600 dark:text-slate-400 uppercase tracking-wider">
+                    Report Reasons:
+                  </p>
+                  <ul className="text-xs space-y-1 text-gray-700 dark:text-slate-300">
+                    {item.reports?.map((r, i) => (
+                      <li key={i} className="flex items-start gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-gray-900 dark:text-slate-100">{r.reportedBy?.name || "Member"}:</strong> {r.reason}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="flex justify-end gap-2 pt-2 border-t border-amber-200/60 dark:border-slate-800">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDismissReport(item._id)}
+                  >
+                    Dismiss Reports
+                  </Button>
+                  {!item.isRemoved && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleModerateMessage(item._id)}
+                    >
+                      Remove Message
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setShowModeration(false)}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Notification Preferences Dialog */}
+      <Dialog
+        open={showPreferences}
+        onClose={() => setShowPreferences(false)}
+        title="Community Notification Preferences"
+        description="Choose how you receive community announcements and event reminders."
+      >
+        <form onSubmit={handleSavePreferences} className="space-y-4">
+          {prefFeedback && (
+            <Banner tone={prefFeedback.tone}>{prefFeedback.message}</Banner>
+          )}
+          <div className="space-y-3 pt-1">
+            <label className="flex items-start gap-3 cursor-pointer p-2.5 rounded-lg border border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors">
+              <input
+                type="checkbox"
+                checked={inAppNotifications}
+                onChange={(e) => setInAppNotifications(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              />
+              <div className="text-sm">
+                <span className="font-medium text-gray-800 dark:text-slate-200">In-App Notifications</span>
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Receive live alerts and socket updates for announcements and upcoming community events.
+                </p>
+              </div>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer p-2.5 rounded-lg border border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors">
+              <input
+                type="checkbox"
+                checked={emailNotifications}
+                onChange={(e) => setEmailNotifications(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              />
+              <div className="text-sm">
+                <span className="font-medium text-gray-800 dark:text-slate-200">Email Notifications</span>
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Receive email digests and reminders when organizers post announcements or schedule events.
+                </p>
+              </div>
+            </label>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowPreferences(false)}
+              disabled={prefBusy}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={prefBusy}>
+              {prefBusy ? "Saving..." : "Save Preferences"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   )
 }

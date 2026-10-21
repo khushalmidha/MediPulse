@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG13",
+  "startWith": "AG14",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -769,7 +769,7 @@
     {
       "id": "AG13",
       "title": "Complete community moderation, pagination and preference delivery",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P1",
       "dependsOn": [
         "AG00"
@@ -778,7 +778,10 @@
         "backend/controller/community.js",
         "backend/controller/event.js",
         "backend/model/community.js",
+        "backend/model/message.js",
+        "backend/routes/community.js",
         "backend/services/outboxDelivery.js",
+        "backend/tests/integration/community-moderation-preferences.test.js",
         "frontend/src/pages/Chat.jsx",
         "frontend/src/pages/Events.jsx"
       ],
@@ -792,7 +795,27 @@
         "Restart/replay does not duplicate reminders; disabled notifications are not sent."
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
-      "track": "outpatient_pilot"
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG13 complete community moderation, pagination and preference delivery, 21 October 2026",
+        "communityModerationPreferencesIntegration": {
+          "passed": 11,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 168,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 58,
+          "failed": 0,
+          "skipped": 0
+        },
+        "build": "passed",
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG14",

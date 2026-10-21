@@ -32,6 +32,16 @@ const messageSchema = new mongoose.Schema(
         reportedAt: { type: Date, default: Date.now },
       },
     ],
+    reportsDismissed: {
+      type: Boolean,
+      default: false,
+    },
+    dismissedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+    },
+    dismissedAt: {
+      type: Date,
+    },
     originalContent: {
       type: String,
     },
@@ -46,6 +56,9 @@ const messageSchema = new mongoose.Schema(
 		timestamps: true,
 	},
 );
+
+messageSchema.index({ community: 1, createdAt: 1 });
+messageSchema.index({ community: 1, "reports.0": 1 });
 
 const Message = mongoose.model("message", messageSchema);
 

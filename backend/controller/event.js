@@ -1,6 +1,7 @@
 import { isCommunityOrganizer } from "../services/communityAccess.js";
 import Community from "../model/community.js";
 import Event from "../model/event.js";
+import { enqueueJob } from "../services/outbox.js";
 
 const mapEvent = (event) => ({
 	_id: event._id,
@@ -70,6 +71,30 @@ const createEvent = async (req, res, next) => {
 			author: req.auth.id,
 			author_name: req.auth.name || "MediPulse member",
 		});
+
+		// Enqueue durable event reminder outbox jobs adhering to member notification preferences
+		const members = community.members || [];
+		for (const memberId of members) {
+			const pref = (community.memberPreferences || []).find(p => String(p.memberId) === String(memberId));
+			const emailPref = pref ? pref.emailNotifications : true;
+			const inAppPref = pref ? pref.inAppNotifications : true;
+			if (emailPref || inAppPref) {
+				await enqueueJob({
+					id: `event:${result._id}:${memberId}`,
+					kind: "community.event_reminder",
+					payload: {
+						eventId: String(result._id),
+						eventTitle: result.title,
+						eventTime: result.time,
+						kind: result.kind,
+						location: result.location || "",
+						communityId: String(community._id),
+						communityTitle: community.title,
+						memberId: String(memberId),
+					}
+				});
+			}
+		}
 
 		res
 			.status(201)
