@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import EncounterJourney from "../model/encounterJourney.js";
 import HospitalLocation from "../model/hospitalLocation.js";
+import HospitalStaff from "../model/hospitalStaff.js";
 import OpdToken from "../model/opdToken.js";
 import { accessError } from "./hospitalAccess.js";
 import { assertClinicalWorkflowReady } from "./clinicalSchema.js";
@@ -351,91 +352,433 @@ export const transitionEncounterStage = async ({
   return encounter;
 };
 
-export const handoffPhysicalFile = async ({
+export const registerPhysicalFile = async ({
   encounterId,
-  fromActor,
-  toActor,
+  hospitalId,
+  actor,
+  fileBarcode,
   locationId,
-  reason = "",
-  acknowledged = true,
+  reason = "Initial physical file registration",
 }) => {
+  if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
+    await assertClinicalWorkflowReady({ workflow: "encounter" });
+  }
+
   const encounter = await EncounterJourney.findById(encounterId);
   if (!encounter) throw accessError(404, "Encounter journey not found");
+  if (hospitalId && String(encounter.hospitalId) !== String(hospitalId)) {
+    throw accessError(403, "You do not have permission for this hospital's encounter");
+  }
+
+  if (encounter.physicalFile?.hasPhysicalFile) {
+    throw accessError(409, "Physical file is already registered for this encounter");
+  }
 
   let locationRecord = null;
   if (locationId) {
-    locationRecord = await HospitalLocation.findById(locationId).lean();
+    locationRecord = await HospitalLocation.findOne({
+      _id: locationId,
+      hospitalId: encounter.hospitalId,
+      $or: [{ status: "active" }, { isActive: true }],
+    }).lean();
+    if (!locationRecord) {
+      throw accessError(400, "Destination location not found, inactive, or belongs to another hospital");
+    }
   }
 
   const locationName = locationRecord ? locationRecord.name : "not recorded";
+  const actorId = actor?._id || actor?.id;
+  const actorName = actor?.name || "Staff Member";
+  const actorRole = actor?.role || "STAFF";
+  const barcode = fileBarcode || `PF-${encounter.ticketNumber}`;
 
-  const handoffEntry = {
-    fromActorId: fromActor?._id || fromActor?.id,
-    fromActorName: fromActor?.name || [fromActor?.firstName, fromActor?.lastName].filter(Boolean).join(" ") || "Staff",
-    fromActorRole: fromActor?.role || "STAFF",
-    toActorId: toActor?._id || toActor?.id,
-    toActorName: toActor?.name || [toActor?.firstName, toActor?.lastName].filter(Boolean).join(" ") || "Staff",
-    toActorRole: toActor?.role || "STAFF",
-    fromLocationId: encounter.physicalFile?.locationId,
-    toLocationId: locationRecord?._id,
-    toLocationName: locationName,
-    timestamp: new Date(),
-    status: acknowledged ? "acknowledged" : "pending",
-    acknowledgedAt: acknowledged ? new Date() : undefined,
-    reason,
+  encounter.physicalFile = {
+    hasPhysicalFile: true,
+    fileBarcode: barcode,
+    currentHolderId: actorId,
+    currentHolderRole: actorRole,
+    currentHolderName: actorName,
+    locationId: locationRecord?._id || undefined,
+    locationName,
+    lastHandoffAt: new Date(),
+    handoffHistory: [
+      {
+        handoffId: crypto.randomUUID(),
+        fromActorId: actorId,
+        fromActorName: actorName,
+        fromActorRole: actorRole,
+        toActorId: actorId,
+        toActorName: actorName,
+        toActorRole: actorRole,
+        fromLocationId: locationRecord?._id || undefined,
+        toLocationId: locationRecord?._id || undefined,
+        toLocationName: locationName,
+        timestamp: new Date(),
+        status: "acknowledged",
+        acknowledgedAt: new Date(),
+        reason,
+      },
+    ],
   };
 
-  encounter.physicalFile.hasPhysicalFile = true;
-  if (acknowledged) {
-    encounter.physicalFile.currentHolderId = toActor?._id || toActor?.id;
-    encounter.physicalFile.currentHolderRole = toActor?.role || "STAFF";
-    encounter.physicalFile.currentHolderName = handoffEntry.toActorName;
-    encounter.physicalFile.locationId = locationRecord?._id;
-    encounter.physicalFile.locationName = locationName;
-    encounter.physicalFile.lastHandoffAt = new Date();
+  encounter.revision = (encounter.revision || 0) + 1;
+  await encounter.save();
+  return encounter;
+};
+
+export const handoffPhysicalFile = async ({
+  encounterId,
+  hospitalId,
+  fromActor,
+  toActorId,
+  locationId,
+  reason = "",
+  expectedRevision,
+}) => {
+  if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
+    await assertClinicalWorkflowReady({ workflow: "encounter" });
   }
 
-  encounter.physicalFile.handoffHistory.push(handoffEntry);
-  encounter.revision += 1;
+  if (typeof expectedRevision !== "number") {
+    throw accessError(400, "expectedRevision is required and must be a number");
+  }
+  if (!toActorId) {
+    throw accessError(400, "Target recipient actor ID is required");
+  }
 
+  const encounter = await EncounterJourney.findById(encounterId);
+  if (!encounter) throw accessError(404, "Encounter journey not found");
+  if (hospitalId && String(encounter.hospitalId) !== String(hospitalId)) {
+    throw accessError(403, "You do not have permission for this hospital's encounter");
+  }
+
+  if (encounter.revision !== expectedRevision) {
+    throw accessError(409, `Encounter revision conflict. Expected ${expectedRevision}, but current revision is ${encounter.revision}`);
+  }
+
+  if (["completed", "cancelled"].includes(encounter.currentStage)) {
+    throw accessError(409, "Cannot transfer file custody on a completed or cancelled encounter");
+  }
+
+  const senderId = String(fromActor?._id || fromActor?.id || "");
+  const senderRole = fromActor?.role || "STAFF";
+  const senderName = fromActor?.name || "Staff Member";
+  const isAdmin = senderRole === "HOSPITAL_ADMIN" || Boolean(fromActor?.adminAccess);
+
+  // If file not yet registered, auto-register it with sender as initial holder
+  if (!encounter.physicalFile?.hasPhysicalFile) {
+    encounter.physicalFile = {
+      hasPhysicalFile: true,
+      fileBarcode: `PF-${encounter.ticketNumber}`,
+      currentHolderId: senderId,
+      currentHolderRole: senderRole,
+      currentHolderName: senderName,
+      locationId: undefined,
+      locationName: "not recorded",
+      lastHandoffAt: new Date(),
+      handoffHistory: [
+        {
+          handoffId: crypto.randomUUID(),
+          fromActorId: senderId,
+          fromActorName: senderName,
+          fromActorRole: senderRole,
+          toActorId: senderId,
+          toActorName: senderName,
+          toActorRole: senderRole,
+          timestamp: new Date(),
+          status: "acknowledged",
+          acknowledgedAt: new Date(),
+          reason: "Initial registration before transfer",
+        },
+      ],
+    };
+  }
+
+  const currentHolderId = String(encounter.physicalFile?.currentHolderId || "");
+  if (currentHolderId && currentHolderId !== senderId && !isAdmin) {
+    throw accessError(403, "Only the current file holder or a hospital admin can initiate a file handoff");
+  }
+
+  // Prevent duplicate concurrent pending handoffs
+  const existingPending = (encounter.physicalFile.handoffHistory || []).find((h) => h.status === "pending");
+  if (existingPending) {
+    throw accessError(409, "A file handoff is already pending recipient acknowledgement");
+  }
+
+  // Look up recipient staff member in the same hospital
+  const recipientStaff = await HospitalStaff.findOne({
+    _id: toActorId,
+    hospitalId: encounter.hospitalId,
+    isActive: true,
+  }).lean();
+  if (!recipientStaff) {
+    throw accessError(400, "Recipient staff member not found, inactive, or belongs to another hospital");
+  }
+
+  if (String(recipientStaff._id) === senderId) {
+    throw accessError(400, "Cannot hand off physical file to yourself");
+  }
+
+  let locationRecord = null;
+  if (locationId) {
+    locationRecord = await HospitalLocation.findOne({
+      _id: locationId,
+      hospitalId: encounter.hospitalId,
+      $or: [{ status: "active" }, { isActive: true }],
+    }).lean();
+    if (!locationRecord) {
+      throw accessError(400, "Destination location not found, inactive, or belongs to another hospital");
+    }
+  }
+
+  const toLocationName = locationRecord ? locationRecord.name : "not recorded";
+
+  // Critical requirement: request-supplied acknowledged=true is ignored! Custody DOES NOT TRANSFER until recipient accepts.
+  const handoffEntry = {
+    handoffId: crypto.randomUUID(),
+    fromActorId: senderId,
+    fromActorName: senderName,
+    fromActorRole: senderRole,
+    toActorId: recipientStaff._id,
+    toActorName: recipientStaff.name,
+    toActorRole: recipientStaff.role,
+    fromLocationId: encounter.physicalFile.locationId,
+    toLocationId: locationRecord?._id || undefined,
+    toLocationName,
+    timestamp: new Date(),
+    status: "pending",
+    reason: reason || "Physical file handoff",
+  };
+
+  encounter.physicalFile.handoffHistory.push(handoffEntry);
+  encounter.revision = (encounter.revision || 0) + 1;
+  await encounter.save();
+  return encounter;
+};
+
+export const acceptPhysicalFileHandoff = async ({
+  encounterId,
+  hospitalId,
+  actor,
+  locationId,
+  expectedRevision,
+}) => {
+  if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
+    await assertClinicalWorkflowReady({ workflow: "encounter" });
+  }
+
+  if (typeof expectedRevision !== "number") {
+    throw accessError(400, "expectedRevision is required and must be a number");
+  }
+
+  const encounter = await EncounterJourney.findById(encounterId);
+  if (!encounter) throw accessError(404, "Encounter journey not found");
+  if (hospitalId && String(encounter.hospitalId) !== String(hospitalId)) {
+    throw accessError(403, "You do not have permission for this hospital's encounter");
+  }
+
+  if (encounter.revision !== expectedRevision) {
+    throw accessError(409, `Encounter revision conflict. Expected ${expectedRevision}, but current revision is ${encounter.revision}`);
+  }
+
+  const history = encounter.physicalFile?.handoffHistory || [];
+  const pendingIndex = history.map((h, i) => ({ h, i })).reverse().find(({ h }) => h.status === "pending")?.i;
+
+  if (pendingIndex === undefined || pendingIndex === -1) {
+    throw accessError(409, "No pending file handoff to accept");
+  }
+
+  const pending = history[pendingIndex];
+  const callerId = String(actor?._id || actor?.id || "");
+
+  if (String(pending.toActorId) !== callerId) {
+    throw accessError(403, "Only the designated recipient can accept file custody");
+  }
+
+  let locationRecord = null;
+  if (locationId) {
+    locationRecord = await HospitalLocation.findOne({
+      _id: locationId,
+      hospitalId: encounter.hospitalId,
+      $or: [{ status: "active" }, { isActive: true }],
+    }).lean();
+    if (!locationRecord) {
+      throw accessError(400, "Destination location not found, inactive, or belongs to another hospital");
+    }
+  }
+
+  const targetLocationId = locationRecord?._id || pending.toLocationId;
+  const targetLocationName = locationRecord ? locationRecord.name : pending.toLocationName || "not recorded";
+
+  pending.status = "acknowledged";
+  pending.acknowledgedAt = new Date();
+  pending.toLocationId = targetLocationId;
+  pending.toLocationName = targetLocationName;
+
+  // CUSTODY TRANSFERS TO RECIPIENT
+  encounter.physicalFile.currentHolderId = actor?._id || actor?.id;
+  encounter.physicalFile.currentHolderRole = actor?.role || "STAFF";
+  encounter.physicalFile.currentHolderName = actor?.name || "Staff Member";
+  encounter.physicalFile.locationId = targetLocationId;
+  encounter.physicalFile.locationName = targetLocationName;
+  encounter.physicalFile.lastHandoffAt = new Date();
+
+  encounter.revision = (encounter.revision || 0) + 1;
   await encounter.save();
   return encounter;
 };
 
 export const refusePhysicalFileHandoff = async ({
   encounterId,
+  hospitalId,
   actor,
-  reason = "Refused by recipient",
+  reason,
+  expectedRevision,
 }) => {
-  const encounter = await EncounterJourney.findById(encounterId);
-  if (!encounter) throw accessError(404, "Encounter journey not found");
-
-  const pendingIndex = encounter.physicalFile.handoffHistory.findIndex(
-    (h) => h.status === "pending" && String(h.toActorId) === String(actor?._id || actor?.id)
-  );
-
-  if (pendingIndex === -1) {
-    // If no specific pending record, record a refused handoff event directly
-    encounter.physicalFile.handoffHistory.push({
-      fromActorId: encounter.physicalFile.currentHolderId,
-      toActorId: actor?._id || actor?.id,
-      toActorName: actor?.name || "Staff",
-      toActorRole: actor?.role || "STAFF",
-      timestamp: new Date(),
-      status: "refused",
-      refusedAt: new Date(),
-      reason,
-      toLocationName: "not recorded",
-    });
-  } else {
-    encounter.physicalFile.handoffHistory[pendingIndex].status = "refused";
-    encounter.physicalFile.handoffHistory[pendingIndex].refusedAt = new Date();
-    encounter.physicalFile.handoffHistory[pendingIndex].reason = reason;
+  if (process.env.REQUIRE_CLINICAL_SCHEMA === "true") {
+    await assertClinicalWorkflowReady({ workflow: "encounter" });
   }
 
-  encounter.revision += 1;
+  if (typeof expectedRevision !== "number") {
+    throw accessError(400, "expectedRevision is required and must be a number");
+  }
+  if (!reason || !reason.trim()) {
+    throw accessError(400, "Refusal reason is required");
+  }
+
+  const encounter = await EncounterJourney.findById(encounterId);
+  if (!encounter) throw accessError(404, "Encounter journey not found");
+  if (hospitalId && String(encounter.hospitalId) !== String(hospitalId)) {
+    throw accessError(403, "You do not have permission for this hospital's encounter");
+  }
+
+  if (encounter.revision !== expectedRevision) {
+    throw accessError(409, `Encounter revision conflict. Expected ${expectedRevision}, but current revision is ${encounter.revision}`);
+  }
+
+  const history = encounter.physicalFile?.handoffHistory || [];
+  const pendingIndex = history.map((h, i) => ({ h, i })).reverse().find(({ h }) => h.status === "pending")?.i;
+
+  if (pendingIndex === undefined || pendingIndex === -1) {
+    throw accessError(409, "No pending file handoff to refuse");
+  }
+
+  const pending = history[pendingIndex];
+  const callerId = String(actor?._id || actor?.id || "");
+  const isAdmin = actor?.role === "HOSPITAL_ADMIN" || Boolean(actor?.adminAccess);
+
+  if (String(pending.toActorId) !== callerId && !isAdmin) {
+    throw accessError(403, "Only the designated recipient can refuse file custody");
+  }
+
+  pending.status = "refused";
+  pending.refusedAt = new Date();
+  pending.reason = reason.trim();
+
+  // CUSTODY REMAINS UNCHANGED WITH ORIGINAL HOLDER
+  encounter.revision = (encounter.revision || 0) + 1;
   await encounter.save();
   return encounter;
+};
+
+export const getCustodyWorklist = async ({ hospitalId, staffId }) => {
+  if (!hospitalId || !staffId) throw accessError(400, "hospitalId and staffId are required");
+
+  const encounters = await EncounterJourney.find({
+    hospitalId,
+    currentStage: { $nin: ["completed", "cancelled"] },
+    $or: [
+      { "physicalFile.currentHolderId": staffId },
+      { "physicalFile.handoffHistory": { $elemMatch: { status: "pending", toActorId: staffId } } },
+      { "physicalFile.handoffHistory": { $elemMatch: { status: "pending", fromActorId: staffId } } },
+    ],
+  }).lean();
+
+  const incoming = [];
+  const outgoing = [];
+  const held = [];
+
+  for (const enc of encounters) {
+    const file = enc.physicalFile;
+    if (!file) continue;
+
+    const pending = (file.handoffHistory || []).slice().reverse().find((h) => h.status === "pending");
+
+    if (pending && String(pending.toActorId) === String(staffId)) {
+      incoming.push({
+        encounterId: enc._id,
+        ticketNumber: enc.ticketNumber,
+        currentStage: enc.currentStage,
+        revision: enc.revision,
+        fileBarcode: file.fileBarcode,
+        fromActorName: pending.fromActorName,
+        fromActorRole: pending.fromActorRole,
+        toLocationName: pending.toLocationName,
+        timestamp: pending.timestamp,
+        reason: pending.reason,
+      });
+    }
+
+    if (pending && String(pending.fromActorId) === String(staffId)) {
+      outgoing.push({
+        encounterId: enc._id,
+        ticketNumber: enc.ticketNumber,
+        currentStage: enc.currentStage,
+        revision: enc.revision,
+        fileBarcode: file.fileBarcode,
+        toActorName: pending.toActorName,
+        toActorRole: pending.toActorRole,
+        toLocationName: pending.toLocationName,
+        timestamp: pending.timestamp,
+        reason: pending.reason,
+      });
+    }
+
+    if (String(file.currentHolderId) === String(staffId)) {
+      held.push({
+        encounterId: enc._id,
+        ticketNumber: enc.ticketNumber,
+        currentStage: enc.currentStage,
+        revision: enc.revision,
+        fileBarcode: file.fileBarcode,
+        locationName: file.locationName,
+        lastHandoffAt: file.lastHandoffAt,
+        hasPendingOutgoing: Boolean(pending && String(pending.fromActorId) === String(staffId)),
+      });
+    }
+  }
+
+  return { incoming, outgoing, held };
+};
+
+export const getEncounterCustodyDetails = async ({ encounterId, hospitalId }) => {
+  const encounter = await EncounterJourney.findById(encounterId).lean();
+  if (!encounter) throw accessError(404, "Encounter journey not found");
+  if (hospitalId && String(encounter.hospitalId) !== String(hospitalId)) {
+    throw accessError(403, "You do not have permission for this hospital's encounter");
+  }
+
+  const file = encounter.physicalFile || {};
+  const pendingHandoff = (file.handoffHistory || []).slice().reverse().find((h) => h.status === "pending") || null;
+
+  return {
+    encounterId: encounter._id,
+    ticketNumber: encounter.ticketNumber,
+    currentStage: encounter.currentStage,
+    revision: encounter.revision,
+    physicalFile: {
+      hasPhysicalFile: Boolean(file.hasPhysicalFile),
+      fileBarcode: file.fileBarcode,
+      currentHolderId: file.currentHolderId,
+      currentHolderName: file.currentHolderName || "not recorded",
+      currentHolderRole: file.currentHolderRole || "not recorded",
+      locationId: file.locationId,
+      locationName: file.locationName || "not recorded",
+      lastHandoffAt: file.lastHandoffAt,
+      pendingHandoff,
+      handoffHistory: file.handoffHistory || [],
+    },
+  };
 };
 
 export const linkWalkInToAccount = async ({
@@ -494,6 +837,8 @@ export const getEncounterGuidance = async ({ tokenId, appointmentId, encounterId
 
   if (!encounter) throw accessError(404, "Encounter not found");
 
+  const pendingHandoff = (encounter.physicalFile?.handoffHistory || []).slice().reverse().find((h) => h.status === "pending");
+
   return {
     ticketNumber: encounter.ticketNumber,
     currentStage: encounter.currentStage,
@@ -506,9 +851,19 @@ export const getEncounterGuidance = async ({ tokenId, appointmentId, encounterId
     },
     physicalFile: {
       tracked: Boolean(encounter.physicalFile?.hasPhysicalFile),
+      fileBarcode: encounter.physicalFile?.fileBarcode,
+      holderId: encounter.physicalFile?.currentHolderId,
       holder: encounter.physicalFile?.currentHolderName || "not recorded",
       holderRole: encounter.physicalFile?.currentHolderRole || "not recorded",
       location: encounter.physicalFile?.locationName || "not recorded",
+      pendingHandoff: pendingHandoff
+        ? {
+            fromActorName: pendingHandoff.fromActorName,
+            toActorId: pendingHandoff.toActorId,
+            toActorName: pendingHandoff.toActorName,
+            status: "pending",
+          }
+        : null,
     },
     isWalkIn: encounter.isWalkIn,
     isLinked: Boolean(encounter.linkedUserId),

@@ -39,6 +39,36 @@ export function validateWalkInLinking(token, user) {
   return { allowed: true, userId: user._id };
 }
 
+export function validateCustodyHandoff({ file, currentStaffId, toStaffId, expectedRevision, isAdmin = false }) {
+  if (!toStaffId) return { allowed: false, reason: "Target recipient is required" };
+  if (String(currentStaffId) === String(toStaffId)) return { allowed: false, reason: "Cannot hand off file to yourself" };
+  if (typeof expectedRevision !== "number") return { allowed: false, reason: "expectedRevision must be a number" };
+  if (file?.currentHolderId && String(file.currentHolderId) !== String(currentStaffId) && !isAdmin) {
+    return { allowed: false, reason: "Only current holder or admin can initiate handoff" };
+  }
+  if (file?.pendingHandoff) return { allowed: false, reason: "A handoff is already pending" };
+  return { allowed: true };
+}
+
+export function validateHandoffAcceptance({ pendingHandoff, callerStaffId, expectedRevision }) {
+  if (!pendingHandoff) return { allowed: false, reason: "No pending handoff to accept" };
+  if (typeof expectedRevision !== "number") return { allowed: false, reason: "expectedRevision must be a number" };
+  if (String(pendingHandoff.toActorId) !== String(callerStaffId)) {
+    return { allowed: false, reason: "Only designated recipient can accept file custody" };
+  }
+  return { allowed: true };
+}
+
+export function validateHandoffRefusal({ pendingHandoff, callerStaffId, reason, expectedRevision, isAdmin = false }) {
+  if (!pendingHandoff) return { allowed: false, reason: "No pending handoff to refuse" };
+  if (!reason || !reason.trim()) return { allowed: false, reason: "Refusal reason is required" };
+  if (typeof expectedRevision !== "number") return { allowed: false, reason: "expectedRevision must be a number" };
+  if (String(pendingHandoff.toActorId) !== String(callerStaffId) && !isAdmin) {
+    return { allowed: false, reason: "Only designated recipient can refuse file custody" };
+  }
+  return { allowed: true };
+}
+
 test("P12: Encounter guidance formatting, custody fallback and walk-in linking", async (t) => {
   await t.test("formats complete destination with building, floor and room", () => {
     const dest = {
@@ -93,5 +123,69 @@ test("P12: Encounter guidance formatting, custody fallback and walk-in linking",
     const invalid = validateWalkInLinking(regularToken, user);
     assert.equal(invalid.allowed, false);
     assert.equal(invalid.reason, "Not a walk-in token");
+  });
+
+  await t.test("validates physical file custody handoff, recipient acceptance, and refusal rules", () => {
+    // 1. Cannot hand off to self
+    const selfHandoff = validateCustodyHandoff({
+      file: { currentHolderId: "staff_01" },
+      currentStaffId: "staff_01",
+      toStaffId: "staff_01",
+      expectedRevision: 1,
+    });
+    assert.equal(selfHandoff.allowed, false);
+    assert.equal(selfHandoff.reason, "Cannot hand off file to yourself");
+
+    // 2. Non-holder cannot initiate handoff
+    const nonHolderHandoff = validateCustodyHandoff({
+      file: { currentHolderId: "staff_01" },
+      currentStaffId: "staff_02",
+      toStaffId: "staff_03",
+      expectedRevision: 1,
+    });
+    assert.equal(nonHolderHandoff.allowed, false);
+
+    // 3. Holder initiates valid handoff
+    const validHandoff = validateCustodyHandoff({
+      file: { currentHolderId: "staff_01" },
+      currentStaffId: "staff_01",
+      toStaffId: "staff_02",
+      expectedRevision: 1,
+    });
+    assert.equal(validHandoff.allowed, true);
+
+    // 4. Non-recipient cannot accept
+    const wrongRecipient = validateHandoffAcceptance({
+      pendingHandoff: { toActorId: "staff_02" },
+      callerStaffId: "staff_03",
+      expectedRevision: 2,
+    });
+    assert.equal(wrongRecipient.allowed, false);
+
+    // 5. Designated recipient can accept
+    const correctRecipient = validateHandoffAcceptance({
+      pendingHandoff: { toActorId: "staff_02" },
+      callerStaffId: "staff_02",
+      expectedRevision: 2,
+    });
+    assert.equal(correctRecipient.allowed, true);
+
+    // 6. Refusal requires non-empty reason
+    const emptyRefusal = validateHandoffRefusal({
+      pendingHandoff: { toActorId: "staff_02" },
+      callerStaffId: "staff_02",
+      reason: "   ",
+      expectedRevision: 2,
+    });
+    assert.equal(emptyRefusal.allowed, false);
+
+    // 7. Designated recipient can refuse with reason
+    const validRefusal = validateHandoffRefusal({
+      pendingHandoff: { toActorId: "staff_02" },
+      callerStaffId: "staff_02",
+      reason: "Not on duty in this department",
+      expectedRevision: 2,
+    });
+    assert.equal(validRefusal.allowed, true);
   });
 });

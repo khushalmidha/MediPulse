@@ -215,7 +215,11 @@ export default function PatientVisits({ slug }) {
                         <dt>Physical file</dt>
                         <dd style={{ color: "var(--mp-muted)", fontSize: "0.88rem" }}>
                           <FileText size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
-                          {visit.status === "in_consultation" ? "With Attending Clinician" : "not recorded"}
+                          {visit.physicalFile?.tracked
+                            ? (visit.physicalFile?.location && visit.physicalFile.location !== "not recorded"
+                                ? `Tracked at ${visit.physicalFile.location}`
+                                : "Physical file active")
+                            : "Electronic record only"}
                         </dd>
                       </div>
                     </dl>

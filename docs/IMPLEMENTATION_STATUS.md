@@ -10,12 +10,12 @@ This review starts from `565134c2` and includes the AG00 fixes delivered with th
 |---|---|---|
 | Company / Connect / hospital product contexts | Product resolver, shells, path fallbacks, hospital public pages and route recovery exist; consistent shared visual tokens and lazy routes are implemented | Live domain/TLS/settings and authenticated release parity still need exact environment verification |
 | Sessions / access / tenant and family boundaries | Cookie sessions, CSRF scopes, staff capabilities and source-bound clinical access are implemented and locally tested | Preserve role/tenant/family denial tests when connecting remaining modules |
-| Booking / reservations / check-in | Transactional queue booking, stable request keys, scheduling holds/reservations, separated arrival and revision-checked starts are implemented. AG02 delivers transactional encounter journey creation and replay recovery bound to personKey | Physical file custody: AG04 |
+| Booking / reservations / check-in | Transactional queue booking, stable request keys, scheduling holds/reservations, separated arrival, revision-checked starts, and physical file custody with recipient acceptance (AG04) are implemented. AG02 delivers transactional encounter journey creation and replay recovery bound to personKey | Walk-in account claim: AG05 |
 | Demo credits / refunds | Transaction/replay/recovery and refund conservation safeguards exist | Real provider collection/subscription billing is not active: AG21 / external approval |
 | Online calls | Join lobby, responsive fullscreen/fallback, mute/camera/reconnect, leave/rejoin and save-before-end are implemented | Physical-device/cross-network TURN and observed Edge synthetic-camera limitations remain release checks |
 | Appointment clinical notes / SOAP | Atomic revision/status writes, private prior snapshots, exact version/source review and UI are implemented | AG00 repairs the real copilot URL/CSRF and the alternate consultation-record bypass; completed amendments and hospital-specific review remain AG07 |
 | Hospital queue pause | Persistent QueueRevision state/history, scoped commands, paused start enforcement and doctor controls exist | Independent controls, actual priority ordering, terminal ETA and kiosk timezone/session/doctor correctness: AG09 |
-| Encounter journey | Read authorization, named-index/provenance inspection, AG02 transactional/idempotent encounter initialization, and AG03 source-driven stage/destination transitions and location administration are verified locally | Physical file custody tracking/refusal and walk-in linking: AG04-AG05 |
+| Encounter journey | Read authorization, named-index/provenance inspection, AG02 transactional/idempotent encounter initialization, AG03 source-driven stage/destination transitions/location administration, and AG04 physical file custody tracking/refusal are verified locally | Walk-in account claim: AG05 |
 | Walk-in claim | A route and patient button exist | Route is deliberately disabled; proof and atomic cross-record linking are missing: AG05 |
 | Labs | Staff catalog/results worklist, transactional versioned result workflow, approved independent verification, release/amendment and critical tasks exist. AG01 establishes creation key and accession barcode named indexes | Initial createLabOrder still performs a normal save after nontransactional source checks; creation replay/complete coordination and connected clinician/patient UI: AG06-AG08 |
 | Pharmacy | Qualified transactional dispensing/returns/batch receipts and replay UI exist. AG01 establishes creation key and verification token named indexes | Initial createPrescription still uses a normal save; clinician composition, creation replay, patient documents: AG06-AG08 |
@@ -30,6 +30,8 @@ This review starts from `565134c2` and includes the AG00 fixes delivered with th
 | Enterprise HIMS | ENTERPRISE_PLAN exists | IPD/ADT/beds, inpatient medication/nursing, theatre/emergency, revenue/procurement and interfaces require approved requirements and real implementation: AG17-AG22 |
 
 ## Evidence and limits
+
+Fresh AG04 acceptance: 6 encounter custody integration cases, 8 astra access cases, 236 backend unit and integration cases, 50 frontend unit checks; frontend build cleanly verified against local MongoDB replica set and Redis. Details in WORK_LOG.
 
 Fresh AG03 acceptance: 6 encounter stage/destination integration cases, 7 encounter recovery integration cases, 8 astra access cases; 168 backend unit and 49 frontend unit checks; frontend build cleanly verified against local MongoDB replica set and Redis. Details in WORK_LOG.
 

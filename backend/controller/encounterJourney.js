@@ -4,8 +4,12 @@ import Department from "../model/department.js";
 import {
   initializeEncounterJourney,
   transitionEncounterStage,
+  registerPhysicalFile,
   handoffPhysicalFile,
+  acceptPhysicalFileHandoff,
   refusePhysicalFileHandoff,
+  getCustodyWorklist,
+  getEncounterCustodyDetails,
   linkWalkInToAccount,
   getEncounterGuidance,
 } from "../services/encounterJourneyService.js";
@@ -41,37 +45,84 @@ export const transitionStage = async (req, res) => {
   res.json({ message: `Encounter transitioned to ${toStage}`, encounter });
 };
 
+export const registerFile = async (req, res) => {
+  const { id } = req.params;
+  const { fileBarcode, locationId, reason } = req.body;
+
+  const encounter = await registerPhysicalFile({
+    encounterId: id,
+    hospitalId: req.staff?.hospitalId,
+    actor: req.staff,
+    fileBarcode,
+    locationId,
+    reason,
+  });
+
+  res.json({ message: "Physical file registered successfully", physicalFile: encounter.physicalFile });
+};
+
 export const handoffFile = async (req, res) => {
   const { id } = req.params;
-  const { toActorId, toActorName, toActorRole, locationId, reason, acknowledged = true } = req.body;
-
-  if (!toActorId) throw accessError(400, "Target recipient actor ID is required");
+  const { toActorId, locationId, reason, expectedRevision } = req.body;
 
   const encounter = await handoffPhysicalFile({
     encounterId: id,
     hospitalId: req.staff?.hospitalId,
     fromActor: req.staff,
-    toActor: { id: toActorId, name: toActorName, role: toActorRole },
+    toActorId,
     locationId,
     reason,
-    acknowledged,
+    expectedRevision,
   });
 
-  res.json({ message: "Physical file handoff recorded", physicalFile: encounter.physicalFile });
+  res.json({ message: "Physical file handoff initiated", physicalFile: encounter.physicalFile });
+};
+
+export const acceptHandoff = async (req, res) => {
+  const { id } = req.params;
+  const { locationId, expectedRevision } = req.body;
+
+  const encounter = await acceptPhysicalFileHandoff({
+    encounterId: id,
+    hospitalId: req.staff?.hospitalId,
+    actor: req.staff,
+    locationId,
+    expectedRevision,
+  });
+
+  res.json({ message: "Physical file custody accepted", physicalFile: encounter.physicalFile });
 };
 
 export const refuseHandoff = async (req, res) => {
   const { id } = req.params;
-  const { reason = "Refused by recipient" } = req.body;
+  const { reason, expectedRevision } = req.body;
 
   const encounter = await refusePhysicalFileHandoff({
     encounterId: id,
     hospitalId: req.staff?.hospitalId,
     actor: req.staff,
     reason,
+    expectedRevision,
   });
 
   res.json({ message: "File handoff refused", physicalFile: encounter.physicalFile });
+};
+
+export const getCustodyWorklistController = async (req, res) => {
+  const worklist = await getCustodyWorklist({
+    hospitalId: req.staff?.hospitalId,
+    staffId: req.staff?.id,
+  });
+  res.json({ worklist });
+};
+
+export const getCustodyDetails = async (req, res) => {
+  const { id } = req.params;
+  const details = await getEncounterCustodyDetails({
+    encounterId: id,
+    hospitalId: req.staff?.hospitalId,
+  });
+  res.json(details);
 };
 
 export const linkWalkIn = async (req, res) => {

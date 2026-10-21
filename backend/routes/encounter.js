@@ -3,6 +3,12 @@ import {
   getGuidance,
   getTicket,
   transitionStage,
+  registerFile,
+  handoffFile,
+  acceptHandoff,
+  refuseHandoff,
+  getCustodyWorklistController,
+  getCustodyDetails,
 } from "../controller/encounterJourney.js";
 import validateStaff from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
@@ -22,13 +28,27 @@ const asyncRoute = (handler) => async (req, res, next) => {
   }
 };
 
+// Staff custody worklist (must precede :id params)
+encounterRouter.get("/custody/worklist", validateStaff, asyncRoute(getCustodyWorklistController));
+
+// Encounter queries
 encounterRouter.get("/:id/guidance", patientOrStaffAuth, requireEncounterRead, asyncRoute(getGuidance));
 encounterRouter.get("/:id/ticket", patientOrStaffAuth, requireEncounterRead, asyncRoute(getTicket));
-// AG03: transition stage now has verified identity, destination, revision, and override rules.
-// Handoff/refuse (AG04) and link-account (AG05) retain explicit containment until their phases.
+encounterRouter.get("/:id/custody", validateStaff, asyncRoute(getCustodyDetails));
+
+// AG03: transition stage
 encounterRouter.post("/:id/transition", validateStaff, asyncRoute(transitionStage));
-encounterRouter.post("/:id/handoff", validateStaff, pendingEncounterRepair);
-encounterRouter.post("/:id/refuse", validateStaff, pendingEncounterRepair);
+
+// AG04: physical file custody lifecycle with recipient acceptance
+encounterRouter.post("/:id/file/register", validateStaff, asyncRoute(registerFile));
+encounterRouter.post("/:id/register-file", validateStaff, asyncRoute(registerFile));
+encounterRouter.post("/:id/handoff", validateStaff, asyncRoute(handoffFile));
+encounterRouter.post("/:id/accept-handoff", validateStaff, asyncRoute(acceptHandoff));
+encounterRouter.post("/:id/handoff/accept", validateStaff, asyncRoute(acceptHandoff));
+encounterRouter.post("/:id/refuse", validateStaff, asyncRoute(refuseHandoff));
+encounterRouter.post("/:id/handoff/refuse", validateStaff, asyncRoute(refuseHandoff));
+
+// AG05: walk-in link account retains explicit containment until its phase
 encounterRouter.post("/:id/link-account", userValidation, pendingEncounterRepair);
 
 export default encounterRouter;

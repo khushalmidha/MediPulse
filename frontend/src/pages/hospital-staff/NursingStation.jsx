@@ -6,7 +6,7 @@ import { createSnapshotGuard } from "../../utils/queueSnapshot";
 import { bookingRequestKey, clearBookingRequest } from "../../utils/bookingRequest";
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import axios from "axios";
-import { ClipboardPlus, RefreshCcw, Save, UserRound, ArrowRight } from "lucide-react";
+import { ClipboardPlus, RefreshCcw, Save, UserRound, ArrowRight, FileText, Send, CheckCircle2, XCircle } from "lucide-react";
 import { BACKEND_URL } from "../../utils";
 import { getSocket } from "../../socket";
 
@@ -40,6 +40,18 @@ const NursingStation = () => {
   const [vitals, setVitals] = useState({ bp: "", temperature: "", pulse: "", oxygenSat: "", weight: "", height: "", chiefComplaint: "" });
   const [newToken, setNewToken] = useState({ name: "", phone: "", age: "", gender: "", chiefComplaint: "" });
 
+  // Physical file custody worklist state
+  const [custodyWorklist, setCustodyWorklist] = useState({ incoming: [], outgoing: [], held: [] });
+  const [custodyLoading, setCustodyLoading] = useState(false);
+  const [handoffModal, setHandoffModal] = useState(null);
+  const [refuseModal, setRefuseModal] = useState(null);
+  const [selectedRecipientId, setSelectedRecipientId] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [handoffReason, setHandoffReason] = useState("");
+  const [refusalReason, setRefusalReason] = useState("");
+  const [submittingCustody, setSubmittingCustody] = useState(false);
+  const [hospitalLocations, setHospitalLocations] = useState([]);
+
   // Clean disposal on account or hospital switch
   const currentIdentity = `${hospitalId || ""}:${staffId || ""}`;
   const prevIdentityRef = useRef(currentIdentity);
@@ -48,6 +60,9 @@ const NursingStation = () => {
       prevIdentityRef.current = currentIdentity;
       setQueue({ waiting: [], reservations: [], currentlyServing: null });
       setDirectory({ departments: [], staff: [] });
+      setCustodyWorklist({ incoming: [], outgoing: [], held: [] });
+      setHandoffModal(null);
+      setRefuseModal(null);
       setSelectedToken(null);
       setNoShowConfirmToken(null);
       setMessage("");
@@ -199,6 +214,98 @@ const NursingStation = () => {
       showError(error.response?.data?.message || "Could not mark no-show");
     } finally {
       setMarkingNoShow(false);
+    }
+  };
+
+  const loadCustodyWorklist = useCallback(async () => {
+    if (!hospitalId || !isStaffAuth) return;
+    setCustodyLoading(true);
+    try {
+      const res = await axios.get(`${BACKEND_URL}/api/encounters/custody/worklist`, { withCredentials: true });
+      setCustodyWorklist(res.data.worklist || { incoming: [], outgoing: [], held: [] });
+    } catch {
+      // ignore
+    } finally {
+      setCustodyLoading(false);
+    }
+  }, [hospitalId, isStaffAuth]);
+
+  const loadLocations = useCallback(async () => {
+    if (!hospitalId || !isStaffAuth) return;
+    try {
+      const res = await axios.get(`${BACKEND_URL}/api/hospitals/${hospitalId}/locations`, { withCredentials: true });
+      setHospitalLocations(res.data.locations || []);
+    } catch {
+      // ignore
+    }
+  }, [hospitalId, isStaffAuth]);
+
+  useEffect(() => {
+    loadCustodyWorklist();
+    loadLocations();
+  }, [loadCustodyWorklist, loadLocations]);
+
+  const acceptHandoff = async (item) => {
+    try {
+      await axios.post(
+        `${BACKEND_URL}/api/encounters/${item.encounterId}/accept-handoff`,
+        { expectedRevision: item.revision },
+        { withCredentials: true }
+      );
+      setMessage(`Accepted physical file for ticket ${item.ticketNumber}`);
+      setMessageTone("positive");
+      await loadCustodyWorklist();
+    } catch (err) {
+      showError(err.response?.data?.message || "Failed to accept physical file");
+    }
+  };
+
+  const submitRefusal = async () => {
+    if (!refuseModal || !refusalReason.trim() || submittingCustody) return;
+    setSubmittingCustody(true);
+    try {
+      await axios.post(
+        `${BACKEND_URL}/api/encounters/${refuseModal.encounterId}/refuse`,
+        { expectedRevision: refuseModal.revision, reason: refusalReason.trim() },
+        { withCredentials: true }
+      );
+      setMessage(`Refused handoff for ticket ${refuseModal.ticketNumber}`);
+      setMessageTone("info");
+      setRefuseModal(null);
+      setRefusalReason("");
+      await loadCustodyWorklist();
+    } catch (err) {
+      showError(err.response?.data?.message || "Failed to refuse file handoff");
+    } finally {
+      setSubmittingCustody(false);
+    }
+  };
+
+  const submitHandoff = async () => {
+    if (!handoffModal || !selectedRecipientId || submittingCustody) return;
+    setSubmittingCustody(true);
+    try {
+      await axios.post(
+        `${BACKEND_URL}/api/encounters/${handoffModal.encounterId}/handoff`,
+        {
+          expectedRevision: handoffModal.revision,
+          toActorId: selectedRecipientId,
+          locationId: selectedLocationId || undefined,
+          reason: handoffReason.trim() || undefined,
+        },
+        { withCredentials: true }
+      );
+      setMessage(`Initiated handoff for ticket ${handoffModal.ticketNumber}`);
+      setMessageTone("positive");
+      setHandoffModal(null);
+      setSelectedRecipientId("");
+      setSelectedLocationId("");
+      setHandoffReason("");
+      await loadCustodyWorklist();
+    } catch (err) {
+      showError(err.response?.data?.message || "Failed to initiate file handoff");
+    } finally {
+      setSubmittingCustody(false);
     }
   };
 
@@ -397,6 +504,108 @@ const NursingStation = () => {
               />
             )}
           </Card>
+
+          {/* Physical File Custody Worklist */}
+          <Card aria-label="Physical File Custody">
+            <div className="mp-card-heading">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <FileText size={20} style={{ color: "var(--mp-primary)" }} />
+                <h2>Physical File Custody</h2>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {custodyWorklist.incoming.length > 0 && (
+                  <StatusBadge tone="warning">
+                    {custodyWorklist.incoming.length} incoming transfer{custodyWorklist.incoming.length > 1 ? "s" : ""}
+                  </StatusBadge>
+                )}
+                <Button size="small" variant="secondary" onClick={loadCustodyWorklist} disabled={custodyLoading}>
+                  <RefreshCcw size={14} /> Refresh
+                </Button>
+              </div>
+            </div>
+
+            {/* Incoming Handoffs Awaiting Recipient Acknowledgement */}
+            {custodyWorklist.incoming.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: "0.95rem", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Send size={15} style={{ color: "var(--mp-warning)" }} /> Incoming Transfers Awaiting Your Acceptance
+                </h3>
+                <DataTable
+                  caption="Incoming physical file handoffs"
+                  rows={custodyWorklist.incoming}
+                  columns={[
+                    { key: "ticketNumber", label: "Ticket / File", render: (item) => <strong>{item.ticketNumber} · {item.fileBarcode || "No barcode"}</strong> },
+                    { key: "from", label: "From", render: (item) => `${item.fromActorName} (${item.fromActorRole})` },
+                    { key: "location", label: "Location", render: (item) => item.toLocationName || "not recorded" },
+                    { key: "reason", label: "Reason", render: (item) => item.reason || "—" },
+                    {
+                      key: "actions",
+                      label: "Actions",
+                      render: (item) => (
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <Button size="small" onClick={() => acceptHandoff(item)}>
+                            <CheckCircle2 size={14} /> Accept
+                          </Button>
+                          <Button size="small" variant="secondary" onClick={() => { setRefuseModal(item); setRefusalReason(""); }}>
+                            <XCircle size={14} /> Refuse
+                          </Button>
+                        </div>
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+            )}
+
+            {/* Files currently in staff's custody */}
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ fontSize: "0.95rem", marginBottom: 8 }}>
+                Files in Your Custody ({custodyWorklist.held.length})
+              </h3>
+              {!custodyWorklist.held.length ? (
+                <EmptyState title="No physical files currently in your custody." />
+              ) : (
+                <DataTable
+                  caption="Files held in your physical custody"
+                  rows={custodyWorklist.held}
+                  columns={[
+                    { key: "ticketNumber", label: "Ticket", render: (item) => <strong>{item.ticketNumber}</strong> },
+                    { key: "fileBarcode", label: "Barcode", render: (item) => item.fileBarcode || "—" },
+                    { key: "locationName", label: "Desk / Location", render: (item) => item.locationName || "not recorded" },
+                    {
+                      key: "transfer",
+                      label: "Handoff",
+                      render: (item) => item.hasPendingOutgoing ? (
+                        <StatusBadge tone="info">Transfer Pending</StatusBadge>
+                      ) : (
+                        <Button size="small" variant="secondary" onClick={() => { setHandoffModal(item); setSelectedRecipientId(""); setSelectedLocationId(""); setHandoffReason(""); }}>
+                          <Send size={14} /> Transfer File
+                        </Button>
+                      ),
+                    },
+                  ]}
+                />
+              )}
+            </div>
+
+            {/* Outgoing Transfers pending recipient */}
+            {custodyWorklist.outgoing.length > 0 && (
+              <div>
+                <h3 style={{ fontSize: "0.95rem", marginBottom: 8 }}>
+                  Outgoing Transfers Pending Acknowledgement ({custodyWorklist.outgoing.length})
+                </h3>
+                <DataTable
+                  caption="Pending outgoing handoffs"
+                  rows={custodyWorklist.outgoing}
+                  columns={[
+                    { key: "ticketNumber", label: "Ticket / Barcode", render: (item) => `${item.ticketNumber} · ${item.fileBarcode || "—"}` },
+                    { key: "to", label: "Recipient", render: (item) => `${item.toActorName} (${item.toActorRole})` },
+                    { key: "status", label: "Status", render: () => <StatusBadge tone="warning">Awaiting Recipient</StatusBadge> },
+                  ]}
+                />
+              </div>
+            )}
+          </Card>
         </div>
 
         {/* Issue Walk-in Token form */}
@@ -536,6 +745,98 @@ const NursingStation = () => {
             </Button>
             <Button variant="danger" onClick={confirmNoShow} disabled={markingNoShow}>
               {markingNoShow ? "Marking..." : "Confirm No-Show"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Transfer Physical File Dialog */}
+      <Dialog
+        open={Boolean(handoffModal)}
+        onClose={() => setHandoffModal(null)}
+        title={`Transfer Physical File: ${handoffModal?.ticketNumber || ""}`}
+      >
+        <div className="mp-stack">
+          <p className="mp-field-hint">
+            Select the recipient staff member. File custody remains with you until the recipient explicitly accepts it.
+          </p>
+          <Field
+            as="select"
+            label="Recipient Staff Member"
+            required
+            value={selectedRecipientId}
+            onChange={(e) => setSelectedRecipientId(e.target.value)}
+          >
+            <option value="">Select recipient...</option>
+            {directory.staff
+              .filter((m) => String(m._id) !== String(staffId) && m.isActive)
+              .map((member) => (
+                <option key={member._id} value={member._id}>
+                  {member.name} ({member.role})
+                </option>
+              ))}
+          </Field>
+          <Field
+            as="select"
+            label="Destination Desk / Room (Optional)"
+            value={selectedLocationId}
+            onChange={(e) => setSelectedLocationId(e.target.value)}
+          >
+            <option value="">Select destination location...</option>
+            {hospitalLocations
+              .filter((loc) => loc.status === "active")
+              .map((loc) => (
+                <option key={loc._id} value={loc._id}>
+                  {loc.name} {loc.roomNumber ? `(${loc.roomNumber})` : ""}
+                </option>
+              ))}
+          </Field>
+          <Field
+            label="Handoff reason or notes"
+            placeholder="e.g. Sent for doctor consultation"
+            value={handoffReason}
+            onChange={(e) => setHandoffReason(e.target.value)}
+          />
+          <div className="mp-actions">
+            <Button variant="secondary" onClick={() => setHandoffModal(null)} disabled={submittingCustody}>
+              Cancel
+            </Button>
+            <Button onClick={submitHandoff} disabled={!selectedRecipientId || submittingCustody}>
+              <Send size={16} />
+              {submittingCustody ? "Initiating..." : "Initiate Handoff"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Refuse Handoff Dialog */}
+      <Dialog
+        open={Boolean(refuseModal)}
+        onClose={() => setRefuseModal(null)}
+        title={`Refuse Physical File Handoff: ${refuseModal?.ticketNumber || ""}`}
+      >
+        <div className="mp-stack">
+          <p>
+            Refuse physical file transfer from <strong>{refuseModal?.fromActorName}</strong> ({refuseModal?.fromActorRole}).
+          </p>
+          <p className="mp-field-hint">
+            Custody will remain with the sender. An audit reason is required for safety.
+          </p>
+          <Field
+            as="textarea"
+            label="Refusal reason"
+            required
+            placeholder="e.g. Patient not yet in examination room, or sent to wrong clinician"
+            value={refusalReason}
+            onChange={(e) => setRefusalReason(e.target.value)}
+          />
+          <div className="mp-actions">
+            <Button variant="secondary" onClick={() => setRefuseModal(null)} disabled={submittingCustody}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={submitRefusal} disabled={!refusalReason.trim() || submittingCustody}>
+              <XCircle size={16} />
+              {submittingCustody ? "Submitting..." : "Confirm Refusal"}
             </Button>
           </div>
         </div>

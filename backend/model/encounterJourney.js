@@ -74,6 +74,7 @@ const encounterJourneySchema = new mongoose.Schema(
       lastHandoffAt: Date,
       handoffHistory: [
         {
+          handoffId: { type: String },
           fromActorId: { type: objectId },
           fromActorName: String,
           fromActorRole: String,
@@ -84,7 +85,7 @@ const encounterJourneySchema = new mongoose.Schema(
           toLocationId: { type: objectId },
           toLocationName: { type: String, default: "not recorded" },
           timestamp: { type: Date, default: Date.now },
-          status: { type: String, enum: ["pending", "acknowledged", "refused"], default: "acknowledged" },
+          status: { type: String, enum: ["pending", "acknowledged", "refused"], default: "pending" },
           acknowledgedAt: Date,
           refusedAt: Date,
           reason: String,
@@ -117,6 +118,10 @@ encounterJourneySchema.index({ hospitalId: 1, ticketNumber: 1 }, { name: "ag01_e
 encounterJourneySchema.index(
   { patientId: 1, createdAt: -1 },
   { name: "ag01_encounter_patient_created", partialFilterExpression: { patientId: { $type: "objectId" } } }
+);
+encounterJourneySchema.index(
+  { hospitalId: 1, "physicalFile.currentHolderId": 1 },
+  { name: "ag04_encounter_custody_holder" }
 );
 
 const EncounterJourney = mongoose.model("EncounterJourney", encounterJourneySchema);

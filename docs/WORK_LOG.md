@@ -1504,3 +1504,64 @@ Implemented source-driven encounter stage transitions, active tenant-scoped loca
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+
+## AG04 - Physical file custody with recipient acceptance - 21 October 2026
+
+Baseline: following AG03 verification.
+Implemented physical file custody lifecycle including explicit initial-file registration, sender-initiated handoff, verified recipient acceptance, audited refusal, operational worklist segregation, and privacy-preserving patient custody projection.
+
+### Implemented changes
+
+- **Encounter Journey Model**:
+  - `backend/model/encounterJourney.js`:
+    - Added `handoffId` string to `handoffHistory` entries, with status enum `['pending', 'acknowledged', 'refused']` defaulting to `'pending'`.
+    - Added index on `{ hospitalId: 1, "physicalFile.currentHolderId": 1 }` for custody queries.
+- **Physical File Custody Service**:
+  - `backend/services/encounterJourneyService.js`:
+    - `registerPhysicalFile`: validates tenant, active location, and sets initial holder and file barcode; records initial acknowledged handoff event with actor identity.
+    - `handoffPhysicalFile`: requires `expectedRevision` optimistic locking; validates recipient in `HospitalStaff` (same tenant, active, not self); ignores request-supplied `acknowledged=true`; derives recipient name and role from active DB record; retains custody with sender (`currentHolderId` unchanged); appends `"pending"` handoff; blocks concurrent pending handoffs; and increments revision.
+    - `acceptPhysicalFileHandoff`: requires `expectedRevision`; enforces that only the designated recipient (`toActorId`) can accept; transfers custody to recipient (`currentHolderId = recipient`); updates location; marks handoff `"acknowledged"` with timestamp; and increments revision.
+    - `refusePhysicalFileHandoff`: requires `expectedRevision` and a non-empty `reason`; enforces that caller is recipient or admin; marks handoff `"refused"` with audit reason; and preserves custody with original holder (`currentHolderId` unchanged).
+    - `getCustodyWorklist`: returns segregated arrays (`incoming`, `outgoing`, `held`) for a staff member.
+    - `getEncounterCustodyDetails`: returns full custody state and handoff history for staff inspection.
+    - `getEncounterGuidance`: privacy projection returns `{ tracked, location }` for patients while omitting internal staff holder IDs and secrets.
+- **Controller & Route Wiring**:
+  - `backend/controller/encounterJourney.js`:
+    - Added `registerFile`, `handoffFile`, `acceptHandoff`, `refuseHandoff`, `getCustodyWorklistController`, and `getCustodyDetails`.
+  - `backend/routes/encounter.js`:
+    - Replaced 503 containment on `POST /:id/handoff` and `POST /:id/refuse` with active handlers.
+    - Mounted `GET /custody/worklist`, `GET /:id/custody`, `POST /:id/file/register`, `POST /:id/accept-handoff`, and `POST /:id/refuse`.
+- **UI Workstation & Patient Views**:
+  - `frontend/src/pages/hospital-staff/NursingStation.jsx`:
+    - Added "Physical File Custody" worklist card with badges for Incoming Handoffs, Active Outgoing Transfers, and Files in Custody.
+    - Added action buttons (Accept, Refuse, Transfer File) and modal dialogs with recipient staff selection and required refusal reason.
+  - `frontend/src/pages/hospital-website/PatientVisits.jsx`:
+    - Truthful physical file projection replacing fabricated "With Attending Clinician" string.
+- **Test Infrastructure & Verification**:
+  - `backend/tests/integration/encounter-custody.test.js`:
+    - 6 comprehensive integration tests verifying:
+      1. Initial physical file registration sets holder, location, file barcode, and records initial acknowledged event.
+      2. Sender initiates handoff to recipient staff; custody stays with sender and request `acknowledged=true` is ignored.
+      3. Handoff initiation rejects unauthorized callers, foreign recipients, inactive staff, self-transfer, and concurrent pending handoffs.
+      4. Only designated recipient can accept file custody; transfers holder and location, updates revision.
+      5. Recipient refusal preserves current holder custody, audits refusal reason, and requires non-empty reason.
+      6. Operational custody worklist segregates incoming, outgoing, and held files; patient guidance preserves privacy.
+  - `backend/tests/integration/astra-access.test.js`:
+    - Updated to assert 400 rejection for invalid/unsafe handoff and refuse commands, while preserving 503 containment for pending `link-account`.
+  - `backend/scripts/testIntegration.js`:
+    - Registered `encounter-custody.test.js`.
+  - `frontend/e2e/encounter-journey.unit.mjs`:
+    - Added AG04 custody validation helpers and unit tests (50/50 passed).
+
+### Executed checks and limits
+
+- **Encounter custody integration suite**: **6/6 passed**, zero failures/skips, **15.77 s** (`backend/tests/integration/encounter-custody.test.js`).
+- **Astra access integration suite**: **8/8 passed**, zero failures/skips, **3.34 s** (`backend/tests/integration/astra-access.test.js`).
+- **Full backend integration runner**: **236/236 passed**, zero failures/skips (`node scripts/testIntegration.js`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips (`npm test`).
+- **Frontend unit tests**: **50/50 passed**, zero failures/skips (`npm run test:ui`).
+- **Frontend production build**: passed in **13.68 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against live local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
