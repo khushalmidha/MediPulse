@@ -1739,5 +1739,68 @@ Implemented connected hospital clinician lab and prescription composers, resilie
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
 
+## AG08 — Patient released documents, visit packet and real scannable ticket (21 October 2026)
+
+Implemented patient released clinical document views, visit care packet with download/print functionality, and a pure JavaScript QR matrix generator for real scannable visit tickets with zero patient PII leakage.
+
+- **Data Models & Indexed QR Lookup (`EncounterJourney.js`)**:
+  - Added named compound index `{ qrPayload: 1 }` (`ag08_encounter_qr_payload`) on `EncounterJourney` schema.
+- **Privacy-Safe Ticket Scanning & Authorized Resolution**:
+  - `backend/controller/encounterJourney.js`:
+    - Implemented `resolveScannedTicket(req, res)` handling three distinct authorization levels:
+      1. Unauthenticated / Public bearer: Returns `{ verified: true, ticketNumber, stage, destination, hospitalId, hospitalName, issuedAt, isWalkIn }` with strict zero patient PII guarantee (no name, phone, vitals, clinicalNotes, or patientId).
+      2. Authenticated Hospital Staff: Resolves full encounter journey, enforces hospital tenant isolation, and rejects foreign hospital staff with 403 Forbidden.
+      3. Authenticated Patient: Resolves owned ticket and rejects foreign patient access with 403 Forbidden.
+  - `backend/middleware/patientOrStaffAuth.js`:
+    - Exported `optionalPatientOrStaffAuth` middleware to support optional bearer scanning while populating staff or patient identity if valid credentials are provided.
+  - `backend/routes/encounter.js`:
+    - Mounted `GET /scan/:qrPayload`, `POST /scan`, and `GET /resolve-ticket/:qrPayload`.
+- **Released Clinical Documents & Visit Care Packet**:
+  - `backend/services/clinicalOrderAccess.js`:
+    - Enhanced `patientClinicalView` to dynamically compute `documentStatus: "amended"` when multiple released report versions exist, preserving earlier released versions in `amendmentHistory`.
+    - Strictly omitted unreleased drafts (`releasedAt: null` or omitted) and staff internal audit history.
+    - Set prescription documentStatus to `partially_fulfilled`, `dispensed`, or `approved_by_doctor`.
+    - Updated `patientClinicalRecords` with `$elemMatch` to match only orders with at least one released report version.
+  - `backend/controller/patientPortal.js`:
+    - Implemented `getVisitPacket`: resolves visit token or encounter journey for owner patient or family members, queries released lab orders with `$elemMatch` and approved prescriptions, clinician-reviewed SOAP summary (omitting unapproved drafts), honest room/building destination, and physical file custody without status guessing.
+    - Updated `mapOpdToken` to include `clinicalSummary` only when `soapNote.approvedAt` exists.
+  - `backend/routes/patientPortal.js`:
+    - Mounted `GET /me/visits/:id/packet` under user authentication.
+- **Frontend QR Code Generator & Care Packet Views**:
+  - `frontend/src/utils/qrCode.js`:
+    - Implemented pure JS standard QR Code generator (UTF-8 byte mode, Reed-Solomon GF(256), versions 1-4) producing matrix and React SVG component `QrCodeSvg` or SVG string without external dependencies.
+  - `frontend/src/pages/hospital-website/PatientVisits.jsx`:
+    - Integrated `QrCodeSvg` into ticket modal, formatted honest destination and physical file custody, added "Care Packet & Records" button to view released documents/notes, added Visit Care Packet Modal Dialog with printable view (`window.print()`), and added actor-switch disposal.
+  - `frontend/src/pages/PatientHealthPortal.jsx`:
+    - Added packet loading, actor-switch disposal, and enhanced Care record dialog to display clinician-reviewed summary, released lab reports (with amendment history and status badges), and approved prescriptions.
+- **Test Infrastructure & Verification**:
+  - `backend/tests/integration/patient-released-documents.test.js`:
+    - 8 comprehensive integration tests verifying:
+      1. Public bearer scan returns privacy-safe ticket verification with zero patient PII.
+      2. Authenticated staff scanner resolves full encounter journey and rejects foreign hospital staff.
+      3. Authenticated patient scanner resolves owned ticket and rejects foreign patient access.
+      4. Patient visit packet returns released lab reports, approved prescriptions, and approved SOAP summary.
+      5. Draft lab reports and unapproved SOAP drafts never reach patient documents.
+      6. Released lab amendments preserve earlier versions in amendmentHistory with amended status.
+      7. Foreign patient access to visit packet is denied (404/403).
+      8. Authorized family member can access visit packet.
+  - `backend/scripts/testIntegration.js`:
+    - Registered `patient-released-documents.test.js` in integration runner.
+  - `frontend/e2e/patient-care.unit.mjs`:
+    - Added unit tests for pure QR matrix generator and SVG string, draft vs released vs amended report labeling with amendment history, and actor-switch disposal.
+
+### Executed checks and limits
+
+- **Patient released documents integration suite**: **8/8 passed**, zero failures/skips, **3.96 s** (`backend/tests/integration/patient-released-documents.test.js`).
+- **Full integration runner**: **266/266 passed**, zero failures/skips, **298.05 s** (`npm run test:integration`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **40.13 s** (`npm test`).
+- **Frontend unit tests**: **56/56 passed**, zero failures/skips, **295 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **20.50 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
+
 
 

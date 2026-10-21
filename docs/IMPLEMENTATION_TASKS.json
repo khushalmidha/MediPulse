@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG08",
+  "startWith": "AG09",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -492,7 +492,7 @@
     {
       "id": "AG08",
       "title": "Patient released documents, visit packet and real scannable ticket",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG04",
@@ -503,7 +503,11 @@
         "backend/controller/patientPortal.js",
         "frontend/src/pages/PatientHealthPortal.jsx",
         "frontend/src/pages/hospital-website/PatientVisits.jsx",
-        "backend/controller/encounterJourney.js"
+        "backend/controller/encounterJourney.js",
+        "backend/routes/encounter.js",
+        "backend/routes/patientPortal.js",
+        "frontend/src/utils/qrCode.js",
+        "backend/tests/integration/patient-released-documents.test.js"
       ],
       "implementation": [
         "Connect released report versions, approved prescriptions/partial fills and clinician-reviewed summaries to the actual encounter/person.",
@@ -515,7 +519,32 @@
         "A scanner resolves the intended owned visit; released amendments preserve earlier versions."
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
-      "track": "outpatient_pilot"
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG08 patient released documents, visit packet and real scannable ticket, 21 October 2026",
+        "patientReleasedDocumentsIntegration": {
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "fullIntegration": {
+          "passed": 266,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 168,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 56,
+          "failed": 0,
+          "skipped": 0
+        },
+        "build": "passed",
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG09",

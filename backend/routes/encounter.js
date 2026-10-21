@@ -12,10 +12,11 @@ import {
   requestClaimChallenge,
   verifyClaimChallenge,
   linkWalkIn,
+  resolveScannedTicket,
 } from "../controller/encounterJourney.js";
 import validateStaff from "../middleware/validateStaff.js";
 import userValidation from "../middleware/validateUser.js";
-import patientOrStaffAuth from "../middleware/patientOrStaffAuth.js";
+import { patientOrStaffAuth, optionalPatientOrStaffAuth } from "../middleware/patientOrStaffAuth.js";
 import { requireEncounterRead, pendingEncounterRepair } from "../middleware/encounterAccess.js";
 
 const encounterRouter = Router();
@@ -33,6 +34,11 @@ const asyncRoute = (handler) => async (req, res, next) => {
 
 // Staff custody worklist (must precede :id params)
 encounterRouter.get("/custody/worklist", validateStaff, asyncRoute(getCustodyWorklistController));
+
+// AG08: Ticket scanning and resolution (supports public verification, staff workflow, and patient lookup)
+encounterRouter.get("/scan/:qrPayload", optionalPatientOrStaffAuth, asyncRoute(resolveScannedTicket));
+encounterRouter.post("/scan", optionalPatientOrStaffAuth, asyncRoute(resolveScannedTicket));
+encounterRouter.get("/resolve-ticket/:qrPayload", optionalPatientOrStaffAuth, asyncRoute(resolveScannedTicket));
 
 // Encounter queries
 encounterRouter.get("/:id/guidance", patientOrStaffAuth, requireEncounterRead, asyncRoute(getGuidance));

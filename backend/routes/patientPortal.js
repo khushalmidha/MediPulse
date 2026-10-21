@@ -5,6 +5,7 @@ import {
   getHealthTimeline,
   getVisitedHospitals,
   removeFamilyMember,
+  getVisitPacket,
 } from "../controller/patientPortal.js";
 import validateUser from "../middleware/validateUser.js";
 
@@ -15,5 +16,6 @@ patientPortalRouter.get("/me/hospitals", validateUser, getVisitedHospitals);
 patientPortalRouter.get("/me/family", validateUser, getFamilyMembers);
 patientPortalRouter.post("/me/family", validateUser, addFamilyMember);
 patientPortalRouter.delete("/me/family/:memberId", validateUser, removeFamilyMember);
+patientPortalRouter.get("/me/visits/:id/packet", validateUser, getVisitPacket);
 
 export default patientPortalRouter;

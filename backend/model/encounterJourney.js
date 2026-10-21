@@ -124,6 +124,10 @@ encounterJourneySchema.index(
   { hospitalId: 1, "physicalFile.currentHolderId": 1 },
   { name: "ag04_encounter_custody_holder" }
 );
+encounterJourneySchema.index(
+  { qrPayload: 1 },
+  { name: "ag08_encounter_qr_payload", partialFilterExpression: { qrPayload: { $type: "string" } } }
+);
 
 const EncounterJourney = mongoose.model("EncounterJourney", encounterJourneySchema);
 

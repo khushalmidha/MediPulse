@@ -1,13 +1,14 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { ArrowRight, Building2, CalendarDays, RefreshCcw, Printer, Link2, MapPin, FileText, QrCode } from "lucide-react";
+import { ArrowRight, Building2, CalendarDays, RefreshCcw, Printer, Link2, MapPin, FileText, QrCode, ShieldCheck, CheckCircle2 } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
 import { useHospitalBrand } from "../../components/ProductShell";
 import { useCareResource } from "../../hooks/useCareResource";
 import { careLabels, feeText, visitTime } from "../../utils/appointments";
 import { Banner, Button, Card, Dialog, EmptyState, LoadingState, StatusBadge } from "../../components/ui";
+import { QrCodeSvg } from "../../utils/qrCode.js";
 import { BACKEND_URL } from "../../utils";
 
 export default function PatientVisits({ slug }) {
@@ -19,11 +20,26 @@ export default function PatientVisits({ slug }) {
   const [loadedOwner, setLoadedOwner] = useState(null), [visits, setVisits] = useState([]);
   const [error, setError] = useState(""), [loading, setLoading] = useState(true), [attempt, setAttempt] = useState(0), [refreshedAt, setRefreshedAt] = useState(null);
   const [activeTicket, setActiveTicket] = useState(null);
+  const [activePacket, setActivePacket] = useState(null);
+  const [packetLoading, setPacketLoading] = useState(false);
+  const [packetError, setPacketError] = useState("");
   const [linkingVisitId, setLinkingVisitId] = useState(null);
   const [linkFeedback, setLinkFeedback] = useState("");
 
   useEffect(() => {
-    if (!isAuth || role !== "user" || !ownerId) return undefined;
+    if (!isAuth || role !== "user" || !ownerId) {
+      setVisits([]);
+      setLoadedOwner(null);
+      setActiveTicket(null);
+      setActivePacket(null);
+      return undefined;
+    }
+    if (loadedOwner && loadedOwner !== ownerId) {
+      setVisits([]);
+      setLoadedOwner(null);
+      setActiveTicket(null);
+      setActivePacket(null);
+    }
     let disposed = false, sequence = 0;
     const refresh = async () => {
       const request = ++sequence;
@@ -68,6 +84,20 @@ export default function PatientVisits({ slug }) {
   const [claimNotice, setClaimNotice] = useState("");
 
   const visible = loadedOwner === ownerId ? (tokenId ? visits.filter((visit) => visit._id === tokenId) : visits) : [];
+
+  const openPacketModal = async (visit) => {
+    setActivePacket(null);
+    setPacketLoading(true);
+    setPacketError("");
+    try {
+      const res = await axios.get(`${BACKEND_URL}/api/patients/me/visits/${visit._id}/packet`, { withCredentials: true });
+      setActivePacket(res.data?.packet || null);
+    } catch (err) {
+      setPacketError(err.response?.data?.message || "Unable to load released visit documents.");
+    } finally {
+      setPacketLoading(false);
+    }
+  };
 
   const openClaimModal = (visit) => {
     setClaimDialogVisit(visit);
@@ -261,12 +291,8 @@ export default function PatientVisits({ slug }) {
                         <dt>Next Destination</dt>
                         <dd style={{ display: "flex", alignItems: "center", gap: 5 }}>
                           <MapPin size={14} style={{ color: "var(--mp-primary)" }} />
-                          {visit.status === "reserved"
-                            ? "Reception Desk · Check-in"
-                            : visit.status === "vitals_done" || visit.status === "waiting"
-                            ? "Consultation Room"
-                            : visit.status === "in_consultation"
-                            ? "Doctor Consultation"
+                          {visit.currentDestination?.name && visit.currentDestination.name !== "not recorded"
+                            ? `${visit.currentDestination.name}${visit.currentDestination.building ? ` · ${visit.currentDestination.building}` : ""}${visit.currentDestination.floor ? ` (${visit.currentDestination.floor})` : ""}`
                             : "not recorded"}
                         </dd>
                       </div>
@@ -277,7 +303,7 @@ export default function PatientVisits({ slug }) {
                           {visit.physicalFile?.tracked
                             ? (visit.physicalFile?.location && visit.physicalFile.location !== "not recorded"
                                 ? `Tracked at ${visit.physicalFile.location}`
-                                : "Physical file active")
+                                : "Physical file active (location not recorded)")
                             : "Electronic record only"}
                         </dd>
                       </div>
@@ -296,6 +322,13 @@ export default function PatientVisits({ slug }) {
                         to={visit.scheduleReservationId ? "/reservations/" + visit.scheduleReservationId : "/visits/" + visit._id}
                       >
                         Open this visit <ArrowRight size={16} />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        onClick={() => openPacketModal(visit)}
+                      >
+                        <FileText size={15} /> Care Packet & Records
                       </Button>
                       <Button
                         variant="secondary"
@@ -328,7 +361,7 @@ export default function PatientVisits({ slug }) {
         </>
       )}
 
-      {/* Ticket / QR Modal */}
+      {/* Ticket / QR Modal with Real Scannable QR */}
       {activeTicket && (
         <Dialog
           open={Boolean(activeTicket)}
@@ -347,10 +380,10 @@ export default function PatientVisits({ slug }) {
               Date: {activeTicket.serviceDate || new Date().toLocaleDateString()} · In-Person OPD
             </p>
 
-            <div style={{ margin: "16px auto", padding: 16, background: "var(--mp-surface-subtle)", borderRadius: 12, border: "1px dashed var(--mp-border)", maxWidth: 280 }}>
-              <QrCode size={96} style={{ margin: "0 auto", color: "var(--mp-text)" }} />
-              <p style={{ margin: "8px 0 0", fontSize: "0.78rem", color: "var(--mp-muted)", fontFamily: "monospace" }}>
-                MEDIPULSE-QR-{activeTicket._id?.substring(0, 8)}
+            <div style={{ margin: "16px auto", padding: 16, background: "#ffffff", borderRadius: 12, border: "1px dashed var(--mp-border)", width: "fit-content" }}>
+              <QrCodeSvg value={`MP-TKT:${activeTicket.qrPayload || activeTicket.displayToken || activeTicket.tokenNumber || activeTicket._id}`} size={160} style={{ color: "#0f172a" }} />
+              <p style={{ margin: "8px 0 0", fontSize: "0.78rem", color: "#64748b", fontFamily: "monospace" }}>
+                {activeTicket.ticketNumber ? `TICKET ${activeTicket.ticketNumber}` : (activeTicket.displayToken || `TOKEN #${activeTicket.tokenNumber}`)}
               </p>
             </div>
 
@@ -366,6 +399,168 @@ export default function PatientVisits({ slug }) {
                 Close
               </Button>
             </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Visit Care Packet Modal */}
+      {(activePacket || packetLoading || packetError) && (
+        <Dialog
+          open={Boolean(activePacket || packetLoading || packetError)}
+          onClose={() => { setActivePacket(null); setPacketError(""); }}
+          title={`Visit Care Packet · ${activePacket?.displayToken || "Hospital Consultation"}`}
+        >
+          <div className="mp-stack" style={{ padding: "12px 0", maxHeight: "75vh", overflowY: "auto" }}>
+            {packetLoading && <LoadingState>Loading released visit packet and documents...</LoadingState>}
+            {packetError && <Banner tone="error">{packetError}</Banner>}
+
+            {activePacket && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--mp-border)", paddingBottom: 12 }}>
+                  <div>
+                    <p className="mp-eyebrow" style={{ margin: 0 }}>{activePacket.hospital?.name || "Hospital Network"}</p>
+                    <h3 style={{ margin: "4px 0" }}>Token {activePacket.displayToken} · {activePacket.department?.name || "General OPD"}</h3>
+                    <p className="mp-field-hint" style={{ margin: 0 }}>Date: {activePacket.serviceDate} · In-Person OPD</p>
+                  </div>
+                  <StatusBadge status={activePacket.status} />
+                </div>
+
+                <div style={{ background: "var(--mp-surface-subtle)", padding: 12, borderRadius: 8, fontSize: "0.88rem" }}>
+                  <div><strong>Destination:</strong> {activePacket.destination}</div>
+                  <div><strong>Medical Records File:</strong> {activePacket.physicalFile}</div>
+                  {activePacket.doctor?.name && <div><strong>Attending Doctor:</strong> Dr. {activePacket.doctor.name} ({activePacket.doctor.specialization})</div>}
+                </div>
+
+                {/* Clinician-Approved SOAP Summary */}
+                <section style={{ border: "1px solid var(--mp-border)", borderRadius: 8, padding: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <h4 style={{ margin: 0 }}>Clinician-Reviewed Summary</h4>
+                    {activePacket.soapSummary ? (
+                      <span style={{ fontSize: "0.75rem", background: "var(--mp-success-subtle, #dcfce7)", color: "var(--mp-success, #166534)", padding: "2px 8px", borderRadius: 4, fontWeight: 600 }}>
+                        Clinician Approved
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>
+                        Pending Clinician Review
+                      </span>
+                    )}
+                  </div>
+                  {activePacket.soapSummary ? (
+                    <div className="mp-stack" style={{ gap: 8, fontSize: "0.88rem" }}>
+                      {activePacket.soapSummary.subjective && <div><strong>Subjective:</strong> {activePacket.soapSummary.subjective}</div>}
+                      {activePacket.soapSummary.objective && <div><strong>Objective:</strong> {activePacket.soapSummary.objective}</div>}
+                      {activePacket.soapSummary.assessment && <div><strong>Assessment:</strong> {activePacket.soapSummary.assessment}</div>}
+                      {activePacket.soapSummary.plan && <div><strong>Plan:</strong> {activePacket.soapSummary.plan}</div>}
+                      <p className="mp-field-hint" style={{ fontSize: "0.75rem", marginTop: 4 }}>
+                        Reviewed & approved by {activePacket.soapSummary.approvedByName} on {new Date(activePacket.soapSummary.approvedAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mp-field-hint" style={{ margin: 0 }}>
+                      {activePacket.consultationNotes ? activePacket.consultationNotes : "No released clinician notes or approved summary recorded for this visit yet."}
+                    </p>
+                  )}
+                </section>
+
+                {/* Released Laboratory Reports */}
+                <section style={{ border: "1px solid var(--mp-border)", borderRadius: 8, padding: 12 }}>
+                  <h4 style={{ margin: "0 0 8px 0" }}>Released Laboratory Reports</h4>
+                  {activePacket.labReports && activePacket.labReports.length > 0 ? (
+                    <div className="mp-stack" style={{ gap: 12 }}>
+                      {activePacket.labReports.map((lab, idx) => (
+                        <div key={lab._id || idx} style={{ background: "var(--mp-surface-subtle)", padding: 10, borderRadius: 6 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <strong>{lab.tests?.map(t => t.testName).join(", ") || "Diagnostic Test"}</strong>
+                            <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: 4, fontWeight: 600, background: lab.documentStatus === "amended" ? "#fef3c7" : "#dcfce7", color: lab.documentStatus === "amended" ? "#92400e" : "#166534" }}>
+                              {lab.documentStatus === "amended" ? `Amended (v${lab.reportVersion})` : "Released"}
+                            </span>
+                          </div>
+                          <table style={{ width: "100%", fontSize: "0.82rem", borderCollapse: "collapse", marginTop: 4 }}>
+                            <thead>
+                              <tr style={{ borderBottom: "1px solid var(--mp-border)", textAlign: "left" }}>
+                                <th style={{ padding: "4px 6px" }}>Parameter</th>
+                                <th style={{ padding: "4px 6px" }}>Value</th>
+                                <th style={{ padding: "4px 6px" }}>Reference</th>
+                                <th style={{ padding: "4px 6px" }}>Flag</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(lab.results || []).map((res, rIdx) => (
+                                <tr key={rIdx} style={{ borderBottom: "1px solid var(--mp-border-subtle, #f1f5f9)" }}>
+                                  <td style={{ padding: "4px 6px" }}>{res.parameterName || res.parameterCode}</td>
+                                  <td style={{ padding: "4px 6px", fontWeight: 600 }}>{res.value} {res.unit}</td>
+                                  <td style={{ padding: "4px 6px", color: "var(--mp-muted)" }}>{res.referenceRangeText || "—"}</td>
+                                  <td style={{ padding: "4px 6px" }}>
+                                    {res.isCritical ? (
+                                      <span style={{ color: "#b91c1c", fontWeight: 700 }}>CRITICAL</span>
+                                    ) : res.flag && res.flag !== "NORMAL" ? (
+                                      <span style={{ color: "#d97706" }}>{res.flag}</span>
+                                    ) : (
+                                      <span style={{ color: "#166534" }}>Normal</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {lab.amendmentHistory && lab.amendmentHistory.length > 0 && (
+                            <div style={{ marginTop: 8, padding: "6px 8px", background: "#f8fafc", borderRadius: 4, fontSize: "0.76rem" }}>
+                              <span style={{ fontWeight: 600, color: "#64748b" }}>Prior Version History: </span>
+                              {lab.amendmentHistory.map(hist => `v${hist.version} (released ${new Date(hist.releasedAt).toLocaleDateString()} - ${hist.reason})`).join("; ")}
+                            </div>
+                          )}
+                          <p className="mp-field-hint" style={{ fontSize: "0.74rem", margin: "6px 0 0" }}>
+                            Verified by {lab.verifiedByName || "Clinical Pathologist"} · Released {new Date(lab.releasedAt).toLocaleString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mp-field-hint" style={{ margin: 0 }}>No released laboratory reports linked to this visit.</p>
+                  )}
+                </section>
+
+                {/* Approved Prescriptions */}
+                <section style={{ border: "1px solid var(--mp-border)", borderRadius: 8, padding: 12 }}>
+                  <h4 style={{ margin: "0 0 8px 0" }}>Prescriptions & Fulfillment</h4>
+                  {activePacket.prescriptions && activePacket.prescriptions.length > 0 ? (
+                    <div className="mp-stack" style={{ gap: 10 }}>
+                      {activePacket.prescriptions.map((rx, idx) => (
+                        <div key={rx._id || idx} style={{ background: "var(--mp-surface-subtle)", padding: 10, borderRadius: 6 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <span style={{ fontWeight: 600 }}>Prescription #{String(rx._id).substring(0, 8)}</span>
+                            <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: 4, fontWeight: 600, background: rx.documentStatus === "dispensed" ? "#dcfce7" : "#e0f2fe", color: rx.documentStatus === "dispensed" ? "#166534" : "#0369a1" }}>
+                              {rx.documentStatus === "partially_fulfilled" ? "Partially Dispensed" : rx.documentStatus === "dispensed" ? "Dispensed" : "Approved by Doctor"}
+                            </span>
+                          </div>
+                          <ul style={{ margin: "4px 0", paddingLeft: 18, fontSize: "0.85rem" }}>
+                            {(rx.items || []).map((item, iIdx) => (
+                              <li key={iIdx} style={{ marginBottom: 4 }}>
+                                <strong>{item.medicationName}</strong> — {item.directions} ({item.durationDays} days) · Prescribed: {item.quantityPrescribed}, Dispensed: {item.quantityDispensed || 0}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="mp-field-hint" style={{ fontSize: "0.74rem", margin: "4px 0 0" }}>
+                            Prescribed by Dr. {rx.prescribingDoctorName || "Attending Physician"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mp-field-hint" style={{ margin: 0 }}>No approved prescriptions for this visit.</p>
+                  )}
+                </section>
+
+                <div className="mp-actions" style={{ justifyContent: "flex-end", marginTop: 12 }}>
+                  <Button onClick={() => window.print()}>
+                    <Printer size={16} /> Print Complete Packet
+                  </Button>
+                  <Button variant="secondary" onClick={() => setActivePacket(null)}>
+                    Close
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </Dialog>
       )}

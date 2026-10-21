@@ -211,6 +211,88 @@ export const getTicket = async (req, res) => {
   });
 };
 
+export const resolveScannedTicket = async (req, res) => {
+  const code = (req.params.qrPayload || req.query.qrPayload || req.body?.qrPayload || req.body?.code || req.query.code || "").trim();
+  if (!code) throw accessError(400, "Scanner QR payload or ticket code is required");
+
+  const payload = code.replace(/^MP-TKT:/i, "").trim();
+
+  const filter = {
+    $or: [
+      { qrPayload: payload },
+      { ticketNumber: payload },
+    ],
+  };
+
+  const encounter = await EncounterJourney.findOne(filter)
+    .populate("departmentId", "name code")
+    .populate("hospitalId", "name slug")
+    .lean();
+
+  if (!encounter) throw accessError(404, "Invalid or unrecognized ticket QR code");
+
+  // A public bearer scanner must NEVER expose patient details (PII)
+  if (!req.staff && !req.auth) {
+    return res.status(200).json({
+      verified: true,
+      ticketNumber: encounter.ticketNumber,
+      stage: encounter.currentStage,
+      destination: encounter.currentDestination?.name || "not recorded",
+      hospitalId: encounter.hospitalId?._id || encounter.hospitalId,
+      hospitalName: encounter.hospitalId?.name || "Hospital Network",
+      issuedAt: encounter.createdAt,
+      isWalkIn: encounter.isWalkIn,
+    });
+  }
+
+  // Authenticated hospital staff: verify hospital scope
+  if (req.staff) {
+    const staffHospitalId = req.staff.hospitalId;
+    const encounterHospitalId = encounter.hospitalId?._id || encounter.hospitalId;
+    if (staffHospitalId && String(staffHospitalId) !== String(encounterHospitalId)) {
+      throw accessError(403, "You cannot access tickets from another hospital");
+    }
+
+    return res.status(200).json({
+      verified: true,
+      encounterId: encounter._id,
+      tokenId: encounter.tokenId,
+      appointmentId: encounter.appointmentId,
+      ticketNumber: encounter.ticketNumber,
+      qrPayload: encounter.qrPayload,
+      stage: encounter.currentStage,
+      destination: encounter.currentDestination,
+      department: encounter.departmentId,
+      hospital: encounter.hospitalId,
+      physicalFile: encounter.physicalFile,
+      isWalkIn: encounter.isWalkIn,
+      issuedAt: encounter.createdAt,
+      patientId: encounter.patientId,
+      familyMemberId: encounter.familyMemberId,
+    });
+  }
+
+  // Authenticated patient: verify patient ownership
+  if (req.auth) {
+    if (encounter.patientId && String(req.auth.id) !== String(encounter.patientId)) {
+      throw accessError(403, "You cannot access another patient's ticket");
+    }
+
+    return res.status(200).json({
+      verified: true,
+      encounterId: encounter._id,
+      ticketNumber: encounter.ticketNumber,
+      qrPayload: encounter.qrPayload,
+      stage: encounter.currentStage,
+      destination: encounter.currentDestination,
+      department: encounter.departmentId,
+      hospital: encounter.hospitalId,
+      isWalkIn: encounter.isWalkIn,
+      issuedAt: encounter.createdAt,
+    });
+  }
+};
+
 // Hospital Location Controller
 export const getLocations = async (req, res) => {
   const { id: hospitalId } = req.params;

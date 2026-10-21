@@ -2,6 +2,10 @@ import Appointment from "../model/appointment.js";
 import Hospital from "../model/hospital.js";
 import OpdToken from "../model/opdToken.js";
 import User from "../model/user.js";
+import LabOrder from "../model/labOrder.js";
+import Prescription from "../model/prescription.js";
+import EncounterJourney from "../model/encounterJourney.js";
+import { patientClinicalView } from "../services/clinicalOrderAccess.js";
 import { familyViews, addPatientFamily, archivePatientFamily } from "../services/familyProfiles.js";
 
 const mapOpdToken = (token) => ({
@@ -20,6 +24,14 @@ const mapOpdToken = (token) => ({
   doctorNotes: token.consultationNotes || "",
   vitals: token.vitals,
   patientBrief: token.aiTriage?.patientBrief || null,
+  clinicalSummary: token.soapNote?.approvedAt ? {
+    subjective: token.soapNote.subjective,
+    objective: token.soapNote.objective,
+    assessment: token.soapNote.assessment,
+    plan: token.soapNote.plan,
+    version: token.soapNote.version,
+    approvedAt: token.soapNote.approvedAt,
+  } : null,
 });
 
 const mapAppointment = (appointment) => ({
@@ -116,3 +128,177 @@ export const removeFamilyMember = async (req, res) => {
     res.status(error.status || 500).json({ message: error.status ? error.message : "Unable to remove family member" });
   }
 };
+
+export const getVisitPacket = async (req, res) => {
+  try {
+    if (req.auth?.role !== "user") return res.status(403).json({ message: "Patient account required" });
+
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "Visit identifier is required" });
+
+    let token = await OpdToken.findOne({ _id: id, patientId: req.auth.id })
+      .populate("hospitalId", "name slug address branding")
+      .populate("departmentId", "name code")
+      .populate("doctorId", "name doctorProfile.specialization")
+      .lean();
+
+    let encounter = null;
+    if (token) {
+      encounter = await EncounterJourney.findOne({ tokenId: token._id, hospitalId: token.hospitalId?._id || token.hospitalId })
+        .populate("currentDestination.locationId")
+        .lean();
+    } else {
+      encounter = await EncounterJourney.findOne({ _id: id, patientId: req.auth.id })
+        .populate("hospitalId", "name slug address branding")
+        .populate("departmentId", "name code")
+        .populate("currentDestination.locationId")
+        .lean();
+
+      if (encounter?.tokenId) {
+        token = await OpdToken.findOne({ _id: encounter.tokenId, patientId: req.auth.id })
+          .populate("hospitalId", "name slug address branding")
+          .populate("departmentId", "name code")
+          .populate("doctorId", "name doctorProfile.specialization")
+          .lean();
+      }
+    }
+
+    if (!token && !encounter) {
+      const user = await User.findById(req.auth.id).select("familyMembers").lean();
+      const familyIds = (user?.familyMembers || []).map(f => String(f._id));
+
+      if (familyIds.length > 0) {
+        token = await OpdToken.findOne({ _id: id, familyMemberId: { $in: familyIds } })
+          .populate("hospitalId", "name slug address branding")
+          .populate("departmentId", "name code")
+          .populate("doctorId", "name doctorProfile.specialization")
+          .lean();
+
+        if (token) {
+          encounter = await EncounterJourney.findOne({ tokenId: token._id, hospitalId: token.hospitalId?._id || token.hospitalId })
+            .populate("currentDestination.locationId")
+            .lean();
+        } else {
+          encounter = await EncounterJourney.findOne({ _id: id, familyMemberId: { $in: familyIds } })
+            .populate("hospitalId", "name slug address branding")
+            .populate("departmentId", "name code")
+            .populate("currentDestination.locationId")
+            .lean();
+
+          if (encounter?.tokenId) {
+            token = await OpdToken.findOne({ _id: encounter.tokenId, familyMemberId: { $in: familyIds } })
+              .populate("hospitalId", "name slug address branding")
+              .populate("departmentId", "name code")
+              .populate("doctorId", "name doctorProfile.specialization")
+              .lean();
+          }
+        }
+      }
+    }
+
+    if (!token && !encounter) {
+      return res.status(404).json({ message: "Visit record not found" });
+    }
+
+    const hospital = token?.hospitalId || encounter?.hospitalId;
+    const department = token?.departmentId || encounter?.departmentId;
+    const patientId = token?.patientId || encounter?.patientId;
+    const tokenId = token?._id || encounter?.tokenId;
+    const encounterJourneyId = encounter?._id || token?.encounterJourneyId;
+
+    // Fetch released lab orders
+    const labFilter = { hospitalId: hospital?._id || hospital };
+    if (tokenId) labFilter.tokenId = tokenId;
+    else if (encounterJourneyId) labFilter.encounterJourneyId = encounterJourneyId;
+    else labFilter.patientId = patientId;
+
+    labFilter.$or = [
+      { orderStatus: "released", workflowVersion: { $exists: false } },
+      { reportVersions: { $elemMatch: { releasedAt: { $exists: true, $ne: null } } } },
+    ];
+
+    const rawLabs = await LabOrder.find(labFilter).sort({ createdAt: -1 }).lean();
+    const labReports = rawLabs.map(order => patientClinicalView(order, "lab")).filter(Boolean);
+
+    // Fetch approved/dispensed prescriptions
+    const rxFilter = { hospitalId: hospital?._id || hospital };
+    if (tokenId) rxFilter.tokenId = tokenId;
+    else if (encounterJourneyId) rxFilter.encounterJourneyId = encounterJourneyId;
+    else rxFilter.patientId = patientId;
+
+    rxFilter.status = { $in: ["approved_by_doctor", "partially_dispensed", "dispensed", "returned"] };
+
+    const rawRx = await Prescription.find(rxFilter).sort({ createdAt: -1 }).lean();
+    const prescriptions = rawRx.map(rx => patientClinicalView(rx, "pharmacy")).filter(Boolean);
+
+    // Extract clinician-approved SOAP summary (drafts without approvedAt are omitted)
+    let soapSummary = null;
+    if (token?.soapNote?.approvedAt) {
+      soapSummary = {
+        subjective: token.soapNote.subjective || "",
+        objective: token.soapNote.objective || "",
+        assessment: token.soapNote.assessment || "",
+        plan: token.soapNote.plan || "",
+        version: token.soapNote.version || 1,
+        approvedAt: token.soapNote.approvedAt,
+        approvedByName: token.soapNote.approvedByName || token.doctorId?.name || "Attending Physician",
+      };
+    }
+
+    const destinationText = encounter?.currentDestination?.name && encounter.currentDestination.name !== "not recorded"
+      ? `${encounter.currentDestination.name}${encounter.currentDestination.building ? ` · ${encounter.currentDestination.building}` : ""}${encounter.currentDestination.floor ? ` (${encounter.currentDestination.floor})` : ""}`
+      : "not recorded";
+
+    const physicalFileStatus = encounter?.physicalFile?.hasPhysicalFile
+      ? (encounter.physicalFile.locationName && encounter.physicalFile.locationName !== "not recorded"
+          ? `Tracked at ${encounter.physicalFile.locationName}`
+          : "Tracked (location not recorded)")
+      : "Electronic record only";
+
+    const packet = {
+      visitId: token?._id || encounter?._id,
+      tokenId: token?._id,
+      encounterId: encounter?._id,
+      displayToken: token?.displayToken || encounter?.ticketNumber || "T000",
+      status: token?.status || encounter?.currentStage || "reserved",
+      serviceDate: token?.serviceDate || (token?.createdAt ? new Date(token.createdAt).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]),
+      visitMode: "in_person",
+      hospital: {
+        _id: hospital?._id || hospital,
+        name: hospital?.name || "Hospital",
+        slug: hospital?.slug,
+      },
+      department: {
+        _id: department?._id || department,
+        name: department?.name || "General OPD",
+        code: department?.code,
+      },
+      doctor: token?.doctorId ? {
+        _id: token.doctorId._id,
+        name: token.doctorId.name,
+        specialization: token.doctorId.doctorProfile?.specialization || "General Medicine",
+      } : null,
+      patient: token?.patientInfo || encounter?.patientInfo || {},
+      familyMemberId: token?.familyMemberId || encounter?.familyMemberId || null,
+      consultationNotes: token?.consultationNotes || "",
+      vitals: token?.vitals || null,
+      soapSummary,
+      destination: destinationText,
+      physicalFile: physicalFileStatus,
+      ticket: encounter ? {
+        ticketNumber: encounter.ticketNumber,
+        qrPayload: encounter.qrPayload,
+        stage: encounter.currentStage,
+        issuedAt: encounter.createdAt,
+      } : null,
+      labReports,
+      prescriptions,
+      createdAt: token?.createdAt || encounter?.createdAt,
+    };
+
+    return res.status(200).json({ packet });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Unable to load visit packet" });
+  }
+};
+

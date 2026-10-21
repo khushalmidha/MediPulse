@@ -171,31 +171,68 @@ export async function resolveClinicalCreation(input, kind, { session = null } = 
 }
 
 export function patientClinicalView(record, kind) {
-  const view = pick(record, ["_id", "hospitalId", "tokenId", "departmentId", "familyMemberId", "patientInfo", "createdAt", "updatedAt"]);
-  view.patientInfo = pick(record.patientInfo, patientFields);
   if (kind === "lab") {
-    const report = [...(record.reportVersions || [])].reverse().find(version => version.releasedAt);
+    const releasedReports = (record.reportVersions || []).filter(version => Boolean(version.releasedAt));
+    const isLegacyReleased = record.orderStatus === "released" && !record.workflowVersion;
+    if (releasedReports.length === 0 && !isLegacyReleased) {
+      return null;
+    }
+    const view = pick(record, ["_id", "hospitalId", "tokenId", "departmentId", "familyMemberId", "patientInfo", "createdAt", "updatedAt"]);
+    view.patientInfo = pick(record.patientInfo, patientFields);
+    const latestReport = releasedReports[releasedReports.length - 1] || [...(record.reportVersions || [])].reverse().find(version => version.releasedAt);
     Object.assign(view, pick(record, ["orderingDoctorName", "releasedAt", "reportVersion"]));
     view.orderStatus = "released";
-    if (report) { view.reportVersion = report.version; view.releasedAt = report.releasedAt; view.verifiedByName = report.verifiedByName; }
+    view.documentStatus = releasedReports.length > 1 ? "amended" : "released";
+    if (latestReport) {
+      view.reportVersion = latestReport.version;
+      view.releasedAt = latestReport.releasedAt;
+      view.verifiedByName = latestReport.verifiedByName;
+    }
     view.tests = (record.tests || []).map(item => pick(item, ["testCode", "testName", "category"]));
-    view.results = (report?.results || record.results || []).map(item => pick(item, ["testCode", "parameterCode", "parameterName", "value", "unit", "referenceRangeText", "flag", "isCritical"]));
+    view.results = (latestReport?.results || record.results || []).map(item => pick(item, ["testCode", "parameterCode", "parameterName", "value", "unit", "referenceRangeText", "flag", "isCritical"]));
+    if (releasedReports.length > 1) {
+      view.amendmentHistory = releasedReports.slice(0, -1).map(v => ({
+        version: v.version,
+        releasedAt: v.releasedAt,
+        verifiedByName: v.verifiedByName,
+        reason: v.correctionReason || "Amended report version",
+        status: "amended",
+        results: (v.results || []).map(item => pick(item, ["testCode", "parameterCode", "parameterName", "value", "unit", "referenceRangeText", "flag", "isCritical"])),
+      }));
+    }
+    return view;
   } else {
+    if (!["approved_by_doctor", "partially_dispensed", "dispensed", "returned"].includes(record.status)) {
+      return null;
+    }
+    const view = pick(record, ["_id", "hospitalId", "tokenId", "departmentId", "familyMemberId", "patientInfo", "createdAt", "updatedAt"]);
+    view.patientInfo = pick(record.patientInfo, patientFields);
     Object.assign(view, pick(record, ["status", "prescribingDoctorName", "diagnosis", "version", "dispensedAt"]));
+    view.documentStatus = record.status === "partially_dispensed" ? "partially_fulfilled" : record.status;
     view.items = (record.items || []).map(item => pick(item, ["medicationCode", "medicationName", "directions", "durationDays", "quantityPrescribed", "quantityDispensed", "quantityFulfilled", "quantityReturned", "itemStatus"]));
+    return view;
   }
-  return view;
 }
 
 export async function patientClinicalRecords(Model, auth, kind) {
   if (auth?.role !== "user") throw accessError(403, "Patient account access is required");
   const filter = { patientId: auth.id };
-  if (kind === "lab") filter.$or = [{ orderStatus: "released", workflowVersion: { $exists: false } }, { "reportVersions.releasedAt": { $exists: true } }];
-  else filter.status = { $in: ["approved_by_doctor", "partially_dispensed", "dispensed", "returned"] };
+  if (kind === "lab") {
+    filter.$or = [
+      { orderStatus: "released", workflowVersion: { $exists: false } },
+      { reportVersions: { $elemMatch: { releasedAt: { $exists: true, $ne: null } } } },
+    ];
+  } else {
+    filter.status = { $in: ["approved_by_doctor", "partially_dispensed", "dispensed", "returned"] };
+  }
   const records = await Model.find(filter).sort({ createdAt: -1 }).limit(100).lean();
   const views = [];
   for (const record of records) {
-    try { await clinicalRecordVisit(record, kind); views.push(patientClinicalView(record, kind)); }
+    try {
+      await clinicalRecordVisit(record, kind);
+      const item = patientClinicalView(record, kind);
+      if (item) views.push(item);
+    }
     catch (error) { if (error.status !== 403) throw error; }
   }
   // Populate only the allowlisted tenant identity after integrity checks.
