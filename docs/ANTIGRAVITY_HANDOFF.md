@@ -2,18 +2,16 @@
 
 Updated **22 October 2026**, independent review of Antigravity's AG22 revision `694fdb8d`. The 22-phase delivery added useful outpatient code, but **the whole project is not finished**. This review fixes confirmed security/QR/lifecycle/claim defects and reopens unsupported completion states. Read `docs/ANTIGRAVITY_FINAL_REVIEW.md` before continuing.
 
+**Final execution plan:** [ANTIGRAVITY_COMPLETION_PLAN.md](ANTIGRAVITY_COMPLETION_PLAN.md). It maps all remaining task IDs to implementation steps, user journeys, acceptance checks and external requirements. Reviewed fixes were published as **72635cd0**; this documentation update follows that checkpoint.
+
 ## Paste into Antigravity
 
 ```text
-Continue the existing MediPulse checkout on main. Read AGENTS.md, docs/ANTIGRAVITY_FINAL_REVIEW.md, docs/IMPLEMENTATION_STATUS.md and the Common instructions in docs/MEDIPULSE_CODEX_PROMPTS.md. Inspect git status and preserve unrelated changes. Run node tools/check-implementation-plan.mjs --next and load only the selected task.
+Read AGENTS.md, docs/ANTIGRAVITY_COMPLETION_PLAN.md, docs/IMPLEMENTATION_STATUS.md and Common in docs/MEDIPULSE_CODEX_PROMPTS.md. Continue from the current main checkout, preserving unrelated edits. Run node tools/check-implementation-plan.mjs --next; start with AG05 and the plan's section 3, verifying current code rather than repeating completed work.
 
-Next is AG05, not AG22: walk-in account claim is deliberately disabled outside isolated tests because no verified phone-delivery provider exists. Never remove containment just to make the demo pass. Implement the approved real delivery contract, server-generated OTP and delivery/failure evidence with recorded-phone/patient/family binding, expiry/attempt/resend race handling and real-router tests. Provider activation and production data execution need separate exact approval. If the provider contract is unavailable, record the blocker and keep the safe containment.
+Implement one dependency-ready package through actual service/API/persistence/UI and meaningful local checks. Follow sections 4-7 until the requested scope is genuinely complete. Keep walk-in containment and enterprise prototypes closed until their real prerequisites/evidence exist. If an external contract/approval is missing, record the exact blocker and continue independent permitted local work; do not fabricate provider, clinical or production acceptance.
 
-AG16 release reconciliation is open. AG17-AG22 are unapproved requirements and unmounted service/model prototypes, not finished enterprise modules. Their five actual Mongo integration files fail fixture setup and are not in the registered runner. Unit suites that replace service behavior do not verify the real service. Approve hospital policies, complete one vertical workflow, repair fixtures and test actual authorization/transactions/UI before mounting or marking complete. Caller-reported DR figures and configured SSO/LIS/PACS rows are not proof of restoration or working integrations.
-
-Use the actual mounts in backend/index.js and correct account/staff CSRF/session scope. Keep existing booking/money/clinical safeguards, draft/source/version review, neutral/deep-teal tokens and shared doctor-name formatting. Labs allow collection before billing and require explicitly approved independent verification. Preserve all patient/payment/history/archive/credential/wallet records. No production DB/index/seed/provider/mail/DNS/deployment-console operation without Common's separate approval. Git commits/pushes to main are already authorized as Khushal Midha <khushalmidha24@gmail.com>, without Codex coauthors or force push.
-
-After each bounded phase update its ledger status, WORK_LOG and implementation status with actual commands/results, then commit/push. Do not clear pending work by redefining completion. If interrupted, record the exact checkpoint and next safe command.
+Use isolated synthetic databases, the real route mounts/session scopes and the portable browser runner. Update the ledger/status/work log after each phase and commit/push main as Khushal Midha <khushalmidha24@gmail.com>, no Codex coauthor or force push. Existing Git authorization applies; production/provider/DNS/mail/deployment-console operations retain Common's separate exact approval. If using Astra, Medium only. Keep final updates concise and leave an exact continuation checkpoint if interrupted.
 ```
 
 ## Checkpoint and evidence
