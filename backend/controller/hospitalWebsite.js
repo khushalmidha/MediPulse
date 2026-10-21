@@ -5,6 +5,7 @@ import HospitalDomain from "../model/hospitalDomain.js";
 import { invalidatePublicHospitalCache } from "../services/publicHospitalCache.js";
 import { canClaimCustomDomain, normalizeHostname } from "../util/productHosts.js";
 import { hostOptions } from "../services/productHosts.js";
+import { assertTenantNotSuspended, checkFeatureEntitlement } from "../services/saasOperationsService.js";
 const failure = (status, message) => Object.assign(new Error(message), { status });
 const projectPath = () => `/v9/projects/${encodeURIComponent(process.env.VERCEL_PROJECT_ID || "")}/domains`;
 const vercelRequest = async (path, options = {}) => {
@@ -43,6 +44,10 @@ export const makeDomainControllers = (request = vercelRequest, readTxt = resolve
     await transaction(async session => {
       const hospital = await Hospital.findById(req.params.id).session(session);
       if (!hospital) throw failure(404, "Hospital not found");
+      assertTenantNotSuspended(hospital);
+      if (hospital.subscription?.currentPeriodEnd) {
+        checkFeatureEntitlement(hospital, "custom_domain");
+      }
       if (hospital.websiteConfig?.customDomain && hospital.websiteConfig.customDomain !== domain) throw failure(409, "Remove the current domain before replacing it");
       const claim = await HospitalDomain.findById(domain).session(session);
       if (claim && (String(claim.hospitalId) !== req.params.id || claim.state === "removing")) throw failure(409, "Domain is already reserved or being removed");

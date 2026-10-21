@@ -22,7 +22,7 @@ This review starts from `565134c2` and includes the AG00 fixes delivered with th
 | Patient records / ticket | Family/history and hospital visit pages, patient lab/prescription API projections, visit care packet with download/print, pure JS QR matrix generator, and privacy-safe authorized ticket scanning are verified locally (AG08, AG09) | Hospital-admin setup: AG10 |
 | Staff invitation | StaffAcceptInvite actually sets a password and handles expiry; it exists | Keep separate from the broken hospital-admin setup journey |
 | Hospital-admin setup | Expiring 48h setup links, atomic single-winner proof consumption, bcrypt password setting, authVersion increment, registration AES removal, legacy ciphertext preservation, multi-host /staff/setup UI and alias routes are verified locally (AG10) | Entitlements and activation callers: AG11 |
-| Entitlements / activation | Plan/limit helpers exist | checkStaffLimit/checkDepartmentLimit have tests but no actual mutation callers; activation needs real tenant progress: AG11 |
+| Entitlements / activation | Transactional quota serialization (department & staff limits), universal tenant suspension policy, feature entitlement gating, 5-milestone activation checklist from actual records, and dashboard/console activation UI are verified locally (AG11) | Independent practice publication: AG12 |
 | Independent practice | Practice settings endpoints, doctor profiles and scheduling foundation exist | Verification/publication/eligibility and publishing UI need completion; settings fallback can falsely report verified and converts zero fees to 500: AG12 |
 | Communities / events | Membership/organizer checks and announcement/report/moderation/preference endpoints exist | Pagination, full moderation UI, typed/race-safe preferences and actual reminder/preference delivery: AG13 |
 | AI recommendation / triage / copilot / forecasts | Node/provider callers, deterministic fallback, draft outputs and some timeout checks exist | One actual provider/consent/provenance boundary and meaningful evaluation remain AG14. Described external Python/learned-ranking source is absent |
@@ -30,6 +30,8 @@ This review starts from `565134c2` and includes the AG00 fixes delivered with th
 | Enterprise HIMS | ENTERPRISE_PLAN exists | IPD/ADT/beds, inpatient medication/nursing, theatre/emergency, revenue/procurement and interfaces require approved requirements and real implementation: AG17-AG22 |
 
 ## Evidence and limits
+
+Fresh AG11 acceptance: 7 SaaS entitlements and activation integration cases, 294 integration runner cases, 168 backend unit and 58 frontend unit checks; frontend build cleanly verified against local MongoDB replica set and Redis. Details in WORK_LOG.
 
 Fresh AG10 acceptance: 12 hospital admin setup integration cases, 287 integration runner cases, 168 backend unit and 58 frontend unit checks; frontend build cleanly verified against local MongoDB replica set and Redis. Details in WORK_LOG.
 

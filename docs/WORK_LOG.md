@@ -1940,6 +1940,75 @@ Implemented atomic hospital-admin password setup and proof consumption wrapped i
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG11 — Real entitlement/quota/suspension callers and activation checklist (21 October 2026)
+
+Baseline: following AG10 verification.
+Implemented real transactional quota enforcement and suspension callers across department, staff, room/location, profile, custom domain, scheduling, and clinical order operations, serialized concurrent additions at quota boundaries on MongoDB replica sets via moneyTransaction and atomic document revision conflicts, derived 5-milestone outpatient tenant activation metrics and checklist directly from MongoDB source records, surfaced progressive activation guidance in Hospital Admin Dashboard and SaaS Operations Console, and verified quota boundaries, concurrency race serialization, suspension/unsuspension lifecycles, and progressive activation via a dedicated 7-test integration suite.
+
+### Implemented changes
+
+- **Transactional Quota Enforcement & Concurrency Serialization (`backend/services/saasOperationsService.js`)**:
+  - `addDepartmentWithQuota({ hospitalId, departmentPayload, session })`:
+    - Executes inside a multi-document replica set transaction (`moneyTransaction`).
+    - Verifies `assertTenantNotSuspended(hospital)`.
+    - Queries active department count inside transaction.
+    - Evaluates `checkDepartmentLimit(hospital, count)`. If limit exceeded, throws HTTP 403 Forbidden with `{ code: "DEPARTMENT_QUOTA_EXCEEDED" }`.
+    - Creates `Department` record with fallback `opd.consultationFee: 500`.
+    - Atomically increments `Hospital.stats.totalDepartments` via `$inc: { "stats.totalDepartments": 1 }` within the same transaction to trigger WiredTiger write conflict serialization on concurrent quota attempts.
+  - `inviteStaffWithQuota({ hospitalId, staffPayload, session })`:
+    - Executes inside `moneyTransaction`.
+    - Verifies `assertTenantNotSuspended(hospital)`.
+    - Queries active/invited staff count inside transaction.
+    - Evaluates `checkStaffLimit(hospital, count)`. If limit exceeded, throws HTTP 403 Forbidden with `{ code: "STAFF_QUOTA_EXCEEDED" }`.
+    - Creates `HospitalStaff` record.
+    - Atomically increments `Hospital.stats.totalStaff` via `$inc: { "stats.totalStaff": 1 }` inside the transaction to serialize concurrent invites.
+- **Universal Tenant Suspension Enforcement**:
+  - `assertTenantNotSuspended(hospital)`:
+    - Rejects with HTTP 403 Forbidden (`TENANT_SUSPENDED`) if `hospital.subscription?.status === "suspended"`.
+  - Enforced across controllers and services:
+    - `backend/controller/hospital.js`: `addDepartment`, `updateDepartment`, `inviteStaff`, `updateHospitalProfile`.
+    - `backend/controller/encounterJourney.js`: `createLocation`, `updateLocation`.
+    - `backend/routes/hospital.js`: Wrapped `createLocation`, `updateLocation`, `getLocations` in `asyncRoute(...)` so async rejection properly yields HTTP 403 instead of unhandled hanging promises.
+    - `backend/controller/hospitalWebsite.js`: `addCustomDomain` enforces `assertTenantNotSuspended(hospital)` and conditionally gates `checkFeatureEntitlement(hospital, "custom_domain")` for managed subscriptions.
+    - `backend/services/scheduling.js`: `schedulingDoctor` enforces `assertTenantNotSuspended(hospital)`.
+    - `backend/services/labService.js` & `backend/services/pharmacyService.js`: `createLabOrder` and `createPrescription` enforce `assertTenantNotSuspended(hospital)`.
+- **Tenant Activation Metrics & Progressive Checklist**:
+  - `calculateOperationalMetrics(hospitalId)`:
+    - Counts actual records: departments (`Department`), accepted staff (`HospitalStaff`), physical rooms (`HospitalLocation`), doctor care sessions (`CareSession`), and bookings/encounters (`CareSession` booking count or encounters).
+    - Computes 5 progressive milestones:
+      1. `hasDepartments`: at least 1 department configured.
+      2. `hasAcceptedStaff`: at least 1 staff member accepted.
+      3. `hasRooms`: at least 1 physical consultation room/location created.
+      4. `hasDoctorAvailability`: at least 1 published doctor care session.
+      5. `hasFirstBooking`: at least 1 patient booking or consultation encounter.
+    - Calculates overall `completionPercent` (0-100%) and returns structured actionable checklist items with deep links.
+- **Admin UI & SaaS Operations Console**:
+  - `frontend/src/pages/hospital-admin/SaaSOperationsConsole.jsx`: Added Tenant Activation Checklist card detailing current milestone progress.
+  - `frontend/src/pages/HospitalAdminDashboard.jsx`: Rendered Outpatient Activation Checklist guide on Overview tab with direct navigation buttons to unblock pending setup milestones.
+- **Integration Test Suite (`backend/tests/integration/saas-entitlements-activation.test.js`)**:
+  - Verified:
+    1. Quota boundaries: starter plan rejects 4th department and 11th staff member with HTTP 403.
+    2. Concurrency serialization: concurrent requests at quota boundary allow exactly one success (HTTP 201) and reject the other (HTTP 403).
+    3. Suspension policy: suspended tenant is blocked (HTTP 403) from department creation, staff invite, room creation, scheduling, profile edits, and clinical ordering.
+    4. Unsuspension: restoring tenant status restores full operational capability.
+    5. Feature gating: custom domain requires growth/enterprise plan; starter plan rejected with HTTP 403.
+    6. Progressive activation checklist: evaluates actual database state across 5 milestones up to 100% completion.
+
+### Executed checks and limits
+
+- **SaaS entitlements and activation integration suite**: **7/7 passed**, zero failures/skips, **2.43 s** (`backend/tests/integration/saas-entitlements-activation.test.js`).
+- **Clinical order access integration suite**: **13/13 passed**, zero failures/skips (`backend/tests/integration/clinical-order-access.test.js`).
+- **Clinical order creation integration suite**: **7/7 passed**, zero failures/skips (`backend/tests/integration/clinical-order-creation.test.js`).
+- **Hospital admin setup integration suite**: **12/12 passed**, zero failures/skips (`backend/tests/integration/hospital-admin-setup.test.js`).
+- **Full integration runner**: **294/294 passed**, zero failures/skips, **452.12 s** (`node scripts/testIntegration.js`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **42.15 s** (`npm test`).
+- **Frontend unit tests**: **58/58 passed**, zero failures/skips, **385 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **28.73 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15 containers.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 
 

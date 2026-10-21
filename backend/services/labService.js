@@ -3,9 +3,11 @@ import { resolveClinicalCreation } from "./clinicalOrderAccess.js";
 import { resolveClinicalItems, clinicalText } from "./clinicalOrderItems.js";
 import mongoose from "mongoose";
 import LabOrder from "../model/labOrder.js";
+import Hospital from "../model/hospital.js";
 import { accessError } from "./hospitalAccess.js";
 import { assertClinicalWorkflowReady } from "./clinicalSchema.js";
 import { moneyTransaction } from "./moneyTransaction.js";
+import { assertTenantNotSuspended, checkFeatureEntitlement } from "./saasOperationsService.js";
 
 export { generateAccessionBarcode } from "./labWorkflow.js";
 import { labCommand } from "./labWorkflow.js";
@@ -61,6 +63,11 @@ export const createLabOrder = async ({
 
   if (mongoose.connection?.readyState !== 1) {
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
+  }
+
+  const hospital = await Hospital.findById(hospitalId);
+  if (hospital) {
+    assertTenantNotSuspended(hospital);
   }
 
   const effectiveKey = creationKey || requestKey || key;

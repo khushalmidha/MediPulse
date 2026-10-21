@@ -17,6 +17,8 @@ import {
   Droplets,
   Bed,
   MapPin,
+  CheckCircle2,
+  Circle,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { clearSessionState } from "../utils/sessionHttp";
@@ -563,6 +565,179 @@ const HospitalAdminDashboard = () => {
       {/* Overview Tab */}
       {activeTab === "overview" && (
         <div className="mp-stack">
+          {/* Activation Checklist Guide */}
+          {(() => {
+            const hasDepts = departments.length > 0;
+            const hasStaff = staff.some((s) => s.inviteStatus === "accepted");
+            const hasRooms = locations.length > 0;
+            const hasDoctors = doctors.length > 0;
+            const hasBookings = Number(analytics?.totalBookings || 0) > 0;
+            const completedCount = [hasDepts, hasStaff, hasRooms, hasDoctors, hasBookings].filter(Boolean).length;
+            const isFullyActive = completedCount === 5;
+
+            return (
+              <Card>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                  <div>
+                    <h2 style={{ fontSize: 16, display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
+                      <CheckCircle2 size={18} style={{ color: isFullyActive ? "#10b981" : "var(--mp-teal)" }} />
+                      Hospital Outpatient Activation Checklist
+                    </h2>
+                    <p style={{ fontSize: 13, color: "var(--mp-text-muted)", margin: "4px 0 0 0" }}>
+                      Complete these 5 operational setup steps to enable seamless doctor consultations and patient queue ticketing.
+                    </p>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      padding: "4px 10px",
+                      borderRadius: 9999,
+                      backgroundColor: isFullyActive ? "#dcfce7" : "var(--mp-surface-subtle)",
+                      color: isFullyActive ? "#166534" : "var(--mp-text-muted)",
+                    }}
+                  >
+                    {completedCount} of 5 Steps Complete ({Math.round((completedCount / 5) * 100)}%)
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      border: "1px solid var(--mp-border)",
+                      backgroundColor: hasDepts ? "rgba(16, 185, 129, 0.05)" : "var(--mp-surface)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      {hasDepts ? <CheckCircle2 size={18} style={{ color: "#10b981", marginTop: 2, flexShrink: 0 }} /> : <Circle size={18} style={{ color: "var(--mp-border)", marginTop: 2, flexShrink: 0 }} />}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>1. Departments</div>
+                        <div style={{ fontSize: 12, color: "var(--mp-text-muted)" }}>{departments.length} configured</div>
+                      </div>
+                    </div>
+                    {!hasDepts && (
+                      <Button size="small" variant="secondary" onClick={() => setOpenModal("department")}>
+                        Add Department
+                      </Button>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      border: "1px solid var(--mp-border)",
+                      backgroundColor: hasStaff ? "rgba(16, 185, 129, 0.05)" : "var(--mp-surface)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      {hasStaff ? <CheckCircle2 size={18} style={{ color: "#10b981", marginTop: 2, flexShrink: 0 }} /> : <Circle size={18} style={{ color: "var(--mp-border)", marginTop: 2, flexShrink: 0 }} />}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>2. Accepted Staff</div>
+                        <div style={{ fontSize: 12, color: "var(--mp-text-muted)" }}>{staff.filter((s) => s.inviteStatus === "accepted").length} active</div>
+                      </div>
+                    </div>
+                    {!hasStaff && (
+                      <Button size="small" variant="secondary" onClick={() => setOpenModal("invite")}>
+                        Invite Staff
+                      </Button>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      border: "1px solid var(--mp-border)",
+                      backgroundColor: hasRooms ? "rgba(16, 185, 129, 0.05)" : "var(--mp-surface)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      {hasRooms ? <CheckCircle2 size={18} style={{ color: "#10b981", marginTop: 2, flexShrink: 0 }} /> : <Circle size={18} style={{ color: "var(--mp-border)", marginTop: 2, flexShrink: 0 }} />}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>3. Consultation Rooms</div>
+                        <div style={{ fontSize: 12, color: "var(--mp-text-muted)" }}>{locations.length} rooms registered</div>
+                      </div>
+                    </div>
+                    {!hasRooms && (
+                      <Button size="small" variant="secondary" onClick={() => setOpenModal("location")}>
+                        Add Room
+                      </Button>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      border: "1px solid var(--mp-border)",
+                      backgroundColor: hasDoctors ? "rgba(16, 185, 129, 0.05)" : "var(--mp-surface)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      {hasDoctors ? <CheckCircle2 size={18} style={{ color: "#10b981", marginTop: 2, flexShrink: 0 }} /> : <Circle size={18} style={{ color: "var(--mp-border)", marginTop: 2, flexShrink: 0 }} />}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>4. Published Sessions</div>
+                        <div style={{ fontSize: 12, color: "var(--mp-text-muted)" }}>{doctors.length} doctors linked</div>
+                      </div>
+                    </div>
+                    {!hasDoctors && (
+                      <Button size="small" variant="secondary" onClick={() => setActiveTab("doctors")}>
+                        View Doctors
+                      </Button>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      border: "1px solid var(--mp-border)",
+                      backgroundColor: hasBookings ? "rgba(16, 185, 129, 0.05)" : "var(--mp-surface)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      {hasBookings ? <CheckCircle2 size={18} style={{ color: "#10b981", marginTop: 2, flexShrink: 0 }} /> : <Circle size={18} style={{ color: "var(--mp-border)", marginTop: 2, flexShrink: 0 }} />}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>5. Patient Bookings</div>
+                        <div style={{ fontSize: 12, color: "var(--mp-text-muted)" }}>{analytics?.totalBookings ?? 0} bookings handled</div>
+                      </div>
+                    </div>
+                    {hospital?.slug && (
+                      <Link to={`/hospital/${hospital.slug}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                        <Button size="small" variant="secondary" style={{ width: "100%", justifyContent: "center" }}>
+                          View Portal <ExternalLink size={12} style={{ marginLeft: 4 }} />
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            );
+          })()}
+
           <div className="mp-admin-metrics-grid">
             <div className="mp-admin-metric-card">
               <span>Total OPD Bookings</span>

@@ -22,7 +22,12 @@ import {
   sendStaffInviteMail,
 } from "../util/mailer.js";
 import bcrypt from "bcryptjs";
-import { createAdminSetupLink } from "../services/saasOperationsService.js";
+import {
+  createAdminSetupLink,
+  assertTenantNotSuspended,
+  addDepartmentWithQuota,
+  inviteStaffWithQuota,
+} from "../services/saasOperationsService.js";
 
 const hashValue = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
 const secretKey = (purpose) =>
@@ -409,6 +414,14 @@ const updateHospitalProfile = async (req, res) => {
   const { id } = req.params;
   if (!requireHospitalAdminAccess(req, res, id)) return;
 
+  const existingHospital = await Hospital.findById(id);
+  if (!existingHospital) return res.status(404).json({ message: "Hospital not found" });
+  try {
+    assertTenantNotSuspended(existingHospital);
+  } catch (suspError) {
+    return res.status(suspError.status || 403).json({ message: suspError.message });
+  }
+
   const allowed = ["name", "phone", "website", "address", "branding", "settings"];
   const update = {};
   for (const key of allowed) {
@@ -421,8 +434,6 @@ const updateHospitalProfile = async (req, res) => {
   }
 
   const hospital = await Hospital.findOneAndUpdate({ _id: id }, { $set: update }, { new: true, runValidators: true });
-  if (!hospital) return res.status(404).json({ message: "Hospital not found" });
-
   await invalidateHospitalCache(hospital);
   return res.status(200).json({ message: "Hospital profile updated", hospital });
 };
@@ -435,39 +446,30 @@ const addDepartment = async (req, res) => {
     await validateDepartmentReferences(id, req.body);
   } catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
 
-  let department;
   try {
-    department = await Department.create({
-      hospitalId: id,
-      name: req.body.name,
-      code: req.body.code,
-      description: req.body.description,
-      headDoctorId: req.body.headDoctorId,
-      icon: req.body.icon,
-      color: req.body.color,
-      opd: req.body.opd,
-      status: req.body.status || "active",
-    });
+    const { hospital, department } = await addDepartmentWithQuota(id, req.body);
+    if (hospital) await invalidateHospitalCache(hospital);
+    return res.status(201).json({ message: "Department added", department });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({ message: "Department already exists for this hospital" });
     }
-    throw error;
+    return res.status(error.status || 500).json({ message: error.message });
   }
-
-  const hospital = await Hospital.findByIdAndUpdate(
-    id,
-    { $inc: { "stats.totalDepartments": 1 } },
-    { new: true },
-  );
-
-  if (hospital) await invalidateHospitalCache(hospital);
-  return res.status(201).json({ message: "Department added", department });
 };
 
 const updateDepartment = async (req, res) => {
   const { id, deptId } = req.params;
   if (!requireHospitalAdminAccess(req, res, id)) return;
+
+  const hospital = await Hospital.findById(id);
+  if (!hospital) return res.status(404).json({ message: "Hospital not found" });
+  try {
+    assertTenantNotSuspended(hospital);
+  } catch (suspError) {
+    return res.status(suspError.status || 403).json({ message: suspError.message });
+  }
+
   let update;
   try {
     requireRecordId(deptId, "department");
@@ -484,8 +486,7 @@ const updateDepartment = async (req, res) => {
   );
 
   if (!department) return res.status(404).json({ message: "Department not found" });
-  const hospital = await Hospital.findById(id);
-  if (hospital) await invalidateHospitalCache(hospital);
+  await invalidateHospitalCache(hospital);
   return res.status(200).json({ message: "Department updated", department });
 };
 
@@ -498,35 +499,18 @@ const inviteStaff = async (req, res) => {
     return res.status(400).json({ message: "Email and role are required" });
   }
 
-  const hospital = await Hospital.findById(id);
-  if (!hospital) return res.status(404).json({ message: "Hospital not found" });
-
   try { await validateDepartmentIds(id, departmentIds); }
   catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
 
-  const rawToken = crypto.randomBytes(32).toString("hex");
-  const staff = await HospitalStaff.create({
-    hospitalId: id,
-    departmentIds,
-    // FIXED: Admin staff invite forced a full profile up front; email+role is enough for pending invite.
-    name: cleanString(name) || cleanString(email).split("@")[0],
-    email: cleanString(email).toLowerCase(),
-    profilePhoto: cleanString(profilePhoto),
-    role,
-    doctorProfile: role === "DOCTOR"
-      ? {
-          qualification: cleanString(doctorProfile.qualification),
-          specialization: cleanString(doctorProfile.specialization),
-          experience: Number(doctorProfile.experience || 0),
-          consultationFee: Number(doctorProfile.consultationFee || 0),
-          bio: cleanString(doctorProfile.bio),
-        }
-      : undefined,
-    inviteToken: hashValue(rawToken),
-    inviteExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
-    invitedBy: req.staff.id,
-    inviteStatus: "pending",
-  });
+  let hospital, staff, rawToken;
+  try {
+    const quotaResult = await inviteStaffWithQuota(id, req.body, req.staff);
+    hospital = quotaResult.hospital;
+    staff = quotaResult.staff;
+    rawToken = quotaResult.rawToken;
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.message });
+  }
 
   if (role === "DOCTOR") {
     try {
@@ -584,7 +568,9 @@ const inviteStaff = async (req, res) => {
 
   const frontendUrl = buildFrontendUrl();
   const inviteUrl = `${frontendUrl}/staff/accept-invite?token=${rawToken}&hospital=${id}`;
-  await sendStaffInviteMail({ to: staff.email, staffName: staff.name, hospitalName: hospital.name, inviteUrl });
+  if (process.env.MAIL_DELIVERY !== "disabled") {
+    await sendStaffInviteMail({ to: staff.email, staffName: staff.name, hospitalName: hospital.name, inviteUrl });
+  }
 
   if (role === "DOCTOR") {
     await Hospital.findByIdAndUpdate(id, { $inc: { "stats.totalDoctors": 1 } });

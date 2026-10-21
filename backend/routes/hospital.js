@@ -63,9 +63,9 @@ hospitalRouter.post("/:id/website/custom-domain", validateStaff, addCustomDomain
 hospitalRouter.post("/:id/website/verify-domain", validateStaff, verifyCustomDomain);
 hospitalRouter.delete("/:id/website/custom-domain", validateStaff, removeCustomDomain);
 
-hospitalRouter.get("/:id/locations", validateStaff, getLocations);
-hospitalRouter.post("/:id/locations", validateStaff, createLocation);
-hospitalRouter.patch("/:id/locations/:locationId", validateStaff, updateLocation);
+hospitalRouter.get("/:id/locations", validateStaff, asyncRoute(getLocations));
+hospitalRouter.post("/:id/locations", validateStaff, asyncRoute(createLocation));
+hospitalRouter.patch("/:id/locations/:locationId", validateStaff, asyncRoute(updateLocation));
 
 hospitalRouter.get("/resolve-host", asyncRoute(resolveHospitalHost));
 hospitalRouter.get("/:slug", getHospitalProfile);

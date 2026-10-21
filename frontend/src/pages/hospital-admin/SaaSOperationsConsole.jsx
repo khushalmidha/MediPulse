@@ -9,6 +9,8 @@ import {
   CreditCard,
   Building2,
   RefreshCw,
+  CheckCircle2,
+  Circle,
 } from "lucide-react";
 import { BACKEND_URL } from "../../utils";
 import { useAuth } from "../../context/AuthContext";
@@ -200,6 +202,70 @@ export default function SaaSOperationsConsole() {
               </div>
             </Card>
           </div>
+
+          {/* Activation Checklist Card */}
+          {metrics?.activationChecklist && (
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div>
+                  <h2 style={{ fontSize: 16, display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
+                    <CheckCircle2 size={18} style={{ color: metrics.activationChecklist.isFullyActivated ? "#10b981" : "var(--mp-teal)" }} />
+                    Tenant Activation & Onboarding Checklist
+                  </h2>
+                  <p style={{ fontSize: 13, color: "var(--mp-text-muted)", margin: "4px 0 0 0" }}>
+                    Follow these 5 essential operational milestones to take your hospital from registration to live patient care.
+                  </p>
+                </div>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    padding: "4px 10px",
+                    borderRadius: 9999,
+                    backgroundColor: metrics.activationChecklist.isFullyActivated ? "#dcfce7" : "var(--mp-surface-subtle)",
+                    color: metrics.activationChecklist.isFullyActivated ? "#166534" : "var(--mp-text-muted)",
+                  }}
+                >
+                  {metrics.activationChecklist.completedSteps} of 5 Milestones Completed ({metrics.activationChecklist.percentComplete}%)
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                {[
+                  { key: "departments", title: "1. Departments", desc: `${metrics.activationChecklist.departments.count} configured`, step: metrics.activationChecklist.departments },
+                  { key: "staff", title: "2. Staff Accepted", desc: `${metrics.activationChecklist.staff.count} active staff`, step: metrics.activationChecklist.staff },
+                  { key: "rooms", title: "3. Rooms & Desks", desc: `${metrics.activationChecklist.rooms.count} registered`, step: metrics.activationChecklist.rooms },
+                  { key: "availability", title: "4. Availability", desc: `${metrics.activationChecklist.availability.count} published sessions`, step: metrics.activationChecklist.availability },
+                  { key: "firstBooking", title: "5. Patient Care", desc: `${metrics.activationChecklist.firstBooking.count} bookings handled`, step: metrics.activationChecklist.firstBooking },
+                ].map((item) => (
+                  <div
+                    key={item.key}
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      border: "1px solid var(--mp-border)",
+                      backgroundColor: item.step.completed ? "rgba(16, 185, 129, 0.05)" : "var(--mp-surface)",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ marginTop: 2 }}>
+                      {item.step.completed ? (
+                        <CheckCircle2 size={18} style={{ color: "#10b981" }} />
+                      ) : (
+                        <Circle size={18} style={{ color: "var(--mp-border)" }} />
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{item.title}</div>
+                      <div style={{ fontSize: 12, color: "var(--mp-text-muted)" }}>{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Actions & Tools */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>

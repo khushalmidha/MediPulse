@@ -5,6 +5,8 @@ import Hospital from "../model/hospital.js";
 import OpdToken from "../model/opdToken.js";
 import Department from "../model/department.js";
 import HospitalStaff from "../model/hospitalStaff.js";
+import HospitalLocation from "../model/hospitalLocation.js";
+import { CareSession } from "../model/scheduling.js";
 import { accessError } from "./hospitalAccess.js";
 import { moneyTransaction } from "./moneyTransaction.js";
 import { invalidatePublicHospitalCache } from "./publicHospitalCache.js";
@@ -67,6 +69,96 @@ export const checkFeatureEntitlement = (hospital, feature) => {
     );
   }
   return true;
+};
+
+export const addDepartmentWithQuota = async (hospitalId, departmentPayload) => {
+  if (mongoose.connection?.readyState !== 1) {
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
+  }
+  return await moneyTransaction(async (session) => {
+    const hospital = await Hospital.findById(hospitalId).session(session);
+    if (!hospital) throw accessError(404, "Hospital not found");
+    assertTenantNotSuspended(hospital);
+
+    const currentDeptCount = await Department.countDocuments({ hospitalId }).session(session);
+    checkDepartmentLimit(hospital, currentDeptCount);
+
+    const [department] = await Department.create(
+      [
+        {
+          hospitalId,
+          name: cleanString(departmentPayload.name),
+          code: cleanString(departmentPayload.code),
+          description: cleanString(departmentPayload.description),
+          headDoctorId: departmentPayload.headDoctorId,
+          icon: cleanString(departmentPayload.icon),
+          color: cleanString(departmentPayload.color),
+          opd: {
+            consultationFee: departmentPayload.opd?.consultationFee ?? 500,
+            ...(departmentPayload.opd || {}),
+          },
+          status: departmentPayload.status || "active",
+        },
+      ],
+      { session }
+    );
+
+    // Atomically increment stats on Hospital document to serialize concurrent quota additions
+    await Hospital.updateOne(
+      { _id: hospitalId },
+      { $inc: { "stats.totalDepartments": 1 } },
+      { session }
+    );
+
+    return { hospital, department };
+  });
+};
+
+export const inviteStaffWithQuota = async (hospitalId, staffPayload, actorStaff) => {
+  if (mongoose.connection?.readyState !== 1) {
+    throw accessError(503, "Database service is unavailable. Please try again shortly.");
+  }
+  return await moneyTransaction(async (session) => {
+    const hospital = await Hospital.findById(hospitalId).session(session);
+    if (!hospital) throw accessError(404, "Hospital not found");
+    assertTenantNotSuspended(hospital);
+
+    const currentStaffCount = await HospitalStaff.countDocuments({ hospitalId, isActive: true }).session(session);
+    checkStaffLimit(hospital, currentStaffCount);
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const role = staffPayload.role;
+    const email = cleanString(staffPayload.email).toLowerCase();
+    const name = cleanString(staffPayload.name) || email.split("@")[0];
+
+    const [staff] = await HospitalStaff.create(
+      [
+        {
+          hospitalId,
+          departmentIds: staffPayload.departmentIds || [],
+          name,
+          email,
+          profilePhoto: cleanString(staffPayload.profilePhoto),
+          role,
+          doctorProfile: role === "DOCTOR" ? staffPayload.doctorProfile : undefined,
+          inviteToken: crypto.createHash("sha256").update(rawToken).digest("hex"),
+          inviteExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+          invitedBy: actorStaff?.id || actorStaff?._id,
+          inviteStatus: "pending",
+        },
+      ],
+      { session }
+    );
+
+    // Atomically increment stats on Hospital document to serialize concurrent quota additions
+    await Hospital.updateOne(
+      { _id: hospitalId },
+      { $inc: { "stats.totalDoctors": role === "DOCTOR" ? 1 : 0 } },
+      { session }
+    );
+
+    return { hospital, staff, rawToken };
+  });
 };
 
 let testDouble = null;
@@ -319,17 +411,28 @@ export const calculateOperationalMetrics = async ({ hospitalId, startDate, endDa
     if (endDate) dateFilter.createdAt.$lte = new Date(endDate);
   }
 
-  // FIXED A10: Query actual token enum 'waiting' instead of nonexistent 'queued'
-  const [totalTokens, completedTokens, noShowTokens, waitingTokens, inConsultationTokens, departments, staffMembers] =
-    await Promise.all([
-      OpdToken.countDocuments(dateFilter),
-      OpdToken.countDocuments({ ...dateFilter, status: "completed" }),
-      OpdToken.countDocuments({ ...dateFilter, status: "no_show" }),
-      OpdToken.countDocuments({ ...dateFilter, status: "waiting" }),
-      OpdToken.countDocuments({ ...dateFilter, status: "in_consultation" }),
-      Department.find({ hospitalId }).lean(),
-      HospitalStaff.find({ hospitalId, isActive: true }).lean(),
-    ]);
+  // Query actual records for operational metrics and setup activation checklist
+  const [
+    totalTokens,
+    completedTokens,
+    noShowTokens,
+    waitingTokens,
+    inConsultationTokens,
+    departments,
+    staffMembers,
+    locationsCount,
+    careSessionsCount,
+  ] = await Promise.all([
+    OpdToken.countDocuments(dateFilter),
+    OpdToken.countDocuments({ ...dateFilter, status: "completed" }),
+    OpdToken.countDocuments({ ...dateFilter, status: "no_show" }),
+    OpdToken.countDocuments({ ...dateFilter, status: "waiting" }),
+    OpdToken.countDocuments({ ...dateFilter, status: "in_consultation" }),
+    Department.find({ hospitalId }).lean(),
+    HospitalStaff.find({ hospitalId, isActive: true }).lean(),
+    HospitalLocation.countDocuments({ hospitalId }),
+    CareSession.countDocuments({ hospitalId }),
+  ]);
 
   const deptCount = departments.length;
   let coveredDepts = 0;
@@ -342,6 +445,28 @@ export const calculateOperationalMetrics = async ({ hospitalId, startDate, endDa
   const completionRatePercent = totalTokens > 0 ? Math.round((completedTokens / totalTokens) * 1000) / 10 : 0;
   const noShowRatePercent = totalTokens > 0 ? Math.round((noShowTokens / totalTokens) * 1000) / 10 : 0;
 
+  const acceptedStaffCount = staffMembers.filter((s) => s.inviteStatus === "accepted").length;
+  const hasDepartments = deptCount > 0;
+  const hasAcceptedStaff = acceptedStaffCount > 0;
+  const hasRooms = locationsCount > 0;
+  const hasPublishedAvailability = careSessionsCount > 0;
+  const hasFirstBooking = totalTokens > 0;
+
+  const completedSteps = [hasDepartments, hasAcceptedStaff, hasRooms, hasPublishedAvailability, hasFirstBooking].filter(Boolean).length;
+  const staffSetupCompletionPercent = Math.round((completedSteps / 5) * 100);
+
+  const activationChecklist = {
+    departments: { completed: hasDepartments, count: deptCount, label: "Configure Departments" },
+    staff: { completed: hasAcceptedStaff, count: acceptedStaffCount, totalInvited: staffMembers.length, label: "Invite & Accept Staff" },
+    rooms: { completed: hasRooms, count: locationsCount, label: "Configure Consultation Rooms" },
+    availability: { completed: hasPublishedAvailability, count: careSessionsCount, label: "Publish Doctor Availability" },
+    firstBooking: { completed: hasFirstBooking, count: totalTokens, label: "Accept First Patient Booking" },
+    completedSteps,
+    totalSteps: 5,
+    percentComplete: staffSetupCompletionPercent,
+    isFullyActivated: completedSteps === 5,
+  };
+
   return {
     totalBookings: totalTokens,
     completedVisits: completedTokens,
@@ -353,6 +478,10 @@ export const calculateOperationalMetrics = async ({ hospitalId, startDate, endDa
     departmentCoveragePercent,
     departmentCount: deptCount,
     staffCount: staffMembers.length,
+    locationsCount,
+    careSessionsCount,
+    staffSetupCompletionPercent,
+    activationChecklist,
   };
 };
 

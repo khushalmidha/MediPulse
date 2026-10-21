@@ -23,6 +23,7 @@ import { recordVisitEvent } from "./workflowEvents.js";
 import { sessionPlan, instant, withinChangePolicy } from "./schedulingPolicy.js";
 import { lockSchedule, doctorUnavailable, releaseReservation } from "./schedulingLifecycle.js";
 import { initializeEncounterJourney } from "./encounterJourneyService.js";
+import { assertTenantNotSuspended } from "./saasOperationsService.js";
 
 const scheduleTransaction = async callback => {
   try { return await moneyTransaction(callback); } catch (error) { if (error.code === 11000) throw accessError(409, "A live booking already occupies this care session"); throw error; }
@@ -45,7 +46,10 @@ export const schedulingDoctor = async (input, session) => {
   const doctorId = requireRecordId(input.doctorId, "doctor");
   if (input.hospitalId) {
     const hospitalId = requireRecordId(input.hospitalId, "hospital"), departmentId = requireRecordId(input.departmentId, "department");
-    const hospital = await Hospital.findOne({ _id: hospitalId, status: "active" }).session(session);
+    const hospital = await Hospital.findById(hospitalId).session(session);
+    if (!hospital) throw accessError(404, "Hospital not found");
+    assertTenantNotSuspended(hospital);
+    if (hospital.status !== "active") throw accessError(404, "Active hospital is required");
     const department = await Department.findOne({ _id: departmentId, hospitalId, status: "active" }).session(session);
     const doctor = await Staff.findOne({ _id: doctorId, hospitalId, departmentIds: departmentId, role: "DOCTOR", isActive: true, inviteStatus: "accepted" }).session(session);
     if (!hospital || !department || !doctor) throw accessError(404, "Active hospital doctor and department are required");

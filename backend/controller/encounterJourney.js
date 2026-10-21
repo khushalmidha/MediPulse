@@ -1,6 +1,8 @@
 import HospitalLocation from "../model/hospitalLocation.js";
+import Hospital from "../model/hospital.js";
 import EncounterJourney from "../model/encounterJourney.js";
 import Department from "../model/department.js";
+import { assertTenantNotSuspended } from "../services/saasOperationsService.js";
 import {
   initializeEncounterJourney,
   transitionEncounterStage,
@@ -323,6 +325,10 @@ export const createLocation = async (req, res) => {
     throw accessError(403, "Hospital admin access is required to register locations");
   }
 
+  const hospital = await Hospital.findById(hospitalId);
+  if (!hospital) throw accessError(404, "Hospital not found");
+  assertTenantNotSuspended(hospital);
+
   const { name, type, building, floor, roomNumber, departmentId, serviceType, instructions, status } = req.body;
 
   if (!name || !name.trim()) throw accessError(400, "Location name is required");
@@ -363,6 +369,10 @@ export const updateLocation = async (req, res) => {
   if (!req.staff?.adminAccess && req.staff?.role !== "HOSPITAL_ADMIN") {
     throw accessError(403, "Hospital admin access is required to update locations");
   }
+
+  const hospital = await Hospital.findById(hospitalId);
+  if (!hospital) throw accessError(404, "Hospital not found");
+  assertTenantNotSuspended(hospital);
 
   requireRecordId(locationId, "location");
   const location = await HospitalLocation.findOne({ _id: locationId, hospitalId });
