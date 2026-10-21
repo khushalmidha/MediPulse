@@ -72,6 +72,13 @@ const eligible = async (care, session) => {
   const current = await schedulingDoctor(care, session);
   if (idOf(current.canonicalDoctorId) !== idOf(care.canonicalDoctorId) || current.timezone !== care.timezone) throw accessError(409, "Practice configuration changed; schedule review is required");
   if (await doctorUnavailable(care, session)) throw accessError(409, "Doctor is unavailable for this session");
+  if (!care.hospitalId) {
+    const doctor = await Doctor.findById(care.canonicalDoctorId).session(session);
+    if (!doctor) throw accessError(404, "Independent doctor not found");
+    if (!doctor.isPublished) throw accessError(403, "Doctor has not published an independent practice");
+    if (doctor.credentialVerification?.status !== "verified") throw accessError(403, "Doctor credentials are not verified for independent booking");
+    if (doctor.independentPractice?.enabled === false) throw accessError(403, "Doctor independent practice is inactive");
+  }
 };
 const ownedReservation = async (req, id, session) => {
   if (req.auth?.role !== "user") throw accessError(403, "Patient account required");
@@ -101,6 +108,12 @@ export const expireScheduleHolds = async (now = new Date(), limit = 100) => {
 };
 export const createCareSession = async (req, now = new Date()) => scheduleTransaction(async session => {
   const context = await schedulingDoctor(req.body, session); manage(req, context);
+  if (!context.hospitalId) {
+    const doc = await Doctor.findById(context.canonicalDoctorId).session(session);
+    if (!doc) throw accessError(404, "Independent doctor not found");
+    if (doc.credentialVerification?.status !== "verified") throw accessError(403, "Medical credentials must be verified before creating care sessions");
+    if (doc.independentPractice?.enabled === false) throw accessError(403, "Independent practice is inactive");
+  }
   const type = req.body.appointmentType;
   if (!(context.hospitalId ? type === "hospital_in_person" : ["scheduled_online", "online_opd"].includes(type))) throw accessError(400, "Appointment type does not match this practice");
   if (req.body.timezone && req.body.timezone !== context.timezone) throw accessError(409, "Use the practice timezone");
@@ -141,6 +154,13 @@ export const sessionView = care => ({ _id: care._id, doctorId: care.doctorId, ho
   fee: { amountMinor: care.feeMinor, amount: fromMinor(care.feeMinor), currency: care.currency || "INR", demo: true }, policy: care.policy });
 export const getAvailability = async (input, now = new Date()) => {
   const context = await schedulingDoctor(input);
+  if (!context.hospitalId) {
+    const doc = await Doctor.findById(context.canonicalDoctorId);
+    if (!doc || !doc.isPublished || doc.credentialVerification?.status !== "verified" || doc.independentPractice?.enabled === false) {
+      const from = input.from || localServiceDate(now, context.timezone), to = input.to || from;
+      return { ...context, feeMinor: undefined, canonicalDoctorId: undefined, from, to, generatedAt: now, sessions: [] };
+    }
+  }
   const from = input.from || localServiceDate(now, context.timezone), to = input.to || from;
   const valid = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
   if (!valid(from) || !valid(to) || from > to || Date.parse(to) - Date.parse(from) > 31 * 86400000) throw accessError(400, "Availability requires a valid date range of at most 31 days");

@@ -62,7 +62,7 @@ before(async () => {
   department = await Department.create({ hospitalId: hospital._id, name: "Synthetic OPD", opd: { consultationFee: 0 } });
   otherDepartment = await Department.create({ hospitalId: hospital._id, name: "Synthetic second department", opd: { consultationFee: 0 } });
   platformDoctor = await Doctor.create({ firstName: "Synthetic Doctor", email: `doctor-${suffix}@example.invalid`, password: "synthetic-password", gender: "other",
-    experience: { years: 1, expertise: "Fixture" }, consultationFee: 0 });
+    experience: { years: 1, expertise: "Fixture" }, consultationFee: 0, isPublished: true, credentialVerification: { status: "verified" }, independentPractice: { enabled: true } });
   staffDoctor = await HospitalStaff.create({ hospitalId: hospital._id, name: "Synthetic Doctor", email: `staff-${suffix}@example.invalid`, role: "DOCTOR",
     departmentIds: [department._id, otherDepartment._id], doctorId: platformDoctor._id, inviteStatus: "accepted", doctorProfile: { consultationFee: 0 } });
   receptionist = await HospitalStaff.create({ hospitalId: hospital._id, name: "Synthetic Reception", email: `reception-${suffix}@example.invalid`, role: "RECEPTIONIST", inviteStatus: "accepted" });

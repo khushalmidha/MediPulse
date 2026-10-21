@@ -76,7 +76,7 @@ before(async () => {
   await applyDurableSchema();
   patient = await User.create({ firstName: "Synthetic Patient", email: `${key()}@example.invalid`, password: "synthetic-password", gender: "other", familyMembers: [{ name: "Synthetic child", relation: "child" }] });
   outsider = await User.create({ firstName: "Synthetic Outsider", email: `${key()}@example.invalid`, password: "synthetic-password", gender: "other" });
-  doctor = await Doctor.create({ firstName: "Synthetic Doctor", email: `${key()}@example.invalid`, password: "synthetic-password", gender: "other", experience: { years: 1, expertise: "Fixture" }, consultationFee: 0 });
+  doctor = await Doctor.create({ firstName: "Synthetic Doctor", email: `${key()}@example.invalid`, password: "synthetic-password", gender: "other", experience: { years: 1, expertise: "Fixture" }, consultationFee: 0, isPublished: true, credentialVerification: { status: "verified" }, independentPractice: { enabled: true } });
   const app = express(); app.use(express.json(), cookieParser()); app.use("/appointment", routes);
   app.use((error, req, res, next) => res.status(error.status || 500).json({ message: "Fixture failed" }));
   server = createServer(app); io = initSocket(server); server.listen(0, "127.0.0.1"); await once(server, "listening"); origin = `http://127.0.0.1:${server.address().port}`;

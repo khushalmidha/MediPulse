@@ -6,6 +6,7 @@ import { BACKEND_URL } from "../../utils";
 import { Banner, Button, Card, Dialog, EmptyState, Field, LoadingState, StatusBadge } from "../ui";
 import { Feedback } from "../account/AccountUI";
 import { ActiveConsultation, ClinicalPage, QueueHealth, QueueRefresh, QueueStats, SwitchConfirmation } from "./ClinicalUI";
+import CareSessionPublisher from "./CareSessionPublisher";
 import useClinicalQueue from "../../hooks/useClinicalQueue";
 import useFormTask from "../../hooks/useFormTask";
 import { clinicalMatches, clinicalPatientName, queueTitle, recordedWait, textValue } from "../../utils/clinicalWorkspace";
@@ -34,6 +35,7 @@ export default function ClinicalWorkspace({ hospital = false }) {
   return <ClinicalPage title={hospital ? "Doctor OPD Console" : "Doctor Appointment Queue"} eyebrow={hospital ? `${auth.staffHospital?.name || "Hospital"} · Clinical operations` : "MediPulse Connect · Your practice"} description={hospital ? "Review the arrived queue, document care and confirm each consultation." : "Keep independent and hospital care queues separate while managing your consultations."} actions={<QueueRefresh resource={resource} />}>
     <QueueHealth resource={resource} online={task.online} />{fallback && <Banner tone="info">{fallback}</Banner>}{!refund && <Feedback feedback={task.feedback} />}
     {denied ? <Card><EmptyState title="Clinical access needs to be refreshed" action={<Button variant="secondary" onClick={() => { task.setFeedback(null); resource.refresh(); }}>Refresh access</Button>}>Earlier patient details have been hidden.</EmptyState></Card> : <>
+      <CareSessionPublisher hospital={hospital} onPublished={resource.refresh} />
       <Card className="mp-clinical-controls"><Field as="select" label={hospital ? "Care session" : "Care queue"} value={selection} onChange={event => changeQueue(event.target.value)} disabled={task.busy || editorBusy}>{hospital ? (data?.sessionIds || [data?.sessionId || "day"]).map(id => <option key={id} value={id}>{id}</option>) : data?.queues?.length ? data.queues.map(queue => <option key={queue.queueKey} value={queue.queueKey}>{queueTitle(queue)}</option>) : <option value="">No queue loaded</option>}</Field><Field label="Search ready patients" type="search" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} disabled={!data} placeholder="Name, token or recorded concern" /></Card>
       {data ? <>
         {data.pause?.isPaused && <Banner>Queue paused. Starting another consultation is blocked; an existing consultation can still be completed.</Banner>}

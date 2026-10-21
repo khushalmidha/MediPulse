@@ -2008,6 +2008,61 @@ Implemented real transactional quota enforcement and suspension callers across d
 
 Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
 
+## AG12: Independent practice publication and booking eligibility (21 October 2026)
+
+### Context and baseline
+Task AG12 addresses the independent practice lifecycle and booking eligibility gaps (P14 / A11 / MP07 / MP08).
+Prior to this repair:
+1. `model/doctor.js` defaulted new doctor records to `isPublished: true` and `credentialVerification.status: "verified"`, and allowed doctors to self-verify through profile updates.
+2. `controller/doctor.js`'s `mapPlatformDoctor` and `getPracticeSettings` fabricated fallback verified status (`credentialVerification || { status: "verified" }`) and treated `isPublished` as true if undefined.
+3. Consultation fees were resolved via a fallback that converted explicitly zero fees (0 INR) to default 500 INR.
+4. Independent discovery excluded doctors with hospital affiliations, preventing dual-role doctors from offering independent practices.
+5. Inactive, unverified, or unpublished practices could still receive holds and bookings because eligibility checks only checked existence.
+6. Overlapping schedules between independent and hospital practices were not cleanly prevented or surfaced in frontend workflows.
+
+### Changes implemented
+- **Doctor Model (`backend/model/doctor.js`)**:
+  - Maintained schema defaults: `credentialVerification.status: "pending"`, `isPublished: false`, `independentPractice.enabled: true`.
+  - Added compound index `{ isPublished: 1, 'credentialVerification.status': 1 }`.
+- **Doctor Controller (`backend/controller/doctor.js`)**:
+  - `mapPlatformDoctor`: removed fallback claims (`status: "verified"`, `isPublished: true`). Uses actual `credentialVerification`, `isPublished: Boolean(doctor.isPublished)`, and `resolveConsultationFee` to preserve explicit 0 INR fees.
+  - `getAllDoctors`: updated platform pipeline match to `{ isPublished: true, "credentialVerification.status": "verified", "independentPractice.enabled": { $ne: false } }`. Dual-role doctors with both hospital affiliations and independent practices are discoverable in both contexts without queue merging.
+  - `getPracticeSettings`: returns actual `credentialVerification`, `isPublished`, and preserved 0 INR fee.
+  - `updatePracticeSettings`: blocks doctor from setting `isPublished: true` if credentials are not verified (HTTP 400 `CREDENTIALS_NOT_VERIFIED`); strips attempts to self-verify `credentialVerification.status`; re-sets status to `"pending"` and `isPublished: false` if medical council registration or state council details are modified.
+- **SaaS Operations (`backend/controller/saasOperations.js`, `backend/routes/saasOperations.js`)**:
+  - Added `patchVerifyDoctorCredentials` mounted at `PATCH /api/saas/doctors/:id/verify-credentials` guarded by `requirePlatformOperator`, allowing platform operators to review and set status to `"verified"` or `"rejected"`.
+- **Appointment & Scheduling Controllers (`backend/controller/appointment.js`, `backend/services/scheduling.js`)**:
+  - `ensureBookableAppointment` & `bookAppointment`: enforces HTTP 403 checks if `doctor.isPublished === false`, `doctor.credentialVerification?.status !== "verified"`, or `doctor.independentPractice?.enabled === false`.
+  - `eligible`: in `backend/services/scheduling.js`, verifies independent practices are published, verified, and enabled before confirming holds or reservations (HTTP 403).
+  - `createCareSession`: enforces verified status and enabled practice before creating independent sessions; validates non-overlapping schedules (HTTP 409).
+  - `getAvailability`: returns `sessions: []` for independent practices when unverified, unpublished, or disabled.
+- **Frontend Practice Publishing & Verification UI**:
+  - `frontend/src/components/clinical/CareSessionPublisher.jsx`: Added CareSession publisher card supporting explicit independent and hospital contexts, appointment types (`scheduled_online`, `online_opd`, `hospital_in_person`), date/time range, and slot duration with real-time schedule conflict warning (HTTP 409).
+  - `frontend/src/components/clinical/ClinicalWorkspace.jsx`: Integrated `CareSessionPublisher` into doctor workspace.
+  - `frontend/src/pages/EditProfile.jsx`: Added Credential Verification status badge (Pending / Verified / Rejected) with council registration details, independent practice publishing toggle (disabled with guidance when unverified), and independent practice enabled toggle.
+  - `frontend/src/pages/DoctorsProfile.jsx`: Added guard on independent booking with informative status banner for unpublished/unverified practices; displays verified status.
+  - `frontend/src/components/appointments/DoctorSummary.jsx`: Added `credentialVerification.status === "verified"` check to verification badge.
+
+### Executed checks and limits
+- **Independent practice publication integration suite**: **10/10 passed**, zero failures/skips, **9.38 s** (`backend/tests/integration/independent-practice-publication.test.js`):
+  1. Unverified doctor cannot publish independent practice (HTTP 400 CREDENTIALS_NOT_VERIFIED).
+  2. Doctor cannot self-verify status via practice settings.
+  3. Platform operator can verify doctor credentials via SaaS route.
+  4. Verified doctor can publish practice and preserve an explicitly zero consultation fee.
+  5. Discovery via GET /api/doctor filters published and verified independent practices.
+  6. Dual-role doctor is discoverable both independently and via hospital staff affiliation.
+  7. Unpublished, unverified, or inactive independent practice cannot be booked (HTTP 403).
+  8. Eligible published independent practice can be held, confirmed, and booked.
+  9. Overlapping care sessions across independent and hospital contexts are rejected with HTTP 409 conflict, non-overlapping succeed.
+- **Scheduling integration suite**: **27/27 passed**, zero failures/skips, **62.82 s** (`backend/tests/integration/p09-scheduling.test.js`).
+- **Backend unit tests**: **168/168 passed**, zero failures/skips, **43.96 s** (`npm test`).
+- **Frontend unit tests**: **58/58 passed**, zero failures/skips, **316 ms** (`npm run test:ui`).
+- **Frontend production build**: passed in **21.68 s**, zero errors (`npm run build`).
+- **Local environment**: Verified against isolated local MongoDB replica set (`rs0`) and Redis DB 15.
+
+Additive and reversible code only; zero production database, index, seed, or migration execution was performed.
+
+
 
 
 

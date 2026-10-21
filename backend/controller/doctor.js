@@ -29,39 +29,43 @@ const splitName = (value) => {
 	return { firstName, lastName: rest.join(" ") };
 };
 
-const mapPlatformDoctor = (doctor, communities = []) => ({
-	_id: doctor._id,
-	sourceType: "platform",
-	platformDoctorId: doctor._id,
-	hospitalStaffId: null,
-	firstName: doctor.firstName || "",
-	lastName: doctor.lastName || "",
-	fullName: [doctor.firstName, doctor.lastName].filter(Boolean).join(" ").trim(),
-	email: doctor.email || "",
-	phone: doctor.phone || "",
-	gender: doctor.gender || "other",
-	profilePhoto: doctor.profilePhoto || "",
-	bio: doctor.bio || "",
-	rating: doctor.rating || 0,
-	consultationFee: resolveConsultationFee(doctor),
-	credentialVerification: doctor.credentialVerification || { status: "verified" },
-	isPublished: doctor.isPublished ?? true,
-	independentPractice: doctor.independentPractice || {
-		enabled: true,
-		consultationFee: resolveConsultationFee(doctor),
-		slotDurationMinutes: 15,
-		availability: [],
-	},
-	experience: {
-		years: doctor.experience?.years || 0,
-		expertise: doctor.experience?.expertise || "",
-		qualification: doctor.experience?.qualification || "",
-	},
-	clinic: doctor.clinic || null,
-	hospitalContext: null,
-	bookingMode: "appointment",
-	communities,
-});
+const mapPlatformDoctor = (doctor, communities = []) => {
+	const fee = resolveConsultationFee(doctor.independentPractice?.consultationFee !== undefined ? doctor.independentPractice : doctor);
+	return {
+		_id: doctor._id,
+		sourceType: "platform",
+		platformDoctorId: doctor._id,
+		hospitalStaffId: null,
+		firstName: doctor.firstName || "",
+		lastName: doctor.lastName || "",
+		fullName: [doctor.firstName, doctor.lastName].filter(Boolean).join(" ").trim(),
+		email: doctor.email || "",
+		phone: doctor.phone || "",
+		gender: doctor.gender || "other",
+		profilePhoto: doctor.profilePhoto || "",
+		bio: doctor.bio || "",
+		rating: doctor.rating || 0,
+		consultationFee: fee,
+		credentialVerification: doctor.credentialVerification || { status: "pending" },
+		verificationStatus: doctor.credentialVerification?.status || "pending",
+		isPublished: Boolean(doctor.isPublished),
+		independentPractice: {
+			enabled: doctor.independentPractice?.enabled !== false,
+			consultationFee: fee,
+			slotDurationMinutes: doctor.independentPractice?.slotDurationMinutes || 15,
+			availability: doctor.independentPractice?.availability || [],
+		},
+		experience: {
+			years: doctor.experience?.years || 0,
+			expertise: doctor.experience?.expertise || "",
+			qualification: doctor.experience?.qualification || "",
+		},
+		clinic: doctor.clinic || null,
+		hospitalContext: null,
+		bookingMode: "appointment",
+		communities,
+	};
+};
 
 const mapHospitalDoctor = (staff, communities = []) => {
 	const { firstName, lastName } = splitName(staff.name);
@@ -145,11 +149,9 @@ const getAllDoctors = async (req, res) => {
 	const platformPipeline = [
 		{
 			$match: {
-				$or: [
-					{ hospitals: { $exists: false } },
-					{ hospitals: { $size: 0 } },
-					{ "independentPractice.enabled": true },
-				],
+				isPublished: true,
+				"credentialVerification.status": "verified",
+				"independentPractice.enabled": { $ne: false },
 			},
 		},
 		{
@@ -465,23 +467,38 @@ const getPracticeSettings = async (req, res) => {
 	const doctor = await Doctor.findById(req.auth.id);
 	if (!doctor) return res.status(404).json({ message: "Doctor not found" });
 
+	const fee = resolveConsultationFee(doctor.independentPractice?.consultationFee !== undefined ? doctor.independentPractice : doctor);
 	return res.json({
-		credentialVerification: doctor.credentialVerification || { status: "verified" },
-		isPublished: doctor.isPublished ?? true,
-		independentPractice: doctor.independentPractice || {
-			enabled: true,
-			consultationFee: doctor.consultationFee || 500,
-			slotDurationMinutes: 15,
-			availability: [],
+		credentialVerification: doctor.credentialVerification || { status: "pending" },
+		isPublished: Boolean(doctor.isPublished),
+		independentPractice: {
+			enabled: doctor.independentPractice?.enabled !== false,
+			consultationFee: fee,
+			slotDurationMinutes: doctor.independentPractice?.slotDurationMinutes || 15,
+			availability: doctor.independentPractice?.availability || [],
 		},
-		consultationFee: doctor.consultationFee || 500,
+		consultationFee: fee,
 	});
 };
 
 const updatePracticeSettings = async (req, res) => {
 	if (!req.auth || req.auth.role !== "doctor") return res.status(401).json({ message: "Unauthorized" });
+	const doctor = await Doctor.findById(req.auth.id);
+	if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+
 	const { independentPractice, credentialVerification, isPublished, consultationFee } = req.body;
 	const updates = {};
+
+	if (isPublished !== undefined) {
+		const targetPublished = Boolean(isPublished);
+		if (targetPublished && doctor.credentialVerification?.status !== "verified") {
+			return res.status(400).json({
+				message: "Independent practice requires verified medical credentials before publication",
+				code: "CREDENTIALS_NOT_VERIFIED",
+			});
+		}
+		updates["isPublished"] = targetPublished;
+	}
 
 	if (independentPractice && typeof independentPractice === "object") {
 		if (independentPractice.enabled !== undefined) {
@@ -506,18 +523,16 @@ const updatePracticeSettings = async (req, res) => {
 		updates["independentPractice.consultationFee"] = fee;
 	}
 
-	if (isPublished !== undefined) {
-		updates["isPublished"] = Boolean(isPublished);
-	}
-
 	if (credentialVerification && typeof credentialVerification === "object") {
 		if (credentialVerification.councilRegistrationNumber !== undefined) {
 			updates["credentialVerification.councilRegistrationNumber"] = String(credentialVerification.councilRegistrationNumber).trim();
 			updates["credentialVerification.status"] = "pending";
+			updates["isPublished"] = false;
 		}
 		if (credentialVerification.stateMedicalCouncil !== undefined) {
 			updates["credentialVerification.stateMedicalCouncil"] = String(credentialVerification.stateMedicalCouncil).trim();
 			updates["credentialVerification.status"] = "pending";
+			updates["isPublished"] = false;
 		}
 	}
 

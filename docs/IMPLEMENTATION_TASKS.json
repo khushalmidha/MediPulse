@@ -4,7 +4,7 @@
   "reviewBaseline": "565134c2",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG12",
+  "startWith": "AG13",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -713,7 +713,7 @@
     {
       "id": "AG12",
       "title": "Independent practice publication and booking eligibility",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P1",
       "dependsOn": [
         "AG00"
@@ -723,8 +723,11 @@
         "backend/model/doctor.js",
         "backend/services/scheduling.js",
         "backend/controller/appointment.js",
+        "backend/tests/integration/independent-practice-publication.test.js",
         "frontend/src/pages/DoctorsProfile.jsx",
-        "frontend/src/pages/AppointmentBooking.jsx"
+        "frontend/src/pages/EditProfile.jsx",
+        "frontend/src/components/clinical/CareSessionPublisher.jsx",
+        "frontend/src/components/clinical/ClinicalWorkspace.jsx"
       ],
       "implementation": [
         "Use actual verification/publication/enabled-practice state in discovery and booking eligibility.",
@@ -736,7 +739,32 @@
         "One professional can offer separated hospital and independent schedules without overlaps or mixed queues."
       ],
       "dataBoundary": "Additive/reversible code only; production execution requires the existing separate exact approval.",
-      "track": "outpatient_pilot"
+      "track": "outpatient_pilot",
+      "verification": {
+        "reference": "docs/WORK_LOG.md - AG12 independent practice publication and booking eligibility, 21 October 2026",
+        "independentPracticePublicationIntegration": {
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        "schedulingIntegration": {
+          "passed": 27,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 168,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 58,
+          "failed": 0,
+          "skipped": 0
+        },
+        "build": "passed",
+        "productionAcceptance": "not performed"
+      }
     },
     {
       "id": "AG13",

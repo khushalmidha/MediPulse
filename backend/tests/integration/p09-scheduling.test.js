@@ -57,7 +57,7 @@ before(async () => {
   await mongoose.connect(uri.href, { autoIndex: false, autoCreate: false, serverSelectionTimeoutMS: 5000 });
   await Promise.all([...new Set([...queueModels, ...moneyModels, ...durableModels, ...authModels, Doctor, User, Hospital, Staff, Department])].map(Model => Model.createIndexes()));
   schemaSnapshot = { task: "P09", database: mongoose.connection.name, ...await inspectSchedulingSchema() }; await applySchedulingSchema();
-  doctor = await Doctor.create({ firstName: "Synthetic", lastName: "Doctor", email: "doctor@example.invalid", password: "fixture-password", gender: "other", experience: { years: 1, expertise: "General" }, consultationFee: 10 });
+  doctor = await Doctor.create({ firstName: "Synthetic", lastName: "Doctor", email: "doctor@example.invalid", password: "fixture-password", gender: "other", experience: { years: 1, expertise: "General" }, consultationFee: 10, isPublished: true, credentialVerification: { status: "verified" }, independentPractice: { enabled: true } });
   users = await User.create(Array.from({ length: 12 }, (_, n) => ({ firstName: "Synthetic", lastName: "Patient", email: `patient${n}@example.invalid`, password: "fixture-password", gender: "other", familyMembers: [{ name: "Synthetic family", relation: "child" }] })));
   await Wallet.create([...users.map(user => ({ userId: user._id, userRole: "user", balance: 1000, initialCreditApplied: true })), { userId: doctor._id, userRole: "doctor", balance: 0, initialCreditApplied: true }]);
   hospital = await Hospital.create({ name: "Synthetic Hospital", slug: "p09-fixture", registrationNumber: "p09-fixture", email: "hospital@example.invalid", type: "clinic", status: "active", address: { city: "Fixture", state: "Fixture" } });

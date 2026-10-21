@@ -123,6 +123,7 @@ const doctorSchema = new mongoose.Schema(
 
 doctorSchema.index({ firstName: 1, lastName: 1 })
 doctorSchema.index({ 'experience.expertise': 1 })
+doctorSchema.index({ isPublished: 1, 'credentialVerification.status': 1 })
 
 doctorSchema.pre('save', async function () {
   if (!this.isModified('password')) return

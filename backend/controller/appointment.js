@@ -132,6 +132,9 @@ const ensureBookableAppointment = async (doctorId, userId, familyMemberId, sessi
   if (!mongoose.Types.ObjectId.isValid(doctorId)) return { status: 400, message: "Invalid doctor id" };
   const doctor = await Doctor.findById(doctorId);
   if (!doctor) return { status: 404, message: "Independent doctor not found; use hospital OPD for hospital doctors" };
+  if (!doctor.isPublished) return { status: 403, message: "Doctor has not published an independent practice" };
+  if (doctor.credentialVerification?.status !== "verified") return { status: 403, message: "Doctor credentials are not verified for independent booking" };
+  if (doctor.independentPractice?.enabled === false) return { status: 403, message: "Doctor independent practice is inactive" };
   const context = queueContext({ doctorId, doctor, sessionId });
   const existing = await Appointment.findOne({ queueKey: context.queueKey, personKey: patientKey(userId, familyMemberId), status: { $in: ["booking", "queued", "active", "refund_pending"] } });
   if (existing) return { status: 409, message: "This patient already has a live booking in this session", appointmentId: existing._id, appointmentStatus: existing.status };
@@ -617,6 +620,9 @@ const bookAppointment = async (req, res) => {
     if (await HospitalStaff.exists({ _id: doctorId, role: "DOCTOR", isActive: true, inviteStatus: "accepted" })) throw accessError(409, "Book this doctor through the hospital OPD to select the correct care context");
     throw accessError(404, "Doctor not found");
   }
+  if (!doctor.isPublished) throw accessError(403, "Doctor has not published an independent practice");
+  if (doctor.credentialVerification?.status !== "verified") throw accessError(403, "Doctor credentials are not verified for independent booking");
+  if (doctor.independentPractice?.enabled === false) throw accessError(403, "Doctor independent practice is inactive");
   const context = queueContext({ doctorId, doctor, sessionId: req.body.sessionId, serviceDate: req.body.serviceDate });
   const person = patientKey(req.auth.id, req.body.familyMemberId);
   const request = bookingRequest(req, "appointment", context, person, { doctorId, familyMemberId: req.body.familyMemberId,

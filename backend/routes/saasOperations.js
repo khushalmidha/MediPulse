@@ -13,6 +13,7 @@ import {
   getExportTenant,
   getBillingStatus,
   postCreateCheckout,
+  patchVerifyDoctorCredentials,
 } from "../controller/saasOperations.js";
 import { nosqlGuard } from "../middleware/nosqlGuard.js";
 import {
@@ -37,6 +38,9 @@ saasRouter.patch("/tenants/:id/subscription", requirePlatformOperator, updateTen
 saasRouter.patch("/tenants/:id/suspend", requirePlatformOperator, patchSuspendTenant);
 saasRouter.patch("/tenants/:id/unsuspend", requirePlatformOperator, patchUnsuspendTenant);
 saasRouter.post("/tenants/:id/setup-link", requirePlatformOperator, postGenerateSetupLink);
+
+// Doctor credential verification (requires Platform Operator)
+saasRouter.patch("/doctors/:id/verify-credentials", requirePlatformOperator, patchVerifyDoctorCredentials);
 
 // Tenant-local operations (requires Tenant Admin of this exact hospital OR Platform Operator)
 saasRouter.get("/tenants/:id", requireTenantAdminOrPlatformOperator, getTenantDetails);

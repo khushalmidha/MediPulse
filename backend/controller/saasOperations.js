@@ -1,5 +1,6 @@
 import asyncHandler from "../middleware/asyncHandler.js";
 import Hospital from "../model/hospital.js";
+import Doctor from "../model/doctor.js";
 import {
   getPlanEntitlements,
   createAdminSetupLink,
@@ -190,4 +191,35 @@ export const postCreateCheckout = asyncHandler(async (req, res) => {
   const { hospitalId, plan, billingCycle } = req.body;
   const session = await createSubscriptionCheckoutSession({ hospitalId, plan, billingCycle });
   return res.json(session);
+});
+
+export const patchVerifyDoctorCredentials = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, reviewNotes } = req.body;
+  if (!["verified", "rejected", "pending"].includes(status)) {
+    return res.status(400).json({ message: "Status must be 'verified', 'rejected', or 'pending'" });
+  }
+
+  const doctor = await Doctor.findById(id);
+  if (!doctor) {
+    return res.status(404).json({ message: "Doctor not found" });
+  }
+
+  doctor.credentialVerification = {
+    ...doctor.credentialVerification,
+    status,
+    verifiedAt: status === "verified" ? new Date() : null,
+    reviewNotes: reviewNotes || `Reviewed by ${req.auth?.name || req.staff?.name || "Platform Operator"}`,
+  };
+
+  if (status !== "verified") {
+    doctor.isPublished = false;
+  }
+
+  await doctor.save();
+  return res.json({
+    message: `Doctor credential verification updated to ${status}`,
+    credentialVerification: doctor.credentialVerification,
+    isPublished: doctor.isPublished,
+  });
 });

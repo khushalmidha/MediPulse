@@ -54,7 +54,7 @@ before(async () => {
   await mongoose.connect(uri.href, { autoIndex: false, autoCreate: false, serverSelectionTimeoutMS: 5000 });
   await Promise.all([Hospital, Domain, Staff, Doctor, User, Appointment, Token, Sequence, Operation, Revision, Outbox].map(Model => Model.createIndexes()));
   hospitals = await Hospital.create([1, 2].map(n => ({ name: `Synthetic Hospital ${n}`, slug: `fixture-${n}`, registrationNumber: `fixture-${n}`, type: "clinic", email: `hospital${n}@example.invalid`, address: { city: "Fixture", state: "Fixture" }, status: "active" })));
-  doctor = await Doctor.create({ firstName: "Fixture", lastName: "Doctor", email: "doctor@example.invalid", password: "fixture-password", gender: "other", experience: { years: 1, expertise: "General medicine" }, consultationFee: 0 });
+  doctor = await Doctor.create({ firstName: "Fixture", lastName: "Doctor", email: "doctor@example.invalid", password: "fixture-password", gender: "other", experience: { years: 1, expertise: "General medicine" }, consultationFee: 0, isPublished: true, credentialVerification: { status: "verified" }, independentPractice: { enabled: true } });
   user = await User.create({ firstName: "Fixture", lastName: "Patient", email: "patient@example.invalid", password: "fixture-password", gender: "other" });
   members = await Staff.create(hospitals.map(hospital => ({ hospitalId: hospital._id, doctorId: doctor._id, name: "Fixture Doctor", email: "doctor@example.invalid", role: "DOCTOR", inviteStatus: "accepted", isActive: true })));
   temp = await mkdtemp(join(tmpdir(), "medipulse-p07-"));

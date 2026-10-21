@@ -66,7 +66,7 @@ test("queue recovery refuses an archived family before creating a visit and reco
 });
 test("completed scheduling replay remains owned and readable after archival while new holds are refused", async () => {
   await Promise.all(schedulingModels.map(Model => Model.createIndexes()));
-  const user = await owner("historical-schedule"), family = String(user.familyMembers[0]._id), doctor = await Doctor.create({ firstName: "Synthetic", email: "family-doctor@example.invalid", password: "fixture-password", gender: "other", consultationFee: 0, experience: { years: 0, expertise: "General Medicine" } });
+  const user = await owner("historical-schedule"), family = String(user.familyMembers[0]._id), doctor = await Doctor.create({ firstName: "Synthetic", email: "family-doctor@example.invalid", password: "fixture-password", gender: "other", consultationFee: 0, experience: { years: 0, expertise: "General Medicine" }, isPublished: true, credentialVerification: { status: "verified" }, independentPractice: { enabled: true } });
   const start = new Date(Date.now() + 2 * 86400000); start.setUTCHours(6, 0, 0, 0);
   const care = await createCareSession({ auth: { id: String(doctor._id), role: "doctor" }, body: { doctorId: String(doctor._id), appointmentType: "scheduled_online", startsAt: start.toISOString(), endsAt: new Date(start.getTime() + 3600000).toISOString() } });
   const slot = await CareSlot.findOne({ session: care._id });
