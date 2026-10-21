@@ -65,6 +65,10 @@ beforeEach(async () => {
     _id: hospitalId,
     name: "Max Super Specialty Enterprise Hospital",
     slug: "max-super",
+    registrationNumber: "REG-MAX-001",
+    type: "private",
+    email: "max-super@example.test",
+    address: { city: "New Delhi", state: "Delhi" },
     status: "active",
     subscription: { plan: "enterprise", status: "active" },
   });
@@ -75,13 +79,18 @@ beforeEach(async () => {
     name: "Internal Medicine",
     code: "MED-INT",
     status: "active",
+    opd: { consultationFee: 500, isActive: true },
   });
 
   await Doctor.create({
     _id: doctorId,
-    name: "Dr. Deepak Mehta",
+    firstName: "Deepak",
+    lastName: "Mehta",
     email: "deepak.mehta@max.test",
+    password: "Password@123",
+    gender: "male",
     specialization: "General Medicine",
+    experience: { years: 14, expertise: "General Medicine" },
   });
 
   await HospitalStaff.create([
@@ -90,6 +99,7 @@ beforeEach(async () => {
       hospitalId,
       departmentIds: [departmentId],
       name: "Staff Nurse Priya Nair",
+      email: "priya.nair@max.test",
       role: "NURSE",
       isActive: true,
     },
@@ -98,6 +108,7 @@ beforeEach(async () => {
       hospitalId,
       departmentIds: [departmentId],
       name: "Charge Nurse Anjali Sharma",
+      email: "anjali.sharma@max.test",
       role: "NURSE",
       isActive: true,
     },
@@ -105,9 +116,12 @@ beforeEach(async () => {
 
   await User.create({
     _id: patientId,
-    name: "Vikramaditya Rao",
+    firstName: "Vikramaditya",
+    lastName: "Rao",
     email: "vikram.rao@test.org",
-    phone: "9123456789",
+    password: "Password@123",
+    gender: "male",
+    phoneNumber: 9123456789,
   });
 
   await Ward.create({
@@ -274,6 +288,22 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and Medication Administratio
   });
 
   await t.test("4. Shift handover logs structured summary and critical alerts", async () => {
+    await createInpatientOrder({
+      hospitalId,
+      admissionId,
+      patientId,
+      orderType: "medication",
+      medicationDetails: {
+        drugName: "Piperacillin-Tazobactam",
+        dose: "4.5g",
+        route: "iv",
+        frequency: "tds",
+        durationDays: 3,
+      },
+      nursingInstructions: "Infuse over 4 hours (extended infusion)",
+      actor: { doctorId },
+    });
+
     const handover = await recordShiftHandover({
       hospitalId,
       wardId,

@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "generatedAt": "2026-10-21T21:01:22.319Z",
-  "reviewBaseline": "694fdb8de4f7191c95ac7d8535e6d12eebc2bc98",
+  "generatedAt": "2026-10-21T22:26:02.043Z",
+  "reviewBaseline": "621fcdcdc2e2e2a0709cc7bd4e0f14152f0f4e11",
   "limitations": [
     "Regex-extracted route/navigation inventory; computed paths and inline app handlers require manual review.",
     "Routes and files existing do not establish working authorization, persistence, UI or deployment.",

@@ -7,7 +7,7 @@ const emergencyRegistrationSchema = new mongoose.Schema(
   {
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     emergencyNumber: { type: String, required: true, unique: true, index: true },
-    patientId: { type: objectId, ref: "User", default: null, index: true },
+    patientId: { type: objectId, ref: "user", default: null, index: true },
     patientName: { type: String, required: true, trim: true },
     age: { type: Number, default: null },
     gender: { type: String, default: "unknown" },
@@ -25,7 +25,7 @@ const emergencyRegistrationSchema = new mongoose.Schema(
     },
     chiefComplaint: { type: String, required: true, trim: true },
     assignedBay: { type: String, default: "" },
-    attendingDoctorId: { type: objectId, ref: "Doctor", default: null },
+    attendingDoctorId: { type: objectId, ref: "doctor", default: null },
     triagedByStaffId: { type: objectId, ref: "HospitalStaff", default: null },
     status: {
       type: String,
@@ -64,11 +64,11 @@ const otScheduleSchema = new mongoose.Schema(
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     bookingNumber: { type: String, required: true, unique: true, index: true },
     theatreRoomId: { type: objectId, ref: "TheatreRoom", required: true, index: true },
-    patientId: { type: objectId, ref: "User", required: true, index: true },
+    patientId: { type: objectId, ref: "user", required: true, index: true },
     admissionId: { type: objectId, ref: "IpdAdmission", default: null, index: true },
     emergencyRegistrationId: { type: objectId, ref: "EmergencyRegistration", default: null },
-    leadSurgeonDoctorId: { type: objectId, ref: "Doctor", required: true, index: true },
-    anesthetistDoctorId: { type: objectId, ref: "Doctor", required: true, index: true },
+    leadSurgeonDoctorId: { type: objectId, ref: "doctor", required: true, index: true },
+    anesthetistDoctorId: { type: objectId, ref: "doctor", required: true, index: true },
     scrubNurseStaffId: { type: objectId, ref: "HospitalStaff", default: null },
     procedureName: { type: String, required: true, trim: true },
     urgency: {
@@ -99,7 +99,7 @@ const otScheduleSchema = new mongoose.Schema(
       timeOut: {
         completed: { type: Boolean, default: false },
         completedAt: { type: Date, default: null },
-        verifiedByDoctorId: { type: objectId, ref: "Doctor", default: null },
+        verifiedByDoctorId: { type: objectId, ref: "doctor", default: null },
         checkpoints: { type: Map, of: Boolean, default: {} },
       },
       signOut: {

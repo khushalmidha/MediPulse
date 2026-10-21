@@ -15,6 +15,16 @@ import HospitalLocation from "../../model/hospitalLocation.js";
 import LabOrder from "../../model/labOrder.js";
 import Prescription from "../../model/prescription.js";
 import EncounterClaimChallenge from "../../model/encounterClaimChallenge.js";
+import express from "express";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
+import { once } from "node:events";
+import encounterRouter from "../../routes/encounter.js";
+import AuthSession from "../../model/authSession.js";
+import {
+  setClaimDeliveryAdapterForTest,
+  resetClaimDeliveryAdapterForTest,
+} from "../../services/claimDelivery.js";
 import { localServiceDate } from "../../services/queueContext.js";
 import {
   initializeEncounterJourney,
@@ -31,6 +41,7 @@ uri.pathname = `/medipulse_test_encounter_claim_${suffix}`;
 
 let hospital, department, staffDoctor, receptionLocation;
 let patientUser1, patientUser2;
+let patientToken1, patientToken2, server, apiOrigin;
 const today = localServiceDate(new Date(), "Asia/Kolkata");
 const id = () => new mongoose.Types.ObjectId();
 
@@ -105,14 +116,66 @@ before(async () => {
 
   patientUser1 = await createPatient("Alpha", "9876543210");
   patientUser2 = await createPatient("Beta", "9123456789");
+
+  const sid1 = crypto.randomUUID();
+  await AuthSession.create({
+    _id: sid1,
+    principalId: patientUser1._id,
+    kind: "user",
+    csrfToken: "csrf-token-1",
+    expiresAt: new Date(Date.now() + 600000),
+  });
+  patientToken1 = jwt.sign(
+    { id: String(patientUser1._id), role: "user", sid: sid1 },
+    process.env.TOKEN_KEY || "default_test_token_key"
+  );
+
+  const sid2 = crypto.randomUUID();
+  await AuthSession.create({
+    _id: sid2,
+    principalId: patientUser2._id,
+    kind: "user",
+    csrfToken: "csrf-token-2",
+    expiresAt: new Date(Date.now() + 600000),
+  });
+  patientToken2 = jwt.sign(
+    { id: String(patientUser2._id), role: "user", sid: sid2 },
+    process.env.TOKEN_KEY || "default_test_token_key"
+  );
+
+  const app = express();
+  app.use(express.json());
+  app.use(cookieParser());
+  app.use("/api/encounters", encounterRouter);
+  app.use((err, _req, res, _next) => {
+    res.status(err.status || 500).json({ message: err.message });
+  });
+
+  server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  apiOrigin = `http://127.0.0.1:${server.address().port}`;
 });
 
 after(async () => {
+  resetClaimDeliveryAdapterForTest();
+  if (server) await new Promise((resolve) => server.close(resolve));
   try {
     await mongoose.connection.dropDatabase();
   } catch (_e) {}
   await mongoose.disconnect();
 });
+
+const apiCall = async (urlPath, { method = "POST", body, token = patientToken1 } = {}) => {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${apiOrigin}${urlPath}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  return { status: res.status, ok: res.ok, body: data };
+};
 
 const createWalkInFixture = async (phone = "9876543210", paymentStatus = "paid", paymentMode = "cash") => {
   const tokenNumber = Math.floor(100 + Math.random() * 900);
@@ -566,4 +629,277 @@ test("AG05 review: claim proof cannot be redirected to another valid family iden
  assert.equal((await EncounterJourney.findById(journey._id)).linkedUserId,undefined);
  const proofHash=crypto.createHash("sha256").update(verified.claimProof).digest("hex");
  assert.equal((await EncounterClaimChallenge.findById("claim_proof:"+proofHash)).consumedAt,null);
+});
+
+test("AG05 actual router: forged client OTP is discarded and server-generated OTP is enforced", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  // Client attempts to pass a forged OTP in the challenge body
+  const res = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+    body: { phone: "9876543210", otp: "999999" },
+    token: patientToken1,
+  });
+  assert.equal(res.status, 200);
+  assert.ok(res.body.success);
+  assert.ok(res.body.maskedPhone);
+  assert.ok(res.body.devOtp);
+  assert.notEqual(res.body.devOtp, "999999", "Server must generate random OTP and discard client-provided OTP");
+
+  // Verifying with the client's chosen "999999" fails with 401
+  const forgeVerify = await apiCall(`/api/encounters/${journey._id}/verify-claim`, {
+    body: { otp: "999999" },
+    token: patientToken1,
+  });
+  assert.equal(forgeVerify.status, 401);
+
+  // Verifying with the real server-generated devOtp succeeds
+  const realVerify = await apiCall(`/api/encounters/${journey._id}/verify-claim`, {
+    body: { otp: res.body.devOtp },
+    token: patientToken1,
+  });
+  assert.equal(realVerify.status, 200);
+  assert.ok(realVerify.body.claimProof);
+});
+
+test("AG05 actual router: walk-in without recorded phone returns 400 Bad Request", async () => {
+  const { journey } = await createWalkInFixture(""); // Empty recorded phone
+
+  const res = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+    body: { phone: "9876543210" },
+    token: patientToken1,
+  });
+  assert.equal(res.status, 400);
+  assert.match(res.body.message, /does not have a registered contact phone/);
+});
+
+test("AG05 actual router: phone mismatch returns 403 Forbidden", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  const res = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+    body: { phone: "9111111111" },
+    token: patientToken1,
+  });
+  assert.equal(res.status, 403);
+  assert.match(res.body.message, /Phone number does not match walk-in record/);
+});
+
+test("AG05 actual router: failed delivery channel returns 502 Bad Gateway and records failure in DB", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  setClaimDeliveryAdapterForTest(() => ({
+    ok: false,
+    status: "failed",
+    provider: "test-failing-sms-carrier",
+    error: "Simulated carrier network outage",
+  }));
+
+  try {
+    const res = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+      body: { phone: "9876543210" },
+      token: patientToken1,
+    });
+    assert.equal(res.status, 502);
+    assert.match(res.body.message, /Simulated carrier network outage/);
+
+    const challenge = await EncounterClaimChallenge.findById(`claim_otp:${journey._id}:${patientUser1._id}`);
+    assert.equal(challenge.deliveryStatus, "failed");
+    assert.match(challenge.deliveryError, /Simulated carrier network outage/);
+  } finally {
+    resetClaimDeliveryAdapterForTest();
+  }
+});
+
+test("AG05 actual router: unconfigured delivery channel returns 503 Service Unavailable and records state", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  setClaimDeliveryAdapterForTest(() => ({
+    ok: false,
+    status: "unconfigured",
+    provider: "none",
+    error: "Walk-in phone verification delivery channel is not configured. Contact hospital reception for assistance.",
+  }));
+
+  try {
+    const res = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+      body: { phone: "9876543210" },
+      token: patientToken1,
+    });
+    assert.equal(res.status, 503);
+    assert.match(res.body.message, /not configured/);
+
+    const challenge = await EncounterClaimChallenge.findById(`claim_otp:${journey._id}:${patientUser1._id}`);
+    assert.equal(challenge.deliveryStatus, "unconfigured");
+  } finally {
+    resetClaimDeliveryAdapterForTest();
+  }
+});
+
+test("AG05 actual router: wrong OTP attempts lock out with 429 after 5 wrong attempts", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  const chal = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+    body: { phone: "9876543210" },
+    token: patientToken1,
+  });
+  assert.equal(chal.status, 200);
+
+  // 4 wrong attempts
+  for (let i = 0; i < 4; i++) {
+    const wrong = await apiCall(`/api/encounters/${journey._id}/verify-claim`, {
+      body: { otp: "000000" },
+      token: patientToken1,
+    });
+    assert.equal(wrong.status, 401);
+  }
+
+  // 5th attempt locks out
+  const fifth = await apiCall(`/api/encounters/${journey._id}/verify-claim`, {
+    body: { otp: "000000" },
+    token: patientToken1,
+  });
+  assert.ok(fifth.status === 401 || fifth.status === 429);
+
+  // Subsequent attempt (even with valid devOtp) fails with 429
+  const lockedOut = await apiCall(`/api/encounters/${journey._id}/verify-claim`, {
+    body: { otp: chal.body.devOtp },
+    token: patientToken1,
+  });
+  assert.equal(lockedOut.status, 429);
+  assert.match(lockedOut.body.message, /Too many wrong OTP attempts/);
+});
+
+test("AG05 actual router: challenge resend increments generation and invalidates earlier OTP", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  const chal1 = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+    body: { phone: "9876543210" },
+    token: patientToken1,
+  });
+  assert.equal(chal1.status, 200);
+  const otp1 = chal1.body.devOtp;
+
+  // Backdate requestedAt by 65 seconds to clear resend cooldown
+  await EncounterClaimChallenge.updateOne(
+    { _id: `claim_otp:${journey._id}:${patientUser1._id}` },
+    { $set: { requestedAt: new Date(Date.now() - 65000) } }
+  );
+
+  const chal2 = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+    body: { phone: "9876543210" },
+    token: patientToken1,
+  });
+  assert.equal(chal2.status, 200);
+  const otp2 = chal2.body.devOtp;
+
+  // Old OTP1 is rejected
+  const tryOld = await apiCall(`/api/encounters/${journey._id}/verify-claim`, {
+    body: { otp: otp1 },
+    token: patientToken1,
+  });
+  assert.equal(tryOld.status, 401);
+
+  // New OTP2 succeeds
+  const tryNew = await apiCall(`/api/encounters/${journey._id}/verify-claim`, {
+    body: { otp: otp2 },
+    token: patientToken1,
+  });
+  assert.equal(tryNew.status, 200);
+  assert.ok(tryNew.body.claimProof);
+});
+
+test("AG05 actual router: claim proof bound to self cannot link to family member and vice versa", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  const chal = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+    body: { phone: "9876543210" },
+    token: patientToken1,
+  });
+  const ver = await apiCall(`/api/encounters/${journey._id}/verify-claim`, {
+    body: { otp: chal.body.devOtp },
+    token: patientToken1,
+  });
+  assert.ok(ver.body.claimProof);
+
+  // Attempting to redirect self proof to family member fails with 403
+  const childFamilyId = patientUser1.familyMembers[0]._id;
+  const redirectAttempt = await apiCall(`/api/encounters/${journey._id}/link-account`, {
+    body: { claimProof: ver.body.claimProof, familyMemberId: childFamilyId },
+    token: patientToken1,
+  });
+  assert.equal(redirectAttempt.status, 403);
+
+  // Linking to self (as challenged) succeeds
+  const selfLink = await apiCall(`/api/encounters/${journey._id}/link-account`, {
+    body: { claimProof: ver.body.claimProof },
+    token: patientToken1,
+  });
+  assert.equal(selfLink.status, 200);
+  assert.equal(selfLink.body.isReplay, false);
+});
+
+test("AG05 actual router: simultaneous concurrent claims serialize to single winner and second gets 409 Conflict", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  // Create valid proofs for both user 1 and user 2
+  const ch1 = await requestClaimOtp({ encounterId: journey._id, userId: patientUser1._id, phone: "9876543210" });
+  const ver1 = await verifyClaimOtp({ encounterId: journey._id, userId: patientUser1._id, otp: ch1.devOtp });
+
+  const fakeProofToken = crypto.randomBytes(32).toString("hex");
+  const fakeHash = crypto.createHash("sha256").update(fakeProofToken).digest("hex");
+  await EncounterClaimChallenge.create({
+    _id: `claim_proof:${fakeHash}`,
+    kind: "proof",
+    encounterId: journey._id,
+    hospitalId: hospital._id,
+    userId: patientUser2._id,
+    phone: "9876543210",
+    generation: 1,
+    expiresAt: new Date(Date.now() + 600000),
+    consumedAt: null,
+  });
+
+  // Concurrent link requests
+  const [res1, res2] = await Promise.all([
+    apiCall(`/api/encounters/${journey._id}/link-account`, {
+      body: { claimProof: ver1.claimProof },
+      token: patientToken1,
+    }),
+    apiCall(`/api/encounters/${journey._id}/link-account`, {
+      body: { claimProof: fakeProofToken },
+      token: patientToken2,
+    }),
+  ]);
+
+  const statuses = [res1.status, res2.status].sort();
+  assert.deepEqual(statuses, [200, 409], "Exactly one claim succeeds and the competing claim gets 409 Conflict");
+});
+
+test("AG05 actual router: replay recovery idempotently returns 200 with isReplay: true", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  const chal = await apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+    body: { phone: "9876543210" },
+    token: patientToken1,
+  });
+  const ver = await apiCall(`/api/encounters/${journey._id}/verify-claim`, {
+    body: { otp: chal.body.devOtp },
+    token: patientToken1,
+  });
+
+  const firstLink = await apiCall(`/api/encounters/${journey._id}/link-account`, {
+    body: { claimProof: ver.body.claimProof },
+    token: patientToken1,
+  });
+  assert.equal(firstLink.status, 200);
+  assert.equal(firstLink.body.isReplay, false);
+  const rev = firstLink.body.encounter.revision;
+
+  // Replay request by same user
+  const replayLink = await apiCall(`/api/encounters/${journey._id}/link-account`, {
+    body: { claimProof: ver.body.claimProof },
+    token: patientToken1,
+  });
+  assert.equal(replayLink.status, 200);
+  assert.equal(replayLink.body.isReplay, true);
+  assert.equal(replayLink.body.encounter.revision, rev, "Replay must be idempotent");
 });

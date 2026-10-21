@@ -67,7 +67,7 @@ const inpatientInvoiceSchema = new mongoose.Schema(
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     invoiceNumber: { type: String, required: true, unique: true, index: true },
     admissionId: { type: objectId, ref: "IpdAdmission", required: true, index: true },
-    patientId: { type: objectId, ref: "User", required: true, index: true },
+    patientId: { type: objectId, ref: "user", required: true, index: true },
     status: {
       type: String,
       enum: ["draft", "interim", "finalized", "settled", "cancelled"],
@@ -96,7 +96,7 @@ const tpaPreAuthSchema = new mongoose.Schema(
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     claimNumber: { type: String, required: true, unique: true, index: true },
     admissionId: { type: objectId, ref: "IpdAdmission", required: true, index: true },
-    patientId: { type: objectId, ref: "User", required: true, index: true },
+    patientId: { type: objectId, ref: "user", required: true, index: true },
     insuranceCompany: { type: String, required: true, trim: true },
     tpaName: { type: String, required: true, trim: true },
     policyNumber: { type: String, required: true, trim: true },

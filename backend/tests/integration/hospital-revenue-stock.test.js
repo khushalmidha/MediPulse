@@ -77,6 +77,10 @@ beforeEach(async () => {
     _id: hospitalId,
     name: "Fortis Memorial Enterprise Hospital",
     slug: "fortis-enterprise",
+    registrationNumber: "REG-FORTIS-001",
+    type: "private",
+    email: "fortis-enterprise@example.test",
+    address: { city: "Gurugram", state: "Haryana" },
     status: "active",
     subscription: { plan: "enterprise", status: "active" },
   });
@@ -87,6 +91,7 @@ beforeEach(async () => {
     name: "Finance & Stores",
     code: "FIN-STORE",
     status: "active",
+    opd: { consultationFee: 500, isActive: true },
   });
 
   await HospitalStaff.create({
@@ -94,15 +99,19 @@ beforeEach(async () => {
     hospitalId,
     departmentIds: [departmentId],
     name: "Head of Billing & Stores Rajesh Khanna",
-    role: "ADMIN",
+    email: "rajesh.khanna@fortis.test",
+    role: "HOSPITAL_ADMIN",
     isActive: true,
   });
 
   await User.create({
     _id: patientId,
-    name: "Sunil Gavaskar",
+    firstName: "Sunil",
+    lastName: "Gavaskar",
     email: "sunil.g@test.org",
-    phone: "9812345678",
+    password: "Password@123",
+    gender: "male",
+    phoneNumber: 9812345678,
   });
 
   await Ward.create({

@@ -62,6 +62,10 @@ beforeEach(async () => {
     _id: hospitalId,
     name: "Apollo Global Enterprise Hospital",
     slug: "apollo-global",
+    registrationNumber: "REG-APOLLO-001",
+    type: "private",
+    email: "apollo-enterprise@example.test",
+    address: { city: "New Delhi", state: "Delhi" },
     status: "active",
     subscription: {
       plan: "enterprise",
@@ -75,13 +79,18 @@ beforeEach(async () => {
     name: "General Medicine & Inpatient Care",
     code: "GEN-MED",
     status: "active",
+    opd: { consultationFee: 500, isActive: true },
   });
 
   await Doctor.create({
     _id: doctorId,
-    name: "Dr. Arvind Sharma",
+    firstName: "Arvind",
+    lastName: "Sharma",
     email: "arvind.sharma@apollo.test",
+    password: "Password@123",
+    gender: "male",
     specialization: "Internal Medicine",
+    experience: { years: 15, expertise: "Internal Medicine" },
   });
 
   await HospitalStaff.create({
@@ -89,6 +98,7 @@ beforeEach(async () => {
     hospitalId,
     departmentIds: [departmentId],
     name: "Sister Mary Varghese",
+    email: "sister.mary@apollo.test",
     role: "NURSE",
     isActive: true,
   });
@@ -96,15 +106,21 @@ beforeEach(async () => {
   await User.create([
     {
       _id: patient1Id,
-      name: "Ramesh Kumar Patel",
+      firstName: "Ramesh Kumar",
+      lastName: "Patel",
       email: "ramesh.patel@test.org",
-      phone: "9876543210",
+      password: "Password@123",
+      gender: "male",
+      phoneNumber: 9876543210,
     },
     {
       _id: patient2Id,
-      name: "Sunita Verma",
+      firstName: "Sunita",
+      lastName: "Verma",
       email: "sunita.verma@test.org",
-      phone: "9876543211",
+      password: "Password@123",
+      gender: "female",
+      phoneNumber: 9876543211,
     },
   ]);
 });

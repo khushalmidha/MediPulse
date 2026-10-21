@@ -567,8 +567,8 @@ export const getInpatientTimeline = async ({ hospitalId, admissionId }) => {
 
   const [admission, transfers] = await Promise.all([
     IpdAdmission.findOne({ _id: admissionId, hospitalId })
-      .populate("patientId", "name email phone")
-      .populate("admittingDoctorId", "name email specialization")
+      .populate("patientId", "name email phone firstName lastName")
+      .populate("admittingDoctorId", "name email specialization firstName lastName")
       .populate("departmentId", "name code")
       .populate("currentWardId", "name code floor building")
       .populate("currentRoomId", "roomNumber roomType dailyTariffMinor")
@@ -586,6 +586,10 @@ export const getInpatientTimeline = async ({ hospitalId, admissionId }) => {
   ]);
 
   if (!admission) throw accessError(404, "Inpatient admission record not found");
+
+  if (admission.patientId && typeof admission.patientId === "object") {
+    admission.patientId.name = admission.patientId.name || [admission.patientId.firstName, admission.patientId.lastName].filter(Boolean).join(" ");
+  }
 
   return {
     admission,

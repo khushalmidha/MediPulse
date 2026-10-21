@@ -74,7 +74,7 @@ const dicomStudyReferenceSchema = new mongoose.Schema(
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     studyInstanceUid: { type: String, required: true, unique: true, index: true },
     accessionNumber: { type: String, required: true, index: true },
-    patientId: { type: objectId, ref: "User", required: true, index: true },
+    patientId: { type: objectId, ref: "user", required: true, index: true },
     modality: {
       type: String,
       enum: ["CT", "MRI", "XR", "US", "NM", "PET", "OT"],

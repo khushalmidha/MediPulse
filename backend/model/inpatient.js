@@ -57,7 +57,7 @@ const bedSchema = new mongoose.Schema(
       index: true,
     },
     currentAdmissionId: { type: objectId, ref: "IpdAdmission", default: null },
-    currentPatientId: { type: objectId, ref: "User", default: null },
+    currentPatientId: { type: objectId, ref: "user", default: null },
     maintenanceNote: { type: String, default: "" },
     version: { type: Number, default: 0 },
   },
@@ -71,11 +71,11 @@ const ipdAdmissionSchema = new mongoose.Schema(
   {
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     admissionNumber: { type: String, required: true, unique: true, index: true },
-    patientId: { type: objectId, ref: "User", required: true, index: true },
+    patientId: { type: objectId, ref: "user", required: true, index: true },
     familyMemberId: { type: String, default: null },
     encounterJourneyId: { type: objectId, ref: "EncounterJourney", default: null },
-    admittingDoctorId: { type: objectId, ref: "Doctor", required: true },
-    attendingDoctorId: { type: objectId, ref: "Doctor" },
+    admittingDoctorId: { type: objectId, ref: "doctor", required: true },
+    attendingDoctorId: { type: objectId, ref: "doctor" },
     primaryNurseId: { type: objectId, ref: "HospitalStaff" },
     departmentId: { type: objectId, ref: "Department", required: true, index: true },
     currentWardId: { type: objectId, ref: "Ward", required: true },
@@ -95,7 +95,7 @@ const ipdAdmissionSchema = new mongoose.Schema(
     dischargeDate: { type: Date, default: null },
     dischargeSummary: {
       summaryText: { type: String, default: "" },
-      signedByDoctorId: { type: objectId, ref: "Doctor", default: null },
+      signedByDoctorId: { type: objectId, ref: "doctor", default: null },
       signedAt: { type: Date, default: null },
       dischargeCondition: {
         type: String,

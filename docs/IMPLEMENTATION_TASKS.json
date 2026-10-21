@@ -4,7 +4,7 @@
   "reviewBaseline": "694fdb8d",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG05",
+  "startWith": "AG17",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -318,17 +318,21 @@
     {
       "id": "AG05",
       "title": "Verified walk-in account claim",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG02",
         "AG04"
       ],
       "evidence": [
+        "docs/CLAIM_DELIVERY_CONTRACT.md",
         "backend/routes/encounter.js",
         "backend/middleware/encounterAccess.js",
         "backend/services/encounterJourneyService.js",
-        "frontend/src/pages/hospital-website/PatientVisits.jsx"
+        "backend/services/claimDelivery.js",
+        "backend/model/encounterClaimChallenge.js",
+        "frontend/src/pages/hospital-website/PatientVisits.jsx",
+        "backend/tests/integration/encounter-walkin-claim.test.js"
       ],
       "implementation": [
         "Use verified claim proof with expiry/attempt limits and the real account owner; a phone string or ticket ID alone is insufficient.",
@@ -367,25 +371,44 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "reference": "docs/WORK_LOG.md - AG05 verified walk-in account claim, 22 October 2026",
         "productionAcceptance": "not performed",
-        "securityContainment": "request, verification and linking reject all non-test runtimes before reads/writes",
-        "domainIntegration": {
-          "passed": 9,
-          "failed": 0,
-          "skipped": 0
-        },
+        "deliveryContract": "recorded in docs/CLAIM_DELIVERY_CONTRACT.md; provider dispatch in backend/services/claimDelivery.js",
+        "securityContainment": "request, verification and linking reject unconfigured non-test runtimes with 503 before reads/writes",
         "boundaryUnit": {
           "passed": 1,
           "failed": 0,
           "skipped": 0
         },
-        "delivery": "not implemented; do not enable"
+        "domainIntegration": {
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        "routerIntegration": {
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 224,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 59,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendBuild": "passed",
+        "targetedBrowser": {
+          "passed": 20,
+          "failed": 0,
+          "skipped": 2
+        }
       },
       "remaining": [
-        "Configure an owner-approved real verification delivery provider; bind server-generated OTP to the recorded walk-in phone and intended patient/family. Never accept a requested OTP from the client.",
-        "Persist actual delivery acceptance/failure and enforce expiry, attempt limits, resend races and exact proof scope. No dev OTP in runtime responses.",
-        "Add actual-router delivery failure/replay/race tests and patient UI recovery before removing non-test 503 containment."
+        "Production activation requires owner-approved SMS provider credentials, live gateway testing, and clinical sign-off."
       ]
     },
     {
@@ -957,7 +980,7 @@
     {
       "id": "AG16",
       "title": "Final verification and production acceptance",
-      "status": "implemented_pending_final_checks",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG05",
@@ -1015,7 +1038,7 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "reference": "docs/WORK_LOG.md - AG16 final verification and enterprise fixture repair, 22 October 2026",
         "productionAcceptance": "not performed",
         "dependencyAudit": {
           "backend": 0,
@@ -1038,20 +1061,21 @@
           "failed": 0,
           "skipped": 2
         },
-        "build": "passed; 58.19s, main JS 409.14 kB / 131.32 kB gzip",
+        "build": "passed; 29.74s, main JS 409.14 kB / 131.31 kB gzip",
         "affectedLint": "passed; zero warnings",
+        "claimSecurityBoundary": "passed; 503 containment outside tests verified",
         "backendIntegrationRunner": {
-          "passed": 330,
+          "passed": 362,
           "failed": 0,
           "skipped": 0,
-          "durationSeconds": 378.37,
-          "scope": "Registered outpatient/core runner; excludes the five explicitly failed enterprise audit files"
+          "durationSeconds": 360.6,
+          "scope": "Full registered runner covering outpatient/connect suites plus all 5 repaired enterprise integration files"
         }
       },
       "remaining": [
-        "Finish AG05 verified delivery before pilot sign-off.",
         "Verify the exact deployed frontend/backend pair, readiness and approved schema/data dry-run; no production operation was performed in this review.",
-        "Observe approved mail delivery, physical-device/cross-network TURN, recovery/support/export workflows and owner acceptance. Demo credits are not provider settlement."
+        "Observe approved mail delivery, physical-device/cross-network TURN, recovery/support/export workflows and owner acceptance. Demo credits are not provider settlement.",
+        "Enterprise hospital expansion (AG17-AG22) milestones require owner/qualified reviewer policy decisions before live clinical/statutory activation."
       ]
     },
     {

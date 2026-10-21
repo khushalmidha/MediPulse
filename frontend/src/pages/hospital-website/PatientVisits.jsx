@@ -127,7 +127,15 @@ export default function PatientVisits({ slug }) {
       setClaimNotice(res.data?.message || "Verification code sent!");
       setClaimStep("otp_sent");
     } catch (err) {
-      setClaimError(err.response?.data?.message || "Could not request verification code.");
+      if (err.response?.status === 503) {
+        setClaimError(err.response?.data?.message || "Walk-in phone verification is not configured. Please contact hospital reception.");
+      } else if (err.response?.status === 429) {
+        setClaimError(err.response?.data?.message || "Rate limit reached. Please wait a minute before requesting another code.");
+      } else if (err.response?.status === 502) {
+        setClaimError(err.response?.data?.message || "SMS delivery service failed. Please try again or visit reception.");
+      } else {
+        setClaimError(err.response?.data?.message || "Could not request verification code.");
+      }
     } finally {
       setClaimLoading(false);
     }
@@ -159,7 +167,17 @@ export default function PatientVisits({ slug }) {
       setClaimDialogVisit(null);
       refreshAll();
     } catch (err) {
-      setClaimError(err.response?.data?.message || err.message || "Could not link walk-in visit to account.");
+      if (err.response?.status === 429) {
+        setClaimError(err.response?.data?.message || "Too many wrong attempts. Verification locked for security.");
+      } else if (err.response?.status === 410) {
+        setClaimError("Verification code or claim proof has expired or already been used. Please request a new code.");
+      } else if (err.response?.status === 409) {
+        setClaimError("This walk-in ticket has already been claimed by another account.");
+      } else if (err.response?.status === 403) {
+        setClaimError(err.response?.data?.message || "Claim proof does not match this account or chosen family member.");
+      } else {
+        setClaimError(err.response?.data?.message || err.message || "Could not link walk-in visit to account.");
+      }
     } finally {
       setClaimLoading(false);
     }
@@ -587,6 +605,13 @@ export default function PatientVisits({ slug }) {
               {claimDialogVisit.patientInfo?.name && (
                 <div><strong>Patient:</strong> {claimDialogVisit.patientInfo.name}</div>
               )}
+              {claimDialogVisit.patientInfo?.phone ? (
+                <div><strong>Registered Phone:</strong> {String(claimDialogVisit.patientInfo.phone).replace(/.(?=.{4})/g, "*")}</div>
+              ) : (
+                <div style={{ color: "var(--mp-warning)", marginTop: 4 }}>
+                  <strong>Notice:</strong> No phone recorded at check-in. Please visit hospital reception to verify and link your visit.
+                </div>
+              )}
               <div><strong>Service Date:</strong> {claimDialogVisit.serviceDate || "Today"}</div>
             </div>
 
@@ -646,7 +671,11 @@ export default function PatientVisits({ slug }) {
                   <Button variant="secondary" onClick={() => setClaimDialogVisit(null)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleRequestOtp} disabled={claimLoading}>
+                  <Button
+                    onClick={handleRequestOtp}
+                    disabled={claimLoading || !claimDialogVisit.patientInfo?.phone}
+                    title={!claimDialogVisit.patientInfo?.phone ? "Contact hospital reception to link visits without a recorded phone" : undefined}
+                  >
                     {claimLoading ? "Sending OTP..." : "Send Verification Code"}
                   </Button>
                 </div>

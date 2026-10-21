@@ -7,7 +7,7 @@ const inpatientOrderSchema = new mongoose.Schema(
   {
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     admissionId: { type: objectId, ref: "IpdAdmission", required: true, index: true },
-    patientId: { type: objectId, ref: "User", required: true, index: true },
+    patientId: { type: objectId, ref: "user", required: true, index: true },
     orderType: {
       type: String,
       enum: ["medication", "investigation", "nursing_care", "diet", "monitoring"],
@@ -20,7 +20,7 @@ const inpatientOrderSchema = new mongoose.Schema(
       default: "active",
       index: true,
     },
-    prescribedByDoctorId: { type: objectId, ref: "Doctor", required: true },
+    prescribedByDoctorId: { type: objectId, ref: "doctor", required: true },
     departmentId: { type: objectId, ref: "Department" },
     medicationDetails: {
       drugName: { type: String, trim: true },
@@ -44,7 +44,7 @@ const inpatientOrderSchema = new mongoose.Schema(
     startDate: { type: Date, default: Date.now },
     endDate: { type: Date },
     discontinuedReason: { type: String, default: "" },
-    discontinuedByDoctorId: { type: objectId, ref: "Doctor", default: null },
+    discontinuedByDoctorId: { type: objectId, ref: "doctor", default: null },
     version: { type: Number, default: 0 },
   },
   { timestamps: true }
@@ -55,7 +55,7 @@ const nursingVitalsSchema = new mongoose.Schema(
   {
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     admissionId: { type: objectId, ref: "IpdAdmission", required: true, index: true },
-    patientId: { type: objectId, ref: "User", required: true, index: true },
+    patientId: { type: objectId, ref: "user", required: true, index: true },
     recordedByStaffId: { type: objectId, ref: "HospitalStaff", required: true },
     respirationRate: { type: Number, required: true }, // breaths/min
     spO2: { type: Number, required: true }, // %
@@ -83,7 +83,7 @@ const nursingVitalsSchema = new mongoose.Schema(
       requiresCodeBlue: { type: Boolean, default: false },
     },
     escalationNotified: { type: Boolean, default: false },
-    escalatedToDoctorId: { type: objectId, ref: "Doctor", default: null },
+    escalatedToDoctorId: { type: objectId, ref: "doctor", default: null },
     recordedAt: { type: Date, default: Date.now, index: true },
   },
   { timestamps: true }
@@ -95,7 +95,7 @@ const emarSchema = new mongoose.Schema(
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     admissionId: { type: objectId, ref: "IpdAdmission", required: true, index: true },
     orderId: { type: objectId, ref: "InpatientOrder", required: true, index: true },
-    patientId: { type: objectId, ref: "User", required: true, index: true },
+    patientId: { type: objectId, ref: "user", required: true, index: true },
     scheduledTime: { type: Date, required: true, index: true },
     administeredAt: { type: Date, default: null },
     administeredByStaffId: { type: objectId, ref: "HospitalStaff", default: null },

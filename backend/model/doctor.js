@@ -136,6 +136,11 @@ doctorSchema.set("toJSON", { transform: (_doc, value) => {
   return value;
 } });
 
-const Doctor = mongoose.model('doctor', doctorSchema)
+const Doctor = mongoose.models.doctor || mongoose.model('doctor', doctorSchema);
+if (!mongoose.models.Doctor) {
+  try {
+    mongoose.model("Doctor", doctorSchema);
+  } catch {}
+}
 
-export default Doctor
+export default Doctor;

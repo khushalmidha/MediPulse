@@ -85,6 +85,11 @@ userSchema.set("toJSON", { transform: (_doc, value) => {
   return value;
 } });
 
-const User = mongoose.model("user", userSchema);
+const User = mongoose.models.user || mongoose.model("user", userSchema);
+if (!mongoose.models.User) {
+  try {
+    mongoose.model("User", userSchema);
+  } catch {}
+}
 
 export default User;

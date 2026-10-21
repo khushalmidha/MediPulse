@@ -13,6 +13,7 @@ import User from "../model/user.js";
 import LabOrder from "../model/labOrder.js";
 import Prescription from "../model/prescription.js";
 import EncounterClaimChallenge from "../model/encounterClaimChallenge.js";
+import { dispatchClaimVerificationCode } from "./claimDelivery.js";
 
 const DEFAULT_STEPS = ["reception", "vitals", "consultation"];
 
@@ -792,7 +793,7 @@ const requireClaimDelivery = () => {
   if (process.env.NODE_ENV !== "test") throw accessError(503,"Walk-in account verification is not configured. Contact hospital reception for assistance.");
 };
 
-export const requestClaimOtp = async ({ encounterId, userId, phone, familyMemberId, otp }) => {
+export const requestClaimOtp = async ({ encounterId, userId, phone, familyMemberId }) => {
   requireClaimDelivery();
   if (!userId) throw accessError(401, "Sign in is required to claim a visit");
   const encounter = await EncounterJourney.findById(encounterId);
@@ -816,14 +817,16 @@ export const requestClaimOtp = async ({ encounterId, userId, phone, familyMember
     if (!validFamily) throw accessError(400, "Invalid family member for this account");
   }
 
-  // Policy decision for phone matching:
-  // If walk-in ticket has recorded phone, caller's phone or user's phone must match
+  // Trusted recorded phone enforcement:
   const recordedPhone = token?.patientInfo?.phone ? String(token.patientInfo.phone).trim() : "";
-  const targetPhone = phone ? String(phone).trim() : (user.phoneNumber ? String(user.phoneNumber).trim() : "");
+  if (!recordedPhone) {
+    throw accessError(400, "Walk-in visit does not have a registered contact phone. Please contact hospital reception for identity verification and account linking.");
+  }
 
-  if (recordedPhone) {
+  const targetPhone = phone ? String(phone).trim() : (user.phoneNumber ? String(user.phoneNumber).trim() : "");
+  if (targetPhone) {
     const normalizedRecorded = recordedPhone.replace(/\D/g, "");
-    const normalizedTarget = (targetPhone || "").replace(/\D/g, "");
+    const normalizedTarget = targetPhone.replace(/\D/g, "");
     if (!normalizedTarget || normalizedRecorded.slice(-10) !== normalizedTarget.slice(-10)) {
       throw accessError(403, "Phone number does not match walk-in record");
     }
@@ -836,13 +839,78 @@ export const requestClaimOtp = async ({ encounterId, userId, phone, familyMember
     throw accessError(429, "Wait a minute before requesting another OTP");
   }
 
-  const generatedOtp = otp ? String(otp) : String(100000 + crypto.randomInt(900000));
+  const currentGeneration = (existing?.generation || 0) + 1;
+  const generatedOtp = String(crypto.randomInt(100000, 1000000));
   const hashed = crypto
     .createHmac("sha256", process.env.TOKEN_KEY || "default_test_token_key")
     .update(String(generatedOtp))
     .digest("hex");
   const expiresAt = new Date(now.getTime() + 600000); // 10 minutes
 
+  const maskedPhone = recordedPhone.length >= 4
+    ? recordedPhone.replace(/.(?=.{4})/g, "*")
+    : "registered phone";
+
+  // Dispatch via claim delivery provider contract
+  const dispatchResult = await dispatchClaimVerificationCode({
+    phone: recordedPhone,
+    otp: generatedOtp,
+    encounterId: encounter._id,
+    hospitalId: encounter.hospitalId,
+    maskedPhone,
+  });
+
+  if (dispatchResult.status === "unconfigured") {
+    await EncounterClaimChallenge.findOneAndUpdate(
+      { _id: challengeId },
+      {
+        $set: {
+          kind: "otp",
+          encounterId: encounter._id,
+          hospitalId: encounter.hospitalId,
+          userId,
+          familyMemberId: String(familyMemberId || ""),
+          phone: recordedPhone,
+          generation: currentGeneration,
+          deliveryStatus: "unconfigured",
+          deliveryProvider: dispatchResult.provider || "none",
+          deliveryError: dispatchResult.error || "Channel not configured",
+          requestedAt: now,
+          expiresAt,
+          consumedAt: null,
+        },
+      },
+      { upsert: true }
+    );
+    throw accessError(503, dispatchResult.error || "Walk-in phone verification delivery channel is not configured. Contact hospital reception for assistance.");
+  }
+
+  if (!dispatchResult.ok || dispatchResult.status === "failed") {
+    await EncounterClaimChallenge.findOneAndUpdate(
+      { _id: challengeId },
+      {
+        $set: {
+          kind: "otp",
+          encounterId: encounter._id,
+          hospitalId: encounter.hospitalId,
+          userId,
+          familyMemberId: String(familyMemberId || ""),
+          phone: recordedPhone,
+          generation: currentGeneration,
+          deliveryStatus: "failed",
+          deliveryProvider: dispatchResult.provider || "error",
+          deliveryError: dispatchResult.error || "Delivery failed",
+          requestedAt: now,
+          expiresAt,
+          consumedAt: null,
+        },
+      },
+      { upsert: true }
+    );
+    throw accessError(502, dispatchResult.error || "Unable to deliver verification code. Please try again or visit reception.");
+  }
+
+  // Delivery succeeded
   await EncounterClaimChallenge.findOneAndUpdate(
     { _id: challengeId },
     {
@@ -852,8 +920,13 @@ export const requestClaimOtp = async ({ encounterId, userId, phone, familyMember
         hospitalId: encounter.hospitalId,
         userId,
         familyMemberId: String(familyMemberId || ""),
-        phone: targetPhone || recordedPhone || "unrecorded",
+        phone: recordedPhone,
         otpHash: hashed,
+        generation: currentGeneration,
+        deliveryStatus: "sent",
+        deliveryProvider: dispatchResult.provider || "test",
+        deliveryDispatchedAt: dispatchResult.dispatchedAt || now,
+        deliveryError: "",
         attempts: 0,
         requestedAt: now,
         expiresAt,
@@ -862,10 +935,6 @@ export const requestClaimOtp = async ({ encounterId, userId, phone, familyMember
     },
     { upsert: true }
   );
-
-  const maskedPhone = targetPhone && targetPhone.length >= 4
-    ? targetPhone.replace(/.(?=.{4})/g, "*")
-    : "registered phone";
 
   return {
     success: true,
@@ -888,6 +957,9 @@ export const verifyClaimOtp = async ({ encounterId, userId, otp }) => {
   if (!challenge || challenge.expiresAt <= now || challenge.consumedAt) {
     throw accessError(410, "OTP expired or already used");
   }
+  if (challenge.deliveryStatus !== "sent") {
+    throw accessError(400, "Verification code was not successfully delivered");
+  }
   if (challenge.attempts >= 5) {
     throw accessError(429, "Too many wrong OTP attempts");
   }
@@ -905,9 +977,9 @@ export const verifyClaimOtp = async ({ encounterId, userId, otp }) => {
     throw accessError(401, "Incorrect OTP");
   }
 
-  // Atomically mark OTP challenge consumed
+  // Atomically mark OTP challenge consumed matching generation
   const consumed = await EncounterClaimChallenge.findOneAndUpdate(
-    { _id: challengeId, kind: "otp", otpHash: hashed, attempts: { $lt: 5 }, consumedAt: null, expiresAt: { $gt: now } },
+    { _id: challengeId, kind: "otp", otpHash: hashed, generation: challenge.generation, attempts: { $lt: 5 }, consumedAt: null, expiresAt: { $gt: now } },
     { $set: { consumedAt: now } },
     { new: true }
   );
@@ -927,6 +999,7 @@ export const verifyClaimOtp = async ({ encounterId, userId, otp }) => {
     userId: challenge.userId,
     familyMemberId: challenge.familyMemberId || "",
     phone: challenge.phone,
+    generation: challenge.generation,
     expiresAt,
     consumedAt: null,
   });

@@ -2744,3 +2744,40 @@ Baseline: 72635cd0, confirmed published to origin/main as Khushal Midha after th
 - Updated the existing ANTIGRAVITY_HANDOFF launcher and ledger executionPlan reference. Retained every task status/dependency and the exact next task AG05; the plan does not claim unfinished work is implemented.
 - Preserved Common's production/provider/data approval boundary and existing main/Khushal Git authorization. No production or application changes in this documentation phase.
 - Validation: plan/ledger consistency, required pending-task coverage, local Markdown links and staged whitespace checks. Application suites are not rerun for this documentation-only change; prior runtime evidence remains scoped to 72635cd0 in ANTIGRAVITY_FINAL_REVIEW.md.
+
+## AG05 Verified Walk-in Claim and AG16 Outpatient Verification - 22 October 2026
+
+Baseline: 72635cd0 on main. Continuation executing `docs/ANTIGRAVITY_HANDOFF.md` launcher using `docs/ANTIGRAVITY_COMPLETION_PLAN.md`.
+
+### Implemented changes & verification
+
+- **AG05 Verified Walk-in Account Claim:**
+  - Documented delivery contract in `docs/CLAIM_DELIVERY_CONTRACT.md`: trusted recorded phone matching, channel provider dispatch, generation rotation, attempt limits (5 max -> 429), durable delivery states (`pending`, `sent`, `failed`, `unconfigured`), single-winner concurrency, and idempotent replay recovery.
+  - Implemented delivery adapter `backend/services/claimDelivery.js` with `dispatchClaimVerificationCode`, `setClaimDeliveryAdapterForTest`, and unconfigured 503 containment.
+  - Updated `backend/model/encounterClaimChallenge.js` schema with delivery fields (`deliveryStatus`, `deliveryProvider`, `deliveryDispatchedAt`, `deliveryError`) and generation tracking.
+  - Updated `backend/services/encounterJourneyService.js`: server-generated 6-digit cryptographic PRNG OTP (discarding caller-provided OTPs), generation invalidation, 5-attempt rate-limit lockout, transactional single-winner CAS linking with proof consumption.
+  - Enhanced patient claim dialog in `frontend/src/pages/hospital-website/PatientVisits.jsx`: masked registered phone display (`******3210`), warning banner for unrecorded walk-ins, explicit status code handling (`503`, `502`, `429`, `410`, `409`, `403`).
+  - Executed `backend/tests/integration/encounter-walkin-claim.test.js`: **20/20 passed** (1 boundary unit, 9 domain integration, 10 actual-router integration cases).
+  - Executed `backend/tests/claim-security-boundary.test.js`: **passed** (503 containment outside tests verified).
+
+- **Enterprise Fixture Repair & Full Runner Registration (AG16):**
+  - Repaired test fixtures across all 5 enterprise suites (`ipd-adt.test.js`, `nursing-care.test.js`, `emergency-theatre.test.js`, `hospital-revenue-stock.test.js`, `hospital-integrations.test.js`).
+  - Added valid `Doctor` schema fields (`experience.years` and `experience.expertise`) across fixtures.
+  - Resolved Mongoose model reference casing by aligning `ref: "user"` and `ref: "doctor"` across enterprise schemas and registering aliases in `model/user.js` and `model/doctor.js`.
+  - Corrected DR drill overallStatus expectation to assert `recorded_unverified` and operating acceptance to assert `not_accepted` per review guard in `72635cd0`.
+  - Registered all 5 enterprise suites in `backend/scripts/testIntegration.js`.
+  - Executed all 5 enterprise suites: **22/22 passed** (7 IPD, 4 Nursing, 2 Emergency, 2 Revenue, 2 Integrations).
+  - Executed full registered backend integration runner: **362/362 passed, 0 failed, 0 skipped** (360.60s).
+  - Executed backend unit suite: **224/224 passed** (15.98s).
+  - Executed frontend unit suite: **59/59 passed** (455ms).
+  - Executed targeted Chromium browser journeys: **20 passed, 2 duplicate viewport sweeps skipped** (58.8s + 38.5s).
+  - Frontend production build: **passed cleanly** (29.74s, main JS 409.14 kB / 131.31 kB gzip).
+  - Affected ESLint: **passed with 0 warnings/errors**.
+  - Generated inventory updated: 25 mounts, 244 route declarations, 70 frontend route declarations.
+  - Task ledger `docs/IMPLEMENTATION_TASKS.json`: AG05 and AG16 transitioned to `verified_local` with `productionAcceptance: "not performed"`; next task set to `AG17`.
+
+### Data and boundary affirmation
+
+- Additive and reversible changes only; zero production database, index, seed, or migration executed.
+- Walk-in claim retains 503 containment outside tests until an approved external SMS provider is provisioned.
+- Enterprise models and services remain unmounted prototypes until owner policy decisions and clinical review are completed (AG17).
