@@ -62,3 +62,13 @@ test("staff communication thread matcher isolates conversations", () => {
   const labMsg = { conversationType: "patient_context", tokenId: "tok-100", messageType: "lab_alert" };
   assert.equal(labMsg.messageType === "lab_alert", true);
 });
+
+
+test("enterprise API families use staff CSRF while patient/copilot paths retain account scope", async () => {
+  const { scopeForPath } = await import("../src/utils/sessionScope.js");
+  for (const mount of ["inpatient", "nursing", "emergency", "theatre", "revenue", "procurement", "integrations", "enterprise"]) {
+    assert.equal(scopeForPath(`/backend/api/${mount}/command`), "staff");
+    assert.equal(scopeForPath(`/api/${mount}`), "staff");
+  }
+  for (const path of ["/api/copilot/notes", "/api/patients/me/family", "/api/opd/id/book", "/api/opd/id/my-token"]) assert.equal(scopeForPath(path), "account");
+});

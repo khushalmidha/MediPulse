@@ -2993,3 +2993,33 @@ Baseline: `f08cafa1` on main. Completed bounded vertical Hospital Integrations &
 - Additive and reversible changes only; zero production database, index, seed, or migration executed.
 - Local tests verified on isolated synthetic databases against local MongoDB replica set (`rs0`) and Redis.
 - Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.
+
+
+## Independent verification of AG22 32c85bde and safety wrap-up - 22 October 2026
+
+User requested verification of Antigravity's six new commits and fast finalization. Started clean on main at 32c85bde. Confirmed real new routers/controllers/staff consoles and reproduced 31 passing enterprise Mongo cases and 225 backend units; earlier fixture failures are superseded. Passing assertions still accepted fake processing/witness behavior and missed adversarial retries.
+
+- Added default-off enterprise operating guard to all five service boundaries and documented ENTERPRISE_PILOT_ENABLED=false. This is containment for confirmed unfinished access/policy/financial requirements, not a certification/approval switch. No existing outpatient route was gated.
+- LIS: deterministic tenant/message upsert, canonical content/type/accession conflict checks, bounded payloads, truthful received/no processedAt metadata, and unchanged-record 503 for unimplemented replay. Declared tenant/source compound uniqueness; no production index executed. Viewer URLs and literal search bounded/validated.
+- Stock/finance: durable bounded command fingerprints for older partial retries; reject unrequested/excess/duplicate/fractional items, invalid ward, corrupt totals and insufficient unexpired batches. Ambiguous legacy partial history stays preserved and fails for reviewed reconciliation. Bind invoice/preauth identity and insurance application; safe whole minor-unit validation. Full financial command/reversal work remains open.
+- Nursing: reject truthy string bedside checks; serialize dose versus discontinuation and bind active order/admission/patient. Controlled/high-alert dosing refuses caller-entered witness authorization. Do not claim notifications or incoming handover acceptance that did not happen.
+- UI: server denial messages/resource disposal, role-scoped integration tabs, retained receipt identity across retries, shared palette and responsive tabs/grids. Real mobile overflow was found and repaired. Added browser coverage for all four empty consoles at 360/768/1440, denial cleanup and nurse routing; no external endpoints or real users used.
+- Updated current review/status/ledger/handoff and historical document pointers; no delivered controllers/consoles were discarded. AG05 provider is still a runtime stub, and AG17/AG18-AG22 requirements remain explicit.
+
+| Check | Result | Scope |
+|---|---|---|
+| Registered integration runner | 376 passed, 0 failed/skipped; 463.43s | Core/Connect/outpatient plus repaired enterprise files and new adversarial cases |
+| Latest stock follow-up | 7 passed, 0 failed/skipped; 15.99s | Final source also rejects ambiguous legacy partial-command history |
+| Backend units | 226 passed, 0 failed/skipped | Includes new non-test enterprise boundary regression |
+| Frontend units | 60 passed, 0 failed/skipped | Includes new enterprise staff-CSRF/account-scope regression |
+| Chromium browser subset | 18 passed, 0 failed, 2 duplicate viewport sweeps skipped; 1.1m | Four empty enterprise consoles at 360/768/1440, role/denial cleanup and actual staff-CSRF write/retry, plus existing clinical note/review/pause and two-participant call checks |
+| Affected frontend lint | Passed, zero warnings | Four modified staff consoles and sessionScope helper |
+| Production build | Passed; 24.40s | Main JS 414.75 kB / 132.52 kB gzip |
+| Dependency audits | Backend 0, frontend 0 reported advisories | Fresh full npm audits; no dependency changes in this review |
+| Plan consistency | 23 tasks; 15 verified local, next AG05 | Evidence/dependency consistency only, not software or clinical acceptance |
+
+Initial focused run's two reported failures were a child/parent assertion mismatch (null model default versus undefined), corrected. Initial browser run found genuine overflow and a new test heading mismatch; a second run narrowed overflow to revenue tabs. Corrected the actual layout and test locator, then reran. No failed/superseded run is counted as passing. The full runner started before the final legacy-partial-stock follow-up; the latest stock file was rerun separately to cover that guard on the final source.
+
+No production DB/index/seed/data/credential/wallet/archive write, real notification/provider activation, DNS or deployment-console action occurred. LIS secondary-index replacement requires inspected data/indexes, backup/rehearsal, paused writers and exact separate approval; startup autoIndex/syncIndexes is not a migration plan. Stock history addition is additive; old ambiguous records are not rewritten. Publication target: origin/main as Khushal Midha, no force push/coauthor. Current review contains exact remaining work and release boundaries.
+
+Final HTTP/browser follow-up: new enterprise API paths were missing from sessionScope and used account CSRF. Added all eight staff mounts, account-path preservation unit coverage and a real frontend cookie-write retry browser check. Receipt command identity and dialog failure feedback are retained; stock UI no longer turns an explicit zero quantity into a full issue. Reran frontend units, affected lint/build and the combined browser subset after these changes.

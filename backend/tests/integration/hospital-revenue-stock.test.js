@@ -703,3 +703,35 @@ test("Task AG21: Hospital Revenue, Procurement and Stock Operations (Integration
     }
   });
 });
+
+
+test("AG21 review: stock commands reject excess/unrequested items and remember older partial retries", async () => {
+  assert.ok(db, "Isolated Mongo is required");
+  await CentralStoreStock.create({ hospitalId, itemCode: "SYNTHETIC", itemName: "Synthetic stock", batches: [{ batchNumber: "B1", expiryDate: new Date(Date.now() + 86400000), quantity: 100, unitCostMinor: 1 }], totalQuantity: 100 });
+  const made = await requestWardStock({ hospitalId, wardId, items: [{ itemCode: "SYNTHETIC", quantityRequested: 10 }], actor: { staffId } });
+  const input = { hospitalId, requisitionNumber: made.requisition.requisitionNumber, actor: { staffId } };
+  const issue = (key, quantity, itemCode = "SYNTHETIC") => fulfillWardStockTransfer({ ...input, transferIdempotencyKey: key, itemsToIssue: [{ itemCode, quantityToIssue: quantity }] });
+  await assert.rejects(issue("bad-code", 1, "OTHER"), error => error.status === 409);
+  await assert.rejects(issue("excess", 11), error => error.status === 409);
+  await assert.rejects(issue("fraction", 1.5), error => error.status === 400);
+  await issue("partial-A", 2); await issue("partial-B", 3);
+  assert.equal((await issue("partial-A", 2)).idempotentReplay, true);
+  await assert.rejects(issue("partial-A", 4), error => error.status === 409);
+  assert.equal((await CentralStoreStock.findOne({ hospitalId, itemCode: "SYNTHETIC" })).totalQuantity, 95);
+  assert.equal((await WardStockRequisition.findById(made.requisition._id)).items[0].quantityIssued, 5);
+  await WardStockRequisition.updateOne({ _id: made.requisition._id }, { $set: { transferCommands: [], transferIdempotencyKey: "legacy-last" } });
+  await assert.rejects(issue("unknown-old-command", 2), error => error.status === 409 && /Legacy partial/.test(error.message));
+  assert.equal((await CentralStoreStock.findOne({ hospitalId, itemCode: "SYNTHETIC" })).totalQuantity, 95);
+});
+
+test("AG21 review: insurance cannot cross admissions and monetary inputs must be finite whole minor units", async () => {
+  assert.ok(db, "Isolated Mongo is required");
+  const made = await createInpatientInvoice({ hospitalId, admissionId, patientId, actor: { staffId } });
+  const preAuth = await TpaPreAuth.create({ hospitalId, claimNumber: "FOREIGN-ADMISSION", admissionId: id(), patientId, insuranceCompany: "Synthetic", tpaName: "Synthetic", policyNumber: "Synthetic", preAuthApprovedLimitMinor: 100, copayPercentage: 0, status: "pre_auth_approved" });
+  await assert.rejects(applyTpaPreAuthToInvoice({ hospitalId, invoiceId: made.invoice._id, tpaPreAuthId: preAuth._id }), error => error.status === 409);
+  for (const amountMinor of [Infinity, NaN, 1.5]) {
+    await assert.rejects(recordInvoicePayment({ hospitalId, invoiceId: made.invoice._id, amountMinor, paymentMode: "cash" }), error => error.status === 400);
+    await assert.rejects(issueCreditNote({ hospitalId, invoiceId: made.invoice._id, amountMinor, reason: "Synthetic" }), error => error.status === 400);
+  }
+  await assert.rejects(createInpatientInvoice({ hospitalId, admissionId, patientId: id() }), error => error.status === 403);
+});

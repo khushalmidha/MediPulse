@@ -1,3 +1,4 @@
+import { assertEnterprisePilot } from "./enterprisePilot.js";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import { Ward, Room, Bed, IpdAdmission, BedTransferRecord } from "../model/inpatient.js";
@@ -15,6 +16,7 @@ export const setIpdAdtTestDouble = (double) => {
 };
 
 const assertDbConnected = () => {
+  assertEnterprisePilot();
   if (!testDouble && mongoose.connection?.readyState !== 1) {
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }

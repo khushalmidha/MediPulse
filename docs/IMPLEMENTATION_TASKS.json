@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
   "reviewDate": "2026-10-22",
-  "reviewBaseline": "694fdb8d",
+  "reviewBaseline": "32c85bde",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG22",
+  "startWith": "AG05",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -318,7 +318,7 @@
     {
       "id": "AG05",
       "title": "Verified walk-in account claim",
-      "status": "verified_local",
+      "status": "pending",
       "priority": "P0",
       "dependsOn": [
         "AG02",
@@ -371,6 +371,15 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
+        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
+      },
+      "remaining": [
+        "Implement a real approved verification provider; current dispatch is a stub and all non-test claim paths remain 503.",
+        "Make challenge generation/reservation, cooldown and delivery/retry durable and atomic before enabling a provider; preserve exact proof scope."
+      ],
+      "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG05 verified walk-in account claim, 22 October 2026",
         "productionAcceptance": "not performed",
         "deliveryContract": "recorded in docs/CLAIM_DELIVERY_CONTRACT.md; provider dispatch in backend/services/claimDelivery.js",
@@ -406,10 +415,7 @@
           "failed": 0,
           "skipped": 2
         }
-      },
-      "remaining": [
-        "Production activation requires owner-approved SMS provider credentials, live gateway testing, and clinical sign-off."
-      ]
+      }
     },
     {
       "id": "AG06",
@@ -980,7 +986,7 @@
     {
       "id": "AG16",
       "title": "Final verification and production acceptance",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P0",
       "dependsOn": [
         "AG05",
@@ -1038,6 +1044,43 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
+        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
+        "backendIntegrationRunner": {
+          "passed": 376,
+          "failed": 0,
+          "skipped": 0,
+          "durationSeconds": 463.43
+        },
+        "latestStockFollowUp": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 226,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 60,
+          "failed": 0,
+          "skipped": 0
+        },
+        "targetedBrowser": {
+          "passed": 18,
+          "failed": 0,
+          "skipped": 2
+        },
+        "build": "passed; 24.40s, main JS 414.75 kB / 132.52 kB gzip",
+        "affectedLint": "passed, zero warnings"
+      },
+      "remaining": [
+        "Complete exact deployed-pair/readiness/schema/data and provider/physical-device/TURN/recovery/owner acceptance; local tests do not close production acceptance.",
+        "Keep enterprise runtime closed until the documented actor/source/policy and financial requirements pass."
+      ],
+      "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG16 final verification and enterprise fixture repair, 22 October 2026",
         "productionAcceptance": "not performed",
         "dependencyAudit": {
@@ -1071,17 +1114,12 @@
           "durationSeconds": 360.6,
           "scope": "Full registered runner covering outpatient/connect suites plus all 5 repaired enterprise integration files"
         }
-      },
-      "remaining": [
-        "Verify the exact deployed frontend/backend pair, readiness and approved schema/data dry-run; no production operation was performed in this review.",
-        "Observe approved mail delivery, physical-device/cross-network TURN, recovery/support/export workflows and owner acceptance. Demo credits are not provider settlement.",
-        "Enterprise hospital expansion (AG17-AG22) milestones require owner/qualified reviewer policy decisions before live clinical/statutory activation."
-      ]
+      }
     },
     {
       "id": "AG17",
       "title": "Enterprise hospital expansion requirements and phases",
-      "status": "verified_local",
+      "status": "pending",
       "priority": "P2",
       "dependsOn": [
         "AG16"
@@ -1124,6 +1162,14 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
+        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
+      },
+      "remaining": [
+        "Record actual hospital and qualified reviewer approvals for the proposed governance, role, clinical and retention/recovery decisions."
+      ],
+      "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG17 enterprise requirements specification and capability matrix, 22 October 2026",
         "enterprisePlanUnit": {
           "passed": 8,
@@ -1146,16 +1192,12 @@
           "skipped": 0
         },
         "productionAcceptance": "not performed"
-      },
-      "remaining": [
-        "Actual hospital owner and qualified reviewer decisions on operating jurisdiction, retention schedule, clinical escalation hierarchy, and DR objectives must be signed before live clinical deployment.",
-        "Obtain site-specific qualified clinical review for nursing handover protocols and emergency triage thresholds."
-      ]
+      }
     },
     {
       "id": "AG18",
       "title": "Inpatient admission, discharge, transfers and beds",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1200,6 +1242,15 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
+        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
+      },
+      "remaining": [
+        "Complete active patient/family/department/clinician/encounter source validation and actor assignment, durable command replay and admission identity invariants.",
+        "Verify required enterprise named indexes and rehearse migration/recovery without production autoIndex."
+      ],
+      "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG18 Inpatient admission, discharge, transfers and beds, 22 October 2026",
         "productionAcceptance": "not performed",
         "ipdAdtUnit": {
@@ -1228,13 +1279,12 @@
           "skipped": 0
         },
         "frontendBuild": "clean"
-      },
-      "remaining": []
+      }
     },
     {
       "id": "AG19",
       "title": "Inpatient clinical orders, nursing and medication administration",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1279,6 +1329,16 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
+        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
+      },
+      "remaining": [
+        "Implement independent authenticated medication witness approval; controlled/high-alert administration is explicitly unavailable meanwhile.",
+        "Implement incoming handover acceptance and observed escalation delivery; preserve pending states until those events occur.",
+        "Complete trusted clinician identity and department/source clinical authorization."
+      ],
+      "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG19 Inpatient clinical orders, nursing and medication administration, 22 October 2026",
         "productionAcceptance": "not performed",
         "nursingCareUnit": {
@@ -1307,13 +1367,12 @@
           "skipped": 0
         },
         "frontendBuild": "clean"
-      },
-      "remaining": []
+      }
     },
     {
       "id": "AG20",
       "title": "Emergency and theatre workflows",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1359,6 +1418,14 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
+        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
+      },
+      "remaining": [
+        "Complete approved clinical/team/source/capability and retry/recovery requirements; exercise actual hospital acceptance scenarios before operating enablement."
+      ],
+      "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG20 emergency and theatre workflows, 22 October 2026",
         "productionAcceptance": "not performed",
         "emergencyTheatreUnit": {
@@ -1387,13 +1454,12 @@
           "skipped": 0
         },
         "frontendBuild": "clean"
-      },
-      "remaining": []
+      }
     },
     {
       "id": "AG21",
       "title": "Hospital revenue, procurement and stock operations",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1440,6 +1506,43 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
+        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
+        "backendIntegrationRunner": {
+          "passed": 376,
+          "failed": 0,
+          "skipped": 0,
+          "durationSeconds": 463.43
+        },
+        "latestStockFollowUp": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 226,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 60,
+          "failed": 0,
+          "skipped": 0
+        },
+        "targetedBrowser": {
+          "passed": 18,
+          "failed": 0,
+          "skipped": 2
+        },
+        "build": "passed; 24.40s, main JS 414.75 kB / 132.52 kB gzip",
+        "affectedLint": "passed, zero warnings"
+      },
+      "remaining": [
+        "Complete durable invoice/payment/credit command identity, immutable financial/reversal history, role/source authorization and reconciliation.",
+        "Reconcile preserved legacy partial transfers before issuing more stock; existing command ambiguity must not be guessed away."
+      ],
+      "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG21 hospital revenue, procurement and stock operations, 22 October 2026",
         "productionAcceptance": "not performed",
         "observedIntegration": {
@@ -1459,13 +1562,12 @@
           "passed": 59,
           "failed": 0
         }
-      },
-      "remaining": []
+      }
     },
     {
       "id": "AG22",
       "title": "Hospital integrations and enterprise operating acceptance",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1514,6 +1616,43 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
+        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
+        "backendIntegrationRunner": {
+          "passed": 376,
+          "failed": 0,
+          "skipped": 0,
+          "durationSeconds": 463.43
+        },
+        "latestStockFollowUp": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 226,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 60,
+          "failed": 0,
+          "skipped": 0
+        },
+        "targetedBrowser": {
+          "passed": 18,
+          "failed": 0,
+          "skipped": 2
+        },
+        "build": "passed; 24.40s, main JS 414.75 kB / 132.52 kB gzip",
+        "affectedLint": "passed, zero warnings"
+      },
+      "remaining": [
+        "Implement actual agreed LIS parsers/workers, authenticated PACS viewing and SAML/OIDC/SCIM behavior; configuration and receipt metadata do not implement those adapters.",
+        "Complete source-patient/department authorization, observed restore/integrity acceptance and reviewed tenant-scoped LIS index migration."
+      ],
+      "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG22 hospital integrations and enterprise operating acceptance, 22 October 2026",
         "productionAcceptance": "not performed",
         "observedIntegrationsUnit": {
@@ -1541,10 +1680,9 @@
           "failed": 0
         },
         "observedBuild": "passed"
-      },
-      "remaining": []
+      }
     }
   ],
-  "reviewReference": "docs/ANTIGRAVITY_FINAL_REVIEW.md",
+  "reviewReference": "docs/AG22_VERIFICATION_REVIEW.md",
   "executionPlan": "docs/ANTIGRAVITY_COMPLETION_PLAN.md"
 }

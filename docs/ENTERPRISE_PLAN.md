@@ -1,5 +1,7 @@
 # MediPulse Enterprise Hospital Expansion Plan & Architectural Specification
 
+> Current independent review: [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md). APIs/consoles now exist but operating approval is pending. LIS records receipt hashes without parsing, PACS is metadata, SSO/SCIM is configuration, controlled-dose witness authorization is unavailable, handover acceptance and escalation delivery are pending. ENTERPRISE_PILOT_ENABLED defaults false; this proposal does not authorize enabling it.
+
 **Document Version:** 2.0.0  
 **Date:** 21 October 2026  
 **Status:** UNAPPROVED PROPOSAL - independent review reopened AG17-AG22 on 22 October 2026

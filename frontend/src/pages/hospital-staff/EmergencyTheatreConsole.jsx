@@ -22,7 +22,7 @@ const TRIAGE_LEVELS = {
   2: { level: 2, code: "EMERGENT", name: "Very Urgent", maxWait: "10 min", tone: "warning", bg: "#FFF7ED", border: "#FB923C" },
   3: { level: 3, code: "URGENT", name: "Urgent", maxWait: "30 min", tone: "warning", bg: "#FEFCE8", border: "#FACC15" },
   4: { level: 4, code: "LESS_URGENT", name: "Less Urgent", maxWait: "60 min", tone: "positive", bg: "#F0FDF4", border: "#4ADE80" },
-  5: { level: 5, code: "NON_URGENT", name: "Non-Urgent", maxWait: "120 min", tone: "info", bg: "#EFF6FF", border: "#60A5FA" },
+  5: { level: 5, code: "NON_URGENT", name: "Non-Urgent", maxWait: "120 min", tone: "info", bg: "var(--mp-accent-soft)", border: "#60A5FA" },
 };
 
 const STATUS_TONES = {
@@ -42,7 +42,7 @@ export default function EmergencyTheatreConsole({ initialTab = "emergency" }) {
   const { staffUser, isStaffAuth } = useAuth();
   if (!isStaffAuth) {
     return (
-      <main className="mp-page">
+      <main className="mp-page mp-enterprise">
         <Card>
           <h1>Hospital Staff Authentication Required</h1>
           <p>Please sign in with your hospital staff account to access Emergency Department and Theatre operations.</p>
@@ -50,7 +50,7 @@ export default function EmergencyTheatreConsole({ initialTab = "emergency" }) {
       </main>
     );
   }
-  return <EmergencyTheatreWorkspace key={`${staffUser?._id || staffUser?.id}:${staffUser?.hospitalId}`} initialTab={initialTab} />;
+  return <EmergencyTheatreWorkspace key={`${staffUser?._id || staffUser?.id}:${staffUser?.hospitalId}:${staffUser?.role}:${Boolean(staffUser?.adminAccess)}`} initialTab={initialTab} />;
 }
 
 function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
@@ -187,14 +187,14 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
   };
 
   return (
-    <main className="mp-page" style={{ maxWidth: 1400, margin: "0 auto", padding: "1.5rem" }}>
+    <main className="mp-page mp-enterprise" style={{ maxWidth: 1400, margin: "0 auto", padding: "1.5rem" }}>
       {/* Header */}
       <header style={{ marginBottom: "1.5rem", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
         <div>
           <h1 style={{ fontSize: "1.875rem", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <Siren style={{ color: "#DC2626" }} /> Emergency & Operation Theatre Console
           </h1>
-          <p style={{ margin: "0.25rem 0 0", color: "#64748B" }}>
+          <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)" }}>
             5-Level Emergency Triage Intake, Resuscitation Bay Tracking & WHO Surgical Safety Checklist Workflows
           </p>
         </div>
@@ -223,7 +223,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
       )}
 
       {/* Tabs */}
-      <nav style={{ display: "flex", gap: "0.5rem", borderBottom: "2px solid #E2E8F0", marginBottom: "1.5rem" }}>
+      <nav className="mp-enterprise-tabs" style={{ display: "flex", gap: "0.5rem", borderBottom: "2px solid var(--mp-border)", marginBottom: "1.5rem" }}>
         <button
           type="button"
           onClick={() => setActiveTab("emergency")}
@@ -233,7 +233,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
             border: "none",
             background: "none",
             borderBottom: activeTab === "emergency" ? "3px solid #DC2626" : "3px solid transparent",
-            color: activeTab === "emergency" ? "#DC2626" : "#64748B",
+            color: activeTab === "emergency" ? "#DC2626" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -252,7 +252,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
             border: "none",
             background: "none",
             borderBottom: activeTab === "theatre" ? "3px solid #0D9488" : "3px solid transparent",
-            color: activeTab === "theatre" ? "#0D9488" : "#64748B",
+            color: activeTab === "theatre" ? "#0D9488" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -270,8 +270,8 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
             fontWeight: 600,
             border: "none",
             background: "none",
-            borderBottom: activeTab === "checklist" ? "3px solid #2563EB" : "3px solid transparent",
-            color: activeTab === "checklist" ? "#2563EB" : "#64748B",
+            borderBottom: activeTab === "checklist" ? "3px solid var(--mp-primary)" : "3px solid transparent",
+            color: activeTab === "checklist" ? "var(--mp-primary)" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -286,29 +286,29 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
       {activeTab === "emergency" && (
         <section>
           {/* Metrics bar */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
             <Card style={{ borderLeft: "4px solid #DC2626" }}>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", fontWeight: 600 }}>Level 1: Resuscitation</div>
+              <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", fontWeight: 600 }}>Level 1: Resuscitation</div>
               <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#DC2626" }}>{edStats.l1}</div>
               <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>Immediate care (0m wait)</div>
             </Card>
             <Card style={{ borderLeft: "4px solid #EA580C" }}>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", fontWeight: 600 }}>Level 2: Emergent</div>
+              <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", fontWeight: 600 }}>Level 2: Emergent</div>
               <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#EA580C" }}>{edStats.l2}</div>
               <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>Within 10 min</div>
             </Card>
             <Card style={{ borderLeft: "4px solid #EAB308" }}>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", fontWeight: 600 }}>Level 3: Urgent</div>
+              <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", fontWeight: 600 }}>Level 3: Urgent</div>
               <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#CA8A04" }}>{edStats.l3}</div>
               <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>Within 30 min</div>
             </Card>
             <Card style={{ borderLeft: "4px solid #0D9488" }}>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", fontWeight: 600 }}>In Treatment</div>
+              <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", fontWeight: 600 }}>In Treatment</div>
               <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#0D9488" }}>{edStats.inTreatment}</div>
               <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>Active acute care</div>
             </Card>
             <Card style={{ borderLeft: "4px solid #3B82F6" }}>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", fontWeight: 600 }}>Admitted to IPD</div>
+              <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", fontWeight: 600 }}>Admitted to IPD</div>
               <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#3B82F6" }}>{edStats.admittedIpd}</div>
               <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>Transferred to ward</div>
             </Card>
@@ -373,10 +373,10 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
               action={<Button variant="outline" onClick={() => setIntakeModalOpen(true)}>Register Emergency Patient</Button>}
             />
           ) : (
-            <div style={{ overflowX: "auto", border: "1px solid #E2E8F0", borderRadius: "8px", background: "#FFF" }}>
+            <div style={{ overflowX: "auto", border: "1px solid var(--mp-border)", borderRadius: "8px", background: "#FFF" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
                 <thead>
-                  <tr style={{ background: "#F8FAFC", borderBottom: "2px solid #E2E8F0" }}>
+                  <tr style={{ background: "var(--mp-surface-subtle)", borderBottom: "2px solid var(--mp-border)" }}>
                     <th style={{ padding: "0.75rem 1rem" }}>Acuity / Triage</th>
                     <th style={{ padding: "0.75rem 1rem" }}>Patient / Trauma Moniker</th>
                     <th style={{ padding: "0.75rem 1rem" }}>Arrival & Bay</th>
@@ -390,7 +390,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                   {registrations.map((r) => {
                     const triage = TRIAGE_LEVELS[r.triageLevel] || TRIAGE_LEVELS[3];
                     return (
-                      <tr key={r._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                      <tr key={r._id} style={{ borderBottom: "1px solid var(--mp-surface-muted)" }}>
                         <td style={{ padding: "0.75rem 1rem" }}>
                           <div
                             style={{
@@ -406,13 +406,13 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                           >
                             L{r.triageLevel} • {triage.code}
                           </div>
-                          <div style={{ fontSize: "0.7rem", color: "#64748B", marginTop: "2px" }}>
+                          <div style={{ fontSize: "0.7rem", color: "var(--mp-muted)", marginTop: "2px" }}>
                             Max wait: {triage.maxWait}
                           </div>
                         </td>
                         <td style={{ padding: "0.75rem 1rem" }}>
-                          <div style={{ fontWeight: 600, color: "#1E293B" }}>{r.patientName}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                          <div style={{ fontWeight: 600, color: "var(--mp-text)" }}>{r.patientName}</div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                             {r.emergencyNumber} • {r.age ? `${r.age}y` : "Age unk"} • {r.gender}
                           </div>
                         </td>
@@ -429,9 +429,9 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                           </div>
                         </td>
                         <td style={{ padding: "0.75rem 1rem", maxWidth: 280 }}>
-                          <div style={{ color: "#334155", fontWeight: 500 }}>{r.chiefComplaint}</div>
+                          <div style={{ color: "var(--mp-text)", fontWeight: 500 }}>{r.chiefComplaint}</div>
                           {r.outcomeNotes && (
-                            <div style={{ fontSize: "0.75rem", color: "#64748B", fontStyle: "italic", marginTop: "2px" }}>
+                            <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)", fontStyle: "italic", marginTop: "2px" }}>
                               Note: {r.outcomeNotes}
                             </div>
                           )}
@@ -440,7 +440,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                           {r.attendingDoctorId ? (
                             <div>
                               <div style={{ fontWeight: 500 }}>Dr. {r.attendingDoctorId.firstName} {r.attendingDoctorId.lastName}</div>
-                              <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{r.attendingDoctorId.specialization}</div>
+                              <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>{r.attendingDoctorId.specialization}</div>
                             </div>
                           ) : (
                             <span style={{ color: "#94A3B8", fontStyle: "italic" }}>Pending doctor</span>
@@ -484,21 +484,21 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
       {activeTab === "theatre" && (
         <section>
           {/* OT Metrics */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
             <Card style={{ borderLeft: "4px solid #0D9488" }}>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", fontWeight: 600 }}>Total Cases Today</div>
+              <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", fontWeight: 600 }}>Total Cases Today</div>
               <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#0D9488" }}>{otStats.total}</div>
             </Card>
             <Card style={{ borderLeft: "4px solid #3B82F6" }}>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", fontWeight: 600 }}>Scheduled (Upcoming)</div>
+              <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", fontWeight: 600 }}>Scheduled (Upcoming)</div>
               <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#3B82F6" }}>{otStats.scheduled}</div>
             </Card>
             <Card style={{ borderLeft: "4px solid #EA580C" }}>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", fontWeight: 600 }}>In Surgery Now</div>
+              <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", fontWeight: 600 }}>In Surgery Now</div>
               <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#EA580C" }}>{otStats.inProgress}</div>
             </Card>
             <Card style={{ borderLeft: "4px solid #16A34A" }}>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", fontWeight: 600 }}>Completed / In PACU</div>
+              <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", fontWeight: 600 }}>Completed / In PACU</div>
               <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#16A34A" }}>{otStats.completed}</div>
             </Card>
           </div>
@@ -578,10 +578,10 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
               }
             />
           ) : (
-            <div style={{ overflowX: "auto", border: "1px solid #E2E8F0", borderRadius: "8px", background: "#FFF" }}>
+            <div style={{ overflowX: "auto", border: "1px solid var(--mp-border)", borderRadius: "8px", background: "#FFF" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
                 <thead>
-                  <tr style={{ background: "#F8FAFC", borderBottom: "2px solid #E2E8F0" }}>
+                  <tr style={{ background: "var(--mp-surface-subtle)", borderBottom: "2px solid var(--mp-border)" }}>
                     <th style={{ padding: "0.75rem 1rem" }}>Booking / Urgency</th>
                     <th style={{ padding: "0.75rem 1rem" }}>Theatre Suite</th>
                     <th style={{ padding: "0.75rem 1rem" }}>Scheduled Window</th>
@@ -601,26 +601,26 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                     const signOutOk = s.whoChecklist?.signOut?.completed;
 
                     return (
-                      <tr key={s._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                      <tr key={s._id} style={{ borderBottom: "1px solid var(--mp-surface-muted)" }}>
                         <td style={{ padding: "0.75rem 1rem" }}>
-                          <div style={{ fontWeight: 600, color: "#1E293B" }}>{s.bookingNumber}</div>
+                          <div style={{ fontWeight: 600, color: "var(--mp-text)" }}>{s.bookingNumber}</div>
                           <StatusBadge tone={s.urgency === "emergency_stat" ? "danger" : s.urgency === "urgent" ? "warning" : "neutral"}>
                             {s.urgency.replace("_", " ").toUpperCase()}
                           </StatusBadge>
                         </td>
                         <td style={{ padding: "0.75rem 1rem" }}>
                           <div style={{ fontWeight: 600 }}>{s.theatreRoomId?.theatreCode || "OT"}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{s.theatreRoomId?.theatreName}</div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>{s.theatreRoomId?.theatreName}</div>
                         </td>
                         <td style={{ padding: "0.75rem 1rem" }}>
                           <div style={{ fontWeight: 600 }}>{startStr} – {endStr}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                          <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                             {new Date(s.scheduledStartTime).toLocaleDateString()}
                           </div>
                         </td>
                         <td style={{ padding: "0.75rem 1rem", maxWidth: 220 }}>
                           <div style={{ fontWeight: 600, color: "#0F766E" }}>{s.procedureName}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                          <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                             Patient: {s.patientId ? `${s.patientId.firstName} ${s.patientId.lastName}` : "Registered Patient"}
                           </div>
                         </td>
@@ -628,7 +628,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                           <div style={{ fontSize: "0.8rem" }}>
                             <strong>Surgeon:</strong> Dr. {s.leadSurgeonDoctorId?.firstName} {s.leadSurgeonDoctorId?.lastName}
                           </div>
-                          <div style={{ fontSize: "0.8rem", color: "#64748B" }}>
+                          <div style={{ fontSize: "0.8rem", color: "var(--mp-muted)" }}>
                             <strong>Anesth:</strong> Dr. {s.anesthetistDoctorId?.firstName} {s.anesthetistDoctorId?.lastName}
                           </div>
                           {s.scrubNurseStaffId && (
@@ -639,13 +639,13 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                         </td>
                         <td style={{ padding: "0.75rem 1rem" }}>
                           <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
-                            <span title="Sign In" style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", borderRadius: "4px", background: signInOk ? "#DCFCE7" : "#F1F5F9", color: signInOk ? "#16A34A" : "#94A3B8", fontWeight: 700 }}>
+                            <span title="Sign In" style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", borderRadius: "4px", background: signInOk ? "#DCFCE7" : "var(--mp-surface-muted)", color: signInOk ? "#16A34A" : "#94A3B8", fontWeight: 700 }}>
                               In: {signInOk ? "✓" : "—"}
                             </span>
-                            <span title="Time Out" style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", borderRadius: "4px", background: timeOutOk ? "#DCFCE7" : "#F1F5F9", color: timeOutOk ? "#16A34A" : "#94A3B8", fontWeight: 700 }}>
+                            <span title="Time Out" style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", borderRadius: "4px", background: timeOutOk ? "#DCFCE7" : "var(--mp-surface-muted)", color: timeOutOk ? "#16A34A" : "#94A3B8", fontWeight: 700 }}>
                               TO: {timeOutOk ? "✓" : "—"}
                             </span>
-                            <span title="Sign Out" style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", borderRadius: "4px", background: signOutOk ? "#DCFCE7" : "#F1F5F9", color: signOutOk ? "#16A34A" : "#94A3B8", fontWeight: 700 }}>
+                            <span title="Sign Out" style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", borderRadius: "4px", background: signOutOk ? "#DCFCE7" : "var(--mp-surface-muted)", color: signOutOk ? "#16A34A" : "#94A3B8", fontWeight: 700 }}>
                               Out: {signOutOk ? "✓" : "—"}
                             </span>
                           </div>
@@ -935,22 +935,22 @@ function WhoChecklistWorkstation({ booking, authHeaders, isDoctor, onUpdate, set
   };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "1.5rem" }}>
+    <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "1.5rem" }}>
       {/* Case Overview Card */}
-      <Card style={{ gridColumn: "1 / -1", background: "#F8FAFC", border: "1px solid #E2E8F0" }}>
+      <Card style={{ gridColumn: "1 / -1", background: "var(--mp-surface-subtle)", border: "1px solid var(--mp-border)" }}>
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
           <div>
             <div style={{ fontSize: "1.25rem", fontWeight: 700, color: "#0F766E" }}>{booking.procedureName}</div>
-            <div style={{ fontSize: "0.875rem", color: "#64748B" }}>
+            <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)" }}>
               Booking: <strong>{booking.bookingNumber}</strong> • Theatre: <strong>{booking.theatreRoomId?.theatreCode} ({booking.theatreRoomId?.theatreName})</strong>
             </div>
-            <div style={{ fontSize: "0.875rem", color: "#334155", marginTop: "0.25rem" }}>
+            <div style={{ fontSize: "0.875rem", color: "var(--mp-text)", marginTop: "0.25rem" }}>
               Surgeon: <strong>Dr. {booking.leadSurgeonDoctorId?.firstName} {booking.leadSurgeonDoctorId?.lastName}</strong> • Anesthetist: <strong>Dr. {booking.anesthetistDoctorId?.firstName} {booking.anesthetistDoctorId?.lastName}</strong>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
             <StatusBadge tone={STATUS_TONES[booking.status] || "neutral"}>{booking.status.toUpperCase()}</StatusBadge>
-            <div style={{ fontSize: "0.8rem", color: "#64748B", marginTop: "0.25rem" }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--mp-muted)", marginTop: "0.25rem" }}>
               {new Date(booking.scheduledStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – {new Date(booking.scheduledEndTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </div>
           </div>
@@ -965,7 +965,7 @@ function WhoChecklistWorkstation({ booking, authHeaders, isDoctor, onUpdate, set
           </h3>
           <StatusBadge tone={signInDone ? "positive" : "warning"}>{signInDone ? "COMPLETED" : "PENDING"}</StatusBadge>
         </div>
-        <p style={{ fontSize: "0.8rem", color: "#64748B", margin: "0 0 1rem" }}>
+        <p style={{ fontSize: "0.8rem", color: "var(--mp-muted)", margin: "0 0 1rem" }}>
           Circulating nurse verifies with patient and anesthetist before anesthesia induction.
         </p>
 
@@ -1011,12 +1011,12 @@ function WhoChecklistWorkstation({ booking, authHeaders, isDoctor, onUpdate, set
             {timeOutDone ? "COMPLETED" : !signInDone ? "LOCKED" : "READY"}
           </StatusBadge>
         </div>
-        <p style={{ fontSize: "0.8rem", color: "#64748B", margin: "0 0 1rem" }}>
+        <p style={{ fontSize: "0.8rem", color: "var(--mp-muted)", margin: "0 0 1rem" }}>
           Operating Surgeon strictly leads and verifies verbal pause immediately before skin incision.
         </p>
 
         {!signInDone ? (
-          <div style={{ padding: "1.5rem", textAlign: "center", color: "#64748B", background: "#F8FAFC", borderRadius: "6px" }}>
+          <div style={{ padding: "1.5rem", textAlign: "center", color: "var(--mp-muted)", background: "var(--mp-surface-subtle)", borderRadius: "6px" }}>
             <AlertCircle size={24} style={{ margin: "0 auto 0.5rem", color: "#94A3B8" }} />
             <div>Sign In checklist must be completed before Time Out can begin.</div>
           </div>
@@ -1060,18 +1060,18 @@ function WhoChecklistWorkstation({ booking, authHeaders, isDoctor, onUpdate, set
       <Card style={{ borderTop: signOutDone ? "4px solid #16A34A" : "4px solid #CBD5E1", opacity: !timeOutDone ? 0.7 : 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
           <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <CheckSquare size={18} color={signOutDone ? "#16A34A" : "#2563EB"} /> 3. Sign Out (Before Leaving OR)
+            <CheckSquare size={18} color={signOutDone ? "#16A34A" : "var(--mp-primary)"} /> 3. Sign Out (Before Leaving OR)
           </h3>
           <StatusBadge tone={signOutDone ? "positive" : !timeOutDone ? "neutral" : "warning"}>
             {signOutDone ? "COMPLETED" : !timeOutDone ? "LOCKED" : "READY"}
           </StatusBadge>
         </div>
-        <p style={{ fontSize: "0.8rem", color: "#64748B", margin: "0 0 1rem" }}>
+        <p style={{ fontSize: "0.8rem", color: "var(--mp-muted)", margin: "0 0 1rem" }}>
           Circulating nurse verifies counts and specimens before patient leaves operating room.
         </p>
 
         {!timeOutDone ? (
-          <div style={{ padding: "1.5rem", textAlign: "center", color: "#64748B", background: "#F8FAFC", borderRadius: "6px" }}>
+          <div style={{ padding: "1.5rem", textAlign: "center", color: "var(--mp-muted)", background: "var(--mp-surface-subtle)", borderRadius: "6px" }}>
             <AlertCircle size={24} style={{ margin: "0 auto 0.5rem", color: "#94A3B8" }} />
             <div>Time Out checklist must be completed before Sign Out.</div>
           </div>
@@ -1120,11 +1120,11 @@ function WhoChecklistWorkstation({ booking, authHeaders, isDoctor, onUpdate, set
           </StatusBadge>
         </div>
 
-        <p style={{ fontSize: "0.875rem", color: "#64748B", margin: "0 0 1rem" }}>
+        <p style={{ fontSize: "0.875rem", color: "var(--mp-muted)", margin: "0 0 1rem" }}>
           Clinical safety gate: Aldrete Score evaluates activity, respiration, circulation, consciousness, and O2 saturation. <strong>Minimum score of 8 required for safe discharge to inpatient ward.</strong>
         </p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1rem", alignItems: "center" }}>
+        <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1rem", alignItems: "center" }}>
           <div>
             <Field label="Aldrete Recovery Score (0 to 10)" required>
               <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
@@ -1249,7 +1249,7 @@ function TriageIntakeModal({ open, onClose, authHeaders, onSuccess }) {
           />
         </Field>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
+        <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
           <Field label="Age">
             <input
               type="number"
@@ -1290,7 +1290,7 @@ function TriageIntakeModal({ open, onClose, authHeaders, onSuccess }) {
           <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem" }}>
             5-Level Emergency Triage Classification (ESI 1–5) *
           </label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "0.5rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "0.5rem" }}>
             {[1, 2, 3, 4, 5].map((lvl) => {
               const cfg = TRIAGE_LEVELS[lvl];
               const isSelected = triageLevel === lvl;
@@ -1309,7 +1309,7 @@ function TriageIntakeModal({ open, onClose, authHeaders, onSuccess }) {
                 >
                   <div style={{ fontWeight: 700, color: cfg.border }}>Level {lvl}</div>
                   <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>{cfg.code}</div>
-                  <div style={{ fontSize: "0.7rem", color: "#64748B" }}>Max: {cfg.maxWait}</div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--mp-muted)" }}>Max: {cfg.maxWait}</div>
                 </div>
               );
             })}
@@ -1549,7 +1549,7 @@ function BookTheatreModal({ open, prefilledReg, theatres, onClose, authHeaders, 
           />
         </Field>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <Field label="Urgency Classification" required>
             <select
               value={urgency}
@@ -1573,7 +1573,7 @@ function BookTheatreModal({ open, prefilledReg, theatres, onClose, authHeaders, 
           </Field>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <Field label="Lead Operating Surgeon" required>
             <select
               value={leadSurgeonDoctorId}
@@ -1603,7 +1603,7 @@ function BookTheatreModal({ open, prefilledReg, theatres, onClose, authHeaders, 
           </Field>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <Field label="Scheduled Start Time" required>
             <input
               type="datetime-local"
@@ -1624,7 +1624,7 @@ function BookTheatreModal({ open, prefilledReg, theatres, onClose, authHeaders, 
           </Field>
         </div>
 
-        <div style={{ fontSize: "0.75rem", color: "#64748B", background: "#F8FAFC", padding: "0.5rem", borderRadius: "4px" }}>
+        <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)", background: "var(--mp-surface-subtle)", padding: "0.5rem", borderRadius: "4px" }}>
           * Automatic triple-conflict check verifies that theatre room, lead surgeon, and anesthesiologist have zero overlapping surgery reservations during this window.
         </div>
 
@@ -1673,7 +1673,7 @@ function CancelTheatreModal({ open, booking, onClose, authHeaders, onSuccess }) 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         {error && <Banner tone="danger">{error}</Banner>}
 
-        <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748B" }}>
+        <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--mp-muted)" }}>
           Cancelling will immediately release the theatre room, surgeon, and anesthesiologist slots for emergency reallocation.
         </p>
 

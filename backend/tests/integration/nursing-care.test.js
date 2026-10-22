@@ -270,7 +270,7 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and Medication Administratio
     );
 
     // Legitimate administration with secondary nurse witness
-    const adminRes = await administerMedication({
+    await assert.rejects(administerMedication({
       hospitalId,
       emarId: emar._id,
       fiveRightsVerified: {
@@ -283,14 +283,11 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and Medication Administratio
       dualWitnessStaffId: nurse2Id,
       dualWitnessSignature: "Charge Nurse Anjali Sharma RN",
       actor: { staffId: nurse1Id },
-    });
-
-    assert.equal(adminRes.success, true);
-    assert.equal(adminRes.emar.status, "administered");
+    }), error => error.status === 503 && /authenticated medication witness/.test(error.message));
 
     const updated = await MedicationAdministrationRecord.findById(emar._id);
-    assert.equal(updated.status, "administered");
-    assert.equal(String(updated.dualWitnessStaffId), String(nurse2Id));
+    assert.equal(updated.status, "scheduled");
+    assert.equal(updated.dualWitnessStaffId, null);
   });
 
   await t.test("4. Shift handover logs structured summary and critical alerts", async () => {
@@ -589,8 +586,8 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and Medication Administratio
           dualWitnessSignature: "Charge Nurse Anjali Sharma RN",
         },
       });
-      assert.equal(validNarcoticAdmin.status, 200);
-      assert.equal(validNarcoticAdmin.data.emar.status, "administered");
+      assert.equal(validNarcoticAdmin.status, 503);
+      assert.equal((await MedicationAdministrationRecord.findById(narcoticEmar._id)).status, "scheduled");
 
       // 12. Medication Omission / Refusal logging via HTTP -> 200
       const nextScheduledDose = flowsheetNarcotic.data.emarSchedule.find(
@@ -678,3 +675,15 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and Medication Administratio
   });
 });
 
+
+
+test("AG19 review: string checks and inactive source orders cannot authorize a dose", async () => {
+  assert.ok(db, "Isolated Mongo is required");
+  const made = await createInpatientOrder({ hospitalId, admissionId, patientId, orderType: "medication", medicationDetails: { drugName: "Synthetic item", dose: "Recorded dose", frequency: "stat" }, actor: { doctorId } });
+  const emar = await MedicationAdministrationRecord.findOne({ orderId: made.order._id });
+  const input = { hospitalId, emarId: emar._id, actor: { staffId: nurse1Id }, fiveRightsVerified: { rightPatient: true, rightDrug: true, rightDose: true, rightRoute: true, rightTime: true } };
+  await assert.rejects(administerMedication({ ...input, fiveRightsVerified: { ...input.fiveRightsVerified, rightPatient: "false" } }), error => error.status === 400);
+  await InpatientOrder.updateOne({ _id: made.order._id }, { $set: { status: "discontinued" } });
+  await assert.rejects(administerMedication(input), error => error.status === 409);
+  assert.equal((await MedicationAdministrationRecord.findById(emar._id)).status, "scheduled");
+});

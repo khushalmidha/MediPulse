@@ -83,7 +83,7 @@ export default function InpatientConsole({ initialTab = "beds" }) {
   const { staffUser, isStaffAuth } = useAuth();
   if (!isStaffAuth) {
     return (
-      <main className="mp-page">
+      <main className="mp-page mp-enterprise">
         <Card>
           <h1>Hospital Staff Authentication Required</h1>
           <p>Please sign in with your hospital staff account to access inpatient bed management and nursing care.</p>
@@ -91,7 +91,7 @@ export default function InpatientConsole({ initialTab = "beds" }) {
       </main>
     );
   }
-  return <InpatientWorkspace key={`${staffUser?._id || staffUser?.id}:${staffUser?.hospitalId}`} initialTab={initialTab} />;
+  return <InpatientWorkspace key={`${staffUser?._id || staffUser?.id}:${staffUser?.hospitalId}:${staffUser?.role}:${Boolean(staffUser?.adminAccess)}`} initialTab={initialTab} />;
 }
 
 function InpatientWorkspace({ initialTab = "beds" }) {
@@ -681,7 +681,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
   const news2Preview = useMemo(() => computeNews2Preview(vitalsForm), [vitalsForm]);
 
   return (
-    <main className="mp-page">
+    <main className="mp-page mp-enterprise">
       <header className="mp-page-header" style={{ marginBottom: "1.5rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
@@ -714,7 +714,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
         </div>
 
         {/* Console Navigation Tabs */}
-        <div style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--mp-border, #e2e8f0)", marginTop: "1rem", paddingTop: "0.5rem" }}>
+        <div className="mp-enterprise-tabs" style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--mp-border)", marginTop: "1rem", paddingTop: "0.5rem" }}>
           <button
             type="button"
             className={`mp-button ${activeTab === "beds" ? "mp-button--primary" : "mp-button--secondary"}`}
@@ -759,7 +759,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
       {activeTab === "beds" && (
         <>
           {/* Metrics bar */}
-          <section
+          <section className="mp-enterprise-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
@@ -796,7 +796,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
           {/* Ward Selector & Status Filter Bar */}
           <Card style={{ marginBottom: "1.5rem", padding: "1rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem" }}>
                 <label htmlFor="ward-select" style={{ fontWeight: 600 }}>Active Ward:</label>
                 <select
                   id="ward-select"
@@ -837,7 +837,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
               {wards.length === 0 ? "No wards configured yet. Add a ward to begin bed management." : "No beds matching the filter in this ward."}
             </EmptyState>
           ) : (
-            <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.25rem" }}>
+            <section className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.25rem" }}>
               {filteredBeds.map((bed) => {
                 const tone = bedStatusTones[bed.status] || "neutral";
                 const room = rooms.find((r) => String(r._id) === String(bed.roomId));
@@ -865,7 +865,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                       </div>
 
                       {bed.currentAdmissionId ? (
-                        <div style={{ background: "var(--mp-surface-subtle, #f8fafc)", padding: "0.75rem", borderRadius: "6px", margin: "0.75rem 0", fontSize: "0.85rem" }}>
+                        <div style={{ background: "var(--mp-surface-subtle, var(--mp-surface-subtle))", padding: "0.75rem", borderRadius: "6px", margin: "0.75rem 0", fontSize: "0.85rem" }}>
                           <div style={{ fontWeight: 600, color: "#1e293b" }}>Active Patient Admission</div>
                           <div className="mp-muted" style={{ fontSize: "0.75rem" }}>ID: {String(bed.currentAdmissionId).substring(0, 10)}...</div>
                         </div>
@@ -880,7 +880,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                       )}
                     </div>
 
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--mp-border, #e2e8f0)" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--mp-border)" }}>
                       {bed.status === "available" && (
                         <Button variant="primary" size="small" onClick={() => setAdmitModalBed(bed)}>
                           Admit Patient
@@ -943,7 +943,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
           {/* Active Admission Selector */}
           <Card style={{ padding: "1rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem" }}>
                 <label htmlFor="admission-selector" style={{ fontWeight: 600 }}>Active Inpatient:</label>
                 <select
                   id="admission-selector"
@@ -1088,9 +1088,9 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                             justifyContent: "space-between",
                             alignItems: "center",
                             padding: "0.75rem 1rem",
-                            border: "1px solid var(--mp-border, #e2e8f0)",
+                            border: "1px solid var(--mp-border)",
                             borderRadius: "6px",
-                            background: "var(--mp-surface-subtle, #f8fafc)",
+                            background: "var(--mp-surface-subtle, var(--mp-surface-subtle))",
                           }}
                         >
                           <div>
@@ -1324,7 +1324,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                   </div>
 
                   {h.handoverNotes && (
-                    <div style={{ background: "var(--mp-surface-subtle, #f8fafc)", padding: "0.75rem", borderRadius: "6px", fontSize: "0.88rem", marginTop: "0.5rem" }}>
+                    <div style={{ background: "var(--mp-surface-subtle, var(--mp-surface-subtle))", padding: "0.75rem", borderRadius: "6px", fontSize: "0.88rem", marginTop: "0.5rem" }}>
                       <strong>Handover Notes:</strong> {h.handoverNotes}
                     </div>
                   )}
@@ -1343,7 +1343,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
       {vitalsModalOpen && (
         <Dialog title="Record High-Frequency Vitals (NEWS2)" onClose={() => setVitalsModalOpen(false)}>
           <form onSubmit={handleVitalsSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <Field
                 label="Respiration Rate (/min)"
                 required
@@ -1374,7 +1374,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
               </label>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <Field
                 label="Systolic BP (mmHg)"
                 required
@@ -1392,7 +1392,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
               />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <Field
                 label="Pulse / Heart Rate (bpm)"
                 required
@@ -1417,7 +1417,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <Field
                 label="Temperature (°C)"
                 required
@@ -1443,7 +1443,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
               style={{
                 padding: "0.75rem",
                 borderRadius: "6px",
-                border: "1px solid var(--mp-border, #e2e8f0)",
+                border: "1px solid var(--mp-border)",
                 background: news2Preview.score >= 7 ? "#fee2e2" : news2Preview.score >= 5 ? "#fef3c7" : "#ecfdf5",
                 display: "flex",
                 justifyContent: "space-between",
@@ -1489,7 +1489,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
 
             {orderForm.orderType === "medication" ? (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1rem" }}>
+                <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1rem" }}>
                   <Field
                     label="Drug Name"
                     required
@@ -1506,7 +1506,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                   />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem" }}>
+                <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem" }}>
                   <div className="mp-field">
                     <label htmlFor="route-select" style={{ fontWeight: 600 }}>Route:</label>
                     <select
@@ -1624,7 +1624,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
       {administerModalEmar && (
         <Dialog title="Bedside Medication Administration" onClose={() => setAdministerModalEmar(null)}>
           <form onSubmit={handleAdministerSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem", padding: "1rem" }}>
-            <div style={{ background: "var(--mp-surface-subtle, #f8fafc)", padding: "0.75rem", borderRadius: "6px" }}>
+            <div style={{ background: "var(--mp-surface-subtle, var(--mp-surface-subtle))", padding: "0.75rem", borderRadius: "6px" }}>
               <div style={{ fontWeight: 700, fontSize: "1rem" }}>
                 {administerModalEmar.orderId?.medicationDetails?.drugName} ({administerModalEmar.orderId?.medicationDetails?.dose})
               </div>
@@ -1634,7 +1634,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
             </div>
 
             {/* 5-Rights Checklist */}
-            <div style={{ border: "1px solid var(--mp-border, #e2e8f0)", padding: "1rem", borderRadius: "6px" }}>
+            <div style={{ border: "1px solid var(--mp-border)", padding: "1rem", borderRadius: "6px" }}>
               <div style={{ fontWeight: 700, marginBottom: "0.5rem", fontSize: "0.95rem" }}>
                 Mandatory 5-Rights Bedside Verification:
               </div>
@@ -1665,7 +1665,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                 <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
                   <AlertTriangle size={16} /> Secondary Nurse Witness (Schedule X / Narcotic)
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                   <Field
                     label="Secondary Witness Staff ID"
                     required
@@ -1738,7 +1738,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
       {handoverModalOpen && (
         <Dialog title="Record Nurse Shift Handover" onClose={() => setHandoverModalOpen(false)}>
           <form onSubmit={handleShiftHandoverSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <Field
                 label="Shift Date"
                 type="date"
@@ -1843,7 +1843,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
               Inpatient discharge requires 3 independent departmental sign-offs: Medical (Doctor), Pharmacy (Pharmacist), and Finance (Billing/Admin).
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", border: "1px solid var(--mp-border, #e2e8f0)", borderRadius: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", border: "1px solid var(--mp-border)", borderRadius: "6px" }}>
                 <div>
                   <strong>1. Medical Clearance (Consultant Doctor)</strong>
                   <div className="mp-muted" style={{ fontSize: "0.8rem" }}>Certifies clinical stability for discharge</div>
@@ -1854,7 +1854,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                   </Button>
                 )}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", border: "1px solid var(--mp-border, #e2e8f0)", borderRadius: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", border: "1px solid var(--mp-border)", borderRadius: "6px" }}>
                 <div>
                   <strong>2. Pharmacy Clearance (Hospital Pharmacist)</strong>
                   <div className="mp-muted" style={{ fontSize: "0.8rem" }}>Certifies all return medications and take-home medications reconciled</div>
@@ -1865,7 +1865,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                   </Button>
                 )}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", border: "1px solid var(--mp-border, #e2e8f0)", borderRadius: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", border: "1px solid var(--mp-border)", borderRadius: "6px" }}>
                 <div>
                   <strong>3. Finance / Billing Clearance (Receptionist/Admin)</strong>
                   <div className="mp-muted" style={{ fontSize: "0.8rem" }}>Certifies full settlement of interim & final bill folios</div>
@@ -1950,7 +1950,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
               <LoadingState>Aggregating timeline events...</LoadingState>
             ) : timelineData ? (
               <>
-                <div style={{ background: "var(--mp-surface-subtle, #f8fafc)", padding: "0.75rem", borderRadius: "6px" }}>
+                <div style={{ background: "var(--mp-surface-subtle, var(--mp-surface-subtle))", padding: "0.75rem", borderRadius: "6px" }}>
                   <div style={{ fontWeight: 700, fontSize: "1rem" }}>Admission #{timelineData.admission?.admissionNumber}</div>
                   <div className="mp-muted" style={{ fontSize: "0.85rem" }}>
                     Diagnosis: {timelineData.admission?.admittingDiagnosis} • Status: {timelineData.admission?.status?.toUpperCase()}
@@ -2002,7 +2002,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
           >
             <Field label="Ward Name" required value={wardForm.name} onChange={(e) => setWardForm({ ...wardForm, name: e.target.value })} placeholder="e.g. Cardiology Ward" />
             <Field label="Ward Code" required value={wardForm.code} onChange={(e) => setWardForm({ ...wardForm, code: e.target.value })} placeholder="e.g. WARD-CARD" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <Field label="Floor" value={wardForm.floor} onChange={(e) => setWardForm({ ...wardForm, floor: e.target.value })} />
               <Field label="Building" value={wardForm.building} onChange={(e) => setWardForm({ ...wardForm, building: e.target.value })} />
             </div>

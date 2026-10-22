@@ -236,3 +236,16 @@ textarea.mp-input { min-height: 100px; resize: vertical; }
 .dark .mp-navigation button[aria-label="Profile menu"] > span:last-child, .dark .mp-navigation #care-mobile-navigation .text-gray-700 { color: var(--mp-text); }
 
 .mp-account-page .mp-form-row { align-items: start; }
+
+
+/* Enterprise pilot workspaces share the product palette and contained layouts. */
+.mp-enterprise { min-width: 0; overflow-wrap: anywhere; }
+.mp-enterprise header div { min-width: 0; }
+.mp-enterprise input, .mp-enterprise select, .mp-enterprise textarea { min-width: 0; max-width: 100%; }
+.mp-enterprise-tabs { min-width: 0; max-width: 100%; overflow-x: auto; }
+.mp-enterprise-tabs > button { flex-shrink: 0; white-space: nowrap; }
+.mp-enterprise-grid { min-width: 0; }
+@media (max-width: 600px) {
+  .mp-enterprise-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .mp-enterprise header h1 { font-size: 1.45rem; }
+}

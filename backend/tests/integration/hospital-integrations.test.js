@@ -161,11 +161,11 @@ test("Task AG22: Hospital Integrations and Enterprise Operating Acceptance (Inte
       payload: { test: "CBC", wbc: 7.2, rbc: 4.8 },
     });
     assert.equal(msgRes.success, true);
-    assert.equal(msgRes.status, "processed");
+    assert.equal(msgRes.status, "received");
 
     const savedLog = await LisMessageLog.findOne({ messageControlId: "MSG-HL7-LIVE-001" });
     assert.ok(savedLog);
-    assert.equal(savedLog.status, "processed");
+    assert.equal(savedLog.status, "received");
   });
 
   await t.test("2. PACS DICOM study registration and enterprise DR drill execution", async () => {
@@ -366,7 +366,7 @@ test("Task AG22: Hospital Integrations and Enterprise Operating Acceptance (Inte
       });
       assert.equal(lisRes.status, 201);
       assert.equal(lisRes.data.idempotentReplay, false);
-      assert.equal(lisRes.data.status, "processed");
+      assert.equal(lisRes.data.status, "received");
 
       // 4.5 Inbound LIS Idempotent Replay with duplicate messageControlId returns 200 without duplicate insertion
       const lisReplayRes = await request("/api/integrations/lis/inbound", {
@@ -387,8 +387,8 @@ test("Task AG22: Hospital Integrations and Enterprise Operating Acceptance (Inte
         method: "POST",
         token: labTechToken,
       });
-      assert.equal(replayActionRes.status, 200);
-      assert.equal(replayActionRes.data.replayCount, 1);
+      assert.equal(replayActionRes.status, 503);
+      assert.equal((await LisMessageLog.findOne({ hospitalId, messageControlId: "MSG-HL7-HTTP-001" })).replayCount, 0);
 
       // 4.6 PACS DICOM Study Registration via DOCTOR HTTP
       const dicomRes = await request("/api/integrations/pacs/studies", {
@@ -469,4 +469,27 @@ test("Task AG22: Hospital Integrations and Enterprise Operating Acceptance (Inte
       server.close();
     }
   });
+});
+
+
+test("AG22 review: concurrent LIS receipts preserve content and tenant identity", async () => {
+  assert.ok(db, "Isolated Mongo is required");
+  const input = { hospitalId, messageControlId: "CONCURRENT-RECEIPT", messageType: "HL7_ORU_R01", accessionNumber: "SYNTHETIC-ACC", payload: { b: 2, a: 1 } };
+  const results = await Promise.all(Array.from({ length: 12 }, () => processInboundLisMessage(input)));
+  assert.equal(results.filter(result => !result.idempotentReplay).length, 1);
+  assert.equal(await LisMessageLog.countDocuments({ hospitalId, messageControlId: input.messageControlId }), 1);
+  assert.ok(results.every(result => result.status === "received" && result.log.processedAt === null));
+  assert.equal((await processInboundLisMessage({ ...input, payload: { a: 1, b: 2 } })).idempotentReplay, true);
+  for (const change of [{ payload: { a: 9 } }, { accessionNumber: "OTHER" }, { messageType: "ASTM_E1394" }]) await assert.rejects(processInboundLisMessage({ ...input, ...change }), error => error.status === 409);
+  const foreign = await processInboundLisMessage({ ...input, hospitalId: foreignHospitalId });
+  assert.equal(foreign.idempotentReplay, false);
+  await assert.rejects(replayFailedLisMessage(input), error => error.status === 503);
+  const stored = await LisMessageLog.findOne({ hospitalId, messageControlId: input.messageControlId });
+  assert.equal(stored.replayCount, 0); assert.equal(stored.status, "received");
+});
+
+test("AG22 review: stored viewer links reject script and credential URLs; search is literal", async () => {
+  assert.ok(db, "Isolated Mongo is required");
+  for (const wadoRsUri of ["javascript:alert(1)", "https://user:secret@example.invalid/study"]) await assert.rejects(registerDicomStudy({ hospitalId, studyInstanceUid: "synthetic", accessionNumber: "synthetic", patientId, modality: "CT", wadoRsUri }), error => error.status === 400);
+  assert.equal((await getDicomStudyReferences({ hospitalId, search: "[invalid(regex" })).total, 0);
 });

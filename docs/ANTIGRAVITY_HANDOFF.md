@@ -1,13 +1,13 @@
-# MediPulse - Antigravity / agent handoff
+# MediPulse - current handoff after AG22 review
 
-Updated **22 October 2026**, independent review of Antigravity's AG22 revision `694fdb8d`. The 22-phase delivery added useful outpatient code, but **the whole project is not finished**. This review fixes confirmed security/QR/lifecycle/claim defects and reopens unsupported completion states. Read `docs/ANTIGRAVITY_FINAL_REVIEW.md` before continuing.
+Updated 22 October 2026. Latest reviewed Antigravity checkpoint: **32c85bde**; prior published review was 72635cd0. Read [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md) first. The enterprise APIs/UI and repaired fixtures now exist; earlier absent-route/failing-fixture statements describe older revisions. Their existence still does not complete the clinical/financial/external adapter requirements.
 
-**Final execution plan:** [ANTIGRAVITY_COMPLETION_PLAN.md](ANTIGRAVITY_COMPLETION_PLAN.md). It maps all remaining task IDs to implementation steps, user journeys, acceptance checks and external requirements. Reviewed fixes were published as **72635cd0**; this documentation update follows that checkpoint.
+Keep **ENTERPRISE_PILOT_ENABLED=false** in production. Newly mounted enterprise services default off outside tests pending the documented access/policy/reconciliation work. Existing outpatient services are unchanged. Claim delivery is also unimplemented in real runtime; do not remove its containment or assume credentials activate the stub.
 
 ## Paste into Antigravity
 
 ```text
-Read AGENTS.md, docs/ANTIGRAVITY_COMPLETION_PLAN.md, docs/IMPLEMENTATION_STATUS.md and Common in docs/MEDIPULSE_CODEX_PROMPTS.md. Continue from the current main checkout, preserving unrelated edits. Run node tools/check-implementation-plan.mjs --next; start with AG05 and the plan's section 3, verifying current code rather than repeating completed work.
+Read AGENTS.md, docs/AG22_VERIFICATION_REVIEW.md, docs/ANTIGRAVITY_COMPLETION_PLAN.md, docs/IMPLEMENTATION_STATUS.md and Common in docs/MEDIPULSE_CODEX_PROMPTS.md. Continue from the current main checkout, preserving unrelated edits. Run node tools/check-implementation-plan.mjs --next; start with AG05 and the plan's section 3, verifying current code rather than repeating completed work.
 
 Implement one dependency-ready package through actual service/API/persistence/UI and meaningful local checks. Follow sections 4-7 until the requested scope is genuinely complete. Keep walk-in containment and enterprise prototypes closed until their real prerequisites/evidence exist. If an external contract/approval is missing, record the exact blocker and continue independent permitted local work; do not fabricate provider, clinical or production acceptance.
 
@@ -17,9 +17,9 @@ Use isolated synthetic databases, the real route mounts/session scopes and the p
 ## Checkpoint and evidence
 
 - Actual Git root is the workspace's child `MediPulse`; root commands run there. Use `git log -3` for the published review commit and `git status --short` before editing.
-- Ledger: 23 tasks; **15 retain verified_local evidence, AG05 and AG17-AG22 pending, AG16 implemented_pending_final_checks**. Verified_local is not production or hospital acceptance.
+- Ledger: 23 tasks; **15 retain verified_local evidence, AG05/AG17 pending, AG16/AG18-AG22 implemented_pending_final_checks**. Actual remaining requirements are in the ledger and latest review.
 - QR replacement passed independent decoding; claim containment, family binding, stale packet/clinical read cleanup and truthful enterprise/tenant export metadata are recorded in the final review.
-- Generated IMPLEMENTATION_INVENTORY: 25 mounts, 244 route declarations, 70 frontend route declarations. Regex output is navigation only, not completeness evidence.
+- IMPLEMENTATION_INVENTORY includes the newly mounted enterprise routers and pages. Regex output is navigation only; inspect the real backend/index.js mounts and frontend/App.jsx.
 - WORK_LOG keeps historical phase claims; the latest independent review supersedes unsupported all-complete assertions.
 
 ## Reproduce local checks
@@ -46,7 +46,7 @@ npm run test:integration
 node --import ./tests/bootstrap.js --test tests/claim-security-boundary.test.js tests/enterprise-acceptance-boundary.test.js tests/integration/encounter-walkin-claim.test.js
 ```
 
-The registered integration runner excludes the five enterprise files. The explicit audit command and its **five setup failures** are in ANTIGRAVITY_FINAL_REVIEW.md. Do not claim those passed or skipped merely because the runner is green.
+The registered integration runner now includes the five repaired enterprise files. Current observed results and follow-up regressions are in AG22_VERIFICATION_REVIEW.md; older fixture failures are historical.
 
 From frontend:
 

@@ -1,3 +1,4 @@
+import { assertEnterprisePilot } from "./enterprisePilot.js";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import {
@@ -25,6 +26,7 @@ export const setRevenueStockTestDouble = (double) => {
 };
 
 const assertDbConnected = () => {
+  assertEnterprisePilot();
   if (!testDouble && mongoose.connection?.readyState !== 1) {
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
@@ -99,6 +101,9 @@ export const createInpatientInvoice = async ({ hospitalId, admissionId, patientI
   if (!hospital) throw accessError(404, "Hospital not found");
   assertTenantNotSuspended(hospital);
   checkFeatureEntitlement(hospital, "enterprise_procurement");
+
+  const admission = await IpdAdmission.findOne({ _id: admissionId, hospitalId });
+  if (!admission || String(admission.patientId) !== String(patientId)) throw accessError(403, "Invoice identity must match this hospital admission");
 
   const invoiceNumber =
     "INV-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
@@ -249,12 +254,15 @@ export const registerTpaPreAuth = async ({
   if (!policyNumber || !String(policyNumber).trim()) throw accessError(400, "Policy number is required");
 
   const limit = Number(preAuthApprovedLimitMinor);
-  if (isNaN(limit) || limit < 0) throw accessError(400, "Valid pre-auth approved limit in minor units is required");
+  if (!Number.isSafeInteger(limit) || limit < 0) throw accessError(400, "Valid pre-auth approved limit in minor units is required");
 
   const copay = Number(copayPercentage);
-  if (isNaN(copay) || copay < 0 || copay > 100) {
+  if (!Number.isFinite(copay) || copay < 0 || copay > 100) {
     throw accessError(400, "Co-pay percentage must be between 0 and 100");
   }
+
+  const admission = await IpdAdmission.findOne({ _id: admissionId, hospitalId });
+  if (!admission || String(admission.patientId) !== String(patientId)) throw accessError(403, "Insurance identity must match this hospital admission");
 
   const claimNumber =
     "CLM-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
@@ -288,6 +296,9 @@ export const applyTpaPreAuthToInvoice = async ({ hospitalId, invoiceId, tpaPreAu
 
     const preAuth = await TpaPreAuth.findOne({ _id: tpaPreAuthId, hospitalId }).session(session);
     if (!preAuth) throw accessError(404, "TPA pre-auth record not found");
+
+    if (String(preAuth.admissionId) !== String(invoice.admissionId) || String(preAuth.patientId) !== String(invoice.patientId)) throw accessError(409, "TPA authorization belongs to another admission or patient");
+    if (["settled", "cancelled"].includes(invoice.status)) throw accessError(409, "Cannot change insurance on a terminal invoice");
 
     // Split billing formula:
     // Net total is split into: TPA portion and Patient Co-pay portion
@@ -338,7 +349,7 @@ export const recordInvoicePayment = async ({
   }
 
   const amt = Number(amountMinor);
-  if (isNaN(amt) || amt <= 0) throw accessError(400, "Valid positive payment amount is required");
+  if (!Number.isSafeInteger(amt) || amt <= 0) throw accessError(400, "Valid positive payment amount is required");
 
   const validModes = ["cash", "upi_manual", "card_pos", "tpa_settlement", "credit_note"];
   if (!validModes.includes(paymentMode)) {
@@ -399,7 +410,7 @@ export const issueCreditNote = async ({ hospitalId, invoiceId, amountMinor, reas
   }
 
   const amt = Number(amountMinor);
-  if (isNaN(amt) || amt <= 0) throw accessError(400, "Valid positive credit note amount is required");
+  if (!Number.isSafeInteger(amt) || amt <= 0) throw accessError(400, "Valid positive credit note amount is required");
   if (!reason || !String(reason).trim()) throw accessError(400, "Credit note reason is required");
 
   return await moneyTransaction(async (session) => {
@@ -477,7 +488,7 @@ export const createGoodsReceiptNote = async ({
   const validatedItems = items.map((it) => {
     const qty = Number(it.quantityReceived);
     const unitCost = Number(it.unitCostMinor);
-    if (!it.itemCode || isNaN(qty) || qty < 1 || isNaN(unitCost) || unitCost < 0) {
+    if (!it.itemCode || !Number.isSafeInteger(qty) || qty < 1 || !Number.isSafeInteger(unitCost) || unitCost < 0 || !Number.isSafeInteger(qty * unitCost)) {
       throw accessError(400, `Invalid GRN item specification for item ${it.itemCode || "unknown"}`);
     }
     return {
@@ -581,9 +592,11 @@ export const requestWardStock = async ({ hospitalId, wardId, items = [], actor }
   if (!wardId) throw accessError(400, "Target ward ID is required");
   if (!Array.isArray(items) || items.length === 0) throw accessError(400, "At least one requisition item is required");
 
+  if (!(await Ward.exists({ _id: wardId, hospitalId }))) throw accessError(403, "Ward does not belong to this hospital");
+
   const validatedItems = items.map((it) => {
     const qty = Number(it.quantityRequested);
-    if (!it.itemCode || isNaN(qty) || qty < 1) {
+    if (!it.itemCode || !Number.isSafeInteger(qty) || qty < 1) {
       throw accessError(400, `Invalid requisition quantity for item ${it.itemCode || "unknown"}`);
     }
     return {
@@ -635,24 +648,32 @@ export const fulfillWardStockTransfer = async ({
     const requisition = await WardStockRequisition.findOne({ requisitionNumber, hospitalId }).session(session);
     if (!requisition) throw accessError(404, "Ward stock requisition not found");
 
-    // Idempotency check: If already fulfilled with the same idempotency key, return existing state
-    if (requisition.transferIdempotencyKey === transferIdempotencyKey) {
-      return {
-        success: true,
-        idempotentReplay: true,
-        requisition,
-      };
+    if (!Array.isArray(itemsToIssue) || !itemsToIssue.length) throw accessError(400, "At least one issue item is required");
+    const commands = itemsToIssue.map(item => ({ itemCode: String(item.itemCode || "").trim().toUpperCase(), quantityToIssue: Number(item.quantityToIssue) })).sort((a,b) => a.itemCode.localeCompare(b.itemCode));
+    if (commands.some(item => !item.itemCode || !Number.isSafeInteger(item.quantityToIssue) || item.quantityToIssue <= 0) || new Set(commands.map(item => item.itemCode)).size !== commands.length) throw accessError(400, "Issue items must have unique codes and positive whole quantities");
+    const commandKey = String(transferIdempotencyKey).trim();
+    if (commandKey.length > 128) throw accessError(400, "Transfer command key is too long");
+    const fingerprint = crypto.createHash("sha256").update(JSON.stringify(commands)).digest("hex");
+    if (!(requisition.transferCommands || []).length && requisition.items.some(item => item.quantityIssued > 0)) throw accessError(409, "Legacy partial transfer history requires reviewed reconciliation");
+    const prior = (requisition.transferCommands || []).find(command => command.key === commandKey);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw accessError(409, "Transfer key was used for different items");
+      return { success: true, idempotentReplay: true, requisition };
     }
-
-    if (requisition.status === "fulfilled") {
-      throw accessError(400, "Requisition has already been fulfilled");
+    if (requisition.transferIdempotencyKey === commandKey) throw accessError(409, "Legacy transfer requires reviewed reconciliation");
+    if (["fulfilled", "cancelled"].includes(requisition.status)) throw accessError(409, "Requisition is terminal");
+    if ((requisition.transferCommands || []).length >= 250) throw accessError(409, "Transfer command history limit reached; reconciliation required");
+    if (!(await Ward.exists({ _id: requisition.wardId, hospitalId }).session(session))) throw accessError(403, "Ward does not belong to this hospital");
+    for (const issue of commands) {
+      const requested = requisition.items.find(item => item.itemCode === issue.itemCode);
+      if (!requested || issue.quantityToIssue > requested.quantityRequested - requested.quantityIssued) throw accessError(409, "Issue exceeds remaining requested stock");
     }
 
     // Process item transfers: Decrement Central Store -> Increment Ward Stock
-    for (const issue of itemsToIssue) {
+    for (const issue of commands) {
       const itemCode = String(issue.itemCode).trim().toUpperCase();
       const issueQty = Number(issue.quantityToIssue);
-      if (isNaN(issueQty) || issueQty < 1) continue;
+
 
       const centralStock = await CentralStoreStock.findOne({ hospitalId, itemCode }).session(session);
       if (!centralStock || centralStock.totalQuantity < issueQty) {
@@ -662,11 +683,13 @@ export const fulfillWardStockTransfer = async ({
         );
       }
 
+      if (centralStock.batches.reduce((total, batch) => total + batch.quantity, 0) !== centralStock.totalQuantity) throw accessError(409, "Stock totals require reconciliation");
+
       // Deduct from central store batches
       let remainingToDeduct = issueQty;
       for (const batch of centralStock.batches) {
         if (remainingToDeduct <= 0) break;
-        if (batch.quantity <= 0) continue;
+        if (batch.quantity <= 0 || new Date(batch.expiryDate) <= new Date()) continue;
 
         const deduct = Math.min(batch.quantity, remainingToDeduct);
         batch.quantity -= deduct;
@@ -700,6 +723,7 @@ export const fulfillWardStockTransfer = async ({
         await wardStock.save({ session });
       }
 
+      if (remainingToDeduct > 0) throw accessError(409, "Insufficient unexpired batch stock");
       centralStock.totalQuantity -= issueQty;
       await centralStock.save({ session });
 
@@ -712,7 +736,8 @@ export const fulfillWardStockTransfer = async ({
 
     const allFulfilled = requisition.items.every((it) => it.quantityIssued >= it.quantityRequested);
     requisition.status = allFulfilled ? "fulfilled" : "partially_issued";
-    requisition.transferIdempotencyKey = transferIdempotencyKey;
+    requisition.transferIdempotencyKey = commandKey;
+    requisition.transferCommands.push({ key: commandKey, fingerprint, recordedAt: new Date() });
     requisition.issuedByStaffId = actor?.staffId || null;
     requisition.issuedAt = new Date();
     requisition.version = (requisition.version || 0) + 1;

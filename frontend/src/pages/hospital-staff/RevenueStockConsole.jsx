@@ -50,7 +50,7 @@ export default function RevenueStockConsole({ initialTab = "billing" }) {
   const { staffUser, isStaffAuth } = useAuth();
   if (!isStaffAuth) {
     return (
-      <main className="mp-page">
+      <main className="mp-page mp-enterprise">
         <Card>
           <h1>Hospital Staff Authentication Required</h1>
           <p>Please sign in with your hospital staff account to access Revenue, Procurement and Stock operations.</p>
@@ -58,7 +58,7 @@ export default function RevenueStockConsole({ initialTab = "billing" }) {
       </main>
     );
   }
-  return <RevenueStockWorkspace key={`${staffUser?._id || staffUser?.id}:${staffUser?.hospitalId}`} initialTab={initialTab} />;
+  return <RevenueStockWorkspace key={`${staffUser?._id || staffUser?.id}:${staffUser?.hospitalId}:${staffUser?.role}:${Boolean(staffUser?.adminAccess)}`} initialTab={initialTab} />;
 }
 
 function RevenueStockWorkspace({ initialTab = "billing" }) {
@@ -265,7 +265,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadInvoices();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -293,7 +293,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadInvoices();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -320,7 +320,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadInvoices();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -345,7 +345,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadInvoices();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -381,7 +381,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadTpaPreAuths();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -405,7 +405,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadInvoices();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -453,7 +453,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadProcurement();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -472,7 +472,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadProcurement();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -500,7 +500,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadWardOperations();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -509,7 +509,9 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
     if (!selectedRequisition) return;
     const key = fulfillIdempKey || `TRANSFER-${selectedRequisition.requisitionNumber}-${Date.now()}`;
     const targetItem = selectedRequisition.items[0];
-    const qty = Number(fulfillIssueQty) || targetItem.quantityRequested;
+    const qty = fulfillIssueQty.trim() === "" ? targetItem.quantityRequested - targetItem.quantityIssued : Number(fulfillIssueQty);
+    if (!Number.isSafeInteger(qty) || qty <= 0) { setFeedback({ tone: "error", message: "Enter a positive whole issue quantity." }); return; }
+    setFulfillIdempKey(key);
 
     try {
       const res = await axios.post(
@@ -532,12 +534,12 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         loadWardOperations();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
   return (
-    <main className="mp-page" style={{ maxWidth: 1400, margin: "0 auto", padding: "1.5rem" }}>
+    <main className="mp-page mp-enterprise" style={{ maxWidth: 1400, margin: "0 auto", padding: "1.5rem" }}>
       {/* Header */}
       <header
         style={{
@@ -562,7 +564,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
           >
             <Receipt style={{ color: "#059669" }} /> Hospital Revenue, Procurement & Stock Console
           </h1>
-          <p style={{ margin: "0.25rem 0 0", color: "#64748B" }}>
+          <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)" }}>
             Inpatient Folio & Auto Bed-Day Accrual, TPA Split Billing, Goods Receipt Notes (GRN) & Idempotent Ward Stock Transfers
           </p>
         </div>
@@ -593,7 +595,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
       )}
 
       {/* Stats Bar */}
-      <div
+      <div className="mp-enterprise-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -614,15 +616,15 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
           </div>
         </Card>
 
-        <Card style={{ padding: "1rem", background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)" }}>
+        <Card style={{ padding: "1rem", background: "linear-gradient(135deg, var(--mp-accent-soft) 0%, #DBEAFE 100%)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#1E40AF" }}>Total Revenue Collected</span>
-            <TrendingUp size={18} style={{ color: "#2563EB" }} />
+            <TrendingUp size={18} style={{ color: "var(--mp-primary)" }} />
           </div>
           <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#1E3A8A", marginTop: "0.5rem" }}>
             {formatCurrency(revenueStats.totalCollectedMinor)}
           </div>
-          <div style={{ fontSize: "0.75rem", color: "#2563EB", marginTop: "0.25rem" }}>
+          <div style={{ fontSize: "0.75rem", color: "var(--mp-primary)", marginTop: "0.25rem" }}>
             Direct Patient Payments & Settled Claims
           </div>
         </Card>
@@ -655,7 +657,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
       </div>
 
       {/* Tabs */}
-      <nav style={{ display: "flex", gap: "0.5rem", borderBottom: "2px solid #E2E8F0", marginBottom: "1.5rem" }}>
+      <nav className="mp-enterprise-tabs" style={{ display: "flex", gap: "0.5rem", borderBottom: "2px solid var(--mp-border)", marginBottom: "1.5rem" }}>
         <button
           type="button"
           onClick={() => setActiveTab("billing")}
@@ -665,7 +667,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
             border: "none",
             background: "none",
             borderBottom: activeTab === "billing" ? "3px solid #059669" : "3px solid transparent",
-            color: activeTab === "billing" ? "#059669" : "#64748B",
+            color: activeTab === "billing" ? "#059669" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -683,8 +685,8 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
             fontWeight: 600,
             border: "none",
             background: "none",
-            borderBottom: activeTab === "insurance" ? "3px solid #2563EB" : "3px solid transparent",
-            color: activeTab === "insurance" ? "#2563EB" : "#64748B",
+            borderBottom: activeTab === "insurance" ? "3px solid var(--mp-primary)" : "3px solid transparent",
+            color: activeTab === "insurance" ? "var(--mp-primary)" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -703,7 +705,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
             border: "none",
             background: "none",
             borderBottom: activeTab === "procurement" ? "3px solid #D97706" : "3px solid transparent",
-            color: activeTab === "procurement" ? "#D97706" : "#64748B",
+            color: activeTab === "procurement" ? "#D97706" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -722,7 +724,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
             border: "none",
             background: "none",
             borderBottom: activeTab === "stock" ? "3px solid #7C3AED" : "3px solid transparent",
-            color: activeTab === "stock" ? "#7C3AED" : "#64748B",
+            color: activeTab === "stock" ? "#7C3AED" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -766,7 +768,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
           </div>
 
           {/* Master Detail View */}
-          <div style={{ display: "grid", gridTemplateColumns: selectedInvoice ? "1fr 1fr" : "1fr", gap: "1.5rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: selectedInvoice ? "1fr 1fr" : "1fr", gap: "1.5rem" }}>
             {/* Invoices List */}
             <Card style={{ padding: "1rem" }}>
               <h2 style={{ fontSize: "1.125rem", fontWeight: 600, margin: "0 0 1rem 0" }}>Inpatient Invoices</h2>
@@ -785,21 +787,21 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                         style={{
                           padding: "1rem",
                           borderRadius: "8px",
-                          border: isSelected ? "2px solid #059669" : "1px solid #E2E8F0",
+                          border: isSelected ? "2px solid #059669" : "1px solid var(--mp-border)",
                           background: isSelected ? "#F0FDF4" : "#FFFFFF",
                           cursor: "pointer",
                           transition: "all 0.15s ease",
                         }}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontWeight: 700, fontSize: "1rem", color: "#0F172A" }}>
+                          <span style={{ fontWeight: 700, fontSize: "1rem", color: "var(--mp-text)" }}>
                             {inv.invoiceNumber}
                           </span>
                           <StatusBadge tone={INVOICE_STATUS_TONES[inv.status] || "neutral"}>
                             {inv.status}
                           </StatusBadge>
                         </div>
-                        <div style={{ fontSize: "0.875rem", color: "#475569", marginTop: "0.25rem" }}>
+                        <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)", marginTop: "0.25rem" }}>
                           Patient: {inv.patientId?.firstName} {inv.patientId?.lastName} • Admission:{" "}
                           {inv.admissionId?.admissionNumber || "N/A"}
                         </div>
@@ -809,7 +811,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                             justifyContent: "space-between",
                             marginTop: "0.5rem",
                             paddingTop: "0.5rem",
-                            borderTop: "1px dashed #E2E8F0",
+                            borderTop: "1px dashed var(--mp-border)",
                             fontSize: "0.875rem",
                           }}
                         >
@@ -835,7 +837,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                     <h2 style={{ fontSize: "1.25rem", fontWeight: 700, margin: 0 }}>
                       Folio: {selectedInvoice.invoiceNumber}
                     </h2>
-                    <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
+                    <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
                       Patient: {selectedInvoice.patientId?.firstName} {selectedInvoice.patientId?.lastName} (
                       {selectedInvoice.patientId?.phoneNumber})
                     </p>
@@ -846,47 +848,47 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                 </div>
 
                 {/* Financial Summary */}
-                <div
+                <div className="mp-enterprise-grid"
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
                     gap: "0.75rem",
                     margin: "1rem 0",
                     padding: "0.75rem",
-                    background: "#F8FAFC",
+                    background: "var(--mp-surface-subtle)",
                     borderRadius: "8px",
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Gross Total</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Gross Total</div>
                     <div style={{ fontWeight: 600 }}>{formatCurrency(selectedInvoice.grossTotalMinor)}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Courtesy Discounts (Credit Notes)</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Courtesy Discounts (Credit Notes)</div>
                     <div style={{ fontWeight: 600, color: "#059669" }}>
                       -{formatCurrency(selectedInvoice.discountMinor)}
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748B" }}>TPA Insurance Approved</div>
-                    <div style={{ fontWeight: 600, color: "#2563EB" }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>TPA Insurance Approved</div>
+                    <div style={{ fontWeight: 600, color: "var(--mp-primary)" }}>
                       {formatCurrency(selectedInvoice.tpaApprovedMinor)}
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Patient Co-Pay Amount</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Patient Co-Pay Amount</div>
                     <div style={{ fontWeight: 600, color: "#D97706" }}>
                       {formatCurrency(selectedInvoice.copayAmountMinor)}
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Total Paid / Advance</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Total Paid / Advance</div>
                     <div style={{ fontWeight: 600, color: "#059669" }}>
                       {formatCurrency(selectedInvoice.paidMinor)}
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Balance Payable</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Balance Payable</div>
                     <div
                       style={{
                         fontWeight: 700,
@@ -938,7 +940,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                       <thead>
-                        <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                        <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                           <th style={{ padding: "0.5rem" }}>Category</th>
                           <th style={{ padding: "0.5rem" }}>Description</th>
                           <th style={{ padding: "0.5rem" }}>Date</th>
@@ -948,14 +950,14 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                       </thead>
                       <tbody>
                         {selectedInvoice.lineItems?.map((li) => (
-                          <tr key={li.lineItemId} style={{ borderBottom: "1px solid #E2E8F0" }}>
+                          <tr key={li.lineItemId} style={{ borderBottom: "1px solid var(--mp-border)" }}>
                             <td style={{ padding: "0.5rem" }}>
                               <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase" }}>
                                 {li.category.replace("_", " ")}
                               </span>
                             </td>
                             <td style={{ padding: "0.5rem" }}>{li.description}</td>
-                            <td style={{ padding: "0.5rem", color: "#64748B" }}>{li.accrualDate || "-"}</td>
+                            <td style={{ padding: "0.5rem", color: "var(--mp-muted)" }}>{li.accrualDate || "-"}</td>
                             <td style={{ padding: "0.5rem", textAlign: "right" }}>
                               {formatCurrency(li.unitPriceMinor)}
                             </td>
@@ -1018,7 +1020,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
           >
             <div>
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>TPA Pre-Authorization Registry</h2>
-              <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
+              <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
                 Pre-authorization caps, patient co-pay percentage calculation, and claims clearance
               </p>
             </div>
@@ -1036,7 +1038,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                    <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                       <th style={{ padding: "0.75rem" }}>Claim #</th>
                       <th style={{ padding: "0.75rem" }}>Insurance & TPA</th>
                       <th style={{ padding: "0.75rem" }}>Policy #</th>
@@ -1048,14 +1050,14 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                   </thead>
                   <tbody>
                     {tpaPreAuths.map((pa) => (
-                      <tr key={pa._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
+                      <tr key={pa._id} style={{ borderBottom: "1px solid var(--mp-border)" }}>
                         <td style={{ padding: "0.75rem", fontWeight: 700, color: "#1E3A8A" }}>{pa.claimNumber}</td>
                         <td style={{ padding: "0.75rem" }}>
                           <div>{pa.insuranceCompany}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>TPA: {pa.tpaName}</div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>TPA: {pa.tpaName}</div>
                         </td>
                         <td style={{ padding: "0.75rem" }}>{pa.policyNumber}</td>
-                        <td style={{ padding: "0.75rem", color: "#64748B" }}>{pa.corporateId || "Retail"}</td>
+                        <td style={{ padding: "0.75rem", color: "var(--mp-muted)" }}>{pa.corporateId || "Retail"}</td>
                         <td style={{ padding: "0.75rem", textAlign: "right", fontWeight: 700, color: "#059669" }}>
                           {formatCurrency(pa.preAuthApprovedLimitMinor)}
                         </td>
@@ -1090,7 +1092,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
             >
               <div>
                 <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>Goods Receipt Notes (GRN)</h2>
-                <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
+                <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
                   Vendor receipts, invoice verification and atomic reconciliation into central stock batches
                 </p>
               </div>
@@ -1110,7 +1112,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                      <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                         <th style={{ padding: "0.75rem" }}>GRN #</th>
                         <th style={{ padding: "0.75rem" }}>Vendor & PO</th>
                         <th style={{ padding: "0.75rem" }}>Invoice</th>
@@ -1122,11 +1124,11 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                     </thead>
                     <tbody>
                       {grns.map((g) => (
-                        <tr key={g._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
-                          <td style={{ padding: "0.75rem", fontWeight: 700, color: "#0F172A" }}>{g.grnNumber}</td>
+                        <tr key={g._id} style={{ borderBottom: "1px solid var(--mp-border)" }}>
+                          <td style={{ padding: "0.75rem", fontWeight: 700, color: "var(--mp-text)" }}>{g.grnNumber}</td>
                           <td style={{ padding: "0.75rem" }}>
                             <div>{g.vendorName}</div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>PO: {g.purchaseOrderRef || "Direct"}</div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>PO: {g.purchaseOrderRef || "Direct"}</div>
                           </td>
                           <td style={{ padding: "0.75rem" }}>{g.invoiceNumber}</td>
                           <td style={{ padding: "0.75rem" }}>
@@ -1184,7 +1186,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
             >
               <div>
                 <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>Central Store Inventory</h2>
-                <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
+                <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
                   Active items, batch numbers, expiry tracking and available quantities in central warehouse
                 </p>
               </div>
@@ -1218,7 +1220,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                      <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                         <th style={{ padding: "0.75rem" }}>Item Code</th>
                         <th style={{ padding: "0.75rem" }}>Item Name</th>
                         <th style={{ padding: "0.75rem" }}>Category</th>
@@ -1228,8 +1230,8 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                     </thead>
                     <tbody>
                       {centralStock.map((s) => (
-                        <tr key={s._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
-                          <td style={{ padding: "0.75rem", fontWeight: 700, color: "#0F172A" }}>{s.itemCode}</td>
+                        <tr key={s._id} style={{ borderBottom: "1px solid var(--mp-border)" }}>
+                          <td style={{ padding: "0.75rem", fontWeight: 700, color: "var(--mp-text)" }}>{s.itemCode}</td>
                           <td style={{ padding: "0.75rem" }}>{s.itemName}</td>
                           <td style={{ padding: "0.75rem" }}>
                             <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase" }}>
@@ -1238,7 +1240,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                           </td>
                           <td style={{ padding: "0.75rem" }}>
                             {s.batches?.map((b, idx) => (
-                              <div key={idx} style={{ fontSize: "0.75rem", color: "#475569" }}>
+                              <div key={idx} style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                                 {b.batchNumber} (Exp: {new Date(b.expiryDate).toISOString().slice(0, 10)}) • Qty:{" "}
                                 <strong>{b.quantity}</strong>
                               </div>
@@ -1273,7 +1275,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
             >
               <div>
                 <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>Ward Stock Requisitions</h2>
-                <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
+                <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
                   Ward nurse requests & atomic, idempotent transfer fulfillment from Central Store
                 </p>
               </div>
@@ -1291,7 +1293,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                      <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                         <th style={{ padding: "0.75rem" }}>Requisition #</th>
                         <th style={{ padding: "0.75rem" }}>Ward</th>
                         <th style={{ padding: "0.75rem" }}>Items Requested</th>
@@ -1302,7 +1304,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                     </thead>
                     <tbody>
                       {requisitions.map((req) => (
-                        <tr key={req._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
+                        <tr key={req._id} style={{ borderBottom: "1px solid var(--mp-border)" }}>
                           <td style={{ padding: "0.75rem", fontWeight: 700, color: "#6D28D9" }}>
                             {req.requisitionNumber}
                           </td>
@@ -1319,7 +1321,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                               {req.status}
                             </StatusBadge>
                           </td>
-                          <td style={{ padding: "0.75rem", fontSize: "0.75rem", color: "#64748B" }}>
+                          <td style={{ padding: "0.75rem", fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                             {req.transferIdempotencyKey || "Not Transferred"}
                           </td>
                           <td style={{ padding: "0.75rem", textAlign: "center" }}>
@@ -1358,7 +1360,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>Ward Stock Inventories</h2>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.875rem", color: "#64748B" }}>Filter by Ward ID:</span>
+                <span style={{ fontSize: "0.875rem", color: "var(--mp-muted)" }}>Filter by Ward ID:</span>
                 <input
                   type="text"
                   placeholder="Ward ObjectId..."
@@ -1375,7 +1377,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                      <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                         <th style={{ padding: "0.75rem" }}>Ward</th>
                         <th style={{ padding: "0.75rem" }}>Item Code</th>
                         <th style={{ padding: "0.75rem" }}>Item Name</th>
@@ -1385,13 +1387,13 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                     </thead>
                     <tbody>
                       {wardStock.map((ws) => (
-                        <tr key={ws._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
+                        <tr key={ws._id} style={{ borderBottom: "1px solid var(--mp-border)" }}>
                           <td style={{ padding: "0.75rem", fontWeight: 600 }}>{ws.wardId?.name || "Ward"}</td>
                           <td style={{ padding: "0.75rem", fontWeight: 700 }}>{ws.itemCode}</td>
                           <td style={{ padding: "0.75rem" }}>{ws.itemName}</td>
                           <td style={{ padding: "0.75rem" }}>
                             {ws.batches?.map((b, idx) => (
-                              <div key={idx} style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                              <div key={idx} style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                                 {b.batchNumber}: Qty {b.quantity}
                               </div>
                             ))}
@@ -1645,7 +1647,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         title="Apply TPA Pre-Auth & Compute Split Billing"
       >
         <form onSubmit={handleApplyTpaToInvoice} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <p style={{ fontSize: "0.875rem", color: "#475569" }}>
+          <p style={{ fontSize: "0.875rem", color: "var(--mp-muted)" }}>
             Applying TPA Pre-Authorization divides the invoice into an approved insurer portion and a patient co-pay
             portion based on the co-pay percentage and approved financial limit.
           </p>
@@ -1693,7 +1695,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
             onChange={(e) => setGrnPoRef(e.target.value)}
             placeholder="e.g. PO-2026-OCT-01"
           />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
             <Field
               label="Vendor Invoice #"
               required
@@ -1711,7 +1713,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
           </div>
           <div style={{ borderTop: "1px dashed #CBD5E1", paddingTop: "0.75rem" }}>
             <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", fontWeight: 600 }}>Received Item</h4>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+            <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
               <Field
                 label="Item Code"
                 required
@@ -1726,7 +1728,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                 placeholder="e.g. Meropenem 1g Injection"
               />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "0.5rem" }}>
+            <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "0.5rem" }}>
               <Field
                 label="Batch Number"
                 value={grnBatchNo}
@@ -1740,7 +1742,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                 onChange={(e) => setGrnExpiryDate(e.target.value)}
               />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "0.5rem" }}>
+            <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "0.5rem" }}>
               <Field
                 label="Quantity Received"
                 required
@@ -1817,7 +1819,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         title={`Fulfill Stock Transfer for ${selectedRequisition?.requisitionNumber}`}
       >
         <form onSubmit={handleFulfillTransfer} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <p style={{ fontSize: "0.875rem", color: "#475569" }}>
+          <p style={{ fontSize: "0.875rem", color: "var(--mp-muted)" }}>
             This will atomically decrement Central Store stock batches and increment Ward stock inventory with
             strict idempotency protection.
           </p>

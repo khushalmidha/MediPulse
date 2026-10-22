@@ -45,7 +45,7 @@ externalInterfaceContractSchema.index({ hospitalId: 1, interfaceType: 1 }, { uni
 const lisMessageLogSchema = new mongoose.Schema(
   {
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
-    messageControlId: { type: String, required: true, unique: true, index: true },
+    messageControlId: { type: String, required: true, index: true },
     messageType: {
       type: String,
       enum: ["HL7_ORU_R01", "HL7_OML_O21", "ASTM_E1394"],
@@ -67,6 +67,9 @@ const lisMessageLogSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Replace the legacy global message ID index only through reviewed migration.
+lisMessageLogSchema.index({ hospitalId: 1, messageControlId: 1 }, { unique: true });
 
 // 3. PACS / DICOM Study Reference Schema (stores metadata only, zero raw pixel bloat)
 const dicomStudyReferenceSchema = new mongoose.Schema(

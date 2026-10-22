@@ -1,5 +1,7 @@
 # MediPulse - final Antigravity completion plan
 
+> Current checkpoint update, 22 October 2026: read [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md) and the corrected ledger first. 32c85bde added enterprise routes/consoles and repaired the five Mongo fixtures; older absent-route/failing-fixture statements below are historical. Continue the concrete remaining access/clinical/financial/provider/adapter requirements. Enterprise runtime defaults off pending operating readiness; local verification is not completion.
+
 Updated 22 October 2026. Starting code checkpoint: **72635cd0** on `main`. This is the execution plan for remaining work, not a completion certificate. Use [IMPLEMENTATION_TASKS.json](IMPLEMENTATION_TASKS.json) for statuses/dependencies and [ANTIGRAVITY_FINAL_REVIEW.md](ANTIGRAVITY_FINAL_REVIEW.md) for verified defects and prior checks. Do not repeat the original implementation from scratch.
 
 ## 1. Target and execution order

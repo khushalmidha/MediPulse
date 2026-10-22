@@ -1,3 +1,4 @@
+import { assertEnterprisePilot } from "./enterprisePilot.js";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import {
@@ -22,6 +23,7 @@ export const setIntegrationsTestDouble = (double) => {
 };
 
 const assertDbConnected = () => {
+  assertEnterprisePilot();
   if (!testDouble && mongoose.connection?.readyState !== 1) {
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
@@ -138,59 +140,50 @@ export const processInboundLisMessage = async ({
     throw accessError(400, `Invalid LIS message type: '${messageType}'. Allowed: [${validTypes.join(", ")}]`);
   }
 
-  const payloadString = typeof payload === "string" ? payload : JSON.stringify(payload);
+  const sourceId = String(messageControlId).trim();
+  const accession = String(accessionNumber).trim();
+  if (sourceId.length > 128 || accession.length > 128) throw accessError(400, "LIS identity is too long");
+  const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+  let payloadString;
+  try { payloadString = typeof payload === "string" ? payload : JSON.stringify(canonical(payload)); }
+  catch { throw accessError(400, "LIS payload must be serializable"); }
+  if (!payloadString || Buffer.byteLength(payloadString) > 65536) throw accessError(400, "LIS payload exceeds the supported size");
   const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
-
-  // Idempotency: Duplicate check on messageControlId
-  const existing = await LisMessageLog.findOne({ hospitalId, messageControlId });
-  if (existing) {
-    return {
-      success: true,
-      idempotentReplay: true,
-      log: existing,
-      status: existing.status,
-    };
-  }
-
-  const log = await LisMessageLog.create({
-    hospitalId,
-    messageControlId: String(messageControlId).trim(),
-    messageType,
-    accessionNumber: String(accessionNumber).trim(),
-    direction: "inbound",
-    payloadHash,
-    status: "processed",
-    processedAt: new Date(),
-  });
-
-  return {
-    success: true,
-    idempotentReplay: false,
-    log,
-    status: log.status,
+  const scope = { hospitalId, messageControlId: sourceId };
+  const compare = log => {
+    if (log.payloadHash !== payloadHash || log.messageType !== messageType || log.accessionNumber !== accession) throw accessError(409, "LIS message ID was already used for different content");
+    return { success: true, idempotentReplay: true, log, status: log.status, processingImplemented: false };
   };
+  const existing = await LisMessageLog.findOne(scope);
+  if (existing) return compare(existing);
+
+  // A deterministic tenant/message identity uses MongoDB's always-present _id
+  // uniqueness even before separately approved enterprise indexes are applied.
+  const logId = new mongoose.Types.ObjectId(crypto.createHash("sha256").update(`${hospitalId}:${sourceId}`).digest("hex").slice(0, 24));
+  let inserted;
+  try {
+    inserted = await LisMessageLog.updateOne({ _id: logId }, { $setOnInsert: {
+      ...scope, messageType, accessionNumber: accession, direction: "inbound", payloadHash,
+      status: "received", processedAt: null,
+    } }, { upsert: true, runValidators: true });
+  } catch (error) {
+    if (error.code !== 11000) throw error;
+    const winner = await LisMessageLog.findOne(scope);
+    if (!winner) throw accessError(409, "Legacy LIS uniqueness index requires reviewed tenant migration");
+    return compare(winner);
+  }
+  const log = await LisMessageLog.findOne({ _id: logId, ...scope });
+  if (!log) throw accessError(409, "LIS identity conflict");
+  if (!inserted.upsertedCount) return compare(log);
+  return { success: true, idempotentReplay: false, log, status: log.status, processingImplemented: false };
 };
 
 export const replayFailedLisMessage = async ({ hospitalId, messageControlId, actor }) => {
   assertDbConnected();
-  if (testDouble?.replayFailedLisMessage) {
-    return testDouble.replayFailedLisMessage({ hospitalId, messageControlId, actor });
-  }
-
+  if (testDouble?.replayFailedLisMessage) return testDouble.replayFailedLisMessage({ hospitalId, messageControlId, actor });
   const log = await LisMessageLog.findOne({ hospitalId, messageControlId });
   if (!log) throw accessError(404, "LIS message log not found");
-
-  log.replayCount = (log.replayCount || 0) + 1;
-  log.status = "processed";
-  log.processedAt = new Date();
-  log.errorMessage = "";
-  await log.save();
-
-  return {
-    success: true,
-    log,
-    replayCount: log.replayCount,
-  };
+  throw accessError(503, "LIS processing and replay worker are not configured; the recorded observation is unchanged");
 };
 
 /**
@@ -232,6 +225,9 @@ export const registerDicomStudy = async ({
   if (!modality) throw accessError(400, "modality is required");
   if (!wadoRsUri || !String(wadoRsUri).trim()) throw accessError(400, "wadoRsUri is required");
 
+  let viewer;
+  try { viewer = new URL(wadoRsUri); } catch { throw accessError(400, "Invalid PACS viewer URL"); }
+  if (!["https:", "http:"].includes(viewer.protocol) || viewer.username || viewer.password) throw accessError(400, "PACS viewer must be a web URL without credentials");
   const existing = await DicomStudyReference.findOne({ hospitalId, studyInstanceUid });
   if (existing) {
     throw accessError(409, `DICOM study with UID '${studyInstanceUid}' already registered`);
@@ -490,7 +486,7 @@ export const getDicomStudyReferences = async ({
   if (patientId) query.patientId = patientId;
   if (modality) query.modality = modality.toUpperCase();
   if (search && String(search).trim()) {
-    const s = String(search).trim();
+    const s = String(search).trim().slice(0, 128).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     query.$or = [
       { studyInstanceUid: { $regex: s, $options: "i" } },
       { accessionNumber: { $regex: s, $options: "i" } },

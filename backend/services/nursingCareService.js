@@ -1,3 +1,4 @@
+import { assertEnterprisePilot } from "./enterprisePilot.js";
 import mongoose from "mongoose";
 import {
   InpatientOrder,
@@ -19,6 +20,7 @@ export const setNursingTestDouble = (double) => {
 };
 
 const assertDbConnected = () => {
+  assertEnterprisePilot();
   if (!testDouble && mongoose.connection?.readyState !== 1) {
     throw accessError(503, "Database service is unavailable. Please try again shortly.");
   }
@@ -274,8 +276,8 @@ export const recordNursingVitals = async ({
       requiresDoctorEscalation: news2Result.requiresDoctorEscalation,
       requiresCodeBlue: news2Result.requiresCodeBlue,
     },
-    escalationNotified: news2Result.requiresDoctorEscalation,
-    escalatedToDoctorId: news2Result.requiresDoctorEscalation ? admission.attendingDoctorId : null,
+    escalationNotified: false,
+    escalatedToDoctorId: null,
   });
 
   return {
@@ -312,7 +314,7 @@ export const administerMedication = async ({
   }
 
   const { rightPatient, rightDrug, rightDose, rightRoute, rightTime } = fiveRightsVerified;
-  if (!rightPatient || !rightDrug || !rightDose || !rightRoute || !rightTime) {
+  if ([rightPatient, rightDrug, rightDose, rightRoute, rightTime].some(value => value !== true)) {
     throw accessError(
       400,
       "5-Rights bedside verification incomplete. Must verify Right Patient, Right Drug, Right Dose, Right Route, and Right Time."
@@ -330,7 +332,10 @@ export const administerMedication = async ({
 
     if (!emar) throw accessError(404, "Pending medication administration record not found");
 
-    const order = emar.orderId;
+    const order = await InpatientOrder.findOneAndUpdate({ _id: emar.orderId?._id, hospitalId, status: "active" }, { $inc: { version: 1 } }, { session, new: true });
+    if (!order) throw accessError(409, "Medication order is no longer active");
+    const admission = await IpdAdmission.findOne({ _id: emar.admissionId, hospitalId, status: "admitted" }).session(session);
+    if (!admission || String(order.admissionId) !== String(admission._id) || String(order.patientId) !== String(admission.patientId)) throw accessError(409, "Medication identity or active admission changed");
     const isControlled = order?.medicationDetails?.isControlledSubstance;
     const isHighAlert = order?.medicationDetails?.isHighAlert;
 
@@ -347,6 +352,8 @@ export const administerMedication = async ({
         throw accessError(403, "Administering nurse cannot act as their own secondary witness");
       }
     }
+
+    if (isControlled || isHighAlert) throw accessError(503, "Independent authenticated medication witness approval is not implemented; caller-entered signatures cannot authorize administration");
 
     emar.status = "administered";
     emar.administeredAt = new Date();
@@ -481,7 +488,7 @@ export const recordShiftHandover = async ({
     criticalPatientsCount: criticalCount,
     patientSummaries,
     codeBlueEvents,
-    acknowledgedAt: new Date(),
+    acknowledgedAt: null,
     handoverNotes: String(handoverNotes).trim(),
   });
 

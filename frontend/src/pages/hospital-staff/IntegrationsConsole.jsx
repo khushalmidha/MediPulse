@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import axios from "axios";
 import {
   Network,
@@ -31,20 +31,20 @@ const LIS_STATUS_TONES = {
 };
 
 const MODALITY_COLORS = {
-  CT: { bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE" },
+  CT: { bg: "var(--mp-accent-soft)", text: "var(--mp-primary)", border: "#BFDBFE" },
   MRI: { bg: "#FAF5FF", text: "#7E22CE", border: "#E9D5FF" },
   XR: { bg: "#ECFDF5", text: "#047857", border: "#A7F3D0" },
   US: { bg: "#FFFBEB", text: "#B45309", border: "#FDE68A" },
   PET: { bg: "#FEF2F2", text: "#B91C1C", border: "#FECACA" },
   NM: { bg: "#F0FDF4", text: "#15803D", border: "#BBF7D0" },
-  OT: { bg: "#F8FAFC", text: "#334155", border: "#CBD5E1" },
+  OT: { bg: "var(--mp-surface-subtle)", text: "var(--mp-text)", border: "#CBD5E1" },
 };
 
 export default function IntegrationsConsole({ initialTab = "contracts" }) {
   const { staffUser, isStaffAuth } = useAuth();
   if (!isStaffAuth) {
     return (
-      <main className="mp-page">
+      <main className="mp-page mp-enterprise">
         <Card>
           <h1>Hospital Staff Authentication Required</h1>
           <p>Please sign in with your hospital staff account to access External Interfaces & Operating Acceptance.</p>
@@ -52,15 +52,18 @@ export default function IntegrationsConsole({ initialTab = "contracts" }) {
       </main>
     );
   }
-  return <IntegrationsWorkspace key={`${staffUser?._id || staffUser?.id}:${staffUser?.hospitalId}`} initialTab={initialTab} />;
+  if (!staffUser?.adminAccess && !["HOSPITAL_ADMIN", "DOCTOR", "LAB_TECH", "NURSE"].includes(staffUser?.role)) return <main className="mp-page mp-enterprise"><Card><h1>Integration access unavailable</h1><p>Your staff role does not permit access to this workspace.</p></Card></main>;
+  return <IntegrationsWorkspace key={`${staffUser?._id || staffUser?.id}:${staffUser?.hospitalId}:${staffUser?.role}:${Boolean(staffUser?.adminAccess)}`} initialTab={initialTab} />;
 }
 
 function IntegrationsWorkspace({ initialTab = "contracts" }) {
   const { staffUser } = useAuth();
   const isAdmin = staffUser?.role === "HOSPITAL_ADMIN" || Boolean(staffUser?.adminAccess);
 
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState(() => isAdmin ? initialTab : staffUser?.role === "NURSE" ? "pacs" : "lis");
   const [feedback, setFeedback] = useState(null);
+  const lisCommand = useRef(null), lisSubmitting = useRef(false);
+  const [lisSending, setLisSending] = useState(false);
 
   // Tab 1: Contracts state
   const [contracts, setContracts] = useState([]);
@@ -134,7 +137,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
       const res = await axios.get(`${BACKEND_URL}/api/integrations/contracts`, authHeaders);
       if (res.data?.success) setContracts(res.data.contracts || []);
     } catch (err) {
-      console.error("Failed to load interface contracts:", err);
+      setContracts([]); setFeedback({ tone: "error", message: err.response?.data?.message || "Unable to load interface contracts. Please retry." });
     } finally {
       setContractsLoading(false);
     }
@@ -147,7 +150,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
       const res = await axios.get(`${BACKEND_URL}/api/integrations/lis/logs`, authHeaders);
       if (res.data?.success) setLisLogs(res.data.logs || []);
     } catch (err) {
-      console.error("Failed to load LIS message logs:", err);
+      setLisLogs([]); setFeedback({ tone: "error", message: err.response?.data?.message || "Unable to load LIS message logs. Please retry." });
     } finally {
       setLisLoading(false);
     }
@@ -160,7 +163,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
       const res = await axios.get(`${BACKEND_URL}/api/integrations/pacs/studies`, authHeaders);
       if (res.data?.success) setStudies(res.data.studies || []);
     } catch (err) {
-      console.error("Failed to load DICOM studies:", err);
+      setStudies([]); setFeedback({ tone: "error", message: err.response?.data?.message || "Unable to load DICOM studies. Please retry." });
     } finally {
       setStudiesLoading(false);
     }
@@ -173,7 +176,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
       const res = await axios.get(`${BACKEND_URL}/api/integrations/sso/profile`, authHeaders);
       if (res.data?.success) setSsoProfile(res.data.profile || null);
     } catch (err) {
-      console.error("Failed to load SSO profile:", err);
+      setSsoProfile(null); setFeedback({ tone: "error", message: err.response?.data?.message || "Unable to load SSO profile. Please retry." });
     } finally {
       setSsoLoading(false);
     }
@@ -190,7 +193,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
       if (drRes.data?.success) setDrAudits(drRes.data.audits || []);
       if (repRes.data?.success) setAcceptanceReport(repRes.data.report || null);
     } catch (err) {
-      console.error("Failed to load DR audits and acceptance report:", err);
+      setDrAudits([]); setAcceptanceReport(null); setFeedback({ tone: "error", message: err.response?.data?.message || "Unable to load DR audits and acceptance report. Please retry." });
     } finally {
       setDrLoading(false);
     }
@@ -228,7 +231,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
         loadContracts();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -242,7 +245,10 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
       setFeedback({ tone: "error", message: "Payload must be valid JSON format" });
       return;
     }
-    const ctrlId = lisMessageControlId || `MSG-HL7-${Date.now()}`;
+    if (lisSubmitting.current) return;
+    const ctrlId = lisMessageControlId || lisCommand.current || `MSG-HL7-${Date.now()}`;
+    lisCommand.current = ctrlId; lisSubmitting.current = true; setLisSending(true);
+    setLisMessageControlId(ctrlId);
     try {
       const res = await axios.post(
         `${BACKEND_URL}/api/integrations/lis/inbound`,
@@ -256,21 +262,21 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
       );
       if (res.data?.success) {
         const replayMsg = res.data.idempotentReplay ? " (Idempotent Replay)" : "";
-        setFeedback({ tone: "positive", message: `LIS Message ${ctrlId} processed${replayMsg}.` });
+        setFeedback({ tone: "positive", message: `LIS Message ${ctrlId} recorded${replayMsg}. Clinical processing is not active.` });
         setLisModalOpen(false);
-        setLisMessageControlId("");
+        setLisMessageControlId(""); lisCommand.current = null;
         setLisAccessionNo("");
         loadLisLogs();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
-    }
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
+    } finally { lisSubmitting.current = false; setLisSending(false); }
   };
 
   const handleReplayLis = async (msgCtrlId) => {
     try {
       const res = await axios.post(
-        `${BACKEND_URL}/api/integrations/lis/logs/${msgCtrlId}/replay`,
+        `${BACKEND_URL}/api/integrations/lis/logs/${encodeURIComponent(msgCtrlId)}/replay`,
         {},
         authHeaders
       );
@@ -279,7 +285,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
         loadLisLogs();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -287,7 +293,8 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
   const handleRegisterDicom = async (e) => {
     e.preventDefault();
     const uid = studyUid || `1.2.840.113619.2.55.3.${Date.now()}`;
-    const uri = studyWadoUri || `https://pacs.hospital.internal/wado/studies/${uid}`;
+    const uri = studyWadoUri;
+    if (!uri.trim()) { setFeedback({ tone: "error", message: "Enter the actual PACS endpoint; no viewer endpoint has been configured." }); return; }
     try {
       const res = await axios.post(
         `${BACKEND_URL}/api/integrations/pacs/studies`,
@@ -315,7 +322,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
         loadDicomStudies();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -340,7 +347,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
         loadSsoProfile();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
@@ -370,12 +377,12 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
         loadDrAndAcceptance();
       }
     } catch (err) {
-      setFeedback({ tone: "error", message: err.response?.data?.error || err.message });
+      setFeedback({ tone: "error", message: err.response?.data?.message || err.response?.data?.error || err.message });
     }
   };
 
   return (
-    <main className="mp-page" style={{ maxWidth: 1400, margin: "0 auto", padding: "1.5rem" }}>
+    <main className="mp-page mp-enterprise" style={{ maxWidth: 1400, margin: "0 auto", padding: "1.5rem" }}>
       {/* Header */}
       <header
         style={{
@@ -398,10 +405,10 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
               gap: "0.5rem",
             }}
           >
-            <Network style={{ color: "#2563EB" }} /> Hospital Integrations & Operating Acceptance
+            <Network style={{ color: "var(--mp-primary)" }} /> Hospital Integrations & Operating Acceptance
           </h1>
-          <p style={{ margin: "0.25rem 0 0", color: "#64748B" }}>
-            LIS Analyzer HL7/ASTM Messaging, PACS DICOM Study Metadata, Enterprise SSO/SCIM & DR Operating Acceptance
+          <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)" }}>
+            Interface configuration, imaging references and recovery observations. External processing and operating acceptance remain pending.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
@@ -432,8 +439,8 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
       )}
 
       {/* Tabs */}
-      <nav style={{ display: "flex", gap: "0.5rem", borderBottom: "2px solid #E2E8F0", marginBottom: "1.5rem" }}>
-        <button
+      <nav className="mp-enterprise-tabs" style={{ display: "flex", overflowX: "auto", maxWidth: "100%", gap: "0.5rem", borderBottom: "2px solid var(--mp-border)", marginBottom: "1.5rem" }}>
+        {(isAdmin) && (<button
           type="button"
           onClick={() => setActiveTab("contracts")}
           style={{
@@ -441,8 +448,8 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             fontWeight: 600,
             border: "none",
             background: "none",
-            borderBottom: activeTab === "contracts" ? "3px solid #2563EB" : "3px solid transparent",
-            color: activeTab === "contracts" ? "#2563EB" : "#64748B",
+            borderBottom: activeTab === "contracts" ? "3px solid var(--mp-primary)" : "3px solid transparent",
+            color: activeTab === "contracts" ? "var(--mp-primary)" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -450,9 +457,9 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
           }}
         >
           <Server size={18} /> Interface Contracts
-        </button>
+        </button>)}
 
-        <button
+        {(isAdmin || ["DOCTOR", "LAB_TECH"].includes(staffUser?.role)) && (<button
           type="button"
           onClick={() => setActiveTab("lis")}
           style={{
@@ -460,8 +467,8 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             fontWeight: 600,
             border: "none",
             background: "none",
-            borderBottom: activeTab === "lis" ? "3px solid #059669" : "3px solid transparent",
-            color: activeTab === "lis" ? "#059669" : "#64748B",
+            borderBottom: activeTab === "lis" ? "3px solid var(--mp-primary)" : "3px solid transparent",
+            color: activeTab === "lis" ? "var(--mp-primary)" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -469,7 +476,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
           }}
         >
           <Activity size={18} /> LIS Analyzer Exchange
-        </button>
+        </button>)}
 
         <button
           type="button"
@@ -479,8 +486,8 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             fontWeight: 600,
             border: "none",
             background: "none",
-            borderBottom: activeTab === "pacs" ? "3px solid #7C3AED" : "3px solid transparent",
-            color: activeTab === "pacs" ? "#7C3AED" : "#64748B",
+            borderBottom: activeTab === "pacs" ? "3px solid var(--mp-primary)" : "3px solid transparent",
+            color: activeTab === "pacs" ? "var(--mp-primary)" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -490,7 +497,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
           <Layers size={18} /> PACS / DICOM Imaging
         </button>
 
-        <button
+        {(isAdmin) && (<button
           type="button"
           onClick={() => setActiveTab("sso")}
           style={{
@@ -498,8 +505,8 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             fontWeight: 600,
             border: "none",
             background: "none",
-            borderBottom: activeTab === "sso" ? "3px solid #D97706" : "3px solid transparent",
-            color: activeTab === "sso" ? "#D97706" : "#64748B",
+            borderBottom: activeTab === "sso" ? "3px solid var(--mp-primary)" : "3px solid transparent",
+            color: activeTab === "sso" ? "var(--mp-primary)" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -507,9 +514,9 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
           }}
         >
           <KeyRound size={18} /> Enterprise SSO & SCIM
-        </button>
+        </button>)}
 
-        <button
+        {(isAdmin) && (<button
           type="button"
           onClick={() => setActiveTab("dr")}
           style={{
@@ -517,8 +524,8 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             fontWeight: 600,
             border: "none",
             background: "none",
-            borderBottom: activeTab === "dr" ? "3px solid #DC2626" : "3px solid transparent",
-            color: activeTab === "dr" ? "#DC2626" : "#64748B",
+            borderBottom: activeTab === "dr" ? "3px solid var(--mp-primary)" : "3px solid transparent",
+            color: activeTab === "dr" ? "var(--mp-primary)" : "var(--mp-muted)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -526,7 +533,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
           }}
         >
           <HardDrive size={18} /> DR Drills & Acceptance
-        </button>
+        </button>)}
       </nav>
 
       {/* TAB 1: EXTERNAL INTERFACE CONTRACTS */}
@@ -542,7 +549,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
           >
             <div>
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>Registered Interface Contracts</h2>
-              <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
+              <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
                 Active external interfaces, downtime ownership contacts, escalation SLAs and queue policies
               </p>
             </div>
@@ -562,7 +569,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                    <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                       <th style={{ padding: "0.75rem" }}>Interface Type</th>
                       <th style={{ padding: "0.75rem" }}>Version</th>
                       <th style={{ padding: "0.75rem" }}>Endpoint URL</th>
@@ -573,17 +580,17 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                   </thead>
                   <tbody>
                     {contracts.map((c) => (
-                      <tr key={c._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
+                      <tr key={c._id} style={{ borderBottom: "1px solid var(--mp-border)" }}>
                         <td style={{ padding: "0.75rem", fontWeight: 700, color: "#1E40AF" }}>
                           {c.interfaceType}
                         </td>
                         <td style={{ padding: "0.75rem" }}>{c.contractVersion}</td>
-                        <td style={{ padding: "0.75rem", fontFamily: "monospace", fontSize: "0.75rem", color: "#475569" }}>
+                        <td style={{ padding: "0.75rem", fontFamily: "monospace", fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                           {c.endpointUrl}
                         </td>
                         <td style={{ padding: "0.75rem" }}>
                           <div>{c.downtimeOwnership?.primaryContact}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                          <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                             Escalation: {c.downtimeOwnership?.escalationMinutes} mins
                           </div>
                         </td>
@@ -617,13 +624,13 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             }}
           >
             <div>
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>LIS Analyzer Message Exchange</h2>
-              <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
-                Inbound HL7/ASTM lab messages, payload SHA-256 hash validation and replay idempotency
+              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>LIS Message Receipt Registry</h2>
+              <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
+                Receipt metadata and SHA-256 fingerprints only. Clinical parsing and replay are not active.
               </p>
             </div>
             <Button onClick={() => setLisModalOpen(true)}>
-              <Plus size={16} /> Simulate Inbound LIS Message
+              <Plus size={16} /> Record LIS Receipt
             </Button>
           </div>
 
@@ -636,7 +643,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                    <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                       <th style={{ padding: "0.75rem" }}>Message Control ID</th>
                       <th style={{ padding: "0.75rem" }}>Type</th>
                       <th style={{ padding: "0.75rem" }}>Accession #</th>
@@ -648,8 +655,8 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                   </thead>
                   <tbody>
                     {lisLogs.map((log) => (
-                      <tr key={log._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
-                        <td style={{ padding: "0.75rem", fontWeight: 700, color: "#0F172A" }}>
+                      <tr key={log._id} style={{ borderBottom: "1px solid var(--mp-border)" }}>
+                        <td style={{ padding: "0.75rem", fontWeight: 700, color: "var(--mp-text)" }}>
                           {log.messageControlId}
                         </td>
                         <td style={{ padding: "0.75rem" }}>
@@ -658,7 +665,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                           </span>
                         </td>
                         <td style={{ padding: "0.75rem" }}>{log.accessionNumber}</td>
-                        <td style={{ padding: "0.75rem", fontFamily: "monospace", fontSize: "0.75rem", color: "#64748B" }}>
+                        <td style={{ padding: "0.75rem", fontFamily: "monospace", fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                           {log.payloadHash?.slice(0, 16)}...
                         </td>
                         <td style={{ padding: "0.75rem" }}>
@@ -672,6 +679,8 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                             size="small"
                             variant="outline"
                             onClick={() => handleReplayLis(log.messageControlId)}
+                            disabled
+                            title="A processing and replay worker has not been configured"
                           >
                             Replay
                           </Button>
@@ -699,7 +708,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
           >
             <div>
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>PACS / DICOM Diagnostic Studies</h2>
-              <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
+              <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
                 Zero raw pixel bloat: Study Instance UIDs, Accessions, WADO-RS viewer endpoints and radiology summaries
               </p>
             </div>
@@ -717,7 +726,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                    <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                       <th style={{ padding: "0.75rem" }}>Modality</th>
                       <th style={{ padding: "0.75rem" }}>Study Description</th>
                       <th style={{ padding: "0.75rem" }}>Study UID & Accession</th>
@@ -730,7 +739,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                     {studies.map((s) => {
                       const modStyle = MODALITY_COLORS[s.modality] || MODALITY_COLORS.OT;
                       return (
-                        <tr key={s._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
+                        <tr key={s._id} style={{ borderBottom: "1px solid var(--mp-border)" }}>
                           <td style={{ padding: "0.75rem" }}>
                             <span
                               style={{
@@ -748,10 +757,10 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                           </td>
                           <td style={{ padding: "0.75rem", fontWeight: 600 }}>{s.studyDescription}</td>
                           <td style={{ padding: "0.75rem" }}>
-                            <div style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "#0F172A" }}>
+                            <div style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "var(--mp-text)" }}>
                               {s.studyInstanceUid}
                             </div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Acc: {s.accessionNumber}</div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Acc: {s.accessionNumber}</div>
                           </td>
                           <td style={{ padding: "0.75rem" }}>
                             {s.patientId?.firstName} {s.patientId?.lastName}
@@ -794,7 +803,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
           >
             <div>
               <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>Enterprise SSO & Directory Provisioning</h2>
-              <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
+              <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
                 Federated Identity Providers (Azure AD, Okta, SAML 2.0, OIDC) & SCIM Automated Lifecycle Management
               </p>
             </div>
@@ -813,41 +822,41 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                 <p>Configure an Identity Provider (IdP) to enable staff single sign-on and SCIM auto-provisioning.</p>
               </EmptyState>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Identity Provider Type</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Identity Provider Type</div>
                   <div style={{ fontWeight: 700, fontSize: "1.125rem", color: "#1E3A8A", textTransform: "uppercase" }}>
                     {ssoProfile.idpType?.replace("_", " ")}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>SSO Status</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>SSO Status</div>
                   <StatusBadge tone="positive">Active & Federated</StatusBadge>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Entity ID / Issuer</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Entity ID / Issuer</div>
                   <div style={{ fontFamily: "monospace", fontSize: "0.875rem" }}>{ssoProfile.entityId}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Metadata Federation URL</div>
-                  <div style={{ fontFamily: "monospace", fontSize: "0.875rem", color: "#475569" }}>
+                  <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Metadata Federation URL</div>
+                  <div style={{ fontFamily: "monospace", fontSize: "0.875rem", color: "var(--mp-muted)" }}>
                     {ssoProfile.metadataUrl || "Manual Certificate"}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>SCIM Automated Provisioning</div>
-                  <div style={{ fontWeight: 600, color: ssoProfile.scimEnabled ? "#059669" : "#64748B" }}>
+                  <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>SCIM Automated Provisioning</div>
+                  <div style={{ fontWeight: 600, color: ssoProfile.scimEnabled ? "var(--mp-primary)" : "var(--mp-muted)" }}>
                     {ssoProfile.scimEnabled ? "Enabled (Directory Sync)" : "Disabled"}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Auto-Provisioned Roles</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>Auto-Provisioned Roles</div>
                   <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.25rem" }}>
                     {ssoProfile.autoProvisionRoles?.map((r) => (
                       <span
                         key={r}
                         style={{
-                          background: "#F1F5F9",
+                          background: "var(--mp-surface-muted)",
                           padding: "0.15rem 0.4rem",
                           borderRadius: "4px",
                           fontSize: "0.75rem",
@@ -876,7 +885,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             <Card style={{ padding: "1.25rem", borderLeft: "4px solid #DC2626" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: "0.875rem", color: "#64748B" }}>Operating Acceptance Status</div>
+                  <div style={{ fontSize: "0.875rem", color: "var(--mp-muted)" }}>Operating Acceptance Status</div>
                   <div style={{ fontSize: "1.25rem", fontWeight: 700, color: "#DC2626" }}>
                     {acceptanceReport?.operatingAcceptance?.status?.toUpperCase() || "NOT ACCEPTED"}
                   </div>
@@ -884,18 +893,18 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                 <StatusBadge tone="danger">Boundary Enforced</StatusBadge>
               </div>
 
-              <div style={{ marginTop: "1rem", fontSize: "0.875rem", color: "#475569" }}>
+              <div style={{ marginTop: "1rem", fontSize: "0.875rem", color: "var(--mp-muted)" }}>
                 <strong>Truthful Operating Disclaimer:</strong> {acceptanceReport?.operatingAcceptance?.disclaimer}
               </div>
 
-              <div style={{ marginTop: "1rem", borderTop: "1px solid #E2E8F0", paddingTop: "0.75rem" }}>
+              <div style={{ marginTop: "1rem", borderTop: "1px solid var(--mp-border)", paddingTop: "0.75rem" }}>
                 <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", fontWeight: 600 }}>Milestone Tracking</h4>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem" }}>
+                <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem" }}>
                   {acceptanceReport &&
                     Object.entries(acceptanceReport.milestones || {}).map(([key, m]) => (
-                      <div key={key} style={{ padding: "0.5rem", background: "#F8FAFC", borderRadius: "6px" }}>
+                      <div key={key} style={{ padding: "0.5rem", background: "var(--mp-surface-subtle)", borderRadius: "6px" }}>
                         <div style={{ fontSize: "0.75rem", fontWeight: 700 }}>{key}</div>
-                        <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                        <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>
                           Status: {m.status} (Task: {m.taskId})
                         </div>
                       </div>
@@ -917,7 +926,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             >
               <div>
                 <h2 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>Disaster Recovery (DR) Restoration Drills</h2>
-                <p style={{ margin: "0.25rem 0 0", color: "#64748B", fontSize: "0.875rem" }}>
+                <p style={{ margin: "0.25rem 0 0", color: "var(--mp-muted)", fontSize: "0.875rem" }}>
                   RPO/RTO restoration drill logs with unverified observation status boundary preservation
                 </p>
               </div>
@@ -937,7 +946,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", fontSize: "0.875rem", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                      <tr style={{ background: "var(--mp-surface-muted)", textAlign: "left" }}>
                         <th style={{ padding: "0.75rem" }}>Drill ID</th>
                         <th style={{ padding: "0.75rem" }}>Drill Type</th>
                         <th style={{ padding: "0.75rem" }}>Date</th>
@@ -949,10 +958,10 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
                     </thead>
                     <tbody>
                       {drAudits.map((a) => (
-                        <tr key={a._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
-                          <td style={{ padding: "0.75rem", fontWeight: 700, color: "#0F172A" }}>{a.drillId}</td>
+                        <tr key={a._id} style={{ borderBottom: "1px solid var(--mp-border)" }}>
+                          <td style={{ padding: "0.75rem", fontWeight: 700, color: "var(--mp-text)" }}>{a.drillId}</td>
                           <td style={{ padding: "0.75rem" }}>{a.drillType?.replace("_", " ")}</td>
-                          <td style={{ padding: "0.75rem", color: "#64748B" }}>
+                          <td style={{ padding: "0.75rem", color: "var(--mp-muted)" }}>
                             {new Date(a.drillDate || a.createdAt).toISOString().slice(0, 10)}
                           </td>
                           <td style={{ padding: "0.75rem", textAlign: "right", fontWeight: 600 }}>
@@ -1013,7 +1022,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             onChange={(e) => setContractContact(e.target.value)}
             placeholder="e.g. Systems Engineer Ramesh (ext 104)"
           />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
             <Field
               label="Escalation SLA (Minutes)"
               type="number"
@@ -1041,9 +1050,10 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
         </form>
       </Dialog>
 
-      {/* DIALOG 2: Simulate Inbound LIS Message */}
-      <Dialog open={lisModalOpen} onClose={() => setLisModalOpen(false)} title="Simulate Inbound LIS Message">
+      {/* DIALOG 2: Record LIS Receipt */}
+      <Dialog open={lisModalOpen} onClose={() => setLisModalOpen(false)} title="Record LIS Receipt">
         <form onSubmit={handleSendLisMessage} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {feedback?.tone === "error" && <Banner tone="error">{feedback.message}</Banner>}
           <Field
             label="Message Control ID"
             value={lisMessageControlId}
@@ -1080,7 +1090,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             <Button variant="ghost" onClick={() => setLisModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit">
+            <Button variant="primary" type="submit" disabled={lisSending}>
               Ingest Message
             </Button>
           </div>
@@ -1096,7 +1106,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             onChange={(e) => setStudyUid(e.target.value)}
             placeholder="Auto-generated if empty (e.g. 1.2.840.113619.2...)"
           />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
             <Field
               label="Accession #"
               required
@@ -1112,7 +1122,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
               placeholder="Patient User ObjectId"
             />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "0.75rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "0.75rem" }}>
             <Field
               label="Modality"
               as="select"
@@ -1134,7 +1144,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
               placeholder="e.g. Brain MRI with Diffusion & Perfusion"
             />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: "0.75rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: "0.75rem" }}>
             <Field
               label="Series Count"
               type="number"
@@ -1181,22 +1191,22 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
       >
         {selectedStudy && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <div style={{ background: "#F8FAFC", padding: "1rem", borderRadius: "8px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.875rem" }}>
+            <div style={{ background: "var(--mp-surface-subtle)", padding: "1rem", borderRadius: "8px" }}>
+              <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.875rem" }}>
                 <div>
-                  <span style={{ color: "#64748B" }}>Modality:</span> <strong>{selectedStudy.modality}</strong>
+                  <span style={{ color: "var(--mp-muted)" }}>Modality:</span> <strong>{selectedStudy.modality}</strong>
                 </div>
                 <div>
-                  <span style={{ color: "#64748B" }}>Accession:</span> <strong>{selectedStudy.accessionNumber}</strong>
+                  <span style={{ color: "var(--mp-muted)" }}>Accession:</span> <strong>{selectedStudy.accessionNumber}</strong>
                 </div>
                 <div>
-                  <span style={{ color: "#64748B" }}>Series / Images:</span>{" "}
+                  <span style={{ color: "var(--mp-muted)" }}>Series / Images:</span>{" "}
                   <strong>
                     {selectedStudy.seriesCount} series / {selectedStudy.instanceCount} frames
                   </strong>
                 </div>
                 <div>
-                  <span style={{ color: "#64748B" }}>Study UID:</span>{" "}
+                  <span style={{ color: "var(--mp-muted)" }}>Study UID:</span>{" "}
                   <span style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{selectedStudy.studyInstanceUid}</span>
                 </div>
               </div>
@@ -1204,14 +1214,14 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
 
             <div>
               <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", fontWeight: 600 }}>Radiologist Summary</h4>
-              <p style={{ margin: 0, padding: "0.75rem", background: "#EFF6FF", borderRadius: "6px", fontSize: "0.875rem", color: "#1E3A8A" }}>
+              <p style={{ margin: 0, padding: "0.75rem", background: "var(--mp-accent-soft)", borderRadius: "6px", fontSize: "0.875rem", color: "#1E3A8A" }}>
                 {selectedStudy.reportSummary || "No diagnostic impression summary recorded."}
               </p>
             </div>
 
-            <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "0.75rem" }}>
-              <div style={{ fontSize: "0.75rem", color: "#64748B", marginBottom: "0.25rem" }}>WADO-RS Endpoint</div>
-              <div style={{ padding: "0.5rem", background: "#F1F5F9", borderRadius: "4px", fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all" }}>
+            <div style={{ borderTop: "1px solid var(--mp-border)", paddingTop: "0.75rem" }}>
+              <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)", marginBottom: "0.25rem" }}>WADO-RS Endpoint</div>
+              <div style={{ padding: "0.5rem", background: "var(--mp-surface-muted)", borderRadius: "4px", fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all" }}>
                 {selectedStudy.wadoRsUri}
               </div>
             </div>
@@ -1287,7 +1297,7 @@ function IntegrationsWorkspace({ initialTab = "contracts" }) {
             <option value="oplog_replay_check">Oplog Point-in-Time Replay</option>
             <option value="failover_simulation">Multi-AZ Database Failover</option>
           </Field>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <div className="mp-enterprise-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
             <Field
               label="Measured RPO (Minutes)"
               type="number"

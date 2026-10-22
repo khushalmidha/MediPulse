@@ -213,6 +213,7 @@ const wardStockRequisitionSchema = new mongoose.Schema(
       index: true,
     },
     transferIdempotencyKey: { type: String, default: null, index: true },
+    transferCommands: [{ key: String, fingerprint: String, recordedAt: Date }],
     issuedByStaffId: { type: objectId, ref: "HospitalStaff", default: null },
     issuedAt: { type: Date, default: null },
     version: { type: Number, default: 0 },

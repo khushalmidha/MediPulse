@@ -1,3 +1,11 @@
+# Current release reconciliation - 22 October 2026
+
+Review of 32c85bde and subsequent safety fixes: [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md) is current. Enterprise APIs/UI exist and fixtures have been repaired, but enterprise operating acceptance, real claim delivery and the documented access/financial/adapter requirements are open. Enterprise runtime now defaults off; existing outpatient operation is retained. No production acceptance was performed.
+
+The report below is historical evidence for its own revision, not the current enterprise release verdict.
+
+---
+
 # MediPulse release status - 22 October 2026
 
 **Status: local outpatient engineering candidate with a disabled, incomplete walk-in claim; enterprise and production acceptance remain open.** The earlier all-verified assertion is withdrawn by the independent review of `694fdb8d`. [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) and [IMPLEMENTATION_TASKS.json](IMPLEMENTATION_TASKS.json) supersede earlier blanket completion claims.
