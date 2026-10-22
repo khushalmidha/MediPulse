@@ -2868,3 +2868,45 @@ Baseline: `ee789a23` on main. Completed bounded vertical Inpatient Clinical Orde
 - Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.
 
 
+## AG20 Emergency and Theatre Workflows - 22 October 2026
+
+Baseline: `0735130c` on main. Completed bounded vertical Emergency Department 5-Level Triage and Operation Theatre Scheduling with WHO Surgical Safety Checklist workflows across backend routes, controllers, services, database invariants, and staff UI.
+
+### Implemented changes & verification
+
+- **Emergency & Theatre Controller & HTTP Routes:**
+  - Implemented `backend/controller/emergencyTheatre.js` with `asyncHandler`, capability validation, and robust parameter handling for emergency triage intake, status and disposition lifecycle (`in_treatment`, `admitted_ipd`, `transferred_out`, `discharged`), theatre room management, surgery booking with triple-conflict detection (theatre room, lead surgeon, anesthesiologist), cancellation with immediate slot release, 3-stage WHO surgical safety checklist verification, and PACU Aldrete recovery scoring.
+  - Implemented `backend/routes/emergencyTheatre.js` exporting `emergencyTheatreRouter` with `nosqlGuard`, `validateStaff`, and `requireRole(...)` authorization (`DOCTOR` / `NURSE` / `HOSPITAL_ADMIN` for triage intake and updates; `DOCTOR` / `HOSPITAL_ADMIN` for surgery booking and cancellation; strictly operating surgeon `DOCTOR` / `HOSPITAL_ADMIN` for WHO Time Out; `NURSE` / `DOCTOR` for Sign In, Sign Out, and PACU).
+  - Mounted routes at `app.use('/api/emergency', emergencyTheatreRouter)` and `app.use('/api/theatre', emergencyTheatreRouter)` in `backend/index.js`.
+- **Emergency & Theatre Service Enhancements (`backend/services/emergencyTheatreService.js`):**
+  - Added query and lifecycle methods: `getEmergencyRegistrations`, `getEmergencyRegistrationById`, `updateEmergencyStatus`, `getOtSchedules`, and `getOtScheduleById`.
+  - Added model imports for `inpatient.js`, `user.js`, `doctor.js`, and `hospitalStaff.js` to ensure proper Mongoose population across isolated environments.
+  - Enforced atomic moneyTransaction locks for surgery booking with triple-conflict checks: 1) theatre room overlap, 2) lead surgeon overlap, 3) anesthesiologist overlap.
+  - Enforced sequential progression of WHO checklist stages (`signIn` -> `timeOut` -> `signOut`) with mandatory minimum checkpoints.
+  - Enforced clinical safety gate in PACU: minimum Aldrete score of 8 required for ward transfer authorization.
+- **Emergency Department & Operation Theatre Console UI (`frontend/src/pages/hospital-staff/EmergencyTheatreConsole.jsx`):**
+  - Built comprehensive staff workstation with tabbed workspace: "Emergency & Triage (ED)", "Theatre Schedules (OT)", "WHO Checklist & PACU Recovery".
+  - Emergency Department tab: Live acuity metrics bar (L1 Resuscitation, L2 Emergent, L3 Urgent, In Treatment, Admitted IPD), filter toolbar (status, triage level, search), Triage Intake modal with 5-level acuity card selector and bay assignment, active patients table with wait timers, and Disposition modal (admitted to IPD, transfer, discharge).
+  - Theatre Schedules tab: Daily master schedule grid, date picker, theatre suite filter, Book Surgery Case modal with pre-fill from emergency cases and real-time conflict error reporting, and Cancel Surgery modal with mandatory clinical reason.
+  - WHO Checklist & PACU Recovery tab: Interactive surgery case selector, Sign In checklist (7 checkpoints, circulating nurse verification -> `in_progress`), Time Out checklist (7 checkpoints, strictly operating surgeon verification), Sign Out checklist (5 checkpoints, circulating nurse verification -> `completed`), and PACU Aldrete Recovery Section with interactive score slider and clinical gate validation.
+  - Added lazy-loaded routes in `frontend/src/App.jsx`: `/hospital/emergency`, `/hospital/theatre`, `/hospital/ot`, `/hospital/checklist`.
+  - Added "Emergency & OT" navigation link with Siren icon in `frontend/src/components/Navbar.jsx`.
+- **Testing & Verification:**
+  - Unit test suite `backend/tests/emergency-theatre.test.js`: **8/8 passed** (8.38ms).
+  - Integration test suite `backend/tests/integration/emergency-theatre.test.js`: **6/6 passed** against live local MongoDB replica set `rs0` (including subtest 5 with 22 assertions testing HTTP 401 unauth denial, 403 role denials, foreign hospital tenant isolation, emergency registration & disposition, theatre room creation, triple-conflict booking serialization, sequential WHO checklist progression, PACU Aldrete safety gate rejection, and cancellation with immediate slot reallocation).
+  - Backend unit test suite (`npm test`): **225/225 passed, 0 failed, 0 skipped** (20.84s).
+  - Full registered backend integration runner (`npm run test:integration`): **367/367 passed, 0 failed, 0 skipped** (308.99s).
+  - Frontend unit test suite (`npm run test:ui`): **59/59 passed, 0 failed, 0 skipped** (325ms).
+  - Frontend production build (`npm run build`): **passed cleanly in 17.15s** (`dist/assets/EmergencyTheatreConsole-DrP6qALm.js` 53.32 kB).
+  - Affected frontend files ESLint: **0 errors / 0 warnings**.
+  - Task ledger `docs/IMPLEMENTATION_TASKS.json`: AG20 transitioned to `verified_local` with `productionAcceptance: "not performed"`; next task set to `AG21`.
+  - Status documentation `docs/IMPLEMENTATION_STATUS.md`: updated to reflect 367/367 integration cases and AG20 local verification.
+
+### Data and boundary affirmation
+
+- Additive and reversible changes only; zero production database, index, seed, or migration executed.
+- Local tests verified on isolated synthetic databases against local MongoDB replica set (`rs0`) and Redis.
+- Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.
+
+
+

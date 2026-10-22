@@ -6,6 +6,10 @@ import {
   OtSchedule,
 } from "../model/emergencyTheatre.js";
 import Hospital from "../model/hospital.js";
+import "../model/inpatient.js";
+import "../model/user.js";
+import "../model/doctor.js";
+import "../model/hospitalStaff.js";
 import { accessError } from "./hospitalAccess.js";
 import { moneyTransaction } from "./moneyTransaction.js";
 import {
@@ -451,6 +455,228 @@ export const recordPacuRecovery = async ({
   };
 };
 
+/**
+ * 7. Emergency Department Queries & Status Updates
+ */
+export const getEmergencyRegistrations = async ({
+  hospitalId,
+  status,
+  triageLevel,
+  search,
+  limit = 50,
+  page = 1,
+}) => {
+  assertDbConnected();
+  if (testDouble?.getEmergencyRegistrations) {
+    return testDouble.getEmergencyRegistrations({ hospitalId, status, triageLevel, search, limit, page });
+  }
+
+  const hospital = await Hospital.findById(hospitalId);
+  if (!hospital) throw accessError(404, "Hospital not found");
+  assertTenantNotSuspended(hospital);
+  checkFeatureEntitlement(hospital, "emergency_theatre");
+
+  const query = { hospitalId };
+  if (status) {
+    if (status.includes(",")) {
+      query.status = { $in: status.split(",").map((s) => s.trim()) };
+    } else {
+      query.status = status;
+    }
+  }
+  if (triageLevel) {
+    query.triageLevel = Number(triageLevel);
+  }
+  if (search && String(search).trim()) {
+    const term = String(search).trim();
+    query.$or = [
+      { patientName: { $regex: term, $options: "i" } },
+      { emergencyNumber: { $regex: term, $options: "i" } },
+      { chiefComplaint: { $regex: term, $options: "i" } },
+      { assignedBay: { $regex: term, $options: "i" } },
+    ];
+  }
+
+  const parsedLimit = Math.max(1, Math.min(100, Number(limit) || 50));
+  const parsedPage = Math.max(1, Number(page) || 1);
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  const [registrations, total] = await Promise.all([
+    EmergencyRegistration.find(query)
+      .populate("attendingDoctorId", "firstName lastName specialization")
+      .populate("triagedByStaffId", "name role")
+      .populate("linkedAdmissionId", "admissionNumber bedId status")
+      .sort({ arrivalTime: -1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .lean(),
+    EmergencyRegistration.countDocuments(query),
+  ]);
+
+  return {
+    success: true,
+    registrations,
+    total,
+    page: parsedPage,
+    limit: parsedLimit,
+  };
+};
+
+export const getEmergencyRegistrationById = async ({ hospitalId, emergencyRegistrationId }) => {
+  assertDbConnected();
+  if (testDouble?.getEmergencyRegistrationById) {
+    return testDouble.getEmergencyRegistrationById({ hospitalId, emergencyRegistrationId });
+  }
+
+  const registration = await EmergencyRegistration.findOne({
+    _id: emergencyRegistrationId,
+    hospitalId,
+  })
+    .populate("attendingDoctorId", "firstName lastName specialization")
+    .populate("triagedByStaffId", "name role")
+    .populate("linkedAdmissionId")
+    .lean();
+
+  if (!registration) throw accessError(404, "Emergency registration not found");
+  return registration;
+};
+
+export const updateEmergencyStatus = async ({
+  hospitalId,
+  emergencyRegistrationId,
+  status,
+  attendingDoctorId,
+  assignedBay,
+  outcomeNotes,
+  linkedAdmissionId,
+  actor,
+}) => {
+  assertDbConnected();
+  if (testDouble?.updateEmergencyStatus) {
+    return testDouble.updateEmergencyStatus({
+      hospitalId,
+      emergencyRegistrationId,
+      status,
+      attendingDoctorId,
+      assignedBay,
+      outcomeNotes,
+      linkedAdmissionId,
+      actor,
+    });
+  }
+
+  const validStatuses = ["triaged", "in_treatment", "admitted_ipd", "transferred_out", "discharged", "deceased"];
+  if (status && !validStatuses.includes(status)) {
+    throw accessError(400, `Invalid emergency status: '${status}'. Allowed: [${validStatuses.join(", ")}]`);
+  }
+
+  const registration = await EmergencyRegistration.findOne({
+    _id: emergencyRegistrationId,
+    hospitalId,
+  });
+  if (!registration) throw accessError(404, "Emergency registration not found");
+
+  if (status) {
+    registration.status = status;
+    if (["admitted_ipd", "transferred_out", "discharged", "deceased"].includes(status)) {
+      registration.dispositionTime = new Date();
+    }
+  }
+  if (attendingDoctorId !== undefined) {
+    registration.attendingDoctorId = attendingDoctorId || null;
+  }
+  if (assignedBay !== undefined) {
+    registration.assignedBay = String(assignedBay || "").trim();
+  }
+  if (outcomeNotes !== undefined) {
+    registration.outcomeNotes = String(outcomeNotes || "").trim();
+  }
+  if (linkedAdmissionId !== undefined) {
+    registration.linkedAdmissionId = linkedAdmissionId || null;
+  }
+
+  await registration.save();
+
+  return {
+    success: true,
+    registration,
+  };
+};
+
+/**
+ * 8. Operation Theatre Queries
+ */
+export const getOtSchedules = async ({
+  hospitalId,
+  date,
+  theatreRoomId,
+  leadSurgeonDoctorId,
+  status,
+}) => {
+  assertDbConnected();
+  if (testDouble?.getOtSchedules) {
+    return testDouble.getOtSchedules({ hospitalId, date, theatreRoomId, leadSurgeonDoctorId, status });
+  }
+
+  const hospital = await Hospital.findById(hospitalId);
+  if (!hospital) throw accessError(404, "Hospital not found");
+  assertTenantNotSuspended(hospital);
+  checkFeatureEntitlement(hospital, "emergency_theatre");
+
+  const query = { hospitalId };
+  if (theatreRoomId) query.theatreRoomId = theatreRoomId;
+  if (leadSurgeonDoctorId) query.leadSurgeonDoctorId = leadSurgeonDoctorId;
+  if (status) query.status = status;
+
+  if (date) {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+    query.scheduledStartTime = { $gte: dayStart, $lte: dayEnd };
+  }
+
+  const schedules = await OtSchedule.find(query)
+    .populate("theatreRoomId", "theatreCode theatreName theatreType")
+    .populate("leadSurgeonDoctorId", "firstName lastName specialization")
+    .populate("anesthetistDoctorId", "firstName lastName specialization")
+    .populate("scrubNurseStaffId", "name role")
+    .populate("patientId", "firstName lastName phoneNumber gender")
+    .populate("whoChecklist.timeOut.verifiedByDoctorId", "firstName lastName")
+    .populate("whoChecklist.signIn.verifiedByStaffId", "name role")
+    .populate("whoChecklist.signOut.verifiedByStaffId", "name role")
+    .populate("pacu.recoveryNurseStaffId", "name role")
+    .sort({ scheduledStartTime: 1 })
+    .lean();
+
+  return {
+    success: true,
+    schedules,
+  };
+};
+
+export const getOtScheduleById = async ({ hospitalId, bookingId }) => {
+  assertDbConnected();
+  if (testDouble?.getOtScheduleById) {
+    return testDouble.getOtScheduleById({ hospitalId, bookingId });
+  }
+
+  const booking = await OtSchedule.findOne({ _id: bookingId, hospitalId })
+    .populate("theatreRoomId", "theatreCode theatreName theatreType")
+    .populate("leadSurgeonDoctorId", "firstName lastName specialization")
+    .populate("anesthetistDoctorId", "firstName lastName specialization")
+    .populate("scrubNurseStaffId", "name role")
+    .populate("patientId", "firstName lastName phoneNumber gender age")
+    .populate("whoChecklist.timeOut.verifiedByDoctorId", "firstName lastName")
+    .populate("whoChecklist.signIn.verifiedByStaffId", "name role")
+    .populate("whoChecklist.signOut.verifiedByStaffId", "name role")
+    .populate("pacu.recoveryNurseStaffId", "name role")
+    .lean();
+
+  if (!booking) throw accessError(404, "Theatre surgery booking not found");
+  return booking;
+};
+
 export default {
   registerEmergencyPatient,
   createTheatreRoom,
@@ -459,4 +685,10 @@ export default {
   cancelTheatreCase,
   recordWhoChecklistStage,
   recordPacuRecovery,
+  getEmergencyRegistrations,
+  getEmergencyRegistrationById,
+  updateEmergencyStatus,
+  getOtSchedules,
+  getOtScheduleById,
 };
+

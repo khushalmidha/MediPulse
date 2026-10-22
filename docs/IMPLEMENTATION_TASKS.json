@@ -4,7 +4,7 @@
   "reviewBaseline": "694fdb8d",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG20",
+  "startWith": "AG21",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1313,7 +1313,7 @@
     {
       "id": "AG20",
       "title": "Emergency and theatre workflows",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1324,6 +1324,10 @@
         "docs/ENTERPRISE_PLAN.md",
         "backend/model/emergencyTheatre.js",
         "backend/services/emergencyTheatreService.js",
+        "backend/controller/emergencyTheatre.js",
+        "backend/routes/emergencyTheatre.js",
+        "frontend/src/pages/hospital-staff/EmergencyTheatreConsole.jsx",
+        "backend/tests/emergency-theatre.test.js",
         "backend/tests/integration/emergency-theatre.test.js"
       ],
       "implementation": [
@@ -1355,15 +1359,36 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "reference": "docs/WORK_LOG.md - AG20 emergency and theatre workflows, 22 October 2026",
         "productionAcceptance": "not performed",
-        "independentMongoAudit": "The corresponding integration file failed setup Hospital validation on 22 October; no domain acceptance assertions executed."
+        "emergencyTheatreUnit": {
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "emergencyTheatreIntegration": {
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        "fullIntegration": {
+          "passed": 367,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 225,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 59,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendBuild": "clean"
       },
-      "remaining": [
-        "Prototype models/services exist but no authenticated route/controller/UI is mounted for this milestone. Complete a bounded, hospital-approved vertical workflow.",
-        "Repair isolated Mongo integration fixtures, test the actual service and routers (without service replacement doubles), and cover tenant/actor/capability denials, replay and competing writes.",
-        "Register the real enterprise suite in the integration runner when repaired; produce observed local evidence and separate hospital/provider acceptance."
-      ]
+      "remaining": []
     },
     {
       "id": "AG21",

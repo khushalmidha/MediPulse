@@ -45,6 +45,7 @@ const StaffCommunication = lazy(() => import("./pages/hospital-staff/StaffCommun
 const LaboratoryConsole = lazy(() => import("./pages/hospital-staff/LaboratoryConsole"));
 const PharmacyConsole = lazy(() => import("./pages/hospital-staff/PharmacyConsole"));
 const InpatientConsole = lazy(() => import("./pages/hospital-staff/InpatientConsole"));
+const EmergencyTheatreConsole = lazy(() => import("./pages/hospital-staff/EmergencyTheatreConsole"));
 const StaffAcceptInvite = lazy(() => import("./pages/StaffAcceptInvite"));
 const HospitalAdminSetup = lazy(() => import("./pages/HospitalAdminSetup"));
 const ReviewVisit = lazy(() => import("./pages/ReviewVisit"));
@@ -108,6 +109,10 @@ function App() {
               <Route path="/hospital/nursing" element={<InpatientConsole initialTab="nursing" />} />
               <Route path="/hospital/inpatient-care" element={<InpatientConsole initialTab="nursing" />} />
               <Route path="/hospital/handovers" element={<InpatientConsole initialTab="handovers" />} />
+              <Route path="/hospital/emergency" element={<EmergencyTheatreConsole initialTab="emergency" />} />
+              <Route path="/hospital/theatre" element={<EmergencyTheatreConsole initialTab="theatre" />} />
+              <Route path="/hospital/ot" element={<EmergencyTheatreConsole initialTab="theatre" />} />
+              <Route path="/hospital/checklist" element={<EmergencyTheatreConsole initialTab="checklist" />} />
               <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
               <Route path="/staff/setup" element={<HospitalAdminSetup />} />
               <Route path="/hospital/setup" element={<HospitalAdminSetup />} />
