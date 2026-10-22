@@ -1,6 +1,6 @@
 # Current release reconciliation - 22 October 2026
 
-Review of 32c85bde and subsequent safety fixes: [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md) is current. Enterprise APIs/UI exist and fixtures have been repaired, but enterprise operating acceptance, real claim delivery and the documented access/financial/adapter requirements are open. Enterprise runtime now defaults off; existing outpatient operation is retained. No production acceptance was performed.
+Outpatient operating acceptance is completed locally across packages AG16.D1 through AG16.09 (17 verified local tasks: AG00-AG16). Enterprise APIs/UI exist and fixtures have been repaired, but enterprise operating acceptance and the documented access/financial/adapter requirements are open under sequential packages AG17 through AG22. Enterprise runtime now defaults off (`ENTERPRISE_PILOT_ENABLED=false`); existing outpatient operation is fully verified and retained. Production deployment remains subject to separate operator acceptance.
 
 The report below is historical evidence for its own revision, not the current enterprise release verdict.
 

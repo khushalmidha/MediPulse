@@ -3257,3 +3257,28 @@ Completed and executed whole-application candidate verification across all backe
   - Dependency audits: 0 vulnerabilities across frontend and backend workspaces.
 - **Plan ledger update:**
   - Transitioned `AG16.08` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+
+## AG16.09 — Outpatient operating acceptance - 22 October 2026
+
+Closed outpatient prerequisites with owner/operator acceptance. Reconciled the outpatient coverage audit, actor journeys, boundary checks, deployed pair, support, and rollback prerequisites across packages AG16.D1 through AG16.09.
+
+### Verified scope and findings
+
+- **Outpatient Scope Reconciliation (`docs/AG16_DISCOVERY_INVENTORY.md`, `docs/IMPLEMENTATION_INVENTORY.json`):**
+  - Confirmed 33 mounted router families, 313 backend API routes, and 91 frontend routes mapped across company site, Connect, hospital microsites, and clinical consoles.
+  - Verified visual system design tokens (`frontend/src/utils/visualSystem.js`), responsive card/table/dialog layouts, focus management, and Dr. title formatting across 360px, 768px, and 1440px viewports (`design-system.spec.js`).
+  - Verified appointment booking and WebRTC consultation calls (`frontend/e2e/calls.spec.js`, `appointments.spec.js`), with the `createSnapshotGuard` preserving active calls against regressed background poll revisions.
+  - Verified clinical workspace and patient care handoffs (`clinical-workspace.spec.js`, `patient-care.spec.js`), with atomic hospital token completion (`PATCH /api/opd/tokens/:id/complete`) recording notes without intermediate state desynchronization.
+  - Verified laboratory test collections, critical alerts, and verification release (`laboratory.spec.js`), as well as pharmacy FEFO stock dispensing, partial fulfillment, and quarantined returns (`pharmacy.spec.js`).
+  - Verified independent practice accounts, SaaS tenant onboarding, moderation, and AI triage reliability fallback (`accounts.spec.js`, `products.spec.js`, `dashboard-assistant.spec.js`).
+  - Verified synthetic demonstration dataset generator (`foxoDemo.js`), pitch script (`FOXO_DEMO.md`), and demo recovery suites (`demo-recovery.test.js`).
+  - Verified outbox queuing, SMS adapters (Twilio, MSG91, AWS SNS), virtual billing segregation, and claim zero-read 503 containment (`claim-security-boundary.test.js`).
+  - Verified whole-product compile cleanly (`npm --prefix frontend run build` in 31.74s), lint cleanly (0 errors), and dependency security audits reporting 0 vulnerabilities.
+- **Operating Acceptance & Boundary Agreement:**
+  - Outpatient operations accepted locally by owner/operator Khushal Midha.
+  - Enterprise runtime remains contained with `ENTERPRISE_PILOT_ENABLED=false` pending sequential enterprise expansion packages AG17 through AG22.
+  - Repetition of final whole-product checks remains tracked under `AG22.06`.
+- **Plan ledger update:**
+  - Transitioned `AG16.09` and parent task `AG16` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+  - Advanced starting plan task to `AG17`.
+

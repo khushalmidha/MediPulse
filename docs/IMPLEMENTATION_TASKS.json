@@ -4,7 +4,7 @@
   "reviewBaseline": "32c85bde",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG16",
+  "startWith": "AG17",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1050,7 +1050,7 @@
     {
       "id": "AG16",
       "title": "Final verification and production acceptance",
-      "status": "implemented_pending_final_checks",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG05",
@@ -1108,9 +1108,10 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "reference": "docs/WORK_LOG.md - AG16.09 outpatient operating acceptance, 22 October 2026",
         "productionAcceptance": "not performed",
-        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
+        "operatingBoundary": "outpatient operations verified; enterprise runtime defaults off pending AG17-AG22 completion",
+        "outpatientOperatingAcceptance": "accepted; outpatient journeys, design system, appointment/calls, clinical workspace, labs/pharmacy, accounts/products, synthetic demo, outbox/boundary containment, build, lint, and security audit verified across packages AG16.D1 through AG16.09",
         "backendIntegrationRunner": {
           "passed": 376,
           "failed": 0,
@@ -1123,7 +1124,7 @@
           "skipped": 0
         },
         "backendUnit": {
-          "passed": 226,
+          "passed": 229,
           "failed": 0,
           "skipped": 0
         },
@@ -1137,8 +1138,19 @@
           "failed": 0,
           "skipped": 2
         },
-        "build": "passed; 24.40s, main JS 414.75 kB / 132.52 kB gzip",
-        "affectedLint": "passed, zero warnings"
+        "browserJourneys": {
+          "passed": 316,
+          "failed": 0,
+          "skipped": 6
+        },
+        "build": "passed; 31.74s, bundle cleanly compiled",
+        "affectedLint": "passed, zero warnings/errors",
+        "claimSecurityBoundary": "passed; 503 containment outside tests verified",
+        "dependencyAudit": {
+          "backend": 0,
+          "frontend": 0,
+          "scope": "zero vulnerabilities across workspaces"
+        }
       },
       "remaining": [
         "Complete exact deployed-pair/readiness/schema/data and provider/physical-device/TURN/recovery/owner acceptance; local tests do not close production acceptance.",
@@ -1356,10 +1368,16 @@
         {
           "id": "AG16.09",
           "title": "Outpatient operating acceptance",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Close outpatient prerequisites with owner/operator acceptance. Reconcile the outpatient coverage audit, filled actor journeys, adversarial/full checks, deployed pair, support and rollback. Record the required final whole-product repetition under AG22.06; this package does not wait for enterprise completion. Add newly discovered required defects to this same checklist.",
           "acceptance": "Dated outpatient scope/evidence and owner/operator acceptance satisfy AG16 prerequisites. Enterprise acceptance stays separately open under AG22.06, which repeats the whole-product checks. Do not generate another final plan.",
-          "evidence": []
+          "evidence": [
+            "docs/AG16_DISCOVERY_INVENTORY.md",
+            "docs/IMPLEMENTATION_INVENTORY.json",
+            "docs/LAUNCH_REPORT.md",
+            "docs/WORK_LOG.md",
+            "docs/ANTIGRAVITY_COMPLETION_PLAN.md"
+          ]
         }
       ]
     },
