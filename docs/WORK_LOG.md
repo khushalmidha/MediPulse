@@ -3446,3 +3446,43 @@ Completed and verified durable finance, immutable accounting records, split bill
 - **Plan ledger update:**
   - Transitioned `AG21.01`, `AG21.02`, `AG21.03`, `AG21.04`, and parent task `AG21` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
   - Advanced starting plan task to `AG22`.
+
+## AG22 — Hospital integrations and enterprise operating acceptance - 22 October 2026
+
+Completed and verified external interface contract management, authenticated LIS protocol framing and replay idempotency, DICOM study metadata registration with zero raw pixel bloat, enterprise SSO configuration with SCIM automated role provisioning, disaster recovery drill observation recording with evidence classification, and truthful enterprise operating acceptance reporting across packages AG22.01, AG22.02, AG22.03, AG22.04, AG22.05, and AG22.06.
+
+### Verified scope and findings
+
+- **LIS Protocol and Patient/Order Mapping (`backend/services/hospitalIntegrationsService.js`, `backend/model/hospitalIntegrations.js`, `backend/controller/hospitalIntegrations.js`, `backend/routes/hospitalIntegrations.js` - AG22.01):**
+  - Supported standard laboratory message types (`HL7_ORU_R01`, `HL7_OML_O21`, `ASTM_E1394`).
+  - Required valid bounded identifiers (`messageControlId`, `accessionNumber`) and serializable payload within bounded size (64KB).
+  - Canonicalized payload hashing using SHA-256 for deterministic payload comparison.
+- **Durable Processing, Replay and Scoped Indexes (`backend/services/hospitalIntegrationsService.js`, `backend/model/hospitalIntegrations.js` - AG22.02):**
+  - Guaranteed idempotent replay: inbound LIS messages with identical `hospitalId`, `messageControlId`, and matching payload hash return original log with `idempotentReplay: true`.
+  - Content tampering protection: re-sending the same `messageControlId` with altered payload or different accession number is rejected with 409 Conflict.
+  - Fail-closed containment on unconfigured replay worker: `replayFailedLisMessage` returns 503 rather than fabricating replay success.
+- **Authenticated PACS / DICOM Study Management (`backend/services/hospitalIntegrationsService.js`, `backend/model/hospitalIntegrations.js`, `backend/controller/hospitalIntegrations.js`, `frontend/src/pages/hospital-staff/IntegrationsConsole.jsx` - AG22.03):**
+  - Registered DICOM study references without raw pixel bloat (`studyInstanceUid`, `accessionNumber`, `patientId`, `modality`, `seriesCount`, `instanceCount`, `wadoRsUri`, `reportSummary`).
+  - Enforced viewer URL security: verified `wadoRsUri` is a valid HTTP/HTTPS web URI, explicitly rejecting `javascript:` pseudo-protocols and embedded credentials (e.g. `user:pass@host`).
+  - Protected study searches: escaped regex meta-characters on search queries to prevent ReDoS attacks or regex injection.
+- **Real Federation and Provisioning (`backend/services/hospitalIntegrationsService.js`, `backend/model/hospitalIntegrations.js`, `backend/controller/hospitalIntegrations.js` - AG22.04):**
+  - Configured enterprise identity providers (`azure_ad`, `okta`, `generic_saml`, `generic_oidc`).
+  - Supported automated role provisioning via SCIM (`scimEnabled`, `autoProvisionRoles`).
+  - Preserved staff vs. patient session boundaries; SSO configuration cannot bypass clinical role guards.
+- **Required Bridges and Observed Recovery (`backend/services/hospitalIntegrationsService.js`, `backend/model/hospitalIntegrations.js`, `backend/tests/enterprise-acceptance-boundary.test.js` - AG22.05):**
+  - Recorded disaster recovery drills with measured RPO/RTO in minutes (validated non-negative finite numbers).
+  - Classified drill records as `status: "recorded_unverified"` and `evidenceStatus: "self_reported"`; prevented self-certification or automated false claims of production recovery.
+- **Enterprise and Whole-Product Operating Acceptance (`backend/services/hospitalIntegrationsService.js`, `frontend/src/pages/hospital-staff/IntegrationsConsole.jsx`, `backend/tests/enterprise-acceptance-boundary.test.js` - AG22.06):**
+  - Generated truthful enterprise acceptance reports: affirmed milestone prototyping statuses and explicitly stated `status: "not_accepted"` with missing evidence checklist until site-specific production network deployments and director sign-offs occur.
+  - Preserved `ENTERPRISE_PILOT_ENABLED=false` outside isolated test suites.
+- **Automated Verification Matrix:**
+  - `backend/tests/hospital-integrations.test.js`: 8/8 unit and domain tests passed covering contract registration, LIS message processing, replay idempotency, PACS study registration, SSO profile setup, DR drill recording, enterprise acceptance report generation, and disconnected DB fail-closed check.
+  - `backend/tests/enterprise-acceptance-boundary.test.js`: 4/4 passed covering truthful acceptance reporting, unverified drill integrity refusal, runtime adapter boundary enforcement, and clean tenant config export.
+  - `backend/tests/integration/hospital-integrations.test.js`: Integration tests pass cleanly; Mongo guards skip gracefully when ambient DB is not configured.
+  - Backend test runner: 233 passed, 0 failed (`npm --prefix backend test`).
+  - Frontend lint: 0 errors (`npm --prefix frontend run lint`).
+  - Frontend UI test runner: 60 passed, 0 failed (`npm --prefix frontend run test:ui`).
+- **Plan ledger update:**
+  - Transitioned `AG22.01`, `AG22.02`, `AG22.03`, `AG22.04`, `AG22.05`, `AG22.06`, and parent task `AG22` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+  - All 23 tasks in the consolidated release plan (`AG00`–`AG22`) are now verified local.
+

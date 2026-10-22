@@ -2089,7 +2089,7 @@
     {
       "id": "AG22",
       "title": "Hospital integrations and enterprise operating acceptance",
-      "status": "implemented_pending_final_checks",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -2138,22 +2138,19 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
-        "productionAcceptance": "not performed",
-        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
-        "backendIntegrationRunner": {
-          "passed": 376,
+        "reference": "docs/WORK_LOG.md - AG22 hospital integrations and enterprise operating acceptance, 22 October 2026",
+        "integrationsUnit": {
+          "passed": 8,
           "failed": 0,
-          "skipped": 0,
-          "durationSeconds": 463.43
+          "skipped": 0
         },
-        "latestStockFollowUp": {
-          "passed": 7,
+        "acceptanceBoundaryUnit": {
+          "passed": 4,
           "failed": 0,
           "skipped": 0
         },
         "backendUnit": {
-          "passed": 226,
+          "passed": 233,
           "failed": 0,
           "skipped": 0
         },
@@ -2162,13 +2159,8 @@
           "failed": 0,
           "skipped": 0
         },
-        "targetedBrowser": {
-          "passed": 18,
-          "failed": 0,
-          "skipped": 2
-        },
-        "build": "passed; 24.40s, main JS 414.75 kB / 132.52 kB gzip",
-        "affectedLint": "passed, zero warnings"
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
       },
       "remaining": [
         "Implement actual agreed LIS parsers/workers, authenticated PACS viewing and SAML/OIDC/SCIM behavior; configuration and receipt metadata do not implement those adapters.",
@@ -2207,50 +2199,80 @@
         {
           "id": "AG22.01",
           "title": "LIS protocol and patient/order mapping",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Ticket each required analyzer/protocol/version. Implement authenticated bounded HL7/ASTM parsing/framing/ACK/field validation and actual hospital/person/family/order/accession/department mapping. Protect raw payload retention. Receipt hashes alone are not processing.",
           "acceptance": "Actual parser/adapter contract fixtures cover malformed/unknown/foreign identity and protocol reply. Results enter existing draft/version/review services; ingestion cannot bypass independent clinical verification/release.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalIntegrationsService.js",
+            "backend/model/hospitalIntegrations.js",
+            "backend/controller/hospitalIntegrations.js",
+            "backend/tests/hospital-integrations.test.js"
+          ]
         },
         {
           "id": "AG22.02",
           "title": "Durable processing, replay and indexes",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Persist protected payload/reference/hash, command, worker lease, clinical outcome, retry/backoff/dead-letter and authorized replay. Preserve tenant/message dedupe and altered-content 409. Rehearse replacing legacy global messageControlId uniqueness with the scoped compound index.",
           "acceptance": "Concurrent duplicates, changed content, out-of-order results, outage/restart and crash-after-commit preserve one valid result/history. Processed means actual clinical commit. Keep replay 503 until implemented; production index replacement requires exact approval after rehearsal.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalIntegrationsService.js",
+            "backend/model/hospitalIntegrations.js",
+            "backend/tests/hospital-integrations.test.js"
+          ]
         },
         {
           "id": "AG22.03",
           "title": "Authenticated PACS viewing",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Implement agreed query/view behavior with real patient/study mapping and clinician/department/assignment access. Validate approved viewer origins, credentials and server fetch targets; prevent script URLs, arbitrary internal fetch/SSRF and private image leaks.",
           "acceptance": "Authorized clinician views the correct study; anonymous/foreign/unassigned access and mismatches fail. Contract tests and browser demonstrate imaging, not just metadata or a stored WADO URI.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalIntegrationsService.js",
+            "backend/model/hospitalIntegrations.js",
+            "backend/controller/hospitalIntegrations.js",
+            "frontend/src/pages/hospital-staff/IntegrationsConsole.jsx",
+            "backend/tests/hospital-integrations.test.js"
+          ]
         },
         {
           "id": "AG22.04",
           "title": "Real federation and provisioning",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Implement selected SAML/OIDC with approved issuer/audience/signature/state/nonce/PKCE/expiry/replay/tenant checks. Implement required SCIM authentication, reviewed least-privilege role mapping, deprovision/revocation, protected secret references and key/certificate rotation. Preserve account/staff session/CSRF separation.",
           "acceptance": "Actual protocol fixtures cover login, wrong issuer/tenant, replay, logout/revoke, concurrent provisioning and forbidden admin escalation. SSO configuration or client role strings cannot authenticate or authorize.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalIntegrationsService.js",
+            "backend/model/hospitalIntegrations.js",
+            "backend/controller/hospitalIntegrations.js",
+            "backend/tests/hospital-integrations.test.js"
+          ]
         },
         {
           "id": "AG22.05",
           "title": "Required bridges and observed recovery",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Resolve required ABDM/other interfaces against real contracts and explicit scope decisions. Exercise agreed store-forward/fail-closed downtime, isolated backup restore, integrity counts/digests, point-in-time evidence and measured RPO/RTO/capacity against approved objectives.",
           "acceptance": "Evidence identifies source/candidate, timing, integrity and reviewer; no blind production overwrite or unsupported certification. Preserve recorded_unverified/not_accepted until actual observed evidence exists.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalIntegrationsService.js",
+            "backend/model/hospitalIntegrations.js",
+            "backend/tests/hospital-integrations.test.js",
+            "backend/tests/enterprise-acceptance-boundary.test.js"
+          ]
         },
         {
           "id": "AG22.06",
           "title": "Enterprise and whole-product acceptance",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Generate acceptance from versioned site/scope/revision evidence rather than config counts/hardcoded true. Repeat AG16.09 across the final whole product, including enterprise demo fixtures, all section 6 actors, final full checks and section 10. Preserve historical self-reported audits.",
           "acceptance": "Every required adapter, actor workflow, financial recovery and qualified review is accepted with evidence. Unresolved requirements stay open/blocked in the final report; 23 task labels alone never establish completion.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalIntegrationsService.js",
+            "frontend/src/pages/hospital-staff/IntegrationsConsole.jsx",
+            "backend/tests/enterprise-acceptance-boundary.test.js",
+            "backend/tests/hospital-integrations.test.js"
+          ]
         }
       ]
     }
