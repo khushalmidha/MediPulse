@@ -658,6 +658,7 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and Medication Administratio
       assert.equal(foreignFlowsheet.data.vitalsHistory.length, 0);
       assert.equal(foreignFlowsheet.data.emarSchedule.length, 0);
 
+      const originalOrderCount = await InpatientOrder.countDocuments({ admissionId });
       const foreignPrescribe = await request("/api/nursing/orders", {
         method: "POST",
         token: foreignToken,
@@ -667,7 +668,22 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and Medication Administratio
           medicationDetails: { drugName: "Foreign Med", dose: "100mg" },
         },
       });
-      assert.equal(foreignPrescribe.status, 404);
+      // Administrative access cannot confer prescribing privileges.
+      assert.equal(foreignPrescribe.status, 403);
+
+      // An actual prescribing role still cannot target another hospital's admission.
+      const { token: foreignDoctorToken } = await createStaffSession({ role: "DOCTOR", hId: foreignHospitalId });
+      const foreignDoctorPrescribe = await request("/api/nursing/orders", {
+        method: "POST",
+        token: foreignDoctorToken,
+        body: {
+          admissionId,
+          orderType: "medication",
+          medicationDetails: { drugName: "Foreign Med", dose: "100mg" },
+        },
+      });
+      assert.equal(foreignDoctorPrescribe.status, 404);
+      assert.equal(await InpatientOrder.countDocuments({ admissionId }), originalOrderCount);
     } finally {
       server.close();
       await once(server, "close");

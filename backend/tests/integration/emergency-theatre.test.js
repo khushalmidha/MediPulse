@@ -196,6 +196,8 @@ test("Task AG20: Emergency and Theatre Workflows (Integration)", async (t) => {
       anesthetistDoctorId: anesthetistDoctorId,
       scrubNurseStaffId: nurseStaffId,
       procedureName: "Emergency Exploratory Laparotomy",
+      consentConfirmed: true,
+      consentFormRef: "synthetic-consent-service-lifecycle",
       urgency: "urgent",
       scheduledStartTime: startTime,
       scheduledEndTime: endTime,
@@ -307,6 +309,29 @@ test("Task AG20: Emergency and Theatre Workflows (Integration)", async (t) => {
       scheduledEndTime: endTime,
     });
     const bId = bookingRes.booking._id;
+
+    // The unconsented fixture must not enter the surgical checklist.
+    await assert.rejects(
+      () => recordWhoChecklistStage({
+        hospitalId,
+        bookingId: bId,
+        stage: "signIn",
+        checkpoints: {
+          patient_identity_confirmed: true,
+          surgical_site_marked: true,
+          anesthesia_safety_check_complete: true,
+          pulse_oximeter_operating: true,
+          allergy_status_verified: true,
+          airway_aspiration_risk_evaluated: true,
+          blood_loss_risk_prepared: true,
+        },
+        actor: { staffId: nurseStaffId },
+      }),
+      error => error.status === 400 && /consent verification is required/.test(error.message)
+    );
+    const unconsented = await OtSchedule.findById(bId);
+    assert.equal(unconsented.status, "scheduled");
+    assert.equal(Boolean(unconsented.whoChecklist?.signIn?.completedAt), false);
 
     // Simulate completion
     await OtSchedule.findByIdAndUpdate(bId, { status: "completed" });
@@ -558,6 +583,8 @@ test("Task AG20: Emergency and Theatre Workflows (Integration)", async (t) => {
           leadSurgeonDoctorId: surgeonDoctorId,
           anesthetistDoctorId: anesthetistDoctorId,
           procedureName: "Emergency Damage Control Laparotomy",
+          consentConfirmed: true,
+          consentFormRef: "synthetic-consent-http-lifecycle",
           urgency: "emergency_stat",
           scheduledStartTime: otStart,
           scheduledEndTime: otEnd,

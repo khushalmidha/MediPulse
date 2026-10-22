@@ -1,24 +1,24 @@
 # Current release reconciliation - 23 October 2026
 
-**Current verdict: verified local demo candidate; enterprise pilot remains disabled (`ENTERPRISE_PILOT_ENABLED=false`). Production operator acceptance and full enterprise operating completion are not established.** Source checkpoint: 780bdd07. See [current implementation status](IMPLEMENTATION_STATUS.md) and the updated [ledger](IMPLEMENTATION_TASKS.json).
+**Current verdict: verified local demo candidate; enterprise pilot remains disabled (`ENTERPRISE_PILOT_ENABLED=false`). Production operator acceptance and full enterprise operating completion are not established.** Current checked application source: 74c5243f, plus two integration-test corrections. See [current implementation status](IMPLEMENTATION_STATUS.md) and the updated [ledger](IMPLEMENTATION_TASKS.json).
 
-### Executed Candidate Evidence
+## Independent interview-demo verification - 23 October 2026
 
-- **Backend Units (`npm --prefix backend test`):** **233 passed, 0 failed, 0 skipped** across all registered unit and domain suites.
-- **Boundary Verification Suites (`backend/tests/claim-security-boundary.test.js`, `backend/tests/enterprise-acceptance-boundary.test.js`):** **5 passed, 0 failed**. Verified fail-closed claim security and truthful enterprise acceptance reporting.
-- **Frontend UI Unit Suite (`npm --prefix frontend run test:ui`):** **60 passed, 0 failed** across design system, triage, and scheduling utilities.
-- **Frontend ESLint (`npm --prefix frontend run lint`):** **0 errors, 1 warning** (Fast Refresh recommendation).
-- **Frontend Production Build (`npm --prefix frontend run build`):** **Clean Vite build**; bundle generated in `dist/`.
-- **Dependency Audits (`npm audit`):** **Zero vulnerabilities** on both backend and frontend.
-- **Portable Browser Runner (`node tools/run-browser-checks.mjs`):** **154 passed, 0 failed, 2 intentional duplicate mobile viewport sweeps skipped**. Verified critical demo journeys across desktop and mobile viewports:
-  - Patient and family appointment booking, triage confirmation, demo payment retry, reload resilience.
-  - Telehealth call panel: WebRTC media exchange, doctor disconnect recovery, participant leave/rejoin, single end action.
-  - Clinical consultation: SOAP note drafts, autosave collision fencing, queue switching with discard confirmation, queue pause/resume retention.
-  - Hospital queue & nursing: In-person arrival check-in, token reservation order, care queue selection, room and file custody guidance.
-  - Released laboratory & pharmacy records: Ordered parameter entry, staff CSRF, versioned review/release, partial dispensing, batch allocation, quarantine returns.
-  - Account and session security: Staff vs. patient workspace isolation, server CSRF logout, HttpOnly token containment.
-- **Omissions truthfully recorded:** Live multi-tenant MongoDB replica-set (`rs0`) and Redis DB 15 integration suites were omitted due to unstarted local daemons (Docker Desktop stopped). No integration test passes were fabricated.
-- **Enterprise Safety Invariants:** `ENTERPRISE_PILOT_ENABLED=false` remains intact. Controlled medication witness, LIS processing worker, real PACS viewing, SSO federation, and backup restore drill certification remain disabled and open.
+Candidate: application source at **74c5243f**, plus corrections to two integration-test fixtures/assertions; application code and dependencies unchanged.
+
+| Check | Observed result |
+|---|---|
+| All 35 registered Mongo/Redis integration files | **377 passed, 0 failed/skipped**, 139.82s; final rerun used four isolated file workers |
+| Backend units | **233 passed, 0 failed/skipped**, 34.11s |
+| Frontend units | **60 passed, 0 failed** |
+| Critical desktop/mobile browsers | **59 passed, 0 failed, 1 redundant viewport sweep skipped**, 3.0m; synthetic API/media |
+| Frontend lint/build | **0 errors, 1 Fast Refresh warning**; build passed in 32.28s |
+| Fresh dependency audits | **0 backend / 0 frontend advisories** |
+| Read-only public probes | medipulse.live and Vercel URL HTTP 200; live backend readiness HTTP 200 with ready=true; liveness retry HTTP 200 in 0.61s |
+
+The initial registered serial run found three outdated assertions/fixtures (two theatre consent cases and one administrative prescribing status); Node counted 372 passes and 5 failures including failed parent groups. Corrected synthetic consent prerequisites, added explicit unconsented-checklist rejection, and separately tested foreign admin 403 versus foreign doctor 404 with no new order. Focused theatre 6/6 and nursing 7/7 passed, followed by the full 377/377 rerun. Safety guards were retained.
+
+The previous missing local Mongo/Redis integration gate is now closed. This was not a real-account production booking rehearsal: no patient records, real payments/messages, deployment or production settings were changed. Browser tests use fixtures/fake media; actual login/account state, physical camera/TURN, live delivery/payments, restore and operator acceptance remain separate. First live health probe timed out before readiness and retry succeeded; open and check the site before the interview. Incomplete enterprise features remain disabled.
 
 ### Combined External-Action Checklist for Launch
 

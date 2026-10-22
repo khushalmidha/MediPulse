@@ -2380,10 +2380,35 @@
   },
   "releaseReview": {
     "date": "2026-10-23",
-    "sourceBaseline": "780bdd07",
+    "sourceBaseline": "74c5243f",
     "reference": "docs/IMPLEMENTATION_STATUS.md",
     "currentRequestedStep": "Bounded demo-candidate wrap-up using docs/ANTIGRAVITY_HANDOFF.md; existing full enterprise roadmap remains open.",
     "productionAcceptance": "not established; verified local demo candidate",
-    "newApplicationTests": "backend units (233/233 passed), boundary suites (5/5 passed), frontend units (60/60 passed), lint (0 errors), build (clean dist/), audits (0 advisories), portable browser demo journeys (154 passed, 2 duplicate mobile sweeps skipped, 0 failed); integration tests omitted due to unstarted local replica set/Redis daemons"
+    "newApplicationTests": "Independent checks: all 35 registered integration files 377/377 (final rerun with four isolated file workers); backend units 233/233; frontend units 60/60; critical browsers 59 passed/1 redundant skip; lint 0 errors/1 warning; build passed; both audits zero advisories. Two test-only corrections; application source unchanged.",
+    "latestIndependentChecks": {
+      "date": "2026-10-23",
+      "integration": {
+        "passed": 377,
+        "failed": 0,
+        "skipped": 0,
+        "files": 35,
+        "fileConcurrency": 4,
+        "durationSeconds": 139.8246605
+      },
+      "backendUnits": 233,
+      "frontendUnits": 60,
+      "targetedBrowser": {
+        "passed": 59,
+        "failed": 0,
+        "skipped": 1,
+        "scope": "synthetic critical desktop/mobile booking, clinical notes, queue, call/fullscreen/reconnect"
+      },
+      "productionReadyProbe": true,
+      "productionBookingRehearsal": "not performed",
+      "testSourceSha256": {
+        "backend/tests/integration/emergency-theatre.test.js": "f4af5a628014a544c4e5a735d134a68d71659f56a28bb7972f506ce2a681f312",
+        "backend/tests/integration/nursing-care.test.js": "0932cb87fc349497cb5cae9d6d24be7ebb3d634d0aace3859160762da849a592"
+      }
+    }
   }
 }

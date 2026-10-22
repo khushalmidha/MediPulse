@@ -1,6 +1,6 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
-Source inspected: **780bdd07**. The latest Antigravity work adds real code, but the blanket AG00-AG22 completion labels exceeded their package acceptance criteria. This update corrects those labels without removing implementation or historical evidence.
+Current independently checked application source: **74c5243f** (same application code as 780bdd07), with the two test corrections described below. The latest Antigravity work adds real code, but the blanket AG00-AG22 completion labels exceeded their package acceptance criteria. This update corrects those labels without removing implementation or historical evidence.
 
 ## Current scope
 
@@ -11,17 +11,23 @@ Source inspected: **780bdd07**. The latest Antigravity work adds real code, but 
 - Enterprise acceptance returns not_accepted/prototype_only. Recovery observations remain self-reported; they do not execute or verify a restore. Reviewer titles/approval strings in enterprisePlan.js are not independent evidence of qualified hospital approval.
 - Keep ENTERPRISE_PILOT_ENABLED=false in production. Existing outpatient routes are unaffected. Local test evidence and production acceptance are separate.
 
-## Checks and evidence
+## Independent interview-demo verification - 23 October 2026
 
-Executed candidate verification suite for the bounded demo wrap-up:
-- **Backend Units (`npm test`):** 233 passed / 0 failed.
-- **Boundary Checks:** 5 passed / 0 failed (`claim-security-boundary.test.js`, `enterprise-acceptance-boundary.test.js`).
-- **Frontend UI Units (`npm run test:ui`):** 60 passed / 0 failed.
-- **Frontend ESLint (`npm run lint`):** 0 errors / 1 warning.
-- **Frontend Build (`npm run build`):** Clean Vite bundle in `dist/`.
-- **Dependency Audits (`npm audit`):** 0 vulnerabilities on backend and frontend.
-- **Portable Browser Runner (`node tools/run-browser-checks.mjs`):** 154 passed / 0 failed / 2 intentional duplicate mobile viewport sweeps skipped across outpatient booking, clinical workspace, telehealth calls, queue management, pharmacy, and laboratory.
-- **Omissions truthfully recorded:** Live multi-tenant MongoDB replica set (`rs0`) and Redis DB 15 integration tests were omitted due to missing local daemons (Docker Desktop stopped). No integration passes were fabricated.
+Candidate: application source at **74c5243f**, plus corrections to two integration-test fixtures/assertions; application code and dependencies unchanged.
+
+| Check | Observed result |
+|---|---|
+| All 35 registered Mongo/Redis integration files | **377 passed, 0 failed/skipped**, 139.82s; final rerun used four isolated file workers |
+| Backend units | **233 passed, 0 failed/skipped**, 34.11s |
+| Frontend units | **60 passed, 0 failed** |
+| Critical desktop/mobile browsers | **59 passed, 0 failed, 1 redundant viewport sweep skipped**, 3.0m; synthetic API/media |
+| Frontend lint/build | **0 errors, 1 Fast Refresh warning**; build passed in 32.28s |
+| Fresh dependency audits | **0 backend / 0 frontend advisories** |
+| Read-only public probes | medipulse.live and Vercel URL HTTP 200; live backend readiness HTTP 200 with ready=true; liveness retry HTTP 200 in 0.61s |
+
+The initial registered serial run found three outdated assertions/fixtures (two theatre consent cases and one administrative prescribing status); Node counted 372 passes and 5 failures including failed parent groups. Corrected synthetic consent prerequisites, added explicit unconsented-checklist rejection, and separately tested foreign admin 403 versus foreign doctor 404 with no new order. Focused theatre 6/6 and nursing 7/7 passed, followed by the full 377/377 rerun. Safety guards were retained.
+
+The previous missing local Mongo/Redis integration gate is now closed. This was not a real-account production booking rehearsal: no patient records, real payments/messages, deployment or production settings were changed. Browser tests use fixtures/fake media; actual login/account state, physical camera/TURN, live delivery/payments, restore and operator acceptance remain separate. First live health probe timed out before readiness and retry succeeded; open and check the site before the interview. Incomplete enterprise features remain disabled.
 
 ## Operating Status and Next Actions
 
