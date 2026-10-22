@@ -1269,10 +1269,19 @@
         {
           "id": "AG16.04",
           "title": "Records, labs and pharmacy",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Reverify source/revision-bound qualified note review, released packets/history and clinician composers. Labs allow collection before billing; explicitly approved independent verification controls release/amendment. Preserve critical-result acknowledgement, amendments, prescription qualification, FEFO, partial fills, returns and quarantine.",
           "acceptance": "A patient/family visit completes doctor-to-lab-to-pharmacy-to-released-record flow with critical/amendment/shortage exceptions. Author self-verification, foreign visit, stale review, duplicate allocation and unreleased patient reads have actual denial regressions.",
-          "evidence": []
+          "evidence": [
+            "backend/services/labWorkflow.js",
+            "backend/services/pharmacyWorkflow.js",
+            "backend/tests/lab-workflow.test.js",
+            "backend/tests/pharmacy-workflow.test.js",
+            "frontend/e2e/laboratory.unit.mjs",
+            "frontend/e2e/pharmacy.unit.mjs",
+            "frontend/e2e/laboratory.spec.js",
+            "frontend/e2e/pharmacy.spec.js"
+          ]
         },
         {
           "id": "AG16.05",

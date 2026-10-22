@@ -3164,3 +3164,21 @@ Completed and verified arrival guidance, multi-stage encounter tracking, physica
   - `backend/tests/encounter-journey.test.js` & `backend/tests/doctor-queue.test.js`: 12 passed.
 - **Plan ledger update:**
   - Transitioned `AG16.03` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+
+## AG16.04 — Records, labs and pharmacy - 22 October 2026
+
+Completed and verified clinical records, laboratory order fulfillment, multi-version reports, critical-alert acknowledgement, pharmacy batch dispensing, and quarantine workflows.
+
+### Verified changes and findings
+
+- **Laboratory Review & Critical Alert Management (`backend/services/labWorkflow.js`, `frontend/e2e/laboratory.spec.js`):**
+  - Confirmed 22 browser check scenarios pass in `frontend/e2e/laboratory.spec.js` covering order intake before billing, ordered parameter verification, server-computed reference flags, independent reviewer authorization, and versioned report amendments.
+  - Verified assigned clinician version-bound critical result acknowledgement and administrative approval scoping.
+- **Hospital Pharmacy Dispensing & Returns (`backend/services/pharmacyWorkflow.js`, `frontend/e2e/pharmacy.spec.js`):**
+  - Confirmed 16 browser check scenarios pass in `frontend/e2e/pharmacy.spec.js` covering FEFO batch allocations, partial fills, medication returns with quarantine increment, and pending command scoping.
+  - Verified privacy-safe QR code verification rendering with oversized payload rejection.
+- **Unit & Service Verification:**
+  - `backend/tests/lab-workflow.test.js` & `backend/tests/pharmacy-workflow.test.js`: 14 passed.
+  - `frontend/e2e/laboratory.unit.mjs` & `frontend/e2e/pharmacy.unit.mjs`: verified scoped command handling, non-destructive parameter code mapping, and batch return math.
+- **Plan ledger update:**
+  - Transitioned `AG16.04` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
