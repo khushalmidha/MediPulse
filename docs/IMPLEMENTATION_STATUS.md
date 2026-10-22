@@ -16,4 +16,6 @@ These are local synthetic checks. No production data/index/provider/DNS/mail/dep
 
 ## Continue
 
+The [consolidated final execution plan](ANTIGRAVITY_COMPLETION_PLAN.md) starts from published code baseline **81c951c8** and tracks **37 pending verification packages** under the eight open tasks in the existing ledger. Start with AG16.D1-D3 discovery/preparation, then AG05 and the existing dependency order. AG16.09 closes outpatient acceptance; AG22.06 repeats verification for the final whole product. Future required findings enter this same plan/checklist. This documentation update changes no task completion status.
+
 Read [ANTIGRAVITY_HANDOFF.md](ANTIGRAVITY_HANDOFF.md), run `node tools/check-implementation-plan.mjs --next` and continue AG05. The ledger retains 15 verified local tasks; AG05/AG17 are pending and AG16/AG18-AG22 have code with incomplete final requirements. Keep ENTERPRISE_PILOT_ENABLED=false in production; the flag is not an approval mechanism.

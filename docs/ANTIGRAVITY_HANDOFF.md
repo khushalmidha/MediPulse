@@ -1,17 +1,19 @@
-# MediPulse - current handoff after AG22 review
+# MediPulse - final consolidated continuation handoff
 
-Updated 22 October 2026. Latest reviewed Antigravity checkpoint: **32c85bde**; prior published review was 72635cd0. Read [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md) first. The enterprise APIs/UI and repaired fixtures now exist; earlier absent-route/failing-fixture statements describe older revisions. Their existence still does not complete the clinical/financial/external adapter requirements.
+Updated 22 October 2026. Published code baseline: **81c951c8**, containing the independent review/fixes of Antigravity checkpoint **32c85bde**. The consolidated [completion plan](ANTIGRAVITY_COMPLETION_PLAN.md) and 37 checklist packages in the existing ledger cover all currently known remaining work. Continue that same plan; do not generate another competing plan. Read [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md) first. The enterprise APIs/UI and repaired fixtures now exist; earlier absent-route/failing-fixture statements describe older revisions. Their existence still does not complete the clinical/financial/external adapter requirements.
 
 Keep **ENTERPRISE_PILOT_ENABLED=false** in production. Newly mounted enterprise services default off outside tests pending the documented access/policy/reconciliation work. Existing outpatient services are unchanged. Claim delivery is also unimplemented in real runtime; do not remove its containment or assume credentials activate the stub.
 
 ## Paste into Antigravity
 
 ```text
-Read AGENTS.md, docs/AG22_VERIFICATION_REVIEW.md, docs/ANTIGRAVITY_COMPLETION_PLAN.md, docs/IMPLEMENTATION_STATUS.md and Common in docs/MEDIPULSE_CODEX_PROMPTS.md. Continue from the current main checkout, preserving unrelated edits. Run node tools/check-implementation-plan.mjs --next; start with AG05 and the plan's section 3, verifying current code rather than repeating completed work.
+Read AGENTS.md, docs/ANTIGRAVITY_HANDOFF.md, docs/ANTIGRAVITY_COMPLETION_PLAN.md, docs/IMPLEMENTATION_TASKS.json, docs/IMPLEMENTATION_STATUS.md and Common in docs/MEDIPULSE_CODEX_PROMPTS.md. The consolidated plan starts from code checkpoint 81c951c8; verify current checkout and preserve later work. Continue this same plan through final acceptance, without generating another plan.
 
-Implement one dependency-ready package through actual service/API/persistence/UI and meaningful local checks. Follow sections 4-7 until the requested scope is genuinely complete. Keep walk-in containment and enterprise prototypes closed until their real prerequisites/evidence exist. If an external contract/approval is missing, record the exact blocker and continue independent permitted local work; do not fabricate provider, clinical or production acceptance.
+Start with AG16.D1-D3 discovery/preparation and the combined decision register, then AG05 and section 2 dependency order. Complete every required completionChecklist package through actual services, scoped APIs, persistence, usable UI, migrations/recovery and meaningful tests. Preserve delivered implementations and 81c951c8 safeguards. Add newly discovered required defects to this same parent checklist, fix and verify them before release. Read targeted files per package.
 
-Use isolated synthetic databases, the real route mounts/session scopes and the portable browser runner. Update the ledger/status/work log after each phase and commit/push main as Khushal Midha <khushalmidha24@gmail.com>, no Codex coauthor or force push. Existing Git authorization applies; production/provider/DNS/mail/deployment-console operations retain Common's separate exact approval. If using Astra, Medium only. Keep final updates concise and leave an exact continuation checkpoint if interrupted.
+Use isolated synthetic data and disabled outgoing effects. Keep enterprise production containment until real prerequisites and exact approval exist. Bundle missing owner/provider inputs and continue independent permitted work; never fabricate clinical, delivery, payment, adapter or deployment acceptance. Existing authorization covers ordinary commits/pushes to main as Khushal Midha <khushalmidha24@gmail.com>, no Codex coauthor or force push. Common requires exact concrete approval for production DB/index/demo execution, provider/real mail, DNS and deployment-console actions. Astra, if used, stays Medium.
+
+After each reviewable phase update checklist evidence/status, WORK_LOG and affected status/launch claims, then commit/push. Finish section 6 actor journeys, section 9 exact-candidate checks and every section 10 gate. If interrupted leave exact next package/command and blockers in the same plan. Keep progress/final responses concise; claim only actual verified scope.
 ```
 
 ## Checkpoint and evidence

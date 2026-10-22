@@ -415,7 +415,33 @@
           "failed": 0,
           "skipped": 2
         }
-      }
+      },
+      "completionChecklist": [
+        {
+          "id": "AG05.01",
+          "title": "Approved channel and real runtime adapter",
+          "status": "pending",
+          "implementation": "Inspect claimDelivery.js, encounterJourneyService.js, encounter access/routes and PatientVisits.jsx. Implement the approved provider/channel and trusted recorded contact/correction contract; credentials alone cannot activate the existing runtime stub. Bind self/family proof to the actual person rather than caller-selected phone/email.",
+          "acceptance": "Actual adapter/route contract cases cover success, rejection, timeout and ambiguous provider acceptance. Missing contact has an approved correction path; no real delivery without exact activation approval.",
+          "evidence": []
+        },
+        {
+          "id": "AG05.02",
+          "title": "Atomic challenge and durable dispatch",
+          "status": "pending",
+          "implementation": "Reserve challenge generation/cooldown atomically **before delivery**. Persist outbox command, lease/recovery, retry/backoff and truthful dispatch states. Use cryptographic server OTPs, hashes only, expiry/attempt/rate limits and redacted logs; no runtime devOtp.",
+          "acceptance": "Concurrent resends, resend-versus-verify, delayed/out-of-order delivery, provider outage and restart/lost response cannot send unreserved challenges or reuse/redirect proof.",
+          "evidence": []
+        },
+        {
+          "id": "AG05.03",
+          "title": "Verified link and patient UI",
+          "status": "pending",
+          "implementation": "Complete request/verify/link transactionally with session/visit/person/family/destination/generation binding. Preserve history and one-owner invariants. Provide request/resend/countdown/verify/recovery states and an exact activation/rollback proposal; retain runtime containment until prerequisites exist.",
+          "acceptance": "Actual Mongo, cookie-CSRF routes and browser cover self/family, foreign owner/tenant, expired/replayed proof, competing links and failed/retried requests. Approved real handset/provider evidence is separately required for production acceptance.",
+          "evidence": []
+        }
+      ]
     },
     {
       "id": "AG06",
@@ -1114,7 +1140,105 @@
           "durationSeconds": 360.6,
           "scope": "Full registered runner covering outpatient/connect suites plus all 5 repaired enterprise integration files"
         }
-      }
+      },
+      "completionChecklist": [
+        {
+          "id": "AG16.D1",
+          "title": "Initial scope and defect inventory",
+          "status": "pending",
+          "implementation": "Reconcile current routes, services, schemas, UI callers and historical open findings against this plan. Inspect TODOs/placeholders/mock success for actual behavior. Record reproduction, source, severity and parent package for every confirmed required defect; retain suspicions as unverified. Recheck affected AG00-AG15 acceptance. Fill the section 3 register once.",
+          "acceptance": "A route-to-service-to-UI coverage map and combined decision register exist; every confirmed unresolved requirement has an acceptance check and dependency in this same checklist. Search hits alone are not confirmed defects.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.D2",
+          "title": "Migration and readiness inventory",
+          "status": "pending",
+          "implementation": "Inventory clinical/encounter/person indexes, family-aware admissions, command uniqueness, reservations, finance/stock and LIS tenant/message uniqueness. Prepare explicit dry-run/precondition/backup/apply/recovery tooling; preserve inconsistent legacy records for reviewed repair. Follow section 7.",
+          "acceptance": "Current outpatient changes have copy-rehearsed preservation, missing-index readiness failure and guarded recovery. Future enterprise requirements, including global LIS index replacement and ambiguous stock history, are inventoried for rehearsal under their own tasks after policy approval; no startup autoIndex/syncIndexes or production execution.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.D3",
+          "title": "Test coverage and isolated fixtures",
+          "status": "pending",
+          "implementation": "Prepare a scenario-to-test matrix using actual services/routes and persisted connected actors, local replica set/Redis and disabled provider sinks. Identify dependency-ready preparation while external decisions are pending.",
+          "acceptance": "Each required workflow maps to real service/router/browser checks, including denial, race and recovery. External-only evidence has a named owner; preparation does not complete its parent task.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.01",
+          "title": "One visual system across every route",
+          "status": "pending",
+          "implementation": "Inventory company, Connect, hospital microsites, patient/family, doctor, staff, SaaS administration, assistant, booking/calls and enterprise consoles. Apply shared neutral/deep-teal semantic tokens, reusable cards/forms/tables/dialogs, spacing and hierarchy. Preserve contrast-aware branding and one doctor-name display formatter; remove repeated Dr. prefixes without rewriting historical names.",
+          "acceptance": "Filled and empty screens at 360/768/1440 in light/dark pass overflow, contrast, focus order, Escape/return-focus and readable validation. Urgency uses text/icons as well as color; screenshots' red/blue clashes and invisible text are resolved throughout.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.02",
+          "title": "Appointment and Google Meet style call journeys",
+          "status": "pending",
+          "implementation": "Complete eligible doctor search/specialty/filter, date/session/timezone, mode, self/family, zero/unknown fee, reservation-versus-arrival and reschedule/cancel/refund/retry UI. Improve lobby, device selection, mic/camera, participant layout, fullscreen/fallback, reconnect, leave/rejoin and note-save/end controls.",
+          "acceptance": "Actual patient/doctor journeys cover competing booking, reload/lost response, family, zero fee, stale slots, cancellations and call failures without double capacity/charges. Separate physical-device/cross-network TURN evidence exists; synthetic media alone is insufficient.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.03",
+          "title": "Arrival, guidance, queues and physical files",
+          "status": "pending",
+          "implementation": "Follow online/offline visits through reception, nursing, doctor, lab and pharmacy on one encounter. Show next stage/room, actual file holder and timeline. Preserve recipient accept/refuse custody, persistent queue pause/order/priority and honest ETA uncertainty/staleness; minimize kiosk fields.",
+          "acceptance": "Filled multi-doctor/department browser/API/socket journeys agree after reconnect/restart. Paused/terminal visits receive no invented wait; pending handoffs do not prematurely move file custody.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.04",
+          "title": "Records, labs and pharmacy",
+          "status": "pending",
+          "implementation": "Reverify source/revision-bound qualified note review, released packets/history and clinician composers. Labs allow collection before billing; explicitly approved independent verification controls release/amendment. Preserve critical-result acknowledgement, amendments, prescription qualification, FEFO, partial fills, returns and quarantine.",
+          "acceptance": "A patient/family visit completes doctor-to-lab-to-pharmacy-to-released-record flow with critical/amendment/shortage exceptions. Author self-verification, foreign visit, stale review, duplicate allocation and unreleased patient reads have actual denial regressions.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.05",
+          "title": "Connect, SaaS and AI reliability",
+          "status": "pending",
+          "implementation": "Reverify independent-practice verification/publication/sessions, hospital/practice isolation, communities/moderation/events/pagination/preferences and real outbox callers. Complete tenant onboarding, one-use setup, quota/entitlement/suspension and admin capability flows. Verify the symptom-to-doctor recommendation entry point, consent/provenance, timeouts and no-provider fallback.",
+          "acceptance": "Browser/router cases cover dual-practice isolation, moderation, setup expiry/replay, concurrent quotas, revoked access and AI outage. AI cannot invent available doctors or claim diagnosis/clinical validation; core care works without it.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.06",
+          "title": "Connected synthetic data and pitch",
+          "status": "pending",
+          "implementation": "Reuse AG15 manifest/importer/recovery. Populate related patients/family, doctors/staff/admin, sessions/rooms, active/completed visits, accepted/refused file events, reviewed notes, released/amended labs, partial prescriptions, communities and derived metrics. Add enterprise fixtures as their workflows become valid. Supply a role-by-role pitch script and symptom-guide route.",
+          "acceptance": "The outpatient dataset passes isolated dry-run/apply/replay/recovery and reconciles links, stock/money and original fingerprints. Enterprise fixture completion belongs to AG22.06 after its workflows exist. No credential/role/wallet reset or outgoing mail. Production demo insertion needs its own exact approved manifest; preserve owner-controlled accounts without publishing their details.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.07",
+          "title": "Domains, deployment, live payments and delivery",
+          "status": "pending",
+          "implementation": "Keep medipulse.live company entry, existing /connect, /hospitals/:slug and staff fallback routing; inspect the actual host resolver. Optional connect.medipulse.live needs no extra domain purchase; medipulse.connect.live is not under the owned domain. Verify deep links/reload, API origin/relay, cookie/CSRF/CORS, TLS, Node 24, workers and readiness. Resolve required checkout/subscriptions early; separate virtual credits from live payments.",
+          "acceptance": "Exact deployed frontend/backend revisions and approved schema/config are recorded. Required live payments have signed webhook merchant/amount/currency binding and settlement/refund reconciliation. Approved mail/SMS distinguishes queued, accepted and observed delivery. Push/public liveness alone is not deployment acceptance.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.08",
+          "title": "Operations, privacy, capacity and full checks",
+          "status": "pending",
+          "implementation": "Complete privacy-safe audit/correlation, outbox/worker health, alert/support ownership, policy-approved export/deletion/retention, backup/recovery and rollback. Agree capacity/SLO targets and exercise booking/queues/sockets/worker recovery. Execute section 9 on the final candidate rather than only targeted smoke tests.",
+          "acceptance": "Exact revision/lockfiles/environment and actual results cover backend units, registered integrations, frontend units, full portable browsers, lint/build and fresh audits. Required failures/skips are resolved; observed restore/device/delivery evidence is linked independently.",
+          "evidence": []
+        },
+        {
+          "id": "AG16.09",
+          "title": "Outpatient operating acceptance",
+          "status": "pending",
+          "implementation": "Close outpatient prerequisites with owner/operator acceptance. Reconcile the outpatient coverage audit, filled actor journeys, adversarial/full checks, deployed pair, support and rollback. Record the required final whole-product repetition under AG22.06; this package does not wait for enterprise completion. Add newly discovered required defects to this same checklist.",
+          "acceptance": "Dated outpatient scope/evidence and owner/operator acceptance satisfy AG16 prerequisites. Enterprise acceptance stays separately open under AG22.06, which repeats the whole-product checks. Do not generate another final plan.",
+          "evidence": []
+        }
+      ]
     },
     {
       "id": "AG17",
@@ -1192,7 +1316,25 @@
           "skipped": 0
         },
         "productionAcceptance": "not performed"
-      }
+      },
+      "completionChecklist": [
+        {
+          "id": "AG17.01",
+          "title": "Qualified requirements and policy decisions",
+          "status": "pending",
+          "implementation": "Resolve section 3 with hospital/qualified reviewers: jurisdiction, retention/deletion, witness, escalation, handover/discharge, triage/theatre, finance and recovery policies. Treat ENTERPRISE_PLAN.md and enterprisePlan.js values as proposed until approved. Confirm required vendors and exact scope.",
+          "acceptance": "Versioned decisions identify reviewer, date, scope, source and approval state. A generated matrix, statutory assertion, NEWS2/Code Blue/PACU constant or invented SLA is not an approved clinical/operating policy.",
+          "evidence": []
+        },
+        {
+          "id": "AG17.02",
+          "title": "Actual principals, assignments and capabilities",
+          "status": "pending",
+          "implementation": "Reconcile actual seven HospitalStaff roles with proposed finance/store/anesthetist functions. Implement reviewed capabilities/department/team assignment, trusted doctor-account versus staff mapping, read projections and immediate HTTP/socket revocation. Define per-hospital feature/policy readiness and activation/rollback ownership.",
+          "acceptance": "Every operation maps to an actual authenticated principal/capability. HOSPITAL_ADMIN/adminAccess cannot confer clinical signing/witnessing or arbitrary patient access. Global enterprise flag cannot substitute for per-hospital approval; incomplete modules remain clearly unavailable.",
+          "evidence": []
+        }
+      ]
     },
     {
       "id": "AG18",
@@ -1279,7 +1421,33 @@
           "skipped": 0
         },
         "frontendBuild": "clean"
-      }
+      },
+      "completionChecklist": [
+        {
+          "id": "AG18.01",
+          "title": "Source and person identity",
+          "status": "pending",
+          "implementation": "Validate actual patient/family ownership/active status, hospital department, clinician membership, assigned team, encounter parent/person/hospital and ward/room/bed scope. Derive author from session and resolve doctor-account/staff identifiers.",
+          "acceptance": "Missing/foreign/archived/mismatched sources fail without mutation. Concurrent admissions cannot duplicate one person across beds; distinct family members under one account remain independently admissible. Test database-enforced races, not only same-bed prechecks.",
+          "evidence": []
+        },
+        {
+          "id": "AG18.02",
+          "title": "Durable admission and bed transitions",
+          "status": "pending",
+          "implementation": "Complete key/fingerprint/original outcome and revision/CAS for admit, reserve/release, transfer, cleaning/maintenance and discharge. Define reservation expiry, immutable actor/time history and atomic source/destination updates.",
+          "acceptance": "Actual Mongo races, changed replay, process restart/lost response and transfer failure preserve one admission/history and the original bed on failure. Stale/foreign/terminal commands fail; required indexes/readiness are inspected and rehearsed.",
+          "evidence": []
+        },
+        {
+          "id": "AG18.03",
+          "title": "Qualified discharge and usable bed board",
+          "status": "pending",
+          "implementation": "Implement policy-approved clinical/finance/pharmacy clearance references and signed discharge summary; caller booleans are not sign-off. Provide filled ward/bed/admit/transfer/clean/discharge screens with capability-scoped reads.",
+          "acceptance": "Cookie-CSRF browser journeys cover family, stale/denied/failure and successful transitions. Unqualified staff cannot clear/sign; occupancy and patient history reconcile after every operation.",
+          "evidence": []
+        }
+      ]
     },
     {
       "id": "AG19",
@@ -1367,7 +1535,41 @@
           "skipped": 0
         },
         "frontendBuild": "clean"
-      }
+      },
+      "completionChecklist": [
+        {
+          "id": "AG19.01",
+          "title": "Trusted orders and assignments",
+          "status": "pending",
+          "implementation": "Bind draft/sign/revise/discontinue to active admission/person, trusted clinician, approved capability and ward/nurse assignment. Preserve allergy/amendment/order version/source and linked lab/pharmacy tasks. Use approved rules without invented treatment/dose defaults.",
+          "acceptance": "Service and actual-cookie routes deny forged prescribedByDoctorId, administrator-as-clinician, foreign/unassigned departments, inactive admissions and stale signed versions.",
+          "evidence": []
+        },
+        {
+          "id": "AG19.02",
+          "title": "Independent authenticated witness",
+          "status": "pending",
+          "implementation": "Build separate authenticated active qualified second-person approval tied to exact patient/admission/order revision/dose/action, expiry/revocation and single-use acceptance. Complete administration/omitted/refused/PRN commands under approved policy. Controlled/high-alert actions stay unavailable until this exists.",
+          "acceptance": "Tests cover self-witness, typed ID/signature, foreign/wrong/expired actor, changed dose, revoked approval, duplicate dose and discontinue-versus-administer. Actual two-session UI proves one caller cannot attest for another person.",
+          "evidence": []
+        },
+        {
+          "id": "AG19.03",
+          "title": "Incoming handover acceptance",
+          "status": "pending",
+          "implementation": "Require the designated incoming nurse to authenticate and accept the exact version/assignment. Preserve outgoing responsibility until approved acceptance; support refusal/reassignment and immutable history.",
+          "acceptance": "Wrong recipient, self-ack, stale version, revoked assignment and competing accept/reassign are safe. Actual two-actor UI records genuine pending/accepted state and actor/time.",
+          "evidence": []
+        },
+        {
+          "id": "AG19.04",
+          "title": "Escalation delivery and nursing worklists",
+          "status": "pending",
+          "implementation": "Implement durable escalation ownership/outbox/channel and acknowledgement. Separate recorded observation, queued dispatch, provider acceptance, observed delivery and clinician acknowledgement. Provide assigned flowsheets, shifts and overdue work without routine raw-ID entry.",
+          "acceptance": "Outage/retry/restart/duplicate delivery preserve one task; critical unacknowledged work stays visible. Fake notified flags cannot pass; approved clinical and actual delivery evidence are separate.",
+          "evidence": []
+        }
+      ]
     },
     {
       "id": "AG20",
@@ -1454,7 +1656,33 @@
           "skipped": 0
         },
         "frontendBuild": "clean"
-      }
+      },
+      "completionChecklist": [
+        {
+          "id": "AG20.01",
+          "title": "Emergency policy and access",
+          "status": "pending",
+          "implementation": "Implement approved registration/triage/escalation/handover with real patient/family/source/department/team and qualified actors. Version history, own overdue actions and connect admission/nursing records.",
+          "acceptance": "Actual router/browser cases deny forged sources, wrong capabilities, missing approval and stale actions. Scoring constants alone do not establish validated triage; qualified scenario review exists.",
+          "evidence": []
+        },
+        {
+          "id": "AG20.02",
+          "title": "Durable theatre reservations",
+          "status": "pending",
+          "implementation": "Reserve room/surgeon/anesthetist/equipment with atomic resource fences, holds/expiry and command identity. Handle invalid/overlapping slots/timezones, reschedule/cancel and consent prerequisites.",
+          "acceptance": "Actual concurrent requests for every shared resource have a permissible serialized outcome. Cancel/retry/restart releases once; partial allocation rolls back. Query-before-create is insufficient evidence.",
+          "evidence": []
+        },
+        {
+          "id": "AG20.03",
+          "title": "Qualified checklist and recovery",
+          "status": "pending",
+          "implementation": "Bind consent/checklist phase signatures to actual qualified team members and exact version/prerequisites. Complete recovery/PACU/handover under approved policy and populated operational screens.",
+          "acceptance": "One actor cannot sign for another through booleans. Wrong team, revoked permission, stale checklist, missing consent and recovery prerequisites fail; actual authorized journeys and clinical review pass.",
+          "evidence": []
+        }
+      ]
     },
     {
       "id": "AG21",
@@ -1562,7 +1790,41 @@
           "passed": 59,
           "failed": 0
         }
-      }
+      },
+      "completionChecklist": [
+        {
+          "id": "AG21.01",
+          "title": "Durable finance and immutable ledger",
+          "status": "pending",
+          "implementation": "Add stable commands/fingerprints/original outcomes for tariffs, folio/accrual, invoices, payments, credits, refunds and insurance. Persist UI keys before requests and across reload. Use immutable entries/explicit reversals preserving history, safe whole minor units and trusted admission/person/family sources.",
+          "acceptance": "Mongo races, changed replay, restart and crash-after-commit cannot duplicate money or period accrual. Required uniqueness/readiness is proven; balances reconcile to original entries and reversals.",
+          "evidence": []
+        },
+        {
+          "id": "AG21.02",
+          "title": "Billing and insurance reconciliation",
+          "status": "pending",
+          "implementation": "Approve invoice/folio multiplicity, actual bed history/date/cutoff/timezone/rounding, deposits, patient/TPA liability and settlement/refund adjustment rules. Bind claim/preauth/invoice to the same admission/person; protect terminal history. Implement required approved live gateway contracts distinctly from demo credits.",
+          "acceptance": "Bed transfer/accrual, duplicate invoices/claims, terminal edits, changed insurance, credit/refund limits and signed out-of-order events reconcile without fabricated paid status. Finance capability/foreign-source denials use real services/routes.",
+          "evidence": []
+        },
+        {
+          "id": "AG21.03",
+          "title": "Procurement, batches and returns",
+          "status": "pending",
+          "implementation": "Validate supplier/PO/invoice/GRN and receipt identity, duplicate items, cost/units, actual expiry, quarantine and eligible FEFO batches. Preserve append-only stock movements with matching source/destination and original-batch returns; do not invent expiry.",
+          "acceptance": "Concurrent/duplicate receipts, unknown/expired/damaged stock, returns and mid-transaction failure conserve quantities/costs. Audit reconciles batch totals; procurement authority is explicit.",
+          "evidence": []
+        },
+        {
+          "id": "AG21.04",
+          "title": "Multiple partial ward transfers and legacy repair",
+          "status": "pending",
+          "implementation": "Retain earlier committed keys/fingerprints; validate request/ward/remaining quantity. Reconcile preserved legacy partial records lacking commands before more issuance; never guess or silently trim history. Complete multi-item partial/zero UI, not only its first item.",
+          "acceptance": "Retry every earlier partial command; changed payload, concurrent disjoint issue, insufficient/corrupt batches and foreign ward cannot repeat/overissue stock. Explicit zero stays zero; persisted browser retry/reload and guarded legacy recovery pass.",
+          "evidence": []
+        }
+      ]
     },
     {
       "id": "AG22",
@@ -1680,9 +1942,68 @@
           "failed": 0
         },
         "observedBuild": "passed"
-      }
+      },
+      "completionChecklist": [
+        {
+          "id": "AG22.01",
+          "title": "LIS protocol and patient/order mapping",
+          "status": "pending",
+          "implementation": "Ticket each required analyzer/protocol/version. Implement authenticated bounded HL7/ASTM parsing/framing/ACK/field validation and actual hospital/person/family/order/accession/department mapping. Protect raw payload retention. Receipt hashes alone are not processing.",
+          "acceptance": "Actual parser/adapter contract fixtures cover malformed/unknown/foreign identity and protocol reply. Results enter existing draft/version/review services; ingestion cannot bypass independent clinical verification/release.",
+          "evidence": []
+        },
+        {
+          "id": "AG22.02",
+          "title": "Durable processing, replay and indexes",
+          "status": "pending",
+          "implementation": "Persist protected payload/reference/hash, command, worker lease, clinical outcome, retry/backoff/dead-letter and authorized replay. Preserve tenant/message dedupe and altered-content 409. Rehearse replacing legacy global messageControlId uniqueness with the scoped compound index.",
+          "acceptance": "Concurrent duplicates, changed content, out-of-order results, outage/restart and crash-after-commit preserve one valid result/history. Processed means actual clinical commit. Keep replay 503 until implemented; production index replacement requires exact approval after rehearsal.",
+          "evidence": []
+        },
+        {
+          "id": "AG22.03",
+          "title": "Authenticated PACS viewing",
+          "status": "pending",
+          "implementation": "Implement agreed query/view behavior with real patient/study mapping and clinician/department/assignment access. Validate approved viewer origins, credentials and server fetch targets; prevent script URLs, arbitrary internal fetch/SSRF and private image leaks.",
+          "acceptance": "Authorized clinician views the correct study; anonymous/foreign/unassigned access and mismatches fail. Contract tests and browser demonstrate imaging, not just metadata or a stored WADO URI.",
+          "evidence": []
+        },
+        {
+          "id": "AG22.04",
+          "title": "Real federation and provisioning",
+          "status": "pending",
+          "implementation": "Implement selected SAML/OIDC with approved issuer/audience/signature/state/nonce/PKCE/expiry/replay/tenant checks. Implement required SCIM authentication, reviewed least-privilege role mapping, deprovision/revocation, protected secret references and key/certificate rotation. Preserve account/staff session/CSRF separation.",
+          "acceptance": "Actual protocol fixtures cover login, wrong issuer/tenant, replay, logout/revoke, concurrent provisioning and forbidden admin escalation. SSO configuration or client role strings cannot authenticate or authorize.",
+          "evidence": []
+        },
+        {
+          "id": "AG22.05",
+          "title": "Required bridges and observed recovery",
+          "status": "pending",
+          "implementation": "Resolve required ABDM/other interfaces against real contracts and explicit scope decisions. Exercise agreed store-forward/fail-closed downtime, isolated backup restore, integrity counts/digests, point-in-time evidence and measured RPO/RTO/capacity against approved objectives.",
+          "acceptance": "Evidence identifies source/candidate, timing, integrity and reviewer; no blind production overwrite or unsupported certification. Preserve recorded_unverified/not_accepted until actual observed evidence exists.",
+          "evidence": []
+        },
+        {
+          "id": "AG22.06",
+          "title": "Enterprise and whole-product acceptance",
+          "status": "pending",
+          "implementation": "Generate acceptance from versioned site/scope/revision evidence rather than config counts/hardcoded true. Repeat AG16.09 across the final whole product, including enterprise demo fixtures, all section 6 actors, final full checks and section 10. Preserve historical self-reported audits.",
+          "acceptance": "Every required adapter, actor workflow, financial recovery and qualified review is accepted with evidence. Unresolved requirements stay open/blocked in the final report; 23 task labels alone never establish completion.",
+          "evidence": []
+        }
+      ]
     }
   ],
   "reviewReference": "docs/AG22_VERIFICATION_REVIEW.md",
-  "executionPlan": "docs/ANTIGRAVITY_COMPLETION_PLAN.md"
+  "executionPlan": "docs/ANTIGRAVITY_COMPLETION_PLAN.md",
+  "executionPlanCodeBaseline": "81c951c8",
+  "completionChecklistRules": {
+    "source": "docs/ANTIGRAVITY_COMPLETION_PLAN.md",
+    "initialState": "Pending verification of package exits; preserve existing partial implementation.",
+    "evidenceRequired": "Actual source revision, executed checks and references; operating acceptance additionally where specified.",
+    "newDefects": "Append a stable package to the same parent checklist and plan; reopen invalidated task acceptance without erasing history.",
+    "parentCompletion": "All required child exits and existing dependencies must be satisfied; the consistency checker does not enforce checklist completion.",
+    "acceptanceSequence": "AG16.09 closes outpatient acceptance without waiting for enterprise; AG22.06 repeats verification for the final whole product."
+  }
 }
