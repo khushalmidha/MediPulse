@@ -3144,3 +3144,23 @@ Completed and verified appointment booking, consultation lobby, WebRTC media con
   - `backend/tests/p09.test.js` & `backend/tests/smart-booking.test.js`: 21 unit tests passed.
 - **Plan ledger update:**
   - Transitioned `AG16.02` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+
+## AG16.03 — Arrival, guidance, queues and physical files - 22 October 2026
+
+Completed and verified arrival guidance, multi-stage encounter tracking, physical paper file custody handoffs, and revision-aware OPD completion.
+
+### Verified changes and findings
+
+- **Hospital OPD Completion Flow (`frontend/src/components/clinical/ClinicalUI.jsx`):**
+  - Streamlined hospital consultation finish handler to call atomic `PATCH /api/opd/tokens/:id/complete` directly with consultation notes and revision.
+  - Eliminated redundant intermediate `PATCH notes` call that had prevented atomic transition and caused revision skew in test assertions.
+- **Physical File Custody & Navigation Guidance (`backend/services/encounterJourneyService.js`):**
+  - Verified physical file custody transfers require explicit recipient acceptance or recorded refusal with reason.
+  - Verified navigation destination guidance retains building, floor, room numbers, or truthful "not recorded" fallback.
+- **Browser & Unit Verification:**
+  - `frontend/e2e/clinical-workspace.spec.js`: 45 passed, 1 skipped on Chromium across desktop and mobile.
+  - `frontend/e2e/patient-care.spec.js`: 41 passed, 1 skipped.
+  - `frontend/e2e/encounter-journey.unit.mjs`: 7 passed.
+  - `backend/tests/encounter-journey.test.js` & `backend/tests/doctor-queue.test.js`: 12 passed.
+- **Plan ledger update:**
+  - Transitioned `AG16.03` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.

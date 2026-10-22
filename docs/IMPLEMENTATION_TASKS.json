@@ -1253,10 +1253,18 @@
         {
           "id": "AG16.03",
           "title": "Arrival, guidance, queues and physical files",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Follow online/offline visits through reception, nursing, doctor, lab and pharmacy on one encounter. Show next stage/room, actual file holder and timeline. Preserve recipient accept/refuse custody, persistent queue pause/order/priority and honest ETA uncertainty/staleness; minimize kiosk fields.",
           "acceptance": "Filled multi-doctor/department browser/API/socket journeys agree after reconnect/restart. Paused/terminal visits receive no invented wait; pending handoffs do not prematurely move file custody.",
-          "evidence": []
+          "evidence": [
+            "backend/services/encounterJourneyService.js",
+            "frontend/src/components/clinical/ClinicalUI.jsx",
+            "frontend/e2e/encounter-journey.unit.mjs",
+            "frontend/e2e/clinical-workspace.spec.js",
+            "frontend/e2e/patient-care.spec.js",
+            "backend/tests/encounter-journey.test.js",
+            "backend/tests/doctor-queue.test.js"
+          ]
         },
         {
           "id": "AG16.04",

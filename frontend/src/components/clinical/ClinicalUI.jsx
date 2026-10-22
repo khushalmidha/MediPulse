@@ -127,7 +127,6 @@ export function ActiveConsultation({ visit, hospital, disabled, refresh, onDirty
   };
   const finish = () => task.run(async signal => {
     if (hospital) {
-      if (dirty) acceptedNotes(await send("patch", "notes", { doctorNotes: notes, revision: writeRevision.current }, signal));
       return send("patch", "complete", { notes, revision: writeRevision.current }, signal);
     }
     if (dirty) acceptedNotes(await send("patch", "notes", { doctorNotes: notes, revision: writeRevision.current }, signal));
