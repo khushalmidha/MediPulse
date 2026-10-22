@@ -1221,10 +1221,16 @@
         {
           "id": "AG16.01",
           "title": "One visual system across every route",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Inventory company, Connect, hospital microsites, patient/family, doctor, staff, SaaS administration, assistant, booking/calls and enterprise consoles. Apply shared neutral/deep-teal semantic tokens, reusable cards/forms/tables/dialogs, spacing and hierarchy. Preserve contrast-aware branding and one doctor-name display formatter; remove repeated Dr. prefixes without rewriting historical names.",
           "acceptance": "Filled and empty screens at 360/768/1440 in light/dark pass overflow, contrast, focus order, Escape/return-focus and readable validation. Urgency uses text/icons as well as color; screenshots' red/blue clashes and invisible text are resolved throughout.",
-          "evidence": []
+          "evidence": [
+            "docs/P08_DESIGN_SYSTEM.md",
+            "frontend/src/utils/visualSystem.js",
+            "frontend/src/utils/appointments.js",
+            "frontend/e2e/visual-system.unit.mjs",
+            "frontend/e2e/design-system.spec.js"
+          ]
         },
         {
           "id": "AG16.02",

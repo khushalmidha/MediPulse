@@ -3100,3 +3100,24 @@ Completed initial discovery and preparation packages (AG16.D1, AG16.D2, AG16.D3)
   - Transitioned `AG16.D1`, `AG16.D2`, and `AG16.D3` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
 
 All checks passed: `node tools/check-implementation-plan.mjs` validates 16 verified local tasks, evidence paths exist, and dependencies acyclic. Ready to proceed with implementation packages starting with AG16.01.
+
+## AG16.01 — One visual system across every route - 22 October 2026
+
+Verified and finalized visual system tokens, accessible color hierarchy, and responsive design checks across company, Connect, hospital microsites, and staff consoles.
+
+### Verified changes and findings
+
+- **Design Tokens & Brand Theme (`frontend/src/utils/visualSystem.js`):**
+  - Confirmed shared neutral and deep teal semantic tokens across light and dark surfaces.
+  - Verified accessible contrast ratios for primary/secondary buttons and text on background cards (`frontend/e2e/visual-system.unit.mjs` 5/5 passed).
+- **Doctor Name Display Normalizer (`frontend/src/utils/appointments.js`):**
+  - Ensured single unified `formatDoctorName` function prevents double "Dr." prefixes while preserving historical doctor names and fallbacks.
+- **Responsive Layout & Accessibility Checks (`frontend/e2e/design-system.spec.js`):**
+  - Verified on Chromium across 360px, 768px, and 1440px viewports (13 passed, 1 skipped):
+    - Shells render without page horizontal overflow.
+    - Keyboard skip navigation and responsive hamburger navigation.
+    - Vitals dialog focus trapping, Escape dismiss, and focus restoration to trigger.
+    - Mobile staff navigation closes outside and restores focus with Escape.
+    - Patient refresh failure recovers with clear retry state rather than an indefinite spinner.
+- **Plan ledger update:**
+  - Transitioned `AG16.01` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
