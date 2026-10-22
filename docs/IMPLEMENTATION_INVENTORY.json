@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "generatedAt": "2026-10-22T06:10:46.476Z",
-  "reviewBaseline": "0735130cc39d4119f9d7001bdd14937f2eab5618",
+  "generatedAt": "2026-10-22T10:45:51.914Z",
+  "reviewBaseline": "c253b8093e7d94cf45361ee7cbb9c5098b1e10cb",
   "limitations": [
     "Regex-extracted route/navigation inventory; computed paths and inline app handlers require manual review.",
     "Routes and files existing do not establish working authorization, persistence, UI or deployment.",
@@ -12,175 +12,199 @@
       "prefix": "/user",
       "router": "userRouter",
       "file": "backend/routes/user.js",
-      "line": 90
+      "line": 92
     },
     {
       "prefix": "/api/auth",
       "router": "userRouter",
       "file": "backend/routes/user.js",
-      "line": 91
+      "line": 93
     },
     {
       "prefix": "/doctor",
       "router": "doctorRouter",
       "file": "backend/routes/doctor.js",
-      "line": 92
+      "line": 94
     },
     {
       "prefix": "/community",
       "router": "communityRouter",
       "file": "backend/routes/community.js",
-      "line": 93
+      "line": 95
     },
     {
       "prefix": "/message",
       "router": "messageRouter",
       "file": "backend/routes/message.js",
-      "line": 94
+      "line": 96
     },
     {
       "prefix": "/ngo",
       "router": "ngoRouter",
       "file": "backend/routes/ngos.js",
-      "line": 95
+      "line": 97
     },
     {
       "prefix": "/event",
       "router": "eventRouter",
       "file": "backend/routes/event.js",
-      "line": 96
+      "line": 98
     },
     {
       "prefix": "/gemini",
       "router": "geminiRouter",
       "file": "backend/routes/gemini.js",
-      "line": 97
+      "line": 99
     },
     {
       "prefix": "/appointment",
       "router": "appointmentRouter",
       "file": "backend/routes/appointment.js",
-      "line": 98
+      "line": 100
     },
     {
       "prefix": "/api/scheduling",
       "router": "schedulingRouter",
       "file": "backend/routes/scheduling.js",
-      "line": 99
+      "line": 101
     },
     {
       "prefix": "/api/triage",
       "router": "triageRouter",
       "file": "backend/routes/triage.js",
-      "line": 100
+      "line": 102
     },
     {
       "prefix": "/api/hospitals",
       "router": "hospitalRouter",
       "file": "backend/routes/hospital.js",
-      "line": 101
+      "line": 103
     },
     {
       "prefix": "/api/opd",
       "router": "opdRouter",
       "file": "backend/routes/opd.js",
-      "line": 102
+      "line": 104
     },
     {
       "prefix": "/api/staff-messages",
       "router": "staffMessageRouter",
       "file": "backend/routes/staffMessage.js",
-      "line": 103
+      "line": 105
     },
     {
       "prefix": "/api/reviews",
       "router": "reviewRouter",
       "file": "backend/routes/review.js",
-      "line": 104
+      "line": 106
     },
     {
       "prefix": "/api/opd-ai",
       "router": "opdAiRouter",
       "file": "backend/routes/opdAi.js",
-      "line": 105
+      "line": 107
     },
     {
       "prefix": "/api/patients",
       "router": "patientPortalRouter",
       "file": "backend/routes/patientPortal.js",
-      "line": 106
+      "line": 108
     },
     {
       "prefix": "/api/forecast",
       "router": "forecastRouter",
       "file": "backend/routes/forecast.js",
-      "line": 107
+      "line": 109
     },
     {
       "prefix": "/api/copilot",
       "router": "copilotRouter",
       "file": "backend/routes/copilot.js",
-      "line": 108
+      "line": 110
     },
     {
       "prefix": "/api/encounters",
       "router": "encounterRouter",
       "file": "backend/routes/encounter.js",
-      "line": 109
+      "line": 111
     },
     {
       "prefix": "/api/labs",
       "router": "labRouter",
       "file": "backend/routes/lab.js",
-      "line": 110
+      "line": 112
     },
     {
       "prefix": "/api/pharmacy",
       "router": "pharmacyRouter",
       "file": "backend/routes/pharmacy.js",
-      "line": 111
+      "line": 113
     },
     {
       "prefix": "/api/saas",
       "router": "saasRouter",
       "file": "backend/routes/saasOperations.js",
-      "line": 112
+      "line": 114
     },
     {
       "prefix": "/api/ai",
       "router": "aiReliabilityRouter",
       "file": "backend/routes/aiReliability.js",
-      "line": 113
+      "line": 115
     },
     {
       "prefix": "/api/inpatient",
       "router": "inpatientRouter",
       "file": "backend/routes/inpatient.js",
-      "line": 114
+      "line": 116
     },
     {
       "prefix": "/api/nursing",
       "router": "nursingRouter",
       "file": "backend/routes/nursingCare.js",
-      "line": 115
+      "line": 117
     },
     {
       "prefix": "/api/emergency",
       "router": "emergencyTheatreRouter",
       "file": "backend/routes/emergencyTheatre.js",
-      "line": 116
+      "line": 118
     },
     {
       "prefix": "/api/theatre",
       "router": "emergencyTheatreRouter",
       "file": "backend/routes/emergencyTheatre.js",
-      "line": 117
+      "line": 119
+    },
+    {
+      "prefix": "/api/revenue",
+      "router": "hospitalRevenueStockRouter",
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 120
+    },
+    {
+      "prefix": "/api/procurement",
+      "router": "hospitalRevenueStockRouter",
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 121
+    },
+    {
+      "prefix": "/api/integrations",
+      "router": "hospitalIntegrationsRouter",
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 122
+    },
+    {
+      "prefix": "/api/enterprise",
+      "router": "hospitalIntegrationsRouter",
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 123
     },
     {
       "prefix": "/vpay",
       "router": "virtualPaymentRouter",
       "file": "backend/routes/virtualPayment.js",
-      "line": 118
+      "line": 124
     }
   ],
   "routes": [
@@ -2845,6 +2869,380 @@
       "contained": false
     },
     {
+      "method": "POST",
+      "localPath": "/tariffs",
+      "paths": [
+        "/api/revenue/tariffs",
+        "/api/procurement/tariffs"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 32,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/tariffs",
+      "paths": [
+        "/api/revenue/tariffs",
+        "/api/procurement/tariffs"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 38,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/invoices",
+      "paths": [
+        "/api/revenue/invoices",
+        "/api/procurement/invoices"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 46,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/invoices",
+      "paths": [
+        "/api/revenue/invoices",
+        "/api/procurement/invoices"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 52,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/invoices/:id",
+      "paths": [
+        "/api/revenue/invoices/:id",
+        "/api/procurement/invoices/:id"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 58,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/invoices/:id/accrue-bed-days",
+      "paths": [
+        "/api/revenue/invoices/:id/accrue-bed-days",
+        "/api/procurement/invoices/:id/accrue-bed-days"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 64,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/tpa-pre-auths",
+      "paths": [
+        "/api/revenue/tpa-pre-auths",
+        "/api/procurement/tpa-pre-auths"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 72,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/tpa-pre-auths",
+      "paths": [
+        "/api/revenue/tpa-pre-auths",
+        "/api/procurement/tpa-pre-auths"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 78,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/invoices/:id/apply-tpa",
+      "paths": [
+        "/api/revenue/invoices/:id/apply-tpa",
+        "/api/procurement/invoices/:id/apply-tpa"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 84,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/invoices/:id/payments",
+      "paths": [
+        "/api/revenue/invoices/:id/payments",
+        "/api/procurement/invoices/:id/payments"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 92,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/invoices/:id/credit-notes",
+      "paths": [
+        "/api/revenue/invoices/:id/credit-notes",
+        "/api/procurement/invoices/:id/credit-notes"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 98,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/grn",
+      "paths": [
+        "/api/revenue/grn",
+        "/api/procurement/grn"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 106,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/grn",
+      "paths": [
+        "/api/revenue/grn",
+        "/api/procurement/grn"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 112,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/grn/:grnNumber",
+      "paths": [
+        "/api/revenue/grn/:grnNumber",
+        "/api/procurement/grn/:grnNumber"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 118,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/grn/:grnNumber/reconcile",
+      "paths": [
+        "/api/revenue/grn/:grnNumber/reconcile",
+        "/api/procurement/grn/:grnNumber/reconcile"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 124,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/stock/central",
+      "paths": [
+        "/api/revenue/stock/central",
+        "/api/procurement/stock/central"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 132,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/stock/ward",
+      "paths": [
+        "/api/revenue/stock/ward",
+        "/api/procurement/stock/ward"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 140,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/stock/requisitions",
+      "paths": [
+        "/api/revenue/stock/requisitions",
+        "/api/procurement/stock/requisitions"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 148,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/stock/requisitions",
+      "paths": [
+        "/api/revenue/stock/requisitions",
+        "/api/procurement/stock/requisitions"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 154,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/stock/requisitions/:requisitionNumber",
+      "paths": [
+        "/api/revenue/stock/requisitions/:requisitionNumber",
+        "/api/procurement/stock/requisitions/:requisitionNumber"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 160,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/stock/requisitions/:requisitionNumber/fulfill",
+      "paths": [
+        "/api/revenue/stock/requisitions/:requisitionNumber/fulfill",
+        "/api/procurement/stock/requisitions/:requisitionNumber/fulfill"
+      ],
+      "file": "backend/routes/hospitalRevenueStock.js",
+      "line": 166,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/contracts",
+      "paths": [
+        "/api/integrations/contracts",
+        "/api/enterprise/contracts"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 24,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/contracts",
+      "paths": [
+        "/api/integrations/contracts",
+        "/api/enterprise/contracts"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 30,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/lis/inbound",
+      "paths": [
+        "/api/integrations/lis/inbound",
+        "/api/enterprise/lis/inbound"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 38,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/lis/logs",
+      "paths": [
+        "/api/integrations/lis/logs",
+        "/api/enterprise/lis/logs"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 44,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/lis/logs/:messageControlId/replay",
+      "paths": [
+        "/api/integrations/lis/logs/:messageControlId/replay",
+        "/api/enterprise/lis/logs/:messageControlId/replay"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 50,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/pacs/studies",
+      "paths": [
+        "/api/integrations/pacs/studies",
+        "/api/enterprise/pacs/studies"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 58,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/pacs/studies",
+      "paths": [
+        "/api/integrations/pacs/studies",
+        "/api/enterprise/pacs/studies"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 64,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/pacs/studies/:id",
+      "paths": [
+        "/api/integrations/pacs/studies/:id",
+        "/api/enterprise/pacs/studies/:id"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 70,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/sso/configure",
+      "paths": [
+        "/api/integrations/sso/configure",
+        "/api/enterprise/sso/configure"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 78,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/sso/profile",
+      "paths": [
+        "/api/integrations/sso/profile",
+        "/api/enterprise/sso/profile"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 84,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/dr/drills",
+      "paths": [
+        "/api/integrations/dr/drills",
+        "/api/enterprise/dr/drills"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 92,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/dr/audits",
+      "paths": [
+        "/api/integrations/dr/audits",
+        "/api/enterprise/dr/audits"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 98,
+      "contained": false
+    },
+    {
+      "method": "GET",
+      "localPath": "/acceptance/report",
+      "paths": [
+        "/api/integrations/acceptance/report",
+        "/api/enterprise/acceptance/report"
+      ],
+      "file": "backend/routes/hospitalIntegrations.js",
+      "line": 104,
+      "contained": false
+    },
+    {
       "method": "GET",
       "localPath": "/wallet/dashboard",
       "paths": [
@@ -3009,397 +3407,457 @@
     {
       "path": "/",
       "file": "frontend/src/App.jsx",
-      "line": 65
-    },
-    {
-      "path": "/login",
-      "file": "frontend/src/App.jsx",
-      "line": 66
-    },
-    {
-      "path": "/signup",
-      "file": "frontend/src/App.jsx",
       "line": 67
     },
     {
-      "path": "/dashboard",
+      "path": "/login",
       "file": "frontend/src/App.jsx",
       "line": 68
     },
     {
-      "path": "/visits",
+      "path": "/signup",
       "file": "frontend/src/App.jsx",
       "line": 69
     },
     {
-      "path": "/visits/:tokenId",
+      "path": "/dashboard",
       "file": "frontend/src/App.jsx",
       "line": 70
     },
     {
-      "path": "/kiosk",
+      "path": "/visits",
       "file": "frontend/src/App.jsx",
       "line": 71
     },
     {
-      "path": "/reservations/:reservationId",
+      "path": "/visits/:tokenId",
       "file": "frontend/src/App.jsx",
       "line": 72
     },
     {
-      "path": "/profile/edit",
+      "path": "/kiosk",
       "file": "frontend/src/App.jsx",
       "line": 73
     },
     {
-      "path": "/review",
+      "path": "/reservations/:reservationId",
       "file": "frontend/src/App.jsx",
       "line": 74
     },
     {
-      "path": "/staff/setup",
+      "path": "/profile/edit",
       "file": "frontend/src/App.jsx",
       "line": 75
     },
     {
-      "path": "/privacy",
+      "path": "/review",
       "file": "frontend/src/App.jsx",
       "line": 76
     },
     {
-      "path": "/terms",
+      "path": "/staff/setup",
       "file": "frontend/src/App.jsx",
       "line": 77
     },
     {
-      "path": "*",
+      "path": "/privacy",
       "file": "frontend/src/App.jsx",
       "line": 78
     },
     {
+      "path": "/terms",
+      "file": "frontend/src/App.jsx",
+      "line": 79
+    },
+    {
+      "path": "*",
+      "file": "frontend/src/App.jsx",
+      "line": 80
+    },
+    {
       "path": "/",
-      "file": "frontend/src/App.jsx",
-      "line": 91
-    },
-    {
-      "path": "/hospital",
-      "file": "frontend/src/App.jsx",
-      "line": 92
-    },
-    {
-      "path": "/login",
       "file": "frontend/src/App.jsx",
       "line": 93
     },
     {
-      "path": "/hospital/login",
+      "path": "/hospital",
       "file": "frontend/src/App.jsx",
       "line": 94
     },
     {
-      "path": "/hospital/signup",
+      "path": "/login",
       "file": "frontend/src/App.jsx",
       "line": 95
     },
     {
-      "path": "/signup/hospital-admin",
+      "path": "/hospital/login",
       "file": "frontend/src/App.jsx",
       "line": 96
     },
     {
-      "path": "/hospital/admin",
+      "path": "/hospital/signup",
       "file": "frontend/src/App.jsx",
       "line": 97
     },
     {
-      "path": "/hospital/operations",
+      "path": "/signup/hospital-admin",
       "file": "frontend/src/App.jsx",
       "line": 98
     },
     {
-      "path": "/hospital/saas",
+      "path": "/hospital/admin",
       "file": "frontend/src/App.jsx",
       "line": 99
     },
     {
-      "path": "/hospital/doctor-opd",
+      "path": "/hospital/operations",
       "file": "frontend/src/App.jsx",
       "line": 100
     },
     {
-      "path": "/hospital/nursing-station",
+      "path": "/hospital/saas",
       "file": "frontend/src/App.jsx",
       "line": 101
     },
     {
-      "path": "/hospital/reception",
+      "path": "/hospital/doctor-opd",
       "file": "frontend/src/App.jsx",
       "line": 102
     },
     {
-      "path": "/hospital/staff-communication",
+      "path": "/hospital/nursing-station",
       "file": "frontend/src/App.jsx",
       "line": 103
     },
     {
-      "path": "/hospital/laboratory",
+      "path": "/hospital/reception",
       "file": "frontend/src/App.jsx",
       "line": 104
     },
     {
-      "path": "/hospital/lab",
+      "path": "/hospital/staff-communication",
       "file": "frontend/src/App.jsx",
       "line": 105
     },
     {
-      "path": "/hospital/pharmacy",
+      "path": "/hospital/laboratory",
       "file": "frontend/src/App.jsx",
       "line": 106
     },
     {
-      "path": "/hospital/inpatient",
+      "path": "/hospital/lab",
       "file": "frontend/src/App.jsx",
       "line": 107
     },
     {
-      "path": "/hospital/beds",
+      "path": "/hospital/pharmacy",
       "file": "frontend/src/App.jsx",
       "line": 108
     },
     {
-      "path": "/hospital/nursing",
+      "path": "/hospital/inpatient",
       "file": "frontend/src/App.jsx",
       "line": 109
     },
     {
-      "path": "/hospital/inpatient-care",
+      "path": "/hospital/beds",
       "file": "frontend/src/App.jsx",
       "line": 110
     },
     {
-      "path": "/hospital/handovers",
+      "path": "/hospital/nursing",
       "file": "frontend/src/App.jsx",
       "line": 111
     },
     {
-      "path": "/hospital/emergency",
+      "path": "/hospital/inpatient-care",
       "file": "frontend/src/App.jsx",
       "line": 112
     },
     {
-      "path": "/hospital/theatre",
+      "path": "/hospital/handovers",
       "file": "frontend/src/App.jsx",
       "line": 113
     },
     {
-      "path": "/hospital/ot",
+      "path": "/hospital/emergency",
       "file": "frontend/src/App.jsx",
       "line": 114
     },
     {
-      "path": "/hospital/checklist",
+      "path": "/hospital/theatre",
       "file": "frontend/src/App.jsx",
       "line": 115
     },
     {
-      "path": "/staff/accept-invite",
+      "path": "/hospital/ot",
       "file": "frontend/src/App.jsx",
       "line": 116
     },
     {
-      "path": "/staff/setup",
+      "path": "/hospital/checklist",
       "file": "frontend/src/App.jsx",
       "line": 117
     },
     {
-      "path": "/hospital/setup",
+      "path": "/hospital/revenue",
       "file": "frontend/src/App.jsx",
       "line": 118
     },
     {
-      "path": "*",
+      "path": "/hospital/billing",
       "file": "frontend/src/App.jsx",
       "line": 119
     },
     {
-      "path": "/",
+      "path": "/hospital/insurance",
       "file": "frontend/src/App.jsx",
-      "line": 131
+      "line": 120
     },
     {
-      "path": "/signup",
+      "path": "/hospital/procurement",
       "file": "frontend/src/App.jsx",
-      "line": 132
+      "line": 121
     },
     {
-      "path": "/signup/:type",
+      "path": "/hospital/stock",
       "file": "frontend/src/App.jsx",
-      "line": 133
+      "line": 122
     },
     {
-      "path": "/signup/hospital-admin",
+      "path": "/hospital/integrations",
       "file": "frontend/src/App.jsx",
-      "line": 134
+      "line": 123
     },
     {
-      "path": "/review",
+      "path": "/hospital/enterprise",
       "file": "frontend/src/App.jsx",
-      "line": 135
+      "line": 124
     },
     {
-      "path": "/triage/:appointmentId",
+      "path": "/hospital/contracts",
       "file": "frontend/src/App.jsx",
-      "line": 136
+      "line": 125
     },
     {
-      "path": "/smart-booking",
+      "path": "/hospital/lis",
       "file": "frontend/src/App.jsx",
-      "line": 137
+      "line": 126
     },
     {
-      "path": "/health-records",
+      "path": "/hospital/pacs",
       "file": "frontend/src/App.jsx",
-      "line": 138
+      "line": 127
     },
     {
-      "path": "/hospitals",
+      "path": "/hospital/sso",
       "file": "frontend/src/App.jsx",
-      "line": 139
+      "line": 128
     },
     {
-      "path": "/kiosk/:slug",
+      "path": "/hospital/dr",
       "file": "frontend/src/App.jsx",
-      "line": 140
+      "line": 129
     },
     {
-      "path": "/hospitals/:slug/*",
+      "path": "/staff/accept-invite",
       "file": "frontend/src/App.jsx",
-      "line": 141
-    },
-    {
-      "path": "/login",
-      "file": "frontend/src/App.jsx",
-      "line": 142
-    },
-    {
-      "path": "/dashboard",
-      "file": "frontend/src/App.jsx",
-      "line": 143
-    },
-    {
-      "path": "/profile/edit",
-      "file": "frontend/src/App.jsx",
-      "line": 144
-    },
-    {
-      "path": "/chat",
-      "file": "frontend/src/App.jsx",
-      "line": 145
-    },
-    {
-      "path": "/doctorsProfile/:id",
-      "file": "frontend/src/App.jsx",
-      "line": 146
-    },
-    {
-      "path": "/appointment/book/:doctorId",
-      "file": "frontend/src/App.jsx",
-      "line": 147
-    },
-    {
-      "path": "/my-appointments",
-      "file": "frontend/src/App.jsx",
-      "line": 148
-    },
-    {
-      "path": "/appointments/current/:appointmentId",
-      "file": "frontend/src/App.jsx",
-      "line": 149
-    },
-    {
-      "path": "/appointments/reservations/:reservationId",
-      "file": "frontend/src/App.jsx",
-      "line": 150
-    },
-    {
-      "path": "/doctor/appointments",
-      "file": "frontend/src/App.jsx",
-      "line": 151
-    },
-    {
-      "path": "/communities",
-      "file": "frontend/src/App.jsx",
-      "line": 152
-    },
-    {
-      "path": "/events",
-      "file": "frontend/src/App.jsx",
-      "line": 153
-    },
-    {
-      "path": "/events/past",
-      "file": "frontend/src/App.jsx",
-      "line": 154
-    },
-    {
-      "path": "/wallet/transactions",
-      "file": "frontend/src/App.jsx",
-      "line": 155
-    },
-    {
-      "path": "/wallet/refunds",
-      "file": "frontend/src/App.jsx",
-      "line": 156
-    },
-    {
-      "path": "/wallet/notifications",
-      "file": "frontend/src/App.jsx",
-      "line": 157
-    },
-    {
-      "path": "/admin/virtual-payments",
-      "file": "frontend/src/App.jsx",
-      "line": 158
-    },
-    {
-      "path": "/doctors",
-      "file": "frontend/src/App.jsx",
-      "line": 159
-    },
-    {
-      "path": "/about",
-      "file": "frontend/src/App.jsx",
-      "line": 160
+      "line": 130
     },
     {
       "path": "/staff/setup",
       "file": "frontend/src/App.jsx",
-      "line": 161
+      "line": 131
     },
     {
       "path": "/hospital/setup",
       "file": "frontend/src/App.jsx",
-      "line": 162
-    },
-    {
-      "path": "/privacy",
-      "file": "frontend/src/App.jsx",
-      "line": 163
-    },
-    {
-      "path": "/terms",
-      "file": "frontend/src/App.jsx",
-      "line": 164
-    },
-    {
-      "path": "/cookiepolicy",
-      "file": "frontend/src/App.jsx",
-      "line": 165
+      "line": 132
     },
     {
       "path": "*",
       "file": "frontend/src/App.jsx",
+      "line": 133
+    },
+    {
+      "path": "/",
+      "file": "frontend/src/App.jsx",
+      "line": 145
+    },
+    {
+      "path": "/signup",
+      "file": "frontend/src/App.jsx",
+      "line": 146
+    },
+    {
+      "path": "/signup/:type",
+      "file": "frontend/src/App.jsx",
+      "line": 147
+    },
+    {
+      "path": "/signup/hospital-admin",
+      "file": "frontend/src/App.jsx",
+      "line": 148
+    },
+    {
+      "path": "/review",
+      "file": "frontend/src/App.jsx",
+      "line": 149
+    },
+    {
+      "path": "/triage/:appointmentId",
+      "file": "frontend/src/App.jsx",
+      "line": 150
+    },
+    {
+      "path": "/smart-booking",
+      "file": "frontend/src/App.jsx",
+      "line": 151
+    },
+    {
+      "path": "/health-records",
+      "file": "frontend/src/App.jsx",
+      "line": 152
+    },
+    {
+      "path": "/hospitals",
+      "file": "frontend/src/App.jsx",
+      "line": 153
+    },
+    {
+      "path": "/kiosk/:slug",
+      "file": "frontend/src/App.jsx",
+      "line": 154
+    },
+    {
+      "path": "/hospitals/:slug/*",
+      "file": "frontend/src/App.jsx",
+      "line": 155
+    },
+    {
+      "path": "/login",
+      "file": "frontend/src/App.jsx",
+      "line": 156
+    },
+    {
+      "path": "/dashboard",
+      "file": "frontend/src/App.jsx",
+      "line": 157
+    },
+    {
+      "path": "/profile/edit",
+      "file": "frontend/src/App.jsx",
+      "line": 158
+    },
+    {
+      "path": "/chat",
+      "file": "frontend/src/App.jsx",
+      "line": 159
+    },
+    {
+      "path": "/doctorsProfile/:id",
+      "file": "frontend/src/App.jsx",
+      "line": 160
+    },
+    {
+      "path": "/appointment/book/:doctorId",
+      "file": "frontend/src/App.jsx",
+      "line": 161
+    },
+    {
+      "path": "/my-appointments",
+      "file": "frontend/src/App.jsx",
+      "line": 162
+    },
+    {
+      "path": "/appointments/current/:appointmentId",
+      "file": "frontend/src/App.jsx",
+      "line": 163
+    },
+    {
+      "path": "/appointments/reservations/:reservationId",
+      "file": "frontend/src/App.jsx",
+      "line": 164
+    },
+    {
+      "path": "/doctor/appointments",
+      "file": "frontend/src/App.jsx",
+      "line": 165
+    },
+    {
+      "path": "/communities",
+      "file": "frontend/src/App.jsx",
       "line": 166
+    },
+    {
+      "path": "/events",
+      "file": "frontend/src/App.jsx",
+      "line": 167
+    },
+    {
+      "path": "/events/past",
+      "file": "frontend/src/App.jsx",
+      "line": 168
+    },
+    {
+      "path": "/wallet/transactions",
+      "file": "frontend/src/App.jsx",
+      "line": 169
+    },
+    {
+      "path": "/wallet/refunds",
+      "file": "frontend/src/App.jsx",
+      "line": 170
+    },
+    {
+      "path": "/wallet/notifications",
+      "file": "frontend/src/App.jsx",
+      "line": 171
+    },
+    {
+      "path": "/admin/virtual-payments",
+      "file": "frontend/src/App.jsx",
+      "line": 172
+    },
+    {
+      "path": "/doctors",
+      "file": "frontend/src/App.jsx",
+      "line": 173
+    },
+    {
+      "path": "/about",
+      "file": "frontend/src/App.jsx",
+      "line": 174
+    },
+    {
+      "path": "/staff/setup",
+      "file": "frontend/src/App.jsx",
+      "line": 175
+    },
+    {
+      "path": "/hospital/setup",
+      "file": "frontend/src/App.jsx",
+      "line": 176
+    },
+    {
+      "path": "/privacy",
+      "file": "frontend/src/App.jsx",
+      "line": 177
+    },
+    {
+      "path": "/terms",
+      "file": "frontend/src/App.jsx",
+      "line": 178
+    },
+    {
+      "path": "/cookiepolicy",
+      "file": "frontend/src/App.jsx",
+      "line": 179
+    },
+    {
+      "path": "*",
+      "file": "frontend/src/App.jsx",
+      "line": 180
     }
   ],
   "checks": {
@@ -3449,6 +3907,7 @@
       "frontend/e2e/clinical-workspace.spec.js",
       "frontend/e2e/dashboard-assistant.spec.js",
       "frontend/e2e/design-system.spec.js",
+      "frontend/e2e/enterprise-review.spec.js",
       "frontend/e2e/laboratory.spec.js",
       "frontend/e2e/marketing.spec.js",
       "frontend/e2e/patient-care.spec.js",

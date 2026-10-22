@@ -3075,3 +3075,28 @@ Implementation and isolated verification of AG05 packages (AG05.01, AG05.02, AG0
 | Frontend production build (`npm run build`) | Passed cleanly in 46.19s | Production bundle compilation |
 
 All changes are additive and reversible. No production database, seed, or migration was executed. AG05 is marked `verified_local` in `IMPLEMENTATION_TASKS.json`. Ready for AG16 discovery and preparation.
+
+
+## AG16.D1–D3 — Whole-site discovery, defect audit and readiness inventory - 22 October 2026
+
+Completed initial discovery and preparation packages (AG16.D1, AG16.D2, AG16.D3) for AG16 release execution.
+
+### Verified changes and findings
+
+- **Route-to-Service-to-UI Coverage Map (AG16.D1):**
+  - Executed static navigation analysis across the entire application stack: 33 backend mounts, 313 backend route declarations, and 91 frontend routes mapped across all four products (Company, Connect, Hospital Microsites, and Staff Consoles). Recorded in `docs/IMPLEMENTATION_INVENTORY.json` and `docs/AG16_DISCOVERY_INVENTORY.md`.
+- **Decision & External-Action Register (AG16.D1):**
+  - Filled all 9 rows in Section 3 of `docs/ANTIGRAVITY_COMPLETION_PLAN.md` with responsible owner, exact choice/source, approval state, blocked package, and permitted independent work.
+- **Defect & Placeholder Audit (AG16.D1):**
+  - Re-audited historical defect backlog (MP01–MP17): confirmed all 17 items resolved or correctly contained with dedicated regression test coverage.
+  - Inspected repository for stubs and TODO markers: 0 unresolved code TODOs; 1 intentional billing provider stub (`pending_configuration`); enterprise production containment flag (`ENTERPRISE_PILOT_ENABLED=false`) confirmed active outside tests.
+- **Migration & Readiness Inventory (AG16.D2):**
+  - Inventoried all database indexes, uniqueness constraints, and partial filter expressions across clinical encounters, lab orders, prescriptions, scheduling, and enterprise modules.
+  - Re-verified non-destructive schema migration and guarded rollback tooling (`inspectClinicalSchema`, `applyClinicalSchema`, `rollbackClinicalSchema` in `backend/services/clinicalSchema.js`).
+- **Scenario-to-Test Matrix & Isolated Fixtures (AG16.D3):**
+  - Mapped core workflows across 8 actor personas (Patient, Walk-in Patient, Doctor, Receptionist, Nurse, Lab Tech, Pharmacist, Admin) to 229 backend units, 376 registered integrations, 60 UI unit tests, and Playwright Chromium specs.
+  - Re-verified all 16 prerequisite outpatient tasks (AG00–AG15) retain verified local evidence and acyclic dependencies.
+- **Plan ledger update:**
+  - Transitioned `AG16.D1`, `AG16.D2`, and `AG16.D3` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+
+All checks passed: `node tools/check-implementation-plan.mjs` validates 16 verified local tasks, evidence paths exist, and dependencies acyclic. Ready to proceed with implementation packages starting with AG16.01.

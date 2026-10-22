@@ -1183,26 +1183,40 @@
         {
           "id": "AG16.D1",
           "title": "Initial scope and defect inventory",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Reconcile current routes, services, schemas, UI callers and historical open findings against this plan. Inspect TODOs/placeholders/mock success for actual behavior. Record reproduction, source, severity and parent package for every confirmed required defect; retain suspicions as unverified. Recheck affected AG00-AG15 acceptance. Fill the section 3 register once.",
           "acceptance": "A route-to-service-to-UI coverage map and combined decision register exist; every confirmed unresolved requirement has an acceptance check and dependency in this same checklist. Search hits alone are not confirmed defects.",
-          "evidence": []
+          "evidence": [
+            "docs/ANTIGRAVITY_COMPLETION_PLAN.md",
+            "docs/AG16_DISCOVERY_INVENTORY.md",
+            "docs/IMPLEMENTATION_INVENTORY.json",
+            "docs/BUG_BACKLOG.md"
+          ]
         },
         {
           "id": "AG16.D2",
           "title": "Migration and readiness inventory",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Inventory clinical/encounter/person indexes, family-aware admissions, command uniqueness, reservations, finance/stock and LIS tenant/message uniqueness. Prepare explicit dry-run/precondition/backup/apply/recovery tooling; preserve inconsistent legacy records for reviewed repair. Follow section 7.",
           "acceptance": "Current outpatient changes have copy-rehearsed preservation, missing-index readiness failure and guarded recovery. Future enterprise requirements, including global LIS index replacement and ambiguous stock history, are inventoried for rehearsal under their own tasks after policy approval; no startup autoIndex/syncIndexes or production execution.",
-          "evidence": []
+          "evidence": [
+            "docs/AG16_DISCOVERY_INVENTORY.md",
+            "backend/services/clinicalSchema.js",
+            "backend/services/durableSchema.js",
+            "backend/services/startupReadiness.js"
+          ]
         },
         {
           "id": "AG16.D3",
           "title": "Test coverage and isolated fixtures",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Prepare a scenario-to-test matrix using actual services/routes and persisted connected actors, local replica set/Redis and disabled provider sinks. Identify dependency-ready preparation while external decisions are pending.",
           "acceptance": "Each required workflow maps to real service/router/browser checks, including denial, race and recovery. External-only evidence has a named owner; preparation does not complete its parent task.",
-          "evidence": []
+          "evidence": [
+            "docs/AG16_DISCOVERY_INVENTORY.md",
+            "backend/tests/integration/local-stack.test.js",
+            "backend/util/testTargets.js"
+          ]
         },
         {
           "id": "AG16.01",
