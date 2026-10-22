@@ -164,12 +164,13 @@ test("slow current-visit polls apply fresh status without remounting the call an
       doctor: { firstName: update ? "Updated" : "Fixture", lastName: "Doctor" } } });
   });
   await page.goto("/appointments/current/000000000000000000000003", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Join call", exact: true }).click();
   await expect(page.locator("video").first()).toBeVisible();
   await expect.poll(() => page.evaluate(async () => (await import("/src/socket.js")).getSocket().connected)).toBe(true);
   await expect(page.getByRole("button", { name: "Refresh visit", exact: true })).toBeEnabled();
   await page.locator("video").first().evaluate(node => { window.fixtureVisitVideo = node; });
   slow = true;
-  await expect(page.getByText("Dr. Updated Doctor", { exact: true })).toBeVisible({ timeout: 14000 });
+  await expect(page.getByText("Dr. Updated Doctor", { exact: true }).first()).toBeVisible({ timeout: 14000 });
   expect(await page.locator("video").first().evaluate(node => node === window.fixtureVisitVideo)).toBe(true);
   slow = false; regressed = true;
   await page.evaluate(() => window.dispatchEvent(new Event("online")));

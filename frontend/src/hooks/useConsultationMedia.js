@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { BACKEND_URL } from "../utils";
 import { getSocket } from "../socket";
+import { createSnapshotGuard } from "../utils/queueSnapshot";
 
 export default function useConsultationMedia(appointmentId, role, onLeave) {
   const localVideo = useRef(null), remoteVideo = useRef(null), stream = useRef(null), remoteStream = useRef(null);
@@ -19,6 +20,7 @@ export default function useConsultationMedia(appointmentId, role, onLeave) {
     let mounted = true, ended = false, mediaReady = false, joining = false, negotiating = false, generation = 0, retries = 0;
     let peer = null, peerPromise = null, candidates = [], recoveryTimer, negotiationTimer;
     const socket = getSocket(), abort = new AbortController();
+    const revisionGuard = createSnapshotGuard();
     alive.current = true; setStatus("preparing"); setError(""); setNotice(""); setRelayNotice(""); setReady(false); setRemoteMedia(null);
     const current = () => mounted && !ended;
     const request = path => axios.get(BACKEND_URL + path, { withCredentials: true, signal: abort.signal, timeout: 12000 });
@@ -114,9 +116,15 @@ export default function useConsultationMedia(appointmentId, role, onLeave) {
     async function recover() {
       if (!current() || !mediaReady || joining || !socket.connected) return;
       joining = true;
+      const ticket = revisionGuard.begin(appointmentId);
       try {
         const { data } = await request(`/appointment/${appointmentId}`);
         if (!current()) return;
+        const snapshot = { queueKey: data.queueKey, queueRevision: data.queueRevision ?? data.revision };
+        if (snapshot.queueKey && !revisionGuard.accept(ticket, snapshot)) {
+          joining = false;
+          return;
+        }
         if (data.status !== "active" || data.visitMode === "in_person") { stop("ended"); return; }
         setVisit(data);
         socket.timeout(7000).emit("joinAppointmentRoom", { appointmentId }, (err, result) => {
@@ -167,8 +175,11 @@ export default function useConsultationMedia(appointmentId, role, onLeave) {
     for (const [event, handler] of Object.entries(handlers)) socket.on(event, handler);
     if (!socket.connected) socket.connect();
     async function setup() {
+      const ticket = revisionGuard.begin(appointmentId);
       const { data } = await request(`/appointment/${appointmentId}`);
       if (!current()) return;
+      const snapshot = { queueKey: data.queueKey, queueRevision: data.queueRevision ?? data.revision };
+      revisionGuard.accept(ticket, snapshot);
       if (data.status !== "active" || data.visitMode === "in_person") throw new Error("This online consultation has not started or has already ended.");
       setVisit(data);
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera and microphone require a secure browser connection.");

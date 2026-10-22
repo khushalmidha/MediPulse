@@ -1235,10 +1235,20 @@
         {
           "id": "AG16.02",
           "title": "Appointment and Google Meet style call journeys",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Complete eligible doctor search/specialty/filter, date/session/timezone, mode, self/family, zero/unknown fee, reservation-versus-arrival and reschedule/cancel/refund/retry UI. Improve lobby, device selection, mic/camera, participant layout, fullscreen/fallback, reconnect, leave/rejoin and note-save/end controls.",
           "acceptance": "Actual patient/doctor journeys cover competing booking, reload/lost response, family, zero fee, stale slots, cancellations and call failures without double capacity/charges. Separate physical-device/cross-network TURN evidence exists; synthetic media alone is insufficient.",
-          "evidence": []
+          "evidence": [
+            "frontend/src/components/appointments/CallPanel.jsx",
+            "frontend/src/components/AppointmentVideoCall.jsx",
+            "frontend/src/hooks/useConsultationMedia.js",
+            "backend/services/turnCredentials.js",
+            "frontend/e2e/appointments.unit.mjs",
+            "frontend/e2e/appointments.spec.js",
+            "frontend/e2e/calls.spec.js",
+            "frontend/e2e/booking.spec.js",
+            "frontend/e2e/booking-regressions.spec.js"
+          ]
         },
         {
           "id": "AG16.03",

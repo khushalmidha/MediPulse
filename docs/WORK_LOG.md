@@ -3121,3 +3121,26 @@ Verified and finalized visual system tokens, accessible color hierarchy, and res
     - Patient refresh failure recovers with clear retry state rather than an indefinite spinner.
 - **Plan ledger update:**
   - Transitioned `AG16.01` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+
+## AG16.02 — Appointment and Google Meet style call journeys - 22 October 2026
+
+Completed and verified appointment booking, consultation lobby, WebRTC media controls, reconnection handling, and regression recovery.
+
+### Verified changes and findings
+
+- **Queue Revision Protection in Consultation Media (`frontend/src/hooks/useConsultationMedia.js`):**
+  - Integrated `createSnapshotGuard` from `../utils/queueSnapshot` into `useConsultationMedia` to protect active consultations from regressed queue revision payloads returned during background reconnects or re-synchronizations.
+  - Ensures stale or out-of-order visit responses cannot prematurely terminate active media calls or tear down participant peers.
+- **Consultation Lobby & Media Permissions (`frontend/src/components/appointments/CallPanel.jsx`, `frontend/e2e/calls.spec.js`):**
+  - Confirmed 24 browser check scenarios pass in `frontend/e2e/calls.spec.js` covering two-way media exchange, doctor disconnect recovery, leave/rejoin workflows, microphone and camera toggle states, fullscreen/expanded fallbacks, and bounded peer renegotiation.
+  - Confirmed media tracks and speech recognition do not initialize automatically before explicit user interaction ("Join call" in lobby).
+- **Appointment Journey & Slow Poll Tests (`frontend/e2e/appointments.spec.js`):**
+  - Updated slow visit poll test in `frontend/e2e/appointments.spec.js` to explicitly wait for and trigger the lobby "Join call" button and use strict selector handling across multiple doctor name labels.
+  - Verified 47 passed (1 skipped) across desktop and mobile viewports covering booking, hold timeouts, lost confirmation replay, family reservations, zero-fee appointments, and tracking error recovery.
+- **Booking Regressions & Unit Verification:**
+  - `frontend/e2e/booking.spec.js`: 26 passed.
+  - `frontend/e2e/booking-regressions.spec.js`: 4 passed.
+  - `frontend/e2e/appointments.unit.mjs`: 10 passed.
+  - `backend/tests/p09.test.js` & `backend/tests/smart-booking.test.js`: 21 unit tests passed.
+- **Plan ledger update:**
+  - Transitioned `AG16.02` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
