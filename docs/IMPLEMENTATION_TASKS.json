@@ -1303,10 +1303,16 @@
         {
           "id": "AG16.06",
           "title": "Connected synthetic data and pitch",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Reuse AG15 manifest/importer/recovery. Populate related patients/family, doctors/staff/admin, sessions/rooms, active/completed visits, accepted/refused file events, reviewed notes, released/amended labs, partial prescriptions, communities and derived metrics. Add enterprise fixtures as their workflows become valid. Supply a role-by-role pitch script and symptom-guide route.",
           "acceptance": "The outpatient dataset passes isolated dry-run/apply/replay/recovery and reconciles links, stock/money and original fingerprints. Enterprise fixture completion belongs to AG22.06 after its workflows exist. No credential/role/wallet reset or outgoing mail. Production demo insertion needs its own exact approved manifest; preserve owner-controlled accounts without publishing their details.",
-          "evidence": []
+          "evidence": [
+            "backend/services/foxoDemo.js",
+            "backend/services/demoRecovery.js",
+            "backend/tests/demo-recovery.test.js",
+            "docs/FOXO_DEMO.md",
+            "frontend/src/pages/SmartBooking.jsx"
+          ]
         },
         {
           "id": "AG16.07",

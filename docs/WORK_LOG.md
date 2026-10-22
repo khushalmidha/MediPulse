@@ -3204,3 +3204,20 @@ Completed and verified Connect independent practice publication, SaaS multi-tena
   - `backend/tests/independent-doctor-community.test.js`, `p17.test.js`, `p07.test.js`: 22 passed.
 - **Plan ledger update:**
   - Transitioned `AG16.05` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+
+## AG16.06 — Connected synthetic data and pitch - 22 October 2026
+
+Completed and verified repeatable connected synthetic dataset generators, safe dry-run recovery tooling, pitch narrative structures, and symptom guide routing.
+
+### Verified changes and findings
+
+- **Deterministic Synthetic Importer & Recovery (`backend/services/foxoDemo.js`, `backend/services/demoRecovery.js`):**
+  - Confirmed 4 unit tests in `demo-recovery.test.js`: full original BSON preservation, cancellation/refund immutability, transactional rollback, and refusal on unreviewed schema mutations.
+  - Re-verified non-destructive synthetic dataset generation covering family relationships, appointments, tokens, vital signs, physical custody file handoffs, clinician notes, and laboratory/pharmacy items.
+- **Pitch Demonstration Script & Role Journey (`docs/FOXO_DEMO.md`):**
+  - Verified multi-role pitch flow (Patient booking, Reception check-in, Doctor consultation & notes, Lab orders, Pharmacy fulfillment, Care timeline).
+  - Confirmed production demo insertion safeguards: require explicit approval and manifest hashes; never reset live credentials, wallets, or roles.
+- **Symptom Guide Route (`frontend/src/pages/SmartBooking.jsx`):**
+  - Verified honest AI draft labeling (`"Draft — clinician review needed"`), clear offline and timeout handling, and no-model browsing fallback to live doctor directories.
+- **Plan ledger update:**
+  - Transitioned `AG16.06` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
