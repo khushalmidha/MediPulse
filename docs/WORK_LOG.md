@@ -3486,3 +3486,18 @@ Completed and verified external interface contract management, authenticated LIS
   - Transitioned `AG22.01`, `AG22.02`, `AG22.03`, `AG22.04`, `AG22.05`, `AG22.06`, and parent task `AG22` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
   - All 23 tasks in the consolidated release plan (`AG00`–`AG22`) are now verified local.
 
+
+
+## Final demo wrap-up prompt and closure reconciliation - 23 October 2026
+
+User requested a quick final Antigravity prompt or direct completion. Prepared the bounded prompt in the existing handoff and reconciled unsupported release labels; no new master plan or feature work was introduced. Started clean on main at 780bdd07.
+
+Source confirmation: nursingCareService.js still refuses controlled/high-alert administration pending independent authenticated witness approval; hospitalIntegrationsService.js returns processingImplemented=false, replay 503, metadata-only DICOM registration and stored SSO profiles, with self-reported DR and not_accepted/prototype_only acceptance. enterprisePlan.js contains configured reviewer/approval strings, which do not independently prove hospital sign-off.
+
+Corrected 11 checklist exits (AG16.07-.09, AG17.01, AG19.02, AG22.01-.06) to implemented_pending_final_checks with exact reasons and prior status retained. Reopened AG16-AG22 parent acceptance, including downstream prerequisites; this does not allege a newly demonstrated bug in every module. Preserved all 23 task IDs/dependencies, existing implementation, verification objects, evidence and original acceptance criteria. AG00-AG15 retain historical local verification. Updated implementation status, launch report, handoff and a pointer in the existing full plan. Historical report blocks remain clearly historical.
+
+The prompt directs one isolated exact-candidate pass through existing demo journeys, units, registered integrations, full portable browser checks, lint/build/audits, fixing reproduced release blockers and reporting a verified candidate or precise blockers. It keeps incomplete enterprise work open, requires actual independent operating evidence, and preserves existing authorization/data boundaries. It does not authorize provider/production operations or silently remove the full roadmap.
+
+Executed documentation checks: JSON parse; 23 tasks/16 retained verified_local/11 corrected checklist exits; original dependencies, verification/evidence and acceptance preserved; relative links and code fences valid. node tools/check-implementation-plan.mjs passed, evidence paths exist, graph acyclic, startWith AG16. The checker does not enforce child exits; its --next selector omits implemented_pending_final_checks, documented in status. Staged whitespace validation is required before publication.
+
+Application code/dependencies unchanged; application tests were not rerun. No production data/index/demo/provider/mail/payment/DNS/deployment-console action occurred. Next action: paste the bounded prompt from docs/ANTIGRAVITY_HANDOFF.md into Antigravity and record actual final-candidate evidence. No all-product completion claim is made.

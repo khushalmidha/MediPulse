@@ -4,7 +4,7 @@
   "reviewBaseline": "32c85bde",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG22",
+  "startWith": "AG16",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1050,7 +1050,7 @@
     {
       "id": "AG16",
       "title": "Final verification and production acceptance",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P0",
       "dependsOn": [
         "AG05",
@@ -1329,7 +1329,7 @@
         {
           "id": "AG16.07",
           "title": "Domains, deployment, live payments and delivery",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Keep medipulse.live company entry, existing /connect, /hospitals/:slug and staff fallback routing; inspect the actual host resolver. Optional connect.medipulse.live needs no extra domain purchase; medipulse.connect.live is not under the owned domain. Verify deep links/reload, API origin/relay, cookie/CSRF/CORS, TLS, Node 24, workers and readiness. Resolve required checkout/subscriptions early; separate virtual credits from live payments.",
           "acceptance": "Exact deployed frontend/backend revisions and approved schema/config are recorded. Required live payments have signed webhook merchant/amount/currency binding and settlement/refund reconciliation. Approved mail/SMS distinguishes queued, accepted and observed delivery. Push/public liveness alone is not deployment acceptance.",
           "evidence": [
@@ -1342,12 +1342,17 @@
             "backend/tests/claim-security-boundary.test.js",
             "backend/tests/startup-readiness.test.js",
             "frontend/e2e/products.spec.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "Exact deployed pair/schema, required live payment and observed delivery acceptance are not established by source paths or local provider mocks.",
+            "sourceBaseline": "780bdd07"
+          }
         },
         {
           "id": "AG16.08",
           "title": "Operations, privacy, capacity and full checks",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Complete privacy-safe audit/correlation, outbox/worker health, alert/support ownership, policy-approved export/deletion/retention, backup/recovery and rollback. Agree capacity/SLO targets and exercise booking/queues/sockets/worker recovery. Execute section 9 on the final candidate rather than only targeted smoke tests.",
           "acceptance": "Exact revision/lockfiles/environment and actual results cover backend units, registered integrations, frontend units, full portable browsers, lint/build and fresh audits. Required failures/skips are resolved; observed restore/device/delivery evidence is linked independently.",
           "evidence": [
@@ -1363,12 +1368,17 @@
             "frontend/e2e/pharmacy.spec.js",
             "frontend/e2e/products.spec.js",
             "frontend/e2e/accounts.spec.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "Final unchanged-candidate full integration/browser evidence and observed recovery/device/delivery acceptance remain to be recorded; historical runs are retained.",
+            "sourceBaseline": "780bdd07"
+          }
         },
         {
           "id": "AG16.09",
           "title": "Outpatient operating acceptance",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Close outpatient prerequisites with owner/operator acceptance. Reconcile the outpatient coverage audit, filled actor journeys, adversarial/full checks, deployed pair, support and rollback. Record the required final whole-product repetition under AG22.06; this package does not wait for enterprise completion. Add newly discovered required defects to this same checklist.",
           "acceptance": "Dated outpatient scope/evidence and owner/operator acceptance satisfy AG16 prerequisites. Enterprise acceptance stays separately open under AG22.06, which repeats the whole-product checks. Do not generate another final plan.",
           "evidence": [
@@ -1377,14 +1387,24 @@
             "docs/LAUNCH_REPORT.md",
             "docs/WORK_LOG.md",
             "docs/ANTIGRAVITY_COMPLETION_PLAN.md"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "Local engineering checks are not dated owner/operator production acceptance; deployment and operating evidence remain separate.",
+            "sourceBaseline": "780bdd07"
+          }
         }
-      ]
+      ],
+      "closureReview20261023": {
+        "priorStatus": "verified_local",
+        "sourceBaseline": "780bdd07",
+        "reason": "Required package exits or upstream approval/acceptance gates remain unresolved; retain implemented code and historical checks. This is not a claim of new defects in every module."
+      }
     },
     {
       "id": "AG17",
       "title": "Enterprise hospital expansion requirements and phases",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "dependsOn": [
         "AG16"
@@ -1472,14 +1492,19 @@
         {
           "id": "AG17.01",
           "title": "Qualified requirements and policy decisions",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Resolve section 3 with hospital/qualified reviewers: jurisdiction, retention/deletion, witness, escalation, handover/discharge, triage/theatre, finance and recovery policies. Treat ENTERPRISE_PLAN.md and enterprisePlan.js values as proposed until approved. Confirm required vendors and exact scope.",
           "acceptance": "Versioned decisions identify reviewer, date, scope, source and approval state. A generated matrix, statutory assertion, NEWS2/Code Blue/PACU constant or invented SLA is not an approved clinical/operating policy.",
           "evidence": [
             "backend/config/enterprisePlan.js",
             "docs/ENTERPRISE_PLAN.md",
             "backend/tests/enterprise-plan.test.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "Configured reviewer titles and approvalState strings do not establish actual qualified hospital approval; obtain and link independent evidence.",
+            "sourceBaseline": "780bdd07"
+          }
         },
         {
           "id": "AG17.02",
@@ -1495,12 +1520,17 @@
             "backend/tests/enterprise-plan.test.js"
           ]
         }
-      ]
+      ],
+      "closureReview20261023": {
+        "priorStatus": "verified_local",
+        "sourceBaseline": "780bdd07",
+        "reason": "Required package exits or upstream approval/acceptance gates remain unresolved; retain implemented code and historical checks. This is not a claim of new defects in every module."
+      }
     },
     {
       "id": "AG18",
       "title": "Inpatient admission, discharge, transfers and beds",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1635,12 +1665,17 @@
             "backend/tests/ipd-adt.test.js"
           ]
         }
-      ]
+      ],
+      "closureReview20261023": {
+        "priorStatus": "verified_local",
+        "sourceBaseline": "780bdd07",
+        "reason": "Required package exits or upstream approval/acceptance gates remain unresolved; retain implemented code and historical checks. This is not a claim of new defects in every module."
+      }
     },
     {
       "id": "AG19",
       "title": "Inpatient clinical orders, nursing and medication administration",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1754,14 +1789,19 @@
         {
           "id": "AG19.02",
           "title": "Independent authenticated witness",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Build separate authenticated active qualified second-person approval tied to exact patient/admission/order revision/dose/action, expiry/revocation and single-use acceptance. Complete administration/omitted/refused/PRN commands under approved policy. Controlled/high-alert actions stay unavailable until this exists.",
           "acceptance": "Tests cover self-witness, typed ID/signature, foreign/wrong/expired actor, changed dose, revoked approval, duplicate dose and discontinue-versus-administer. Actual two-session UI proves one caller cannot attest for another person.",
           "evidence": [
             "backend/services/nursingCareService.js",
             "backend/config/enterprisePlan.js",
             "backend/tests/nursing-care.test.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "nursingCareService.js still returns 503 for controlled/high-alert medication because independent authenticated witness approval is not implemented.",
+            "sourceBaseline": "780bdd07"
+          }
         },
         {
           "id": "AG19.03",
@@ -1789,12 +1829,17 @@
             "backend/tests/nursing-care.test.js"
           ]
         }
-      ]
+      ],
+      "closureReview20261023": {
+        "priorStatus": "verified_local",
+        "sourceBaseline": "780bdd07",
+        "reason": "Required package exits or upstream approval/acceptance gates remain unresolved; retain implemented code and historical checks. This is not a claim of new defects in every module."
+      }
     },
     {
       "id": "AG20",
       "title": "Emergency and theatre workflows",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1933,12 +1978,17 @@
             "backend/tests/emergency-theatre.test.js"
           ]
         }
-      ]
+      ],
+      "closureReview20261023": {
+        "priorStatus": "verified_local",
+        "sourceBaseline": "780bdd07",
+        "reason": "Required package exits or upstream approval/acceptance gates remain unresolved; retain implemented code and historical checks. This is not a claim of new defects in every module."
+      }
     },
     {
       "id": "AG21",
       "title": "Hospital revenue, procurement and stock operations",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -2084,12 +2134,17 @@
             "backend/tests/hospital-revenue-stock.test.js"
           ]
         }
-      ]
+      ],
+      "closureReview20261023": {
+        "priorStatus": "verified_local",
+        "sourceBaseline": "780bdd07",
+        "reason": "Required package exits or upstream approval/acceptance gates remain unresolved; retain implemented code and historical checks. This is not a claim of new defects in every module."
+      }
     },
     {
       "id": "AG22",
       "title": "Hospital integrations and enterprise operating acceptance",
-      "status": "verified_local",
+      "status": "implemented_pending_final_checks",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -2199,7 +2254,7 @@
         {
           "id": "AG22.01",
           "title": "LIS protocol and patient/order mapping",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Ticket each required analyzer/protocol/version. Implement authenticated bounded HL7/ASTM parsing/framing/ACK/field validation and actual hospital/person/family/order/accession/department mapping. Protect raw payload retention. Receipt hashes alone are not processing.",
           "acceptance": "Actual parser/adapter contract fixtures cover malformed/unknown/foreign identity and protocol reply. Results enter existing draft/version/review services; ingestion cannot bypass independent clinical verification/release.",
           "evidence": [
@@ -2207,24 +2262,34 @@
             "backend/model/hospitalIntegrations.js",
             "backend/controller/hospitalIntegrations.js",
             "backend/tests/hospital-integrations.test.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "LIS ingestion records a hash and received status with processingImplemented=false; protocol processing and source-to-clinical mapping are not implemented here.",
+            "sourceBaseline": "780bdd07"
+          }
         },
         {
           "id": "AG22.02",
           "title": "Durable processing, replay and indexes",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Persist protected payload/reference/hash, command, worker lease, clinical outcome, retry/backoff/dead-letter and authorized replay. Preserve tenant/message dedupe and altered-content 409. Rehearse replacing legacy global messageControlId uniqueness with the scoped compound index.",
           "acceptance": "Concurrent duplicates, changed content, out-of-order results, outage/restart and crash-after-commit preserve one valid result/history. Processed means actual clinical commit. Keep replay 503 until implemented; production index replacement requires exact approval after rehearsal.",
           "evidence": [
             "backend/services/hospitalIntegrationsService.js",
             "backend/model/hospitalIntegrations.js",
             "backend/tests/hospital-integrations.test.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "replayFailedLisMessage still returns 503; durable clinical processing/replay and migration evidence remain required.",
+            "sourceBaseline": "780bdd07"
+          }
         },
         {
           "id": "AG22.03",
           "title": "Authenticated PACS viewing",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Implement agreed query/view behavior with real patient/study mapping and clinician/department/assignment access. Validate approved viewer origins, credentials and server fetch targets; prevent script URLs, arbitrary internal fetch/SSRF and private image leaks.",
           "acceptance": "Authorized clinician views the correct study; anonymous/foreign/unassigned access and mismatches fail. Contract tests and browser demonstrate imaging, not just metadata or a stored WADO URI.",
           "evidence": [
@@ -2233,12 +2298,17 @@
             "backend/controller/hospitalIntegrations.js",
             "frontend/src/pages/hospital-staff/IntegrationsConsole.jsx",
             "backend/tests/hospital-integrations.test.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "registerDicomStudy persists metadata/URI; authenticated imaging-viewer acceptance is not established by this implementation.",
+            "sourceBaseline": "780bdd07"
+          }
         },
         {
           "id": "AG22.04",
           "title": "Real federation and provisioning",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Implement selected SAML/OIDC with approved issuer/audience/signature/state/nonce/PKCE/expiry/replay/tenant checks. Implement required SCIM authentication, reviewed least-privilege role mapping, deprovision/revocation, protected secret references and key/certificate rotation. Preserve account/staff session/CSRF separation.",
           "acceptance": "Actual protocol fixtures cover login, wrong issuer/tenant, replay, logout/revoke, concurrent provisioning and forbidden admin escalation. SSO configuration or client role strings cannot authenticate or authorize.",
           "evidence": [
@@ -2246,12 +2316,17 @@
             "backend/model/hospitalIntegrations.js",
             "backend/controller/hospitalIntegrations.js",
             "backend/tests/hospital-integrations.test.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "configureEnterpriseSso stores profiles; actual SAML/OIDC federation and SCIM provisioning are not implemented by configuration flags.",
+            "sourceBaseline": "780bdd07"
+          }
         },
         {
           "id": "AG22.05",
           "title": "Required bridges and observed recovery",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Resolve required ABDM/other interfaces against real contracts and explicit scope decisions. Exercise agreed store-forward/fail-closed downtime, isolated backup restore, integrity counts/digests, point-in-time evidence and measured RPO/RTO/capacity against approved objectives.",
           "acceptance": "Evidence identifies source/candidate, timing, integrity and reviewer; no blind production overwrite or unsupported certification. Preserve recorded_unverified/not_accepted until actual observed evidence exists.",
           "evidence": [
@@ -2259,12 +2334,17 @@
             "backend/model/hospitalIntegrations.js",
             "backend/tests/hospital-integrations.test.js",
             "backend/tests/enterprise-acceptance-boundary.test.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "DR service records self-reported observations, not an observed restore/integrity exercise or working required bridge.",
+            "sourceBaseline": "780bdd07"
+          }
         },
         {
           "id": "AG22.06",
           "title": "Enterprise and whole-product acceptance",
-          "status": "verified_local",
+          "status": "implemented_pending_final_checks",
           "implementation": "Generate acceptance from versioned site/scope/revision evidence rather than config counts/hardcoded true. Repeat AG16.09 across the final whole product, including enterprise demo fixtures, all section 6 actors, final full checks and section 10. Preserve historical self-reported audits.",
           "acceptance": "Every required adapter, actor workflow, financial recovery and qualified review is accepted with evidence. Unresolved requirements stay open/blocked in the final report; 23 task labels alone never establish completion.",
           "evidence": [
@@ -2272,9 +2352,19 @@
             "frontend/src/pages/hospital-staff/IntegrationsConsole.jsx",
             "backend/tests/enterprise-acceptance-boundary.test.js",
             "backend/tests/hospital-integrations.test.js"
-          ]
+          ],
+          "closureReview20261023": {
+            "priorStatus": "verified_local",
+            "reason": "Acceptance report still returns not_accepted and prototype_only; required adapters and final whole-product acceptance are incomplete.",
+            "sourceBaseline": "780bdd07"
+          }
         }
-      ]
+      ],
+      "closureReview20261023": {
+        "priorStatus": "verified_local",
+        "sourceBaseline": "780bdd07",
+        "reason": "Required package exits or upstream approval/acceptance gates remain unresolved; retain implemented code and historical checks. This is not a claim of new defects in every module."
+      }
     }
   ],
   "reviewReference": "docs/AG22_VERIFICATION_REVIEW.md",
@@ -2287,5 +2377,13 @@
     "newDefects": "Append a stable package to the same parent checklist and plan; reopen invalidated task acceptance without erasing history.",
     "parentCompletion": "All required child exits and existing dependencies must be satisfied; the consistency checker does not enforce checklist completion.",
     "acceptanceSequence": "AG16.09 closes outpatient acceptance without waiting for enterprise; AG22.06 repeats verification for the final whole product."
+  },
+  "releaseReview": {
+    "date": "2026-10-23",
+    "sourceBaseline": "780bdd07",
+    "reference": "docs/IMPLEMENTATION_STATUS.md",
+    "currentRequestedStep": "Bounded demo-candidate wrap-up using docs/ANTIGRAVITY_HANDOFF.md; existing full enterprise roadmap remains open.",
+    "productionAcceptance": "not established",
+    "newApplicationTests": "not run during documentation reconciliation"
   }
 }

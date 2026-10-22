@@ -1,3 +1,15 @@
+# Current release reconciliation - 23 October 2026
+
+**Current verdict: existing demo candidate; final unchanged-candidate checks and production acceptance are not established. Full enterprise completion is not established.** Source checkpoint: 780bdd07. See [current implementation status](IMPLEMENTATION_STATUS.md) and the corrected [ledger](IMPLEMENTATION_TASKS.json).
+
+The requested immediate action is a bounded demo wrap-up, not another expansion phase. Preserve completed outpatient/Connect code, verify actual demo journeys, fix reproduced release blockers and leave incomplete enterprise actions disabled. LIS processing/replay, authenticated medication witness, real PACS/federation/provisioning and observed recovery remain open against their original acceptance criteria. AG16-AG22 status correction preserves historical implementation/test evidence.
+
+No new runtime suites, deployment, production data/index changes, provider activation, mail, payment or live acceptance occurred in this documentation reconciliation. Historical reports below are retained for their original revisions and do not override this verdict.
+
+---
+
+## Historical release reports (superseded)
+
 # Current release reconciliation - 22 October 2026
 
 Outpatient operating acceptance is completed locally across packages AG16.D1 through AG16.09 (17 verified local tasks: AG00-AG16). Enterprise APIs/UI exist and fixtures have been repaired, but enterprise operating acceptance and the documented access/financial/adapter requirements are open under sequential packages AG17 through AG22. Enterprise runtime now defaults off (`ENTERPRISE_PILOT_ENABLED=false`); existing outpatient operation is fully verified and retained. Production deployment remains subject to separate operator acceptance.

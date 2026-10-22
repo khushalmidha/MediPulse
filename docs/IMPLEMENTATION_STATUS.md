@@ -1,19 +1,24 @@
-# Implementation status - AG22 verification, 22 October 2026
+# Implementation status - final scope reconciliation, 23 October 2026
 
-Reviewed **32c85bde**. New enterprise controllers, routes, consoles and repaired Mongo fixtures exist and were exercised. **All 23 tasks being marked verified_local did not establish the full requested product.** [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md) supersedes older completion statements with the current fixes, checks and open requirements.
+Source inspected: **780bdd07**. The latest Antigravity work adds real code, but the blanket AG00-AG22 completion labels exceeded their package acceptance criteria. This update corrects those labels without removing implementation or historical evidence.
 
-- Existing outpatient/Connect booking, queues, credits/refunds, sessions, calls, notes, labs/pharmacy and community foundations are retained. Their production acceptance remains separate.
-- AG05 is now verified_local: real provider dispatch adapters (Twilio REST, MSG91 DLT OTP, AWS SNS) implemented with safe credential detection; atomic challenge reservation and 60s cooldown serialized via `moneyTransaction`; outbox delivery supported (`job.kind === 'claim.otp'`); zero-read 503 containment maintained for unconfigured runtimes; 20/20 integration and 3/3 claim delivery unit tests pass.
-- AG18-AG22 have mounted APIs and connected staff consoles. Confirmed LIS, stock, insurance/input, medication and UI defects were repaired or explicitly contained. Enterprise services now default off outside tests until a controlled pilot is enabled; no production approval was granted here.
-- LIS currently records receipt metadata, PACS displays study references and SSO stores configuration. Actual protocol processing, authenticated viewer/federation/provisioning and observed restoration remain required. Controlled/high-alert medication administration also remains unavailable until independent authenticated witness approval exists.
-- Hospital policy decisions, source/department/actor access, admission identity, handover/escalation confirmation and financial command/reversal safeguards are explicit ledger work. Existing delivered code should be extended, not replaced.
+## Current scope
 
-## Checks
+- Existing outpatient/Connect code and demo tooling are retained. AG00-AG15 retain their existing verified_local evidence, including the newer claim delivery adapters. This review does not independently rerun or certify those tests.
+- AG16-AG22 are implemented_pending_final_checks: some concrete workflow exits and upstream qualified/operating acceptance remain open. Eleven checklist entries have source-specific closure-review notes; other historical local evidence is preserved.
+- Controlled/high-alert medication still returns 503 because independent authenticated witness approval is not implemented.
+- LIS returns processingImplemented=false; replay returns 503. PACS registers study metadata/URI, while SSO saves configuration. These do not demonstrate actual protocol-to-result processing, authenticated imaging or federation/SCIM.
+- Enterprise acceptance returns not_accepted/prototype_only. Recovery observations remain self-reported; they do not execute or verify a restore. Reviewer titles/approval strings in enterprisePlan.js are not independent evidence of qualified hospital approval.
+- Keep ENTERPRISE_PILOT_ENABLED=false in production. Existing outpatient routes are unaffected. Local test evidence and production acceptance are separate.
 
-Registered integration runner **376 passed**; encounter-walkin-claim **20 passed**; latest stock follow-up **7 passed**; backend units **229 passed**; frontend units **60 passed**; targeted Chromium **18 passed / 2 duplicate viewport sweeps skipped**. Affected lint and production build passed; both dependency audits reported zero advisories.
+## Checks and evidence
 
-These are local synthetic checks. No production data/index/provider/DNS/mail/deployment-console execution or live acceptance was performed. See the review for observed initial failures, migration needs and the exact remaining work.
+This phase inspected source and reconciled documentation/ledger. **Application tests were not rerun.** Prior Antigravity reports include 233 backend units, 60 frontend units and 316 browser passes with 6 skips; the earlier independent review records 376 integrations at its own source revision. Those numbers remain attributed historical reports, not new final-candidate results. See WORK_LOG for their original contexts.
 
-## Continue
+Before a current release claim, run the relevant full suites on the exact final candidate, investigate required skips, and record actual results. Exact deployed frontend/backend pair, schema readiness, approved provider/payment delivery, physical devices/TURN, observed restore and owner/operator acceptance remain separate release gates where required.
 
-The [consolidated final execution plan](ANTIGRAVITY_COMPLETION_PLAN.md) tracks the release verification packages. All 23 tasks in the implementation plan (AG00-AG22) are verified_local (23 verified local tasks in ledger: AG00-AG22). Outpatient operating acceptance prerequisites are fully closed under AG16.09, and enterprise expansion governance, IPD/ADT admission/bed management, nursing/order workflows, emergency/theatre workflows, revenue/procurement/stock operations, and hospital integrations & operating acceptance boundaries are closed under AG17, AG18, AG19, AG20, AG21, and AG22. AG22.06 repeats whole-product verification across the final suite. Keep ENTERPRISE_PILOT_ENABLED=false in production; the flag is not an approval mechanism.
+## Current next action
+
+Use the bounded finalization prompt in [ANTIGRAVITY_HANDOFF.md](ANTIGRAVITY_HANDOFF.md): freeze the existing demo scope, verify its critical journeys, fix reproduced release-blocking regressions, then publish an honest candidate report. Do not add new features during this wrap-up or call incomplete enterprise functions complete. The existing [completion plan](ANTIGRAVITY_COMPLETION_PLAN.md) remains the full roadmap; no new master plan is needed.
+
+The plan checker validates structure/evidence paths only. Its --next mode selects pending tasks, not implemented_pending_final_checks; use the ledger's startWith AG16 and the handoff directly rather than interpreting no selected pending task as completion. Production execution retains Common's exact approval boundary.

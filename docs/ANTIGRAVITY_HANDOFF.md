@@ -1,28 +1,20 @@
-# MediPulse - final consolidated continuation handoff
+# MediPulse - bounded final wrap-up handoff
 
-Updated 22 October 2026. Published code baseline: **81c951c8**, containing the independent review/fixes of Antigravity checkpoint **32c85bde**. The consolidated [completion plan](ANTIGRAVITY_COMPLETION_PLAN.md) and 37 checklist packages in the existing ledger cover all currently known remaining work. Continue that same plan; do not generate another competing plan. Read [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md) first. The enterprise APIs/UI and repaired fixtures now exist; earlier absent-route/failing-fixture statements describe older revisions. Their existence still does not complete the clinical/financial/external adapter requirements.
+Updated **23 October 2026**, after source inspection of **780bdd07**. Immediate scope: finalize the existing demo candidate quickly. The full [completion plan](ANTIGRAVITY_COMPLETION_PLAN.md) remains in place for uncompleted product requirements; this handoff does not silently remove them or claim the product production-ready.
 
-Keep **ENTERPRISE_PILOT_ENABLED=false** in production. Newly mounted enterprise services default off outside tests pending the documented access/policy/reconciliation work. Existing outpatient services are unchanged. Claim delivery is also unimplemented in real runtime; do not remove its containment or assume credentials activate the stub.
+Read [current implementation status](IMPLEMENTATION_STATUS.md) before historical reviews. AG00-AG15 retain existing local evidence; AG16-AG22 are reopened for incomplete package/upstream acceptance, with source-specific notes in the ledger. Eleven detailed checklist exits remain unverified. Keep enterprise default off; actual claim adapters now exist, so the older statement that claim delivery has only a runtime stub is superseded. Provider activation/observed delivery still needs its own evidence.
 
 ## Paste into Antigravity
 
 ```text
-Read AGENTS.md, docs/ANTIGRAVITY_HANDOFF.md, docs/ANTIGRAVITY_COMPLETION_PLAN.md, docs/IMPLEMENTATION_TASKS.json, docs/IMPLEMENTATION_STATUS.md and Common in docs/MEDIPULSE_CODEX_PROMPTS.md. The consolidated plan starts from code checkpoint 81c951c8; verify current checkout and preserve later work. Continue this same plan through final acceptance, without generating another plan.
+Perform one bounded finalization pass for the existing MediPulse demo candidate. Read AGENTS.md, current docs/IMPLEMENTATION_STATUS.md, docs/IMPLEMENTATION_TASKS.json, docs/LAUNCH_REPORT.md and Common in docs/MEDIPULSE_CODEX_PROMPTS.md. Verify current main; preserve later/unrelated edits. Use the existing completion plan for context; do not generate another master plan or add features.
 
-Start with AG16.D1-D3 discovery/preparation and the combined decision register, then AG05 and section 2 dependency order. Complete every required completionChecklist package through actual services, scoped APIs, persistence, usable UI, migrations/recovery and meaningful tests. Preserve delivered implementations and 81c951c8 safeguards. Add newly discovered required defects to this same parent checklist, fix and verify them before release. Read targeted files per package.
+Exercise patient/family booking, doctor consultation/call/fullscreen/reconnect, hospital queue/room/file guidance, released lab/pharmacy records, Connect and account/role-switch behavior using isolated connected fixtures. Fix only reproduced release-blocking regressions. Run backend units and the full registered integrations with isolated replica-set/Redis, frontend units/lint/build, the full portable browser suite and fresh dependency audits on the exact final candidate. Use one browser runner at a time; no source/spec edits during a run. Investigate required skips; never count missing services or skipped integration files as passes. Record exact commands, revision, results and omissions.
 
-Use isolated synthetic data and disabled outgoing effects. Keep enterprise production containment until real prerequisites and exact approval exist. Bundle missing owner/provider inputs and continue independent permitted work; never fabricate clinical, delivery, payment, adapter or deployment acceptance. Existing authorization covers ordinary commits/pushes to main as Khushal Midha <khushalmidha24@gmail.com>, no Codex coauthor or force push. Common requires exact concrete approval for production DB/index/demo execution, provider/real mail, DNS and deployment-console actions. Astra, if used, stays Medium.
+Keep ENTERPRISE_PILOT_ENABLED=false in production. Do not mark metadata/configuration or containment as implemented LIS processing, authenticated witness, PACS viewing, SSO/SCIM or observed recovery. Preserve incomplete enterprise checklist entries and the full roadmap; local checks cannot replace provider/hospital/production acceptance. Correct any remaining unsupported completion or clinical-policy approval claims, preserving historical evidence.
 
-After each reviewable phase update checklist evidence/status, WORK_LOG and affected status/launch claims, then commit/push. Finish section 6 actor journeys, section 9 exact-candidate checks and every section 10 gate. If interrupted leave exact next package/command and blockers in the same plan. Keep progress/final responses concise; claim only actual verified scope.
+Update WORK_LOG, ledger, implementation status and launch report to one truthful verdict: verified demo candidate or exact release blockers. Leave one combined external-action list for deployed revision/schema, actual delivery/payments, physical devices/TURN, restore and owner acceptance as applicable. Commit/push ordinary changes to main as Khushal Midha <khushalmidha24@gmail.com>, no Codex coauthor/force push; existing authorization applies. Production DB/index/demo changes, providers/real delivery, DNS and deployment-console execution require Common's exact approval. Use no production secrets/data in tests; Astra, if selected, Medium only. Finish with a concise scope/verification/blockers report, not a new plan.
 ```
-
-## Checkpoint and evidence
-
-- Actual Git root is the workspace's child `MediPulse`; root commands run there. Use `git log -3` for the published review commit and `git status --short` before editing.
-- Ledger: 23 tasks; **15 retain verified_local evidence, AG05/AG17 pending, AG16/AG18-AG22 implemented_pending_final_checks**. Actual remaining requirements are in the ledger and latest review.
-- QR replacement passed independent decoding; claim containment, family binding, stale packet/clinical read cleanup and truthful enterprise/tenant export metadata are recorded in the final review.
-- IMPLEMENTATION_INVENTORY includes the newly mounted enterprise routers and pages. Regex output is navigation only; inspect the real backend/index.js mounts and frontend/App.jsx.
-- WORK_LOG keeps historical phase claims; the latest independent review supersedes unsupported all-complete assertions.
 
 ## Reproduce local checks
 
@@ -48,7 +40,7 @@ npm run test:integration
 node --import ./tests/bootstrap.js --test tests/claim-security-boundary.test.js tests/enterprise-acceptance-boundary.test.js tests/integration/encounter-walkin-claim.test.js
 ```
 
-The registered integration runner now includes the five repaired enterprise files. Current observed results and follow-up regressions are in AG22_VERIFICATION_REVIEW.md; older fixture failures are historical.
+The registered integration runner now includes the five repaired enterprise files. Historical independent results and follow-up regressions are in AG22_VERIFICATION_REVIEW.md; reproduce checks on the current candidate.
 
 From frontend:
 
@@ -64,6 +56,6 @@ node tools/run-browser-checks.mjs --grep 'SOAP draft requires|delayed earlier|qu
 node tools/run-browser-checks.mjs --grep 'old account responses|record errors are independent|patient routes fit|hospital visit deep links|refreshing a record clears'
 ```
 
-Run **one browser command at a time**; keep app/spec files unchanged until completion. The runner copies real specs and links the app/dependencies in a private directory outside OneDrive; it uses synthetic local fixtures, never production login. Current targeted results are in the review. The full browser command is available but was not run during this independent review; synthetic media does not certify real cameras/TURN.
+Run **one browser command at a time**; keep app/spec files unchanged until completion. The runner copies real specs and links the app/dependencies in a private directory outside OneDrive; it uses synthetic local fixtures, never production login. The prior independent targeted results are historical. Antigravity later reported a full browser run; this wrap-up still requires exact-candidate evidence. Synthetic media does not certify real cameras/TURN.
 
 Production release still needs the exact deployed pair, approved schema/data inspection, observed delivery/recovery, physical device acceptance and owner sign-off. No production operation occurred in this review.
