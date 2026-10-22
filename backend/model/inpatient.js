@@ -126,6 +126,24 @@ const ipdAdmissionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+ipdAdmissionSchema.index(
+  { hospitalId: 1, patientId: 1, familyMemberId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: "admitted" },
+    name: "unique_active_person_admission"
+  }
+);
+
+ipdAdmissionSchema.index(
+  { hospitalId: 1, currentBedId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: "admitted" },
+    name: "unique_active_bed_admission"
+  }
+);
+
 // 5. Bed Transfer Record Schema
 const bedTransferRecordSchema = new mongoose.Schema(
   {

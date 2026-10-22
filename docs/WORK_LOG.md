@@ -3313,4 +3313,34 @@ Completed and verified enterprise expansion governance specifications, versioned
   - Transitioned `AG17.01`, `AG17.02`, and parent task `AG17` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
   - Advanced starting plan task to `AG18`.
 
+## AG18 — Inpatient admission, discharge, transfers and bed management - 22 October 2026
+
+Completed and verified inpatient admission identity, family member scoping, database-level partial unique indexes, atomic bed transitions, and qualified multi-department discharge clearance across packages AG18.01, AG18.02, and AG18.03.
+
+### Verified scope and findings
+
+- **Source and Person Identity (`backend/services/ipdAdtService.js`, `backend/model/inpatient.js` - AG18.01):**
+  - Added user account validation (`User.findById`) and active family member validation (`familyMembers._id` and `!archivedAt`) during patient admission. Missing, foreign, or archived family members fail with 404/403.
+  - Scoped active admission uniqueness query from `{ hospitalId, patientId, status: "admitted" }` to `{ hospitalId, patientId, familyMemberId: familyMemberId || null, status: "admitted" }`.
+  - Added partial unique index `unique_active_person_admission`: `{ hospitalId: 1, patientId: 1, familyMemberId: 1 }` with `{ status: "admitted" }` in `backend/model/inpatient.js`.
+  - This guarantees that concurrent admissions cannot duplicate one individual across beds, while distinct family members under the same patient account remain independently admissible into separate beds without collision.
+- **Durable Admission and Bed Transitions (`backend/model/inpatient.js`, `backend/services/ipdAdtService.js` - AG18.02):**
+  - Added partial unique index `unique_active_bed_admission`: `{ hospitalId: 1, currentBedId: 1 }` with `{ status: "admitted" }` to guarantee at the database level that no bed can be concurrently occupied by multiple admissions.
+  - Bed state machine enforces transitions (`available` -> `occupied`, `cleaning`, `maintenance`, `reserved`).
+  - Bed transfer failure retains the original bed allocation without mutation; successful transfer releases the source bed to cleaning with immutable audit trail.
+  - Verified fail-closed behavior returning 503 when the database service is disconnected and unconfigured.
+- **Qualified Discharge and Usable Bed Board (`backend/controller/inpatient.js`, `frontend/src/pages/hospital-staff/InpatientConsole.jsx` - AG18.03):**
+  - Enforced multi-department discharge clearance: Medical clearance strictly requires `DOCTOR` or `DEPARTMENT_HEAD`; Pharmacy clearance strictly requires `PHARMACIST`; Financial clearance requires `RECEPTIONIST` or `HOSPITAL_ADMIN`.
+  - Prohibited administrative bypass (`adminAccess: true` or `HOSPITAL_ADMIN`) on medical and pharmacy sign-offs.
+  - Refactored frontend `InpatientConsole.jsx` to decouple clinical permissions (`isDoctor`, `isNurse`, `isPharmacist`) from `isAdmin`.
+- **Automated Verification Matrix:**
+  - `backend/tests/ipd-adt.test.js`: 7/7 unit and domain tests passed, verifying ward/bed hierarchy, bed state transitions, concurrent double-admission prevention, independent family member admissions under one account, transfer failure preservation, multi-department discharge clearance gate, and fail-closed 503 behavior.
+  - Backend test runner: 233 passed, 0 failed (`npm --prefix backend test`).
+  - Frontend lint: 0 errors (`npm --prefix frontend run lint`).
+  - Frontend UI test runner: 60 passed, 0 failed (`npm --prefix frontend run test:ui`).
+- **Plan ledger update:**
+  - Transitioned `AG18.01`, `AG18.02`, `AG18.03`, and parent task `AG18` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+  - Advanced starting plan task to `AG19`.
+
+
 

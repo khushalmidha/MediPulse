@@ -97,10 +97,10 @@ export default function InpatientConsole({ initialTab = "beds" }) {
 function InpatientWorkspace({ initialTab = "beds" }) {
   const { staffUser } = useAuth();
   const isAdmin = staffUser?.role === "HOSPITAL_ADMIN" || Boolean(staffUser?.adminAccess);
-  const isDoctor = staffUser?.role === "DOCTOR" || isAdmin;
-  const isNurse = staffUser?.role === "NURSE" || isAdmin;
-  const isPharmacist = staffUser?.role === "PHARMACIST" || isAdmin;
-  const isReception = staffUser?.role === "RECEPTIONIST" || isAdmin;
+  const isDoctor = staffUser?.role === "DOCTOR" || staffUser?.role === "DEPARTMENT_HEAD";
+  const isNurse = staffUser?.role === "NURSE" || staffUser?.role === "DEPARTMENT_HEAD";
+  const isPharmacist = staffUser?.role === "PHARMACIST";
+  const isReception = staffUser?.role === "RECEPTIONIST" || staffUser?.role === "HOSPITAL_ADMIN";
 
   // Active top tab: "beds" | "nursing" | "handovers"
   const [activeTab, setActiveTab] = useState(initialTab);

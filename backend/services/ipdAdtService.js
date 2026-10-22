@@ -249,10 +249,20 @@ export const admitPatient = async ({
     assertTenantNotSuspended(hospital);
     checkFeatureEntitlement(hospital, "ipd_beds");
 
-    // Prevent concurrent active admissions for the same patient in this hospital
+    const patientUser = await User.findById(patientId).session(session);
+    if (!patientUser) throw accessError(404, "Patient account not found");
+    if (familyMemberId) {
+      const famMember = (patientUser.familyMembers || []).find(
+        (fm) => String(fm._id) === String(familyMemberId) && !fm.archivedAt
+      );
+      if (!famMember) throw accessError(404, "Active patient family member not found");
+    }
+
+    // Prevent concurrent active admissions for the same person (account holder or family member) in this hospital
     const existingActive = await IpdAdmission.findOne({
       hospitalId,
       patientId,
+      familyMemberId: familyMemberId || null,
       status: "admitted",
     }).session(session);
     if (existingActive) {

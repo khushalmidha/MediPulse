@@ -28,6 +28,7 @@ test("Task AG18: Inpatient Admission, Discharge, Transfers and Bed Management (U
   const roomId = new mongoose.Types.ObjectId();
   const bed1Id = new mongoose.Types.ObjectId();
   const bed2Id = new mongoose.Types.ObjectId();
+  const bed3Id = new mongoose.Types.ObjectId();
   const patient1Id = new mongoose.Types.ObjectId();
   const patient2Id = new mongoose.Types.ObjectId();
   const doctorId = new mongoose.Types.ObjectId();
@@ -83,6 +84,17 @@ test("Task AG18: Inpatient Admission, Discharge, Transfers and Bed Management (U
         currentPatientId: null,
         version: 0,
       },
+      {
+        _id: bed3Id,
+        hospitalId,
+        wardId,
+        roomId,
+        bedNumber: "BED-101-C",
+        status: "available",
+        currentAdmissionId: null,
+        currentPatientId: null,
+        version: 0,
+      },
     ],
     admissions: [],
     transfers: [],
@@ -131,8 +143,12 @@ test("Task AG18: Inpatient Admission, Discharge, Transfers and Bed Management (U
       bed.version += 1;
       return bed;
     },
-    admitPatient: async ({ patientId, bedId, admittingDiagnosis, admittingDoctorId, isMlc, advanceDepositMinor }) => {
-      const existing = state.admissions.find((a) => a.patientId.toString() === patientId.toString() && a.status === "admitted");
+    admitPatient: async ({ patientId, familyMemberId, bedId, admittingDiagnosis, admittingDoctorId, isMlc, advanceDepositMinor }) => {
+      const existing = state.admissions.find((a) =>
+        a.patientId.toString() === patientId.toString() &&
+        (a.familyMemberId || null) === (familyMemberId || null) &&
+        a.status === "admitted"
+      );
       if (existing) {
         throw Object.assign(new Error(`Patient already has an active admission (${existing.admissionNumber}) in this hospital`), { status: 409 });
       }
@@ -149,6 +165,7 @@ test("Task AG18: Inpatient Admission, Discharge, Transfers and Bed Management (U
         hospitalId,
         admissionNumber: "IPD-" + Date.now().toString(36).toUpperCase() + "-001",
         patientId,
+        familyMemberId: familyMemberId || null,
         currentBedId: bed._id,
         currentRoomId: bed.roomId,
         currentWardId: bed.wardId,
@@ -354,6 +371,44 @@ test("Task AG18: Inpatient Admission, Discharge, Transfers and Bed Management (U
         }),
       /already has an active admission/
     );
+
+    // Family member 1 of Patient 1 can be independently admitted into Bed 2
+    const { admission: famAdm1 } = await admitPatient({
+      hospitalId,
+      patientId: patient1Id,
+      familyMemberId: "fam-member-child-1",
+      bedId: bed2Id,
+      admittingDoctorId: doctorId,
+      admittingDiagnosis: "Pediatric Bronchitis",
+    });
+    assert.equal(famAdm1.status, "admitted");
+    assert.equal(famAdm1.familyMemberId, "fam-member-child-1");
+
+    // Same family member 1 cannot be admitted again concurrently into Bed 3
+    await assert.rejects(
+      () =>
+        admitPatient({
+          hospitalId,
+          patientId: patient1Id,
+          familyMemberId: "fam-member-child-1",
+          bedId: bed3Id,
+          admittingDoctorId: doctorId,
+          admittingDiagnosis: "Duplicate Child Admission",
+        }),
+      /already has an active admission/
+    );
+
+    // Family member 2 of Patient 1 CAN be admitted into Bed 3
+    const { admission: famAdm2 } = await admitPatient({
+      hospitalId,
+      patientId: patient1Id,
+      familyMemberId: "fam-member-spouse-2",
+      bedId: bed3Id,
+      admittingDoctorId: doctorId,
+      admittingDiagnosis: "Fractured Radius",
+    });
+    assert.equal(famAdm2.status, "admitted");
+    assert.equal(famAdm2.familyMemberId, "fam-member-spouse-2");
   });
 
   await t.test("4. Bed Transfer: failure preserves source bed; success records audit and releases to cleaning", async () => {

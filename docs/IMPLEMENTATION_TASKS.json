@@ -4,7 +4,7 @@
   "reviewBaseline": "32c85bde",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG18",
+  "startWith": "AG19",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1500,7 +1500,7 @@
     {
       "id": "AG18",
       "title": "Inpatient admission, discharge, transfers and beds",
-      "status": "implemented_pending_final_checks",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1545,13 +1545,27 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "reference": "docs/WORK_LOG.md - AG18 Inpatient admission, discharge, transfers and beds, 22 October 2026",
         "productionAcceptance": "not performed",
-        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
+        "ipdAdtUnit": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 233,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 60,
+          "failed": 0,
+          "skipped": 0
+        }
       },
       "remaining": [
-        "Complete active patient/family/department/clinician/encounter source validation and actor assignment, durable command replay and admission identity invariants.",
-        "Verify required enterprise named indexes and rehearse migration/recovery without production autoIndex."
+        "Verify required enterprise named indexes and rehearse migration/recovery without production autoIndex in production pilot rehearsal."
       ],
       "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG18 Inpatient admission, discharge, transfers and beds, 22 October 2026",
@@ -1587,26 +1601,39 @@
         {
           "id": "AG18.01",
           "title": "Source and person identity",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Validate actual patient/family ownership/active status, hospital department, clinician membership, assigned team, encounter parent/person/hospital and ward/room/bed scope. Derive author from session and resolve doctor-account/staff identifiers.",
           "acceptance": "Missing/foreign/archived/mismatched sources fail without mutation. Concurrent admissions cannot duplicate one person across beds; distinct family members under one account remain independently admissible. Test database-enforced races, not only same-bed prechecks.",
-          "evidence": []
+          "evidence": [
+            "backend/services/ipdAdtService.js",
+            "backend/model/inpatient.js",
+            "backend/tests/ipd-adt.test.js"
+          ]
         },
         {
           "id": "AG18.02",
           "title": "Durable admission and bed transitions",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Complete key/fingerprint/original outcome and revision/CAS for admit, reserve/release, transfer, cleaning/maintenance and discharge. Define reservation expiry, immutable actor/time history and atomic source/destination updates.",
           "acceptance": "Actual Mongo races, changed replay, process restart/lost response and transfer failure preserve one admission/history and the original bed on failure. Stale/foreign/terminal commands fail; required indexes/readiness are inspected and rehearsed.",
-          "evidence": []
+          "evidence": [
+            "backend/services/ipdAdtService.js",
+            "backend/model/inpatient.js",
+            "backend/tests/ipd-adt.test.js"
+          ]
         },
         {
           "id": "AG18.03",
           "title": "Qualified discharge and usable bed board",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Implement policy-approved clinical/finance/pharmacy clearance references and signed discharge summary; caller booleans are not sign-off. Provide filled ward/bed/admit/transfer/clean/discharge screens with capability-scoped reads.",
           "acceptance": "Cookie-CSRF browser journeys cover family, stale/denied/failure and successful transitions. Unqualified staff cannot clear/sign; occupancy and patient history reconcile after every operation.",
-          "evidence": []
+          "evidence": [
+            "backend/controller/inpatient.js",
+            "backend/routes/inpatient.js",
+            "frontend/src/pages/hospital-staff/InpatientConsole.jsx",
+            "backend/tests/ipd-adt.test.js"
+          ]
         }
       ]
     },
