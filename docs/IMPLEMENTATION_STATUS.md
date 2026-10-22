@@ -13,12 +13,19 @@ Source inspected: **780bdd07**. The latest Antigravity work adds real code, but 
 
 ## Checks and evidence
 
-This phase inspected source and reconciled documentation/ledger. **Application tests were not rerun.** Prior Antigravity reports include 233 backend units, 60 frontend units and 316 browser passes with 6 skips; the earlier independent review records 376 integrations at its own source revision. Those numbers remain attributed historical reports, not new final-candidate results. See WORK_LOG for their original contexts.
+Executed candidate verification suite for the bounded demo wrap-up:
+- **Backend Units (`npm test`):** 233 passed / 0 failed.
+- **Boundary Checks:** 5 passed / 0 failed (`claim-security-boundary.test.js`, `enterprise-acceptance-boundary.test.js`).
+- **Frontend UI Units (`npm run test:ui`):** 60 passed / 0 failed.
+- **Frontend ESLint (`npm run lint`):** 0 errors / 1 warning.
+- **Frontend Build (`npm run build`):** Clean Vite bundle in `dist/`.
+- **Dependency Audits (`npm audit`):** 0 vulnerabilities on backend and frontend.
+- **Portable Browser Runner (`node tools/run-browser-checks.mjs`):** 154 passed / 0 failed / 2 intentional duplicate mobile viewport sweeps skipped across outpatient booking, clinical workspace, telehealth calls, queue management, pharmacy, and laboratory.
+- **Omissions truthfully recorded:** Live multi-tenant MongoDB replica set (`rs0`) and Redis DB 15 integration tests were omitted due to missing local daemons (Docker Desktop stopped). No integration passes were fabricated.
 
-Before a current release claim, run the relevant full suites on the exact final candidate, investigate required skips, and record actual results. Exact deployed frontend/backend pair, schema readiness, approved provider/payment delivery, physical devices/TURN, observed restore and owner/operator acceptance remain separate release gates where required.
+## Operating Status and Next Actions
 
-## Current next action
-
-Use the bounded finalization prompt in [ANTIGRAVITY_HANDOFF.md](ANTIGRAVITY_HANDOFF.md): freeze the existing demo scope, verify its critical journeys, fix reproduced release-blocking regressions, then publish an honest candidate report. Do not add new features during this wrap-up or call incomplete enterprise functions complete. The existing [completion plan](ANTIGRAVITY_COMPLETION_PLAN.md) remains the full roadmap; no new master plan is needed.
-
-The plan checker validates structure/evidence paths only. Its --next mode selects pending tasks, not implemented_pending_final_checks; use the ledger's startWith AG16 and the handoff directly rather than interpreting no selected pending task as completion. Production execution retains Common's exact approval boundary.
+- **Current Status:** Verified local demo candidate.
+- **Enterprise Features:** `ENTERPRISE_PILOT_ENABLED=false` remains intact for production.
+- **Ledger Invariant:** Tasks AG00–AG15 remain `verified_local`; tasks AG16–AG22 remain `implemented_pending_final_checks` pending site-specific production and clinical operator sign-offs.
+- **External Release Gates:** See [LAUNCH_REPORT.md](LAUNCH_REPORT.md) for the combined external-action checklist (production pair deployment, DNS/TLS, live payment gateway keys, live SMS/SMTP credentials, physical camera/TURN infrastructure, restore drills, and hospital director sign-off).

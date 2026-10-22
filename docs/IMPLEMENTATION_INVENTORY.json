@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "generatedAt": "2026-10-22T10:45:51.914Z",
-  "reviewBaseline": "c253b8093e7d94cf45361ee7cbb9c5098b1e10cb",
+  "generatedAt": "2026-10-22T19:23:18.288Z",
+  "reviewBaseline": "3c1a8c3b4c2f12db348db348eb60e7309fce0a5c",
   "limitations": [
     "Regex-extracted route/navigation inventory; computed paths and inline app handlers require manual review.",
     "Routes and files existing do not establish working authorization, persistence, UI or deployment.",
@@ -2633,7 +2633,7 @@
         "/api/nursing/orders"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 22,
+      "line": 24,
       "contained": false
     },
     {
@@ -2643,7 +2643,7 @@
         "/api/nursing/orders"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 23,
+      "line": 25,
       "contained": false
     },
     {
@@ -2653,7 +2653,7 @@
         "/api/nursing/orders/:orderId/discontinue"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 24,
+      "line": 26,
       "contained": false
     },
     {
@@ -2663,7 +2663,7 @@
         "/api/nursing/admissions/:admissionId/vitals"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 27,
+      "line": 29,
       "contained": false
     },
     {
@@ -2673,7 +2673,17 @@
         "/api/nursing/admissions/:admissionId/vitals"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 28,
+      "line": 30,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/admissions/:admissionId/vitals/:vitalsId/escalate-ack",
+      "paths": [
+        "/api/nursing/admissions/:admissionId/vitals/:vitalsId/escalate-ack"
+      ],
+      "file": "backend/routes/nursingCare.js",
+      "line": 31,
       "contained": false
     },
     {
@@ -2683,7 +2693,7 @@
         "/api/nursing/emar/:emarId/administer"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 31,
+      "line": 34,
       "contained": false
     },
     {
@@ -2693,7 +2703,7 @@
         "/api/nursing/emar/:emarId/omit"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 32,
+      "line": 35,
       "contained": false
     },
     {
@@ -2703,7 +2713,7 @@
         "/api/nursing/admissions/:admissionId/emar"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 33,
+      "line": 36,
       "contained": false
     },
     {
@@ -2713,7 +2723,17 @@
         "/api/nursing/handover"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 36,
+      "line": 39,
+      "contained": false
+    },
+    {
+      "method": "POST",
+      "localPath": "/handover/:handoverId/accept",
+      "paths": [
+        "/api/nursing/handover/:handoverId/accept"
+      ],
+      "file": "backend/routes/nursingCare.js",
+      "line": 40,
       "contained": false
     },
     {
@@ -2723,7 +2743,7 @@
         "/api/nursing/handovers"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 37,
+      "line": 41,
       "contained": false
     },
     {
@@ -2733,7 +2753,7 @@
         "/api/nursing/admissions/:admissionId/flowsheet"
       ],
       "file": "backend/routes/nursingCare.js",
-      "line": 40,
+      "line": 44,
       "contained": false
     },
     {

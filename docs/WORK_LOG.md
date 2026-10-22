@@ -3501,3 +3501,56 @@ The prompt directs one isolated exact-candidate pass through existing demo journ
 Executed documentation checks: JSON parse; 23 tasks/16 retained verified_local/11 corrected checklist exits; original dependencies, verification/evidence and acceptance preserved; relative links and code fences valid. node tools/check-implementation-plan.mjs passed, evidence paths exist, graph acyclic, startWith AG16. The checker does not enforce child exits; its --next selector omits implemented_pending_final_checks, documented in status. Staged whitespace validation is required before publication.
 
 Application code/dependencies unchanged; application tests were not rerun. No production data/index/demo/provider/mail/payment/DNS/deployment-console action occurred. Next action: paste the bounded prompt from docs/ANTIGRAVITY_HANDOFF.md into Antigravity and record actual final-candidate evidence. No all-product completion claim is made.
+
+## Demo candidate execution and verification pass - 23 October 2026
+
+Executed the bounded finalization prompt from docs/ANTIGRAVITY_HANDOFF.md using Common instructions. Verified existing demo journeys across outpatient care, Connect, hospital staff operations, released pharmacy/laboratory records, and telehealth signaling. Kept incomplete enterprise features disabled (`ENTERPRISE_PILOT_ENABLED=false`).
+
+### Exact commands, execution environment and verification results
+
+1. **Inventory verification (`node tools/implementation-inventory.mjs --write`):**
+   - Verified active routes: 33 mounts, 315 backend routes, 91 frontend routes. Inventory updated in `docs/IMPLEMENTATION_INVENTORY.json`.
+2. **Backend Unit Suites (`npm --prefix backend test`):**
+   - **233 passed / 0 failed / 0 skipped** across all registered unit and domain suites (duration: 11.85s).
+3. **Boundary Verification Suites (`node --import ./backend/tests/bootstrap.js --test backend/tests/claim-security-boundary.test.js backend/tests/enterprise-acceptance-boundary.test.js`):**
+   - **5 passed / 0 failed** (duration: 1.4s).
+   - Confirmed claim verification fails closed with 503 outside test environments.
+   - Confirmed enterprise acceptance reports truthful `status: "not_accepted"` with missing evidence checklist; unverified disaster recovery drill records rejected from automated certification.
+4. **Frontend UI Unit Suite (`npm --prefix frontend run test:ui`):**
+   - **60 passed / 0 failed** across color contrast, walk-in triage, care schedule, and layout utilities (duration: 356ms).
+5. **Frontend Lint (`npm --prefix frontend run lint`):**
+   - **0 errors / 1 warning** (AuthContext.jsx Fast Refresh export recommendation).
+6. **Frontend Production Build (`npm --prefix frontend run build`):**
+   - Production Vite bundle built cleanly in 35.47s without compilation errors.
+7. **Dependency Audits (`npm --prefix backend audit` and `npm --prefix frontend audit`):**
+   - **0 vulnerabilities** reported for backend dependencies.
+   - **0 vulnerabilities** reported for frontend dependencies.
+8. **Portable Browser Runner (`node tools/run-browser-checks.mjs`):**
+   - Executed against isolated Chromium runner across desktop and mobile viewports with external requests blocked and synthetic local fixture API:
+     - Batch 1 (SOAP drafts, queue pauses, call reconnection, clinical fit): **11 passed / 1 intentional skip** (duplicate mobile viewport sweep).
+     - Batch 2 (account responses, record error independence, patient routes fit, visit deep links, cache refresh): **9 passed / 1 intentional skip** (duplicate mobile viewport sweep).
+     - Batch 3 (booking, doctor consultation, queues, laboratory, pharmacy): **134 passed / 0 failed**.
+     - Total portable browser tests: **154 passed / 0 failed / 2 intentional duplicate sweeps skipped** (duration: ~6 minutes cumulative).
+     - Verified journeys:
+       - Patient & family appointment booking, doctor fee display, triage confirmation, demo payment retry, reload resilience.
+       - Telehealth call panel: WebRTC media exchange, doctor disconnect recovery, participant leave/rejoin, single end action.
+       - Clinical consultation: SOAP note drafts, autosave collision fencing, queue switching with discard confirmation, queue pause/resume retention.
+       - Hospital queue & nursing: In-person arrival check-in, token reservation order, care queue selection, room and file custody guidance.
+       - Released laboratory & pharmacy records: Ordered parameter entry, staff CSRF, versioned review/release, partial dispensing, batch allocation, quarantine returns.
+       - Account and session security: Staff vs. patient workspace isolation, server CSRF logout, HttpOnly token containment.
+
+### Omissions truthfully recorded
+
+- **Local MongoDB replica set (`rs0`) and Redis DB 15 daemons:**
+  - Local Docker Desktop service was stopped on the Windows host.
+  - As required by ANTIGRAVITY_HANDOFF ("never count missing services or skipped integration files as passes. Record exact commands, revision, results and omissions"), live multi-tenant replica-set integration suites (`npm run test:integration` and `encounter-walkin-claim.test.js`) were **omitted** due to missing local daemons. No integration pass was falsely fabricated.
+
+### Enterprise boundaries and safety invariants
+
+- `ENTERPRISE_PILOT_ENABLED=false` remains intact for production.
+- Controlled and high-alert medication administration fails closed (503) pending independent witness authentication.
+- LIS protocol processing returns `processingImplemented: false`; inbound replay worker returns 503 rather than fabricating replay success.
+- DICOM study registration stores validated web URIs and metadata only without raw pixel ingestion.
+- Enterprise SSO stores configuration without claiming verified SCIM automation or live SAML assertion exchange.
+- Disaster recovery drill records remain classified as `recorded_unverified` with `evidenceStatus: "self_reported"`.
+- Ledger tasks AG00–AG15 remain `verified_local`; tasks AG16–AG22 remain `implemented_pending_final_checks` pending site-specific production and clinical operator sign-offs.

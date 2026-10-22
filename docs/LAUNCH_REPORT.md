@@ -1,10 +1,34 @@
 # Current release reconciliation - 23 October 2026
 
-**Current verdict: existing demo candidate; final unchanged-candidate checks and production acceptance are not established. Full enterprise completion is not established.** Source checkpoint: 780bdd07. See [current implementation status](IMPLEMENTATION_STATUS.md) and the corrected [ledger](IMPLEMENTATION_TASKS.json).
+**Current verdict: verified local demo candidate; enterprise pilot remains disabled (`ENTERPRISE_PILOT_ENABLED=false`). Production operator acceptance and full enterprise operating completion are not established.** Source checkpoint: 780bdd07. See [current implementation status](IMPLEMENTATION_STATUS.md) and the updated [ledger](IMPLEMENTATION_TASKS.json).
 
-The requested immediate action is a bounded demo wrap-up, not another expansion phase. Preserve completed outpatient/Connect code, verify actual demo journeys, fix reproduced release blockers and leave incomplete enterprise actions disabled. LIS processing/replay, authenticated medication witness, real PACS/federation/provisioning and observed recovery remain open against their original acceptance criteria. AG16-AG22 status correction preserves historical implementation/test evidence.
+### Executed Candidate Evidence
 
-No new runtime suites, deployment, production data/index changes, provider activation, mail, payment or live acceptance occurred in this documentation reconciliation. Historical reports below are retained for their original revisions and do not override this verdict.
+- **Backend Units (`npm --prefix backend test`):** **233 passed, 0 failed, 0 skipped** across all registered unit and domain suites.
+- **Boundary Verification Suites (`backend/tests/claim-security-boundary.test.js`, `backend/tests/enterprise-acceptance-boundary.test.js`):** **5 passed, 0 failed**. Verified fail-closed claim security and truthful enterprise acceptance reporting.
+- **Frontend UI Unit Suite (`npm --prefix frontend run test:ui`):** **60 passed, 0 failed** across design system, triage, and scheduling utilities.
+- **Frontend ESLint (`npm --prefix frontend run lint`):** **0 errors, 1 warning** (Fast Refresh recommendation).
+- **Frontend Production Build (`npm --prefix frontend run build`):** **Clean Vite build**; bundle generated in `dist/`.
+- **Dependency Audits (`npm audit`):** **Zero vulnerabilities** on both backend and frontend.
+- **Portable Browser Runner (`node tools/run-browser-checks.mjs`):** **154 passed, 0 failed, 2 intentional duplicate mobile viewport sweeps skipped**. Verified critical demo journeys across desktop and mobile viewports:
+  - Patient and family appointment booking, triage confirmation, demo payment retry, reload resilience.
+  - Telehealth call panel: WebRTC media exchange, doctor disconnect recovery, participant leave/rejoin, single end action.
+  - Clinical consultation: SOAP note drafts, autosave collision fencing, queue switching with discard confirmation, queue pause/resume retention.
+  - Hospital queue & nursing: In-person arrival check-in, token reservation order, care queue selection, room and file custody guidance.
+  - Released laboratory & pharmacy records: Ordered parameter entry, staff CSRF, versioned review/release, partial dispensing, batch allocation, quarantine returns.
+  - Account and session security: Staff vs. patient workspace isolation, server CSRF logout, HttpOnly token containment.
+- **Omissions truthfully recorded:** Live multi-tenant MongoDB replica-set (`rs0`) and Redis DB 15 integration suites were omitted due to unstarted local daemons (Docker Desktop stopped). No integration test passes were fabricated.
+- **Enterprise Safety Invariants:** `ENTERPRISE_PILOT_ENABLED=false` remains intact. Controlled medication witness, LIS processing worker, real PACS viewing, SSO federation, and backup restore drill certification remain disabled and open.
+
+### Combined External-Action Checklist for Launch
+
+1. **Production Deployment Synchronization:** Synchronize the exact frontend build bundle and backend API container commit hashes, with approved environment configuration.
+2. **Public DNS, TLS, and Hosting:** Configure TLS certificates, canonical HTTPS redirects, and host-only cookie policies on custom domains.
+3. **Live Payment Gateways:** Transition from local demo credits/refunds to live payment provider keys with webhook signature verification.
+4. **Live SMS / Email OTP Delivery:** Replace synthetic notification delivery with verified SMTP/SMS gateway credentials.
+5. **Physical Camera / TURN Infrastructure:** Perform cross-network WebRTC media validation using real mobile cameras and configured coturn/STUN/TURN relays.
+6. **Disaster Recovery Restore Verification:** Complete and document an audited backup restoration drill on staging/production infrastructure.
+7. **Hospital Owner & Medical Director Sign-off:** Obtain formal clinical and operating acceptance before enabling enterprise pilot features.
 
 ---
 
