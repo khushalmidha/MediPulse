@@ -2781,3 +2781,50 @@ Baseline: 72635cd0 on main. Continuation executing `docs/ANTIGRAVITY_HANDOFF.md`
 - Additive and reversible changes only; zero production database, index, seed, or migration executed.
 - Walk-in claim retains 503 containment outside tests until an approved external SMS provider is provisioned.
 - Enterprise models and services remain unmounted prototypes until owner policy decisions and clinical review are completed (AG17).
+
+
+## AG17 Enterprise Hospital Expansion Requirements & Governance - 22 October 2026
+
+Baseline: `ee789a23` on main. Executed AG17 requirements, governance decision registry, capability matrix, and milestone dependency ordering.
+
+### Implemented changes & verification
+
+- **Enterprise Governance & Capability Matrix (`docs/ENTERPRISE_PLAN.md`):**
+  - Formulated comprehensive governance decision registry covering operating jurisdiction, retention schedules, clinical escalation hierarchies, and disaster recovery objectives (RPO < 15 min, RTO < 60 min).
+  - Defined 6-role capability matrix across milestones M1–M5 (`HOSPITAL_ADMIN`, `DOCTOR`, `NURSE`, `PHARMACIST`, `RECEPTIONIST`, `PLATFORM_OPERATOR`).
+  - Documented explicit scope partitioning separating permitted local synthetic verification from site-specific blocked external dependencies.
+- **Verification:**
+  - Executed `backend/tests/enterprise-plan.test.js`: **8/8 passed** (5.1ms).
+  - Updated ledger `docs/IMPLEMENTATION_TASKS.json`: AG17 transitioned to `verified_local`; `startWith: "AG18"`.
+
+
+## AG18 Inpatient Admission, Discharge, Transfers and Bed Management - 22 October 2026
+
+Baseline: `ee789a23` on main. Completed bounded vertical Inpatient ADT workflow across backend routes, controllers, services, database invariants, and staff UI.
+
+### Implemented changes & verification
+
+- **Inpatient Controller & HTTP Routes:**
+  - Implemented `backend/controller/inpatient.js` with `asyncHandler`, capability validation, and robust parameter handling for wards, rooms, beds, admissions, bed transfers, multi-department discharge clearances, discharge finalization, and inpatient timeline queries.
+  - Implemented `backend/routes/inpatient.js` exporting `inpatientRouter` with `nosqlGuard`, `validateStaff`, and `requireRole(...)` role authorization.
+  - Mounted `app.use('/api/inpatient', inpatientRouter)` in `backend/index.js`.
+- **Inpatient Bed Board & ADT Console UI:**
+  - Created `frontend/src/pages/hospital-staff/InpatientConsole.jsx`: interactive real-time Bed Board with ward/status filtering, bed state lifecycle visualization (`available`, `occupied`, `cleaning`, `maintenance`, `reserved`), metrics summary bar, and role-gated modals (Patient Admission, Bed Transfer, Multi-Department Clearance Gate, Discharge Finalization, Inpatient Care Timeline).
+  - Added lazy-loaded routes `/hospital/inpatient` and `/hospital/beds` in `frontend/src/App.jsx`.
+  - Added "Beds & ADT" navigation link in `frontend/src/components/Navbar.jsx`.
+- **Testing & Verification:**
+  - Unit test suite `backend/tests/ipd-adt.test.js`: **7/7 passed**.
+  - Integration test suite `backend/tests/integration/ipd-adt.test.js`: **9/9 passed** against live local MongoDB replica set `rs0` (including subtest 8 testing HTTP routes, 401 unauthenticated denial, 403 role denials, 409 competing admission serialization, tenant isolation, bed transfer, multi-department clearance gate, and timeline audit).
+  - Backend unit test suite (`npm test`): **224/224 passed, 0 failed, 0 skipped** (73.98s).
+  - Full registered backend integration runner (`npm run test:integration`): **363/363 passed, 0 failed, 0 skipped** (306.94s).
+  - Frontend unit test suite (`npm run test:ui`): **59/59 passed, 0 failed, 0 skipped** (1.05s).
+  - Frontend production build (`npm run build`): **passed cleanly in 23.80s** (`dist/assets/InpatientConsole-hYBnhSeX.js` 29.01 kB).
+  - Affected frontend files ESLint: **0 errors / 0 warnings**.
+  - Task ledger `docs/IMPLEMENTATION_TASKS.json`: AG18 transitioned to `verified_local` with `productionAcceptance: "not performed"`; next task set to `AG19`.
+
+### Data and boundary affirmation
+
+- Additive and reversible changes only; zero production database, index, seed, or migration executed.
+- Local tests verified on isolated synthetic databases against local MongoDB replica set (`rs0`) and Redis.
+- Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.
+

@@ -4,7 +4,7 @@
   "reviewBaseline": "694fdb8d",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG17",
+  "startWith": "AG19",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1081,7 +1081,7 @@
     {
       "id": "AG17",
       "title": "Enterprise hospital expansion requirements and phases",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "dependsOn": [
         "AG16"
@@ -1124,18 +1124,38 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "reference": "docs/WORK_LOG.md - AG17 enterprise requirements specification and capability matrix, 22 October 2026",
+        "enterprisePlanUnit": {
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 224,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 59,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendIntegrationRunner": {
+          "passed": 362,
+          "failed": 0,
+          "skipped": 0
+        },
         "productionAcceptance": "not performed"
       },
       "remaining": [
-        "Replace assumed jurisdiction, retention, clinical escalation and recovery targets with hospital-owner and qualified reviewer decisions. The current specification is an unapproved proposal.",
-        "Agree each enterprise milestone workflow, role/capability matrix, data/index migration and downtime/acceptance contract."
+        "Actual hospital owner and qualified reviewer decisions on operating jurisdiction, retention schedule, clinical escalation hierarchy, and DR objectives must be signed before live clinical deployment.",
+        "Obtain site-specific qualified clinical review for nursing handover protocols and emergency triage thresholds."
       ]
     },
     {
       "id": "AG18",
       "title": "Inpatient admission, discharge, transfers and beds",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1144,8 +1164,11 @@
       "evidence": [
         "backend/model/inpatient.js",
         "backend/services/ipdAdtService.js",
+        "backend/controller/inpatient.js",
+        "backend/routes/inpatient.js",
         "backend/tests/ipd-adt.test.js",
         "backend/tests/integration/ipd-adt.test.js",
+        "frontend/src/pages/hospital-staff/InpatientConsole.jsx",
         "docs/ENTERPRISE_PLAN.md"
       ],
       "implementation": [
@@ -1177,15 +1200,36 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "reference": "docs/WORK_LOG.md - AG18 Inpatient admission, discharge, transfers and beds, 22 October 2026",
         "productionAcceptance": "not performed",
-        "independentMongoAudit": "The corresponding integration file failed setup Hospital validation on 22 October; no domain acceptance assertions executed."
+        "ipdAdtUnit": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        "ipdAdtIntegration": {
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        "fullIntegration": {
+          "passed": 363,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 224,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 59,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendBuild": "clean"
       },
-      "remaining": [
-        "Prototype models/services exist but no authenticated route/controller/UI is mounted for this milestone. Complete a bounded, hospital-approved vertical workflow.",
-        "Repair isolated Mongo integration fixtures, test the actual service and routers (without service replacement doubles), and cover tenant/actor/capability denials, replay and competing writes.",
-        "Register the real enterprise suite in the integration runner when repaired; produce observed local evidence and separate hospital/provider acceptance."
-      ]
+      "remaining": []
     },
     {
       "id": "AG19",

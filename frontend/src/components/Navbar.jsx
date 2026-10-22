@@ -5,6 +5,7 @@ import { cleanDoctorName, formatDoctorName } from "../utils/appointments"
 import { NavLink, Link, useNavigate } from 'react-router-dom'
 import {
   Building2,
+  BedDouble,
   ClipboardList,
   Heart,
   LogOut,
@@ -248,6 +249,7 @@ const Navbar = () => {
   const staffNavLinks = [
     ...((staffRole === 'HOSPITAL_ADMIN' || staffUser?.adminAccess) ? [{ to: '/hospital/admin', label: 'Dashboard', icon: Building2 }] : []),
     ...(['HOSPITAL_ADMIN', 'NURSE', 'RECEPTIONIST'].includes(staffRole) ? [{ to: '/hospital/nursing-station', label: 'OPD Tokens', icon: ClipboardList }] : []),
+    ...(['HOSPITAL_ADMIN', 'NURSE', 'DOCTOR', 'RECEPTIONIST'].includes(staffRole) || staffUser?.adminAccess ? [{ to: '/hospital/inpatient', label: 'Beds & ADT', icon: BedDouble }] : []),
     ...(staffRole === 'DOCTOR' ? [{ to: '/hospital/doctor-opd', label: 'Consultation', icon: Stethoscope, badge: staffOpdBadge }] : []),
     ...(['DOCTOR', 'LAB_TECH', 'NURSE', 'DEPARTMENT_HEAD', 'HOSPITAL_ADMIN'].includes(staffRole) || staffUser?.adminAccess ? [{ to: '/hospital/laboratory', label: 'Laboratory', icon: ClipboardList }] : []),
     ...(staffRole === 'PHARMACIST' ? [{ to: '/hospital/pharmacy', label: 'Pharmacy', icon: ClipboardList }] : []),

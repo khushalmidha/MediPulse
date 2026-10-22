@@ -15,18 +15,18 @@
 | Patient documents and QR ticket | Released packet/print/ticket UI retained; custom QR replaced after independent decode failure; new encoder passed three independent decodes | Camera/print/scanner acceptance on target devices; private ticket resolution still requires authorized access |
 | SaaS admin and independent practice | Setup proof/password flow, entitlements, suspension/quota callers, activation checklist and credential/publication boundaries implemented | Provider settlement/onboarding and owner-approved live acceptance; configuration export no longer claims HIPAA/NDHM certification |
 | Communities, AI and connected demo | Moderation/pagination/preferences, bounded AI boundary/evaluation and synthetic graph tools implemented with local tests | Provider/site-specific acceptance; fixtures and test doubles do not establish clinical effectiveness |
-| Enterprise AG17-AG22 | **Fixtures repaired & registered**: all 5 enterprise integration suites pass (22/22) and registered in test runner (362 total tests). Governance/policy requirements remain unapproved proposals | Owner/qualified reviewer policy decisions (AG17), authenticated enterprise routes/controllers/UI, observed vendor interface validation, and restored DR audit verification |
+| Enterprise AG17-AG22 | **AG17 & AG18 Verified Local**: Governance decision registry, 6-role capability matrix, and scope partitioning documented in `ENTERPRISE_PLAN.md` (AG17). Inpatient ADT (AG18) controller, routes mounted at `/api/inpatient`, interactive Bed Board UI (`InpatientConsole.jsx`), and 9/9 integration tests passing. Full integration runner: 363/363 passed. AG19–AG22 vertical workflows pending. | Qualified hospital clinical review on retention/escalations, and live bed sensor hardware integration. Next milestone: AG19 (Nursing Care & eMAR). |
 
 ## Current verification
 
-Registered integration runner: **362/362 passed, 0 failed/skipped; 360.60s** (including core outpatient suites and all 5 repaired enterprise integration files). Backend units **224/224**, frontend units **59/59**, targeted Chromium **20 passed / 2 duplicate viewport sweeps skipped**, affected lint and production build passed (29.74s, main JS 409.14 kB / 131.31 kB gzip). Independent QR decoding: **3/3**. Backend/frontend full and production-only dependency audits: **zero reported advisories**. Boundary suite: **24/24 passed** (including walk-in 503 containment and enterprise acceptance prototype assertions).
+Registered integration runner: **363/363 passed, 0 failed/skipped; 306.94s** (including core outpatient suites and all 5 enterprise integration files). Backend units **224/224**, frontend units **59/59**, targeted Chromium **20 passed / 2 duplicate viewport sweeps skipped**, affected lint and production build passed (23.80s, main JS 409.98 kB / 131.47 kB gzip). Independent QR decoding: **3/3**. Backend/frontend full and production-only dependency audits: **zero reported advisories**. Boundary suite: **24/24 passed** (including walk-in 503 containment and enterprise acceptance prototype assertions).
 
 Current checks are local synthetic evidence; production acceptance remains explicitly `not performed`.
 
 ## Next work
 
-1. **AG17:** agree hospital owner and qualified reviewer decisions on operating jurisdiction, retention schedule, clinical escalation hierarchy, and DR objectives before activating enterprise milestones.
-2. **AG18–AG22:** complete vertical enterprise workflows one milestone at a time (ADT, nursing/eMAR, emergency/theatre, revenue/stock, interfaces/DR).
+1. **AG19:** Complete Inpatient Clinical Orders, Nursing Care, NEWS2 vitals calculation, and eMAR medication administration vertical workflow.
+2. **AG20–AG22:** Complete remaining vertical enterprise workflows (emergency/theatre, revenue/stock, interfaces/DR).
 3. **Production release operations:** exact deployed pair verification, database index dry-run, external SMS provider activation, and physical TURN/camera testing retain Common's separate exact approval requirement.
 
 No production DB/index/seed/provider/DNS/mail/deployment-console operation was performed in this run. Git publication is authorized as Khushal Midha. [ANTIGRAVITY_HANDOFF.md](ANTIGRAVITY_HANDOFF.md) gives commands and continuation constraints.

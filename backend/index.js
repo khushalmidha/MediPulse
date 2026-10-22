@@ -39,6 +39,7 @@ import labRouter from './routes/lab.js'
 import pharmacyRouter from './routes/pharmacy.js'
 import saasRouter from './routes/saasOperations.js'
 import aiReliabilityRouter from './routes/aiReliability.js'
+import inpatientRouter from './routes/inpatient.js'
 import { startAutoRefundWorker } from './controller/appointment.js'
 import { startReviewRequestWorker } from './services/reviewRequestWorker.js'
 import { StaffVerifier, Verifier } from './controller/auth.js'
@@ -108,6 +109,7 @@ const start = async () => {
   app.use('/api/pharmacy', pharmacyRouter)
   app.use('/api/saas', saasRouter)
   app.use('/api/ai', aiReliabilityRouter)
+  app.use('/api/inpatient', inpatientRouter)
   app.use('/vpay', virtualPaymentRouter)
   app.get('/verify', asyncHandler(Verifier))
   app.get('/verify/staff', asyncHandler(StaffVerifier))

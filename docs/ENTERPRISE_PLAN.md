@@ -217,7 +217,41 @@ Prior to operational deployment of any Inpatient module, the following qualified
 
 ---
 
-## 6. Outpatient Release Boundary Affirmation
+## 6. Enterprise Role-Based Capability Matrix
+
+| Role | Admissions / ADT | Nursing & eMAR | OT & Surgery | Pharmacy & Stock | Revenue & TPA | External Interfaces / DR |
+|---|---|---|---|---|---|---|
+| **Hospital Admin** | Manage Wards/Rooms/Beds, view bed occupancy | Read flowsheet audits | View OT schedule | View stock levels | View folios, manage tariffs | Configure interface contracts, view DR reports |
+| **Medical Director** | Oversee admissions, policy override | Clinical escalation receiver, code review | Approve surgical checklists | Formulary approval | Disputed bill review | Sign off enterprise acceptance |
+| **Admitting Consultant** | Create admission, assign primary nurse, sign discharge | Create inpatient orders, discontinue orders | Lead surgeon, request OT hold | Prescribe medications | Approve clinical bill items | Read DICOM study metadata |
+| **Attending Doctor** | View assigned admissions | Record progress notes, adjust orders | Assistant surgeon / Anesthetist | Review patient orders | Read bill folio | Read LIS results |
+| **Staff Nurse** | Record bed transfer, request housekeeping | Record vitals (NEWS2), administer eMAR, log handover | PACU Aldrete scoring | Requisition ward stock, receive batches | Confirm nursing charges | Read lab reports |
+| **Charge Nurse** | Bed allocation override, acknowledge handover | Secondary witness for Schedule X / narcotics | Scrub nurse check verification | Authorize ward returns | Request discharge clearance | Review shift alerts |
+| **Surgeon** | Pre-op admission request | Post-op care orders | Lead surgical team, execute Time-Out checklist | Surgical medications | Surgical fee folio | View PACS DICOM studies |
+| **Anesthetist** | Pre-anesthesia clearance | Sedation orders | Anesthesia induction, execute Sign-In checklist | Controlled substances admin | Anesthesia tariff items | Review pre-op investigations |
+| **Pharmacist** | Discharge pharmacy clearance | Dispense eMAR orders, verify doses | Dispense OT kits | Central inventory GRN, batch allocation, quarantine | Itemized drug billing | LIS interface monitoring |
+| **Storekeeper** | N/A | Supply non-drug consumables | Supply theatre sterile packs | Receive vendor PO/GRN, warehouse stock | Asset depreciation | N/A |
+| **Finance / TPA Officer** | Collect advance deposit, financial discharge clearance | View billable events | Bill surgical procedures | Reconcile pharmacy charges | Submit TPA pre-auth, split billing, credit notes | Generate revenue export |
+| **Platform Operator** | SaaS tenant suspension/quota | N/A | N/A | N/A | Tenant subscription billing | Execute DR drill, configure SSO SAML/OIDC |
+
+---
+
+## 7. Scope Partitioning: Local Verification vs. External Blocked Dependencies
+
+The table below explicitly bounds the local verification capabilities from external dependencies requiring site-specific approval:
+
+| Component / Milestone | Permitted Local Verification Scope | Blocked External Dependency / Required Owner Approval |
+|---|---|---|
+| **AG17 Requirements & Plan** | Governance schema, decision registry, milestone dependencies, plan validation tests (`enterprise-plan.test.js`) | Actual hospital management sign-off on retention schedules and clinical protocols |
+| **AG18 Inpatient ADT** | Mongoose models (`Ward`, `Room`, `Bed`, `IpdAdmission`, `BedTransferRecord`), atomic state machine transitions, concurrent admission serialization, timeline aggregation | Live hospital bed hardware sensors, physical ward displays |
+| **AG19 Nursing Care & eMAR** | Mongoose models (`InpatientOrder`, `NursingVitals`, `eMAR`, `NurseShiftHandover`), NEWS2 calculation, 5-rights logic, dual-nurse narcotic witness | Live bedside barcode scanners, physical smart infusion pumps |
+| **AG20 Emergency & Theatre** | Mongoose models (`EmergencyRegistration`, `OtSchedule`), 5-level triage rules, WHO checklist state lifecycle, room conflict validation | Live emergency room trauma pagers, physical OT display monitors |
+| **AG21 Revenue & Stock** | Mongoose models (`InpatientInvoice`, `TpaPreAuth`, `CentralPharmacyStock`), tariff schedules, bed-day accrual, GRN batch reconciliation | Live external payment gateways, insurance clearinghouse webhooks |
+| **AG22 Interfaces & DR** | Interface contract schema, LIS message parsing (ASTM/HL7 format), DICOM metadata registration, DR drill recording (`recorded_unverified`) | Physical LIS analyzer RS232/TCP cables, hospital PACS server network endpoints, enterprise Okta/Azure AD production SSO credentials, live cold-standby restoration |
+
+---
+
+## 8. Outpatient Release Boundary Affirmation
 
 The outpatient candidate retains existing functionality, but production acceptance is open (AG05/AG16):
 - Existing outpatient implementations require the release reconciliation and observed operating checks in LAUNCH_REPORT.md.

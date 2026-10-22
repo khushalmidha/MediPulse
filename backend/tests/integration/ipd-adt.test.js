@@ -8,6 +8,12 @@ import User from "../../model/user.js";
 import Doctor from "../../model/doctor.js";
 import HospitalStaff from "../../model/hospitalStaff.js";
 import { Ward, Room, Bed, IpdAdmission, BedTransferRecord } from "../../model/inpatient.js";
+import AuthSession from "../../model/authSession.js";
+import express from "express";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
+import { once } from "node:events";
+import inpatientRouter from "../../routes/inpatient.js";
 import { localTestTargets } from "../../util/testTargets.js";
 import {
   createWard,
@@ -529,5 +535,270 @@ test("Task AG18: Inpatient Admission, Discharge, Transfers and Bed Management", 
     assert.equal(timeline.transfers.length, 1);
     assert.equal(timeline.transfers[0].transferReason, "Moved to window bed");
     assert.equal(timeline.currentLocation.bed.bedNumber, "CARD-B2");
+  });
+
+  await t.test("8. Inpatient HTTP router integration: auth, role enforcement, tenant scoping, and full lifecycle", async () => {
+    const app = express();
+    app.use(cookieParser());
+    app.use(express.json());
+    app.use("/api/inpatient", inpatientRouter);
+    app.use((error, req, res, next) => {
+      const status = error.status || (error.name === "ValidationError" || error.name === "CastError" ? 400 : error.code === 11000 ? 409 : 500);
+      res.status(status).json({ message: status < 500 ? error.message : "Request could not be completed" });
+    });
+    const server = app.listen(0);
+    await once(server, "listening");
+    const apiOrigin = `http://127.0.0.1:${server.address().port}`;
+
+    try {
+      const foreignHospitalId = id();
+      await Hospital.create({
+        _id: foreignHospitalId,
+        name: "Foreign Clinic",
+        slug: "foreign-clinic-" + crypto.randomBytes(4).toString("hex"),
+        registrationNumber: "REG-FOR-" + crypto.randomBytes(4).toString("hex"),
+        type: "private",
+        email: "foreign@clinic.test",
+        address: { city: "Mumbai", state: "Maharashtra" },
+        status: "active",
+        subscription: { plan: "enterprise", status: "active" },
+      });
+
+      const createStaffSession = async ({ role, adminAccess = false, hId = hospitalId }) => {
+        const staffMember = await HospitalStaff.create({
+          hospitalId: hId,
+          departmentIds: [departmentId],
+          name: `Staff ${role}`,
+          email: `staff.${role.toLowerCase()}.${crypto.randomBytes(4).toString("hex")}@apollo.test`,
+          role,
+          adminAccess,
+          isActive: true,
+          inviteStatus: "accepted",
+        });
+        const sid = crypto.randomUUID();
+        await AuthSession.create({
+          _id: sid,
+          principalId: staffMember._id,
+          kind: "staff",
+          authVersion: 0,
+          csrfToken: "csrf-token-test",
+          expiresAt: new Date(Date.now() + 600000),
+        });
+        const token = jwt.sign(
+          { id: String(staffMember._id), sid, role, type: "staff", hospitalId: String(hId) },
+          process.env.TOKEN_KEY || "local-development-signing-key-replace-before-production"
+        );
+        return { staff: staffMember, token };
+      };
+
+      const { token: adminToken } = await createStaffSession({ role: "HOSPITAL_ADMIN", adminAccess: true });
+      const { token: doctorToken, staff: staffDoc } = await createStaffSession({ role: "DOCTOR" });
+      const { token: nurseToken } = await createStaffSession({ role: "NURSE" });
+      const { token: pharmacistToken } = await createStaffSession({ role: "PHARMACIST" });
+      const { token: foreignToken } = await createStaffSession({ role: "HOSPITAL_ADMIN", adminAccess: true, hId: foreignHospitalId });
+
+      const request = async (path, { method = "GET", token, body } = {}) => {
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch(`${apiOrigin}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const data = await res.json().catch(() => ({}));
+        return { status: res.status, data };
+      };
+
+      // 1. Unauthenticated request -> 401
+      const unauth = await request("/api/inpatient/wards");
+      assert.equal(unauth.status, 401);
+
+      // 2. Nurse attempting to create a ward -> 403
+      const nurseCreateWard = await request("/api/inpatient/wards", {
+        method: "POST",
+        token: nurseToken,
+        body: { name: "Unauthorized Ward", code: "WARD-UNAUTH" },
+      });
+      assert.equal(nurseCreateWard.status, 403);
+
+      // 3. Admin creating Ward -> 201
+      const wardRes = await request("/api/inpatient/wards", {
+        method: "POST",
+        token: adminToken,
+        body: { name: "HTTP Medical Ward", code: "WARD-HTTP-1", floor: "4", building: "Tower A" },
+      });
+      assert.equal(wardRes.status, 201);
+      const wardId = wardRes.data.ward._id;
+
+      // 4. Admin creating Room -> 201
+      const roomRes = await request("/api/inpatient/rooms", {
+        method: "POST",
+        token: adminToken,
+        body: { wardId, roomNumber: "401", roomType: "semi_private", dailyTariffMinor: 200000 },
+      });
+      assert.equal(roomRes.status, 201);
+      const roomId = roomRes.data.room._id;
+
+      // 5. Admin creating Beds -> 201
+      const bed1Res = await request("/api/inpatient/beds", {
+        method: "POST",
+        token: adminToken,
+        body: { wardId, roomId, bedNumber: "BED-401-A" },
+      });
+      assert.equal(bed1Res.status, 201);
+      const bed1Id = bed1Res.data.bed._id;
+
+      const bed2Res = await request("/api/inpatient/beds", {
+        method: "POST",
+        token: adminToken,
+        body: { wardId, roomId, bedNumber: "BED-401-B" },
+      });
+      assert.equal(bed2Res.status, 201);
+      const bed2Id = bed2Res.data.bed._id;
+
+      // 6. Tenant isolation: Foreign clinic staff cannot see Hospital A's wards
+      const foreignWards = await request("/api/inpatient/wards", { token: foreignToken });
+      assert.equal(foreignWards.status, 200);
+      assert.equal(foreignWards.data.wards.length, 0);
+
+      // 7. Doctor admitting patient -> 201
+      const admitRes = await request("/api/inpatient/admit", {
+        method: "POST",
+        token: doctorToken,
+        body: {
+          patientId: patient1Id,
+          bedId: bed1Id,
+          departmentId,
+          admittingDoctorId: staffDoc._id,
+          admittingDiagnosis: "Acute Pyelonephritis",
+          advanceDepositMinor: 1500000,
+        },
+      });
+      assert.equal(admitRes.status, 201);
+      const admissionId = admitRes.data.admission._id;
+      assert.equal(admitRes.data.admission.status, "admitted");
+
+      // 8. Competing admission for same occupied bed -> 409
+      const conflictAdmit = await request("/api/inpatient/admit", {
+        method: "POST",
+        token: doctorToken,
+        body: {
+          patientId: patient2Id,
+          bedId: bed1Id,
+          departmentId,
+          admittingDoctorId: staffDoc._id,
+          admittingDiagnosis: "Severe Gastritis",
+        },
+      });
+      assert.equal(conflictAdmit.status, 409);
+
+      // 9. Nurse updating Bed 2 status: maintenance -> cleaning -> available
+      const maintRes = await request(`/api/inpatient/beds/${bed2Id}/status`, {
+        method: "PATCH",
+        token: nurseToken,
+        body: { targetStatus: "maintenance", reason: "Filter check" },
+      });
+      assert.equal(maintRes.status, 200);
+      assert.equal(maintRes.data.bed.status, "maintenance");
+
+      await request(`/api/inpatient/beds/${bed2Id}/status`, {
+        method: "PATCH",
+        token: nurseToken,
+        body: { targetStatus: "cleaning" },
+      });
+      const availRes = await request(`/api/inpatient/beds/${bed2Id}/status`, {
+        method: "PATCH",
+        token: nurseToken,
+        body: { targetStatus: "available" },
+      });
+      assert.equal(availRes.status, 200);
+      assert.equal(availRes.data.bed.status, "available");
+
+      // 10. Bed transfer via HTTP: Bed 1 -> Bed 2
+      const transferRes = await request(`/api/inpatient/admissions/${admissionId}/transfer`, {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          targetBedId: bed2Id,
+          transferReason: "Moved to window view bed",
+        },
+      });
+      assert.equal(transferRes.status, 200);
+      assert.equal(transferRes.data.success, true);
+      assert.equal(transferRes.data.previousBedStatus, "cleaning");
+      assert.equal(transferRes.data.targetBedStatus, "occupied");
+
+      // 11. Role-gated clearance checks
+      // Nurse attempting medical clearance -> 403
+      const nurseMedClear = await request(`/api/inpatient/admissions/${admissionId}/clearance`, {
+        method: "POST",
+        token: nurseToken,
+        body: { clearanceType: "medical" },
+      });
+      assert.equal(nurseMedClear.status, 403);
+
+      // Doctor recording medical clearance -> 200
+      const docMedClear = await request(`/api/inpatient/admissions/${admissionId}/clearance`, {
+        method: "POST",
+        token: doctorToken,
+        body: { clearanceType: "medical" },
+      });
+      assert.equal(docMedClear.status, 200);
+      assert.equal(docMedClear.data.isFullyCleared, false);
+
+      // Pharmacist recording pharmacy clearance -> 200
+      const pharmClear = await request(`/api/inpatient/admissions/${admissionId}/clearance`, {
+        method: "POST",
+        token: pharmacistToken,
+        body: { clearanceType: "pharmacy" },
+      });
+      assert.equal(pharmClear.status, 200);
+      assert.equal(pharmClear.data.isFullyCleared, false);
+
+      // Admin recording finance clearance -> 200 (fully cleared)
+      const finClear = await request(`/api/inpatient/admissions/${admissionId}/clearance`, {
+        method: "POST",
+        token: adminToken,
+        body: { clearanceType: "finance" },
+      });
+      assert.equal(finClear.status, 200);
+      assert.equal(finClear.data.isFullyCleared, true);
+
+      // 12. Nurse attempting finalize discharge -> 403
+      const nurseDischarge = await request(`/api/inpatient/admissions/${admissionId}/discharge`, {
+        method: "POST",
+        token: nurseToken,
+        body: { dischargeSummary: { summaryText: "Patient ready for discharge" } },
+      });
+      assert.equal(nurseDischarge.status, 403);
+
+      // Doctor finalizing discharge -> 200
+      const finalRes = await request(`/api/inpatient/admissions/${admissionId}/discharge`, {
+        method: "POST",
+        token: doctorToken,
+        body: {
+          dischargeSummary: {
+            summaryText: "Infection resolved after IV antibiotic course. Afebrile for 48 hours.",
+            dischargeCondition: "cured",
+            followUpPlan: "Complete 5 days of oral cefixime. Review in OPD in 1 week.",
+          },
+        },
+      });
+      assert.equal(finalRes.status, 200);
+      assert.equal(finalRes.data.success, true);
+      assert.equal(finalRes.data.admission.status, "discharged");
+      assert.equal(finalRes.data.releasedBedStatus, "cleaning");
+
+      // 13. Inpatient timeline via HTTP
+      const timelineRes = await request(`/api/inpatient/admissions/${admissionId}/timeline`, {
+        method: "GET",
+        token: nurseToken,
+      });
+      assert.equal(timelineRes.status, 200);
+      assert.equal(timelineRes.data.timeline.admission.status, "discharged");
+      assert.equal(timelineRes.data.timeline.transfers.length, 1);
+    } finally {
+      server.close();
+    }
   });
 });

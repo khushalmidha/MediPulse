@@ -44,6 +44,7 @@ const NursingStation = lazy(() => import("./pages/hospital-staff/NursingStation"
 const StaffCommunication = lazy(() => import("./pages/hospital-staff/StaffCommunication"));
 const LaboratoryConsole = lazy(() => import("./pages/hospital-staff/LaboratoryConsole"));
 const PharmacyConsole = lazy(() => import("./pages/hospital-staff/PharmacyConsole"));
+const InpatientConsole = lazy(() => import("./pages/hospital-staff/InpatientConsole"));
 const StaffAcceptInvite = lazy(() => import("./pages/StaffAcceptInvite"));
 const HospitalAdminSetup = lazy(() => import("./pages/HospitalAdminSetup"));
 const ReviewVisit = lazy(() => import("./pages/ReviewVisit"));
@@ -102,6 +103,8 @@ function App() {
               <Route path="/hospital/laboratory" element={<LaboratoryConsole />} />
               <Route path="/hospital/lab" element={<LaboratoryConsole />} />
               <Route path="/hospital/pharmacy" element={<PharmacyConsole />} />
+              <Route path="/hospital/inpatient" element={<InpatientConsole />} />
+              <Route path="/hospital/beds" element={<InpatientConsole />} />
               <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
               <Route path="/staff/setup" element={<HospitalAdminSetup />} />
               <Route path="/hospital/setup" element={<HospitalAdminSetup />} />
