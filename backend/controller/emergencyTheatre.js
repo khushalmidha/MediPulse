@@ -29,9 +29,15 @@ const getActor = (req) => {
 };
 
 export const registerEmergencyPatientHandler = asyncHandler(async (req, res) => {
+  if (req.staff?.role !== "DOCTOR" && req.staff?.role !== "NURSE") {
+    return res.status(403).json({
+      error: "Emergency clinical triage must be conducted by a qualified clinician (DOCTOR or NURSE role)",
+    });
+  }
   const result = await registerEmergencyPatient({
     hospitalId: getHospitalId(req),
     patientId: req.body.patientId || null,
+    familyMemberId: req.body.familyMemberId || null,
     patientName: req.body.patientName,
     age: req.body.age,
     gender: req.body.gender,
@@ -73,6 +79,7 @@ export const updateEmergencyStatusHandler = asyncHandler(async (req, res) => {
     assignedBay: req.body.assignedBay,
     outcomeNotes: req.body.outcomeNotes,
     linkedAdmissionId: req.body.linkedAdmissionId,
+    expectedVersion: req.body.expectedVersion ?? req.body.version,
     actor: getActor(req),
   });
   res.json(result);
@@ -98,6 +105,7 @@ export const getTheatreRoomsHandler = asyncHandler(async (req, res) => {
 
 export const bookTheatreCaseHandler = asyncHandler(async (req, res) => {
   const actor = getActor(req);
+  const commandId = req.body.commandId || req.headers["x-request-id"] || req.headers["idempotency-key"] || null;
   const result = await bookTheatreCase({
     hospitalId: getHospitalId(req),
     theatreRoomId: req.body.theatreRoomId,
@@ -111,6 +119,9 @@ export const bookTheatreCaseHandler = asyncHandler(async (req, res) => {
     urgency: req.body.urgency || "elective",
     scheduledStartTime: req.body.scheduledStartTime,
     scheduledEndTime: req.body.scheduledEndTime,
+    commandId,
+    consentConfirmed: req.body.consentConfirmed,
+    consentFormRef: req.body.consentFormRef,
     actor,
   });
   res.status(201).json(result);
@@ -121,6 +132,7 @@ export const cancelTheatreCaseHandler = asyncHandler(async (req, res) => {
     hospitalId: getHospitalId(req),
     bookingId: req.params.bookingId || req.params.id,
     reason: req.body.reason,
+    expectedVersion: req.body.expectedVersion ?? req.body.version,
     actor: getActor(req),
   });
   res.json(result);
@@ -150,7 +162,7 @@ export const recordWhoChecklistStageHandler = asyncHandler(async (req, res) => {
   const actor = getActor(req);
 
   // Time Out specifically requires Doctor role (Surgeon)
-  if (stage === "timeOut" && req.staff.role !== "DOCTOR" && req.staff.role !== "HOSPITAL_ADMIN") {
+  if (stage === "timeOut" && req.staff.role !== "DOCTOR") {
     return res.status(403).json({
       error: "WHO Surgical Safety Checklist Time Out must be verified by an operating surgeon (DOCTOR role)",
     });
@@ -161,17 +173,25 @@ export const recordWhoChecklistStageHandler = asyncHandler(async (req, res) => {
     bookingId: req.params.bookingId || req.params.id,
     stage: req.body.stage,
     checkpoints: req.body.checkpoints,
+    expectedVersion: req.body.expectedVersion ?? req.body.version,
     actor,
   });
   res.json(result);
 });
 
 export const recordPacuRecoveryHandler = asyncHandler(async (req, res) => {
+  if (req.staff?.role !== "DOCTOR" && req.staff?.role !== "NURSE") {
+    return res.status(403).json({
+      error: "PACU recovery evaluation must be conducted by a qualified clinician (NURSE or DOCTOR role)",
+    });
+  }
+
   const result = await recordPacuRecovery({
     hospitalId: getHospitalId(req),
     bookingId: req.params.bookingId || req.params.id,
     aldreteScore: req.body.aldreteScore,
     dischargedToWard: req.body.dischargedToWard,
+    expectedVersion: req.body.expectedVersion ?? req.body.version,
     actor: getActor(req),
   });
   res.json(result);

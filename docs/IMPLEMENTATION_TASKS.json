@@ -4,7 +4,7 @@
   "reviewBaseline": "32c85bde",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG20",
+  "startWith": "AG21",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1794,7 +1794,7 @@
     {
       "id": "AG20",
       "title": "Emergency and theatre workflows",
-      "status": "implemented_pending_final_checks",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1840,7 +1840,22 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "reference": "docs/WORK_LOG.md - AG20 emergency and theatre workflows, 22 October 2026",
+        "emergencyTheatreUnit": {
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 233,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 60,
+          "failed": 0,
+          "skipped": 0
+        },
         "productionAcceptance": "not performed",
         "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
       },
@@ -1881,26 +1896,42 @@
         {
           "id": "AG20.01",
           "title": "Emergency policy and access",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Implement approved registration/triage/escalation/handover with real patient/family/source/department/team and qualified actors. Version history, own overdue actions and connect admission/nursing records.",
           "acceptance": "Actual router/browser cases deny forged sources, wrong capabilities, missing approval and stale actions. Scoring constants alone do not establish validated triage; qualified scenario review exists.",
-          "evidence": []
+          "evidence": [
+            "backend/services/emergencyTheatreService.js",
+            "backend/controller/emergencyTheatre.js",
+            "backend/routes/emergencyTheatre.js",
+            "frontend/src/pages/hospital-staff/EmergencyTheatreConsole.jsx",
+            "backend/tests/emergency-theatre.test.js"
+          ]
         },
         {
           "id": "AG20.02",
           "title": "Durable theatre reservations",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Reserve room/surgeon/anesthetist/equipment with atomic resource fences, holds/expiry and command identity. Handle invalid/overlapping slots/timezones, reschedule/cancel and consent prerequisites.",
           "acceptance": "Actual concurrent requests for every shared resource have a permissible serialized outcome. Cancel/retry/restart releases once; partial allocation rolls back. Query-before-create is insufficient evidence.",
-          "evidence": []
+          "evidence": [
+            "backend/services/emergencyTheatreService.js",
+            "backend/model/emergencyTheatre.js",
+            "backend/controller/emergencyTheatre.js",
+            "backend/tests/emergency-theatre.test.js"
+          ]
         },
         {
           "id": "AG20.03",
           "title": "Qualified checklist and recovery",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Bind consent/checklist phase signatures to actual qualified team members and exact version/prerequisites. Complete recovery/PACU/handover under approved policy and populated operational screens.",
           "acceptance": "One actor cannot sign for another through booleans. Wrong team, revoked permission, stale checklist, missing consent and recovery prerequisites fail; actual authorized journeys and clinical review pass.",
-          "evidence": []
+          "evidence": [
+            "backend/services/emergencyTheatreService.js",
+            "backend/controller/emergencyTheatre.js",
+            "frontend/src/pages/hospital-staff/EmergencyTheatreConsole.jsx",
+            "backend/tests/emergency-theatre.test.js"
+          ]
         }
       ]
     },

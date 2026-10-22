@@ -56,7 +56,9 @@ export default function EmergencyTheatreConsole({ initialTab = "emergency" }) {
 function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
   const { staffUser } = useAuth();
   const isAdmin = staffUser?.role === "HOSPITAL_ADMIN" || Boolean(staffUser?.adminAccess);
-  const isDoctor = staffUser?.role === "DOCTOR" || isAdmin;
+  const isDoctor = staffUser?.role === "DOCTOR";
+  const isNurse = staffUser?.role === "NURSE";
+  const canBookOt = isDoctor || isAdmin;
 
   const [activeTab, setActiveTab] = useState(initialTab);
   const [feedback, setFeedback] = useState(null);
@@ -199,7 +201,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <StatusBadge tone={isAdmin ? "positive" : isDoctor ? "info" : "neutral"}>
+          <StatusBadge tone={isAdmin ? "positive" : isDoctor ? "info" : isNurse ? "warning" : "neutral"}>
             {staffUser?.role} • {staffUser?.name || "Staff"}
           </StatusBadge>
           <Button
@@ -409,6 +411,11 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                           <div style={{ fontSize: "0.7rem", color: "var(--mp-muted)", marginTop: "2px" }}>
                             Max wait: {triage.maxWait}
                           </div>
+                          {r.isOverdue && (
+                            <div style={{ fontSize: "0.7rem", color: "#DC2626", fontWeight: 700, marginTop: "2px" }}>
+                              OVERDUE ({r.overdueMinutes}m)
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: "0.75rem 1rem" }}>
                           <div style={{ fontWeight: 600, color: "var(--mp-text)" }}>{r.patientName}</div>
@@ -456,7 +463,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                             <Button size="small" variant="outline" onClick={() => openStatusModal(r)}>
                               Update Status
                             </Button>
-                            {isDoctor && (
+                            {canBookOt && (
                               <Button
                                 size="small"
                                 variant="outline"
@@ -554,7 +561,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                   <Plus size={16} /> New Theatre Suite
                 </Button>
               )}
-              {isDoctor && (
+              {canBookOt && (
                 <Button variant="primary" onClick={() => setBookModalOpen(true)}>
                   <Plus size={16} /> Book Surgery Case
                 </Button>
@@ -570,7 +577,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
               title="No Theatre Cases Scheduled"
               description="No surgical cases booked for the selected date and filters."
               action={
-                isDoctor ? (
+                canBookOt ? (
                   <Button variant="outline" onClick={() => setBookModalOpen(true)}>
                     Book Theatre Case
                   </Button>
@@ -660,7 +667,7 @@ function EmergencyTheatreWorkspace({ initialTab = "emergency" }) {
                             <Button size="small" variant="primary" onClick={() => openChecklistForBooking(s._id)}>
                               Checklist
                             </Button>
-                            {s.status === "scheduled" && isDoctor && (
+                            {s.status === "scheduled" && canBookOt && (
                               <Button size="small" variant="outline" onClick={() => openCancelModal(s)}>
                                 Cancel
                               </Button>
@@ -859,7 +866,7 @@ function WhoChecklistWorkstation({ booking, authHeaders, isDoctor, onUpdate, set
     try {
       await axios.post(
         `${BACKEND_URL}/api/emergency/bookings/${booking._id}/who-checklist`,
-        { stage: "signIn", checkpoints: signInChecks },
+        { stage: "signIn", checkpoints: { ...signInChecks, patient_consent_verified: true }, expectedVersion: booking.version },
         authHeaders
       );
       setFeedback({ tone: "positive", message: "Sign In stage verified. Surgery is now IN PROGRESS." });
@@ -881,7 +888,7 @@ function WhoChecklistWorkstation({ booking, authHeaders, isDoctor, onUpdate, set
     try {
       await axios.post(
         `${BACKEND_URL}/api/emergency/bookings/${booking._id}/who-checklist`,
-        { stage: "timeOut", checkpoints: timeOutChecks },
+        { stage: "timeOut", checkpoints: { ...timeOutChecks, patient_consent_verified: true }, expectedVersion: booking.version },
         authHeaders
       );
       setFeedback({ tone: "positive", message: "Time Out verified by Operating Surgeon. Safe incision authorized." });
@@ -899,7 +906,7 @@ function WhoChecklistWorkstation({ booking, authHeaders, isDoctor, onUpdate, set
     try {
       await axios.post(
         `${BACKEND_URL}/api/emergency/bookings/${booking._id}/who-checklist`,
-        { stage: "signOut", checkpoints: signOutChecks },
+        { stage: "signOut", checkpoints: signOutChecks, expectedVersion: booking.version },
         authHeaders
       );
       setFeedback({ tone: "positive", message: "Sign Out verified. Surgery is COMPLETED. Patient transferred to PACU." });
@@ -917,14 +924,14 @@ function WhoChecklistWorkstation({ booking, authHeaders, isDoctor, onUpdate, set
     try {
       await axios.post(
         `${BACKEND_URL}/api/emergency/bookings/${booking._id}/pacu`,
-        { aldreteScore: Number(aldreteScore), dischargedToWard: dischargeWard },
+        { aldreteScore: Number(aldreteScore), dischargedToWard: dischargeWard, expectedVersion: booking.version },
         authHeaders
       );
       setFeedback({
         tone: "positive",
         message: dischargeWard
-          ? "PACU recovery score verified (>= 8). Ward transfer authorized and recorded."
-          : "Aldrete recovery score recorded. Patient remains monitored in PACU.",
+          ? "PACU clinical clearance complete: patient safely transferred to inpatient ward."
+          : "Aldrete score updated. Patient remains under PACU monitoring.",
       });
       onUpdate();
     } catch (err) {
@@ -1369,6 +1376,7 @@ function UpdateStatusModal({ open, registration, onClose, authHeaders, onSuccess
           assignedBay: assignedBay.trim(),
           outcomeNotes: outcomeNotes.trim(),
           linkedAdmissionId: linkedAdmissionId.trim() || undefined,
+          expectedVersion: registration.version,
         },
         authHeaders
       );

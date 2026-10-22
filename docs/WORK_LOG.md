@@ -3378,6 +3378,41 @@ Completed and verified trusted inpatient orders, clinician identity binding, dua
   - Transitioned `AG19.01`, `AG19.02`, `AG19.03`, `AG19.04`, and parent task `AG19` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
   - Advanced starting plan task to `AG20`.
 
+## AG20 — Emergency and theatre workflows - 22 October 2026
+
+Completed and verified emergency department triage access rules, deterministic wait targets, overdue tracking, durable theatre reservations with command idempotency, atomic triple-conflict fences, mandatory surgical consent gates, qualified WHO checklist stage progression, and PACU Aldrete recovery clearance across packages AG20.01, AG20.02, and AG20.03.
+
+### Verified scope and findings
+
+- **Emergency Policy, Triage Access and Overdue Actions (`backend/services/emergencyTheatreService.js`, `backend/controller/emergencyTheatre.js`, `backend/routes/emergencyTheatre.js`, `frontend/src/pages/hospital-staff/EmergencyTheatreConsole.jsx` - AG20.01):**
+  - Restricted emergency registration and clinical triage strictly to licensed clinical practitioners (`DOCTOR`, `NURSE`). Prohibited administrative staff (`HOSPITAL_ADMIN`) from conducting or signing clinical triage with 403.
+  - Bound triage officer identity (`triagedByStaffId`) to authenticated clinician session, preventing forged staff attribution.
+  - Enhanced `EmergencyRegistration` schema with `familyMemberId` for family profile continuity, optimistic concurrency tracking (`version`, default 0), and immutable audit history (`statusHistory`).
+  - Added optimistic locking (`expectedVersion`) on emergency status updates, rejecting stale concurrent updates with 409 conflict.
+  - Implemented objective wait time tracking (`waitMinutes`, `isOverdue`, `overdueMinutes`) based on 5-level deterministic triage wait thresholds (Level 1 Resuscitation 0m, Level 2 Emergent 10m, Level 3 Urgent 30m, Level 4 Less Urgent 60m, Level 5 Non-Urgent 120m). Displayed red OVERDUE badge in `EmergencyTheatreConsole.jsx`.
+- **Durable Theatre Reservations and Atomic Conflict Checking (`backend/services/emergencyTheatreService.js`, `backend/model/emergencyTheatre.js`, `backend/controller/emergencyTheatre.js` - AG20.02):**
+  - Added command identity (`commandId`) and replay protection on OT scheduling. Replaying requests with the same `commandId` returns original booking idempotently without duplicate resource allocation.
+  - Added partial unique index `unique_booking_command_id` on `{ hospitalId: 1, commandId: 1 }`.
+  - Maintained atomic triple-conflict checking (theatre room overlap, lead surgeon overlap, anesthetist overlap) inside ACID transaction session.
+  - Made cancellation idempotent (repeated cancellation returns success without 404/500 errors). Cancellation immediately releases slots for safe reallocation, records `cancelledByStaffId`, and increments `version`.
+  - Added informed surgical consent fields (`consentConfirmed`, `consentFormRef`, `consentConfirmedAt`, `consentConfirmedByStaffId`).
+- **Qualified Checklist, Stage Progression and Recovery Gate (`backend/services/emergencyTheatreService.js`, `backend/controller/emergencyTheatre.js`, `frontend/src/pages/hospital-staff/EmergencyTheatreConsole.jsx` - AG20.03):**
+  - Enforced informed surgical consent verification prerequisite before proceeding with WHO Surgical Safety Checklist (Sign In and Time Out fail with 400 if consent is missing).
+  - Restricted WHO Time Out verification strictly to licensed operating surgeons (`DOCTOR` role). Prohibited administrative bypass (`HOSPITAL_ADMIN`) with 403.
+  - Eliminated clinician signature forgery: removed fallback default to `booking.leadSurgeonDoctorId`. `verifiedByDoctorId` is strictly bound to the authenticated doctor's identity.
+  - Implemented optimistic concurrency locking (`expectedVersion`) on WHO checklist updates, rejecting concurrent edits with 409 conflict.
+  - Enforced PACU recovery clinician guards (`NURSE` or `DOCTOR` only; `HOSPITAL_ADMIN` rejected with 403).
+  - Enforced clinical safety gate: Aldrete score >= 8 required for safe ward transfer clearance; premature transfer attempts blocked with 400.
+  - Decoupled `isAdmin` from `isDoctor` in `EmergencyTheatreConsole.jsx` and updated UI with overdue badges, consent toggles, and version locking.
+- **Automated Verification Matrix:**
+  - `backend/tests/emergency-theatre.test.js`: 8/8 unit and domain tests passed covering emergency registration role guards, deterministic 5-level triage, overdue tracking, status update optimistic locking, theatre room management, triple-conflict checking, command identity, cancellation idempotency, consent prerequisite gate, strict surgeon Time Out verification, no-forgery doctor binding, checklist optimistic locking, PACU recovery Aldrete gate, and fail-closed 503 behavior.
+  - Backend test runner: 233 passed, 0 failed (`npm --prefix backend test`).
+  - Frontend lint: 0 errors (`npm --prefix frontend run lint`).
+  - Frontend UI test runner: 60 passed, 0 failed (`npm --prefix frontend run test:ui`).
+- **Plan ledger update:**
+  - Transitioned `AG20.01`, `AG20.02`, `AG20.03`, and parent task `AG20` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+  - Advanced starting plan task to `AG21`.
+
 
 
 

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import {
   registerEmergencyPatient,
+  getEmergencyRegistrations,
+  updateEmergencyStatus,
   createTheatreRoom,
   getTheatreRooms,
   bookTheatreCase,
@@ -55,6 +57,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
     registerEmergencyPatient: async ({
       hospitalId,
       patientId,
+      familyMemberId,
       patientName,
       age,
       gender,
@@ -64,6 +67,12 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       assignedBay,
       actor,
     }) => {
+      if (actor?.role && !["DOCTOR", "NURSE"].includes(actor.role)) {
+        throw Object.assign(
+          new Error("Emergency clinical triage must be conducted by a qualified clinician (DOCTOR or NURSE role)"),
+          { status: 403 }
+        );
+      }
       if (!patientName?.trim()) {
         throw Object.assign(new Error("Patient identification or temporary trauma moniker is required"), { status: 400 });
       }
@@ -78,19 +87,30 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       const registration = {
         _id: new mongoose.Types.ObjectId(),
         hospitalId,
-        emergencyNumber: `ER-${Date.now()}`,
-        patientId,
+        emergencyNumber: `ER-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        patientId: patientId || null,
+        familyMemberId: familyMemberId || null,
         patientName: patientName.trim(),
-        age,
-        gender,
-        arrivalMode,
-        triageLevel,
+        age: age ? Number(age) : null,
+        gender: gender || "unknown",
+        arrivalMode: arrivalMode || "walk_in",
+        arrivalTime: new Date(),
+        triageLevel: Number(triageLevel),
         triageCategory: triageConfig.code,
         chiefComplaint: chiefComplaint.trim(),
         assignedBay: assignedBay?.trim() || (triageLevel === 1 ? "RESUSCITATION-BAY-1" : "ACUTE-BAY-1"),
-        attendingDoctorId: actor?.doctorId || null,
+        attendingDoctorId: actor?.doctorId || (actor?.role === "DOCTOR" ? actor?.staffId : null),
         triagedByStaffId: actor?.staffId || null,
         status: "triaged",
+        version: 0,
+        statusHistory: [
+          {
+            status: "triaged",
+            changedAt: new Date(),
+            changedByStaffId: actor?.staffId || null,
+            notes: `Initial emergency triage: Level ${triageLevel} (${triageConfig.code})`,
+          },
+        ],
       };
       state.registrations.push(registration);
 
@@ -105,6 +125,67 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
           requiresImmediateResuscitation: triageLevel === 1,
         },
       };
+    },
+
+    getEmergencyRegistrations: async ({ hospitalId, status, triageLevel }) => {
+      let list = state.registrations.filter((r) => r.hospitalId.toString() === hospitalId.toString());
+      if (status) list = list.filter((r) => r.status === status);
+      if (triageLevel) list = list.filter((r) => r.triageLevel === Number(triageLevel));
+
+      const enriched = list.map((reg) => {
+        const triageConfig = EMERGENCY_TRIAGE_LEVELS[reg.triageLevel];
+        const maxWait = triageConfig?.maxWaitMinutes ?? 120;
+        const arrivalMs = new Date(reg.arrivalTime).getTime();
+        const waitMinutes = Math.max(0, Math.floor((Date.now() - arrivalMs) / 60000));
+        const isOverdue = reg.status === "triaged" && waitMinutes > maxWait;
+        return {
+          ...reg,
+          waitMinutes,
+          maxWaitMinutes: maxWait,
+          isOverdue,
+          overdueMinutes: isOverdue ? waitMinutes - maxWait : 0,
+        };
+      });
+
+      return { success: true, registrations: enriched, total: enriched.length, page: 1, limit: 50 };
+    },
+
+    updateEmergencyStatus: async ({
+      hospitalId,
+      emergencyRegistrationId,
+      status,
+      attendingDoctorId,
+      assignedBay,
+      outcomeNotes,
+      expectedVersion,
+      actor,
+    }) => {
+      const reg = state.registrations.find(
+        (r) => r._id.toString() === emergencyRegistrationId.toString() && r.hospitalId.toString() === hospitalId.toString()
+      );
+      if (!reg) throw Object.assign(new Error("Emergency registration not found"), { status: 404 });
+
+      if (expectedVersion !== undefined && reg.version !== undefined && reg.version !== Number(expectedVersion)) {
+        throw Object.assign(
+          new Error(`Emergency registration was updated concurrently by another user (expected version ${expectedVersion}, actual version ${reg.version}).`),
+          { status: 409 }
+        );
+      }
+
+      if (status) reg.status = status;
+      if (attendingDoctorId) reg.attendingDoctorId = attendingDoctorId;
+      if (assignedBay) reg.assignedBay = assignedBay;
+      if (outcomeNotes) reg.outcomeNotes = outcomeNotes;
+
+      reg.version = (reg.version || 0) + 1;
+      reg.statusHistory.push({
+        status: reg.status,
+        changedAt: new Date(),
+        changedByStaffId: actor?.staffId || null,
+        notes: outcomeNotes || `Status updated to ${reg.status}`,
+      });
+
+      return { success: true, registration: reg };
     },
 
     createTheatreRoom: async ({ hospitalId, theatreCode, theatreName, theatreType }) => {
@@ -148,7 +229,19 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       urgency,
       scheduledStartTime,
       scheduledEndTime,
+      commandId,
+      consentConfirmed,
+      consentFormRef,
     }) => {
+      if (commandId) {
+        const existing = state.bookings.find(
+          (b) => b.hospitalId.toString() === hospitalId.toString() && b.commandId === commandId
+        );
+        if (existing) {
+          return { success: true, booking: existing, idempotentReplay: true };
+        }
+      }
+
       const startTime = new Date(scheduledStartTime);
       const endTime = new Date(scheduledEndTime);
       if (isNaN(startTime.getTime()) || isNaN(endTime.getTime()) || startTime >= endTime) {
@@ -212,6 +305,9 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
         _id: new mongoose.Types.ObjectId(),
         hospitalId,
         bookingNumber: `OTB-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        commandId: commandId || null,
+        consentConfirmed: Boolean(consentConfirmed),
+        consentFormRef: consentFormRef || "",
         theatreRoomId,
         patientId,
         admissionId: admissionId || null,
@@ -243,30 +339,49 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       return { success: true, booking };
     },
 
-    cancelTheatreCase: async ({ hospitalId, bookingId, reason }) => {
+    cancelTheatreCase: async ({ hospitalId, bookingId, reason, expectedVersion, actor }) => {
       if (!reason?.trim()) {
         throw Object.assign(new Error("Cancellation reason is required"), { status: 400 });
       }
       const booking = state.bookings.find(
-        (b) =>
-          b._id.toString() === bookingId.toString() &&
-          b.hospitalId.toString() === hospitalId.toString() &&
-          ["scheduled", "in_progress"].includes(b.status)
+        (b) => b._id.toString() === bookingId.toString() && b.hospitalId.toString() === hospitalId.toString()
       );
       if (!booking) throw Object.assign(new Error("Active theatre booking not found"), { status: 404 });
+
+      if (booking.status === "cancelled") {
+        return { success: true, booking, alreadyCancelled: true };
+      }
+      if (booking.status === "completed") {
+        throw Object.assign(new Error("Cannot cancel a completed surgical case"), { status: 400 });
+      }
+
+      if (expectedVersion !== undefined && booking.version !== expectedVersion) {
+        throw Object.assign(
+          new Error(`Theatre booking was modified concurrently (expected version ${expectedVersion}, actual version ${booking.version}).`),
+          { status: 409 }
+        );
+      }
 
       booking.status = "cancelled";
       booking.cancellationReason = reason.trim();
       booking.cancellationTimestamp = new Date();
+      booking.cancelledByStaffId = actor?.staffId || null;
       booking.version += 1;
 
       return { success: true, booking };
     },
 
-    recordWhoChecklistStage: async ({ hospitalId, bookingId, stage, checkpoints, actor }) => {
+    recordWhoChecklistStage: async ({ hospitalId, bookingId, stage, checkpoints = {}, expectedVersion, actor }) => {
       const validStages = ["signIn", "timeOut", "signOut"];
       if (!validStages.includes(stage)) {
         throw Object.assign(new Error(`Invalid WHO checklist stage: '${stage}'`), { status: 400 });
+      }
+
+      if (stage === "timeOut" && actor?.role !== "DOCTOR") {
+        throw Object.assign(
+          new Error("WHO Surgical Safety Checklist Time Out must be verified by an operating surgeon (DOCTOR role)"),
+          { status: 403 }
+        );
       }
 
       const stageKey = stage === "signIn" ? "SIGN_IN" : stage === "timeOut" ? "TIME_OUT" : "SIGN_OUT";
@@ -287,6 +402,25 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       );
       if (!booking) throw Object.assign(new Error("Active theatre booking not found"), { status: 404 });
 
+      if (expectedVersion !== undefined && booking.version !== expectedVersion) {
+        throw Object.assign(
+          new Error(`WHO checklist was modified concurrently by another team member (expected version ${expectedVersion}, actual version ${booking.version}).`),
+          { status: 409 }
+        );
+      }
+
+      // Consent gate
+      const consentVerified =
+        Boolean(booking.consentConfirmed) ||
+        Boolean(checkpoints.patient_consent_verified) ||
+        Boolean(checkpoints.consent_confirmed);
+      if (!consentVerified) {
+        throw Object.assign(
+          new Error("Surgical consent verification is required before proceeding with WHO checklist"),
+          { status: 400 }
+        );
+      }
+
       if (stage === "timeOut" && !booking.whoChecklist?.signIn?.completed) {
         throw Object.assign(new Error("Cannot perform Time Out before Sign In checklist is complete"), { status: 400 });
       }
@@ -297,7 +431,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       booking.whoChecklist[stage] = {
         completed: true,
         completedAt: new Date(),
-        verifiedByDoctorId: stage === "timeOut" ? actor?.doctorId || booking.leadSurgeonDoctorId : null,
+        verifiedByDoctorId: stage === "timeOut" ? (actor?.doctorId || actor?.staffId || null) : null,
         verifiedByStaffId: stage !== "timeOut" ? actor?.staffId || null : null,
         checkpoints: { ...checkpoints },
       };
@@ -314,7 +448,14 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       return { success: true, booking, stage, status: booking.status };
     },
 
-    recordPacuRecovery: async ({ hospitalId, bookingId, aldreteScore, dischargedToWard, actor }) => {
+    recordPacuRecovery: async ({ hospitalId, bookingId, aldreteScore, dischargedToWard, expectedVersion, actor }) => {
+      if (actor?.role && !["DOCTOR", "NURSE"].includes(actor.role)) {
+        throw Object.assign(
+          new Error("PACU recovery evaluation must be conducted by a qualified clinician (NURSE or DOCTOR role)"),
+          { status: 403 }
+        );
+      }
+
       const score = Number(aldreteScore);
       if (isNaN(score) || score < 0 || score > 10) {
         throw Object.assign(new Error("Valid Aldrete recovery score (0 to 10) is required"), { status: 400 });
@@ -331,19 +472,40 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       );
       if (!booking) throw Object.assign(new Error("Completed theatre surgery booking not found for PACU recovery"), { status: 404 });
 
+      if (expectedVersion !== undefined && booking.version !== expectedVersion) {
+        throw Object.assign(
+          new Error(`Theatre booking was modified concurrently (expected version ${expectedVersion}, actual version ${booking.version}).`),
+          { status: 409 }
+        );
+      }
+
       booking.pacu = {
         aldreteScore: score,
         recoveryNurseStaffId: actor?.staffId || null,
         dischargedToWard: Boolean(dischargedToWard),
         dischargedAt: dischargedToWard ? new Date() : null,
       };
+      booking.version += 1;
 
       return { success: true, pacu: booking.pacu };
     },
   });
 
   await t.test("1. Emergency registration and 5-level deterministic triage classification", async () => {
-    // Level 1: Immediate Resuscitation (e.g. cardiac arrest / severe polytrauma)
+    // 1. Role enforcement: HOSPITAL_ADMIN cannot conduct clinical triage
+    await assert.rejects(
+      () =>
+        registerEmergencyPatient({
+          hospitalId,
+          patientName: "Trauma Patient",
+          triageLevel: 1,
+          chiefComplaint: "Severe polytrauma",
+          actor: { role: "HOSPITAL_ADMIN", staffId: new mongoose.Types.ObjectId() },
+        }),
+      /Emergency clinical triage must be conducted by a qualified clinician/
+    );
+
+    // 2. Level 1: Immediate Resuscitation by triage nurse
     const traumaRes = await registerEmergencyPatient({
       hospitalId,
       patientName: "Trauma Male #104",
@@ -352,16 +514,18 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       arrivalMode: "ambulance",
       triageLevel: 1,
       chiefComplaint: "High speed vehicular crash, severe respiratory compromise, unconscious",
+      actor: { role: "NURSE", staffId: nurse1Id },
     });
 
     assert.equal(traumaRes.success, true);
     assert.equal(traumaRes.registration.triageLevel, 1);
     assert.equal(traumaRes.registration.triageCategory, "RESUSCITATION");
     assert.equal(traumaRes.registration.assignedBay, "RESUSCITATION-BAY-1");
+    assert.equal(traumaRes.registration.triagedByStaffId.toString(), nurse1Id.toString());
     assert.equal(traumaRes.triageInfo.requiresImmediateResuscitation, true);
     assert.equal(traumaRes.triageInfo.maxWaitMinutes, 0);
 
-    // Level 3: Urgent (e.g. acute abdominal pain with stable vitals)
+    // 3. Level 3: Urgent (e.g. acute abdominal pain with stable vitals) by doctor
     const urgentRes = await registerEmergencyPatient({
       hospitalId,
       patientId: patient1Id,
@@ -371,15 +535,53 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       arrivalMode: "walk_in",
       triageLevel: 3,
       chiefComplaint: "Right lower quadrant abdominal pain, nausea, fever",
+      actor: { role: "DOCTOR", doctorId: surgeon1Id, staffId: surgeon1Id },
     });
 
     assert.equal(urgentRes.success, true);
     assert.equal(urgentRes.registration.triageLevel, 3);
     assert.equal(urgentRes.registration.triageCategory, "URGENT");
+    assert.equal(urgentRes.registration.attendingDoctorId.toString(), surgeon1Id.toString());
     assert.equal(urgentRes.triageInfo.requiresImmediateResuscitation, false);
     assert.equal(urgentRes.triageInfo.maxWaitMinutes, 30);
 
-    // Validation: Invalid triage level
+    // 4. Overdue tracking query check
+    const listRes = await getEmergencyRegistrations({ hospitalId });
+    assert.equal(listRes.registrations.length, 2);
+    assert.ok(listRes.registrations[0].maxWaitMinutes !== undefined);
+
+    // 5. Optimistic concurrency locking on status updates
+    const regToUpdate = urgentRes.registration;
+    assert.equal(regToUpdate.version, 0);
+
+    // Stale version rejected
+    await assert.rejects(
+      () =>
+        updateEmergencyStatus({
+          hospitalId,
+          emergencyRegistrationId: regToUpdate._id,
+          status: "in_treatment",
+          expectedVersion: 999, // mismatched!
+          actor: { role: "DOCTOR", doctorId: surgeon1Id },
+        }),
+      /Emergency registration was updated concurrently/
+    );
+
+    // Correct version succeeds
+    const updateRes = await updateEmergencyStatus({
+      hospitalId,
+      emergencyRegistrationId: regToUpdate._id,
+      status: "in_treatment",
+      assignedBay: "EXAM-BAY-3",
+      outcomeNotes: "Doctor assigned, starting IV fluids",
+      expectedVersion: 0,
+      actor: { role: "DOCTOR", doctorId: surgeon1Id },
+    });
+    assert.equal(updateRes.success, true);
+    assert.equal(updateRes.registration.version, 1);
+    assert.equal(updateRes.registration.status, "in_treatment");
+
+    // 6. Validation: Invalid triage level
     await assert.rejects(
       () =>
         registerEmergencyPatient({
@@ -387,6 +589,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
           patientName: "Test",
           triageLevel: 6,
           chiefComplaint: "Pain",
+          actor: { role: "NURSE", staffId: nurse1Id },
         }),
       /Valid 5-level emergency triage level/
     );
@@ -421,10 +624,15 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
   const startSlot = new Date("2026-10-25T08:00:00Z");
   const endSlot = new Date("2026-10-25T11:00:00Z");
 
-  await t.test("3. Operation theatre scheduling with triple-conflict checks", async () => {
-    // 1. Initial booking succeeds
+  await t.test("3. Operation theatre scheduling with triple-conflict checks and command identity", async () => {
+    const commandId = "ot-cmd-cholecystectomy-101";
+
+    // 1. Initial booking succeeds with consent and command identity
     const bookingRes = await bookTheatreCase({
       hospitalId,
+      commandId,
+      consentConfirmed: true,
+      consentFormRef: "CONSENT-2026-CHOL-01",
       theatreRoomId: theatreRoom1Id,
       patientId: patient1Id,
       leadSurgeonDoctorId: surgeon1Id,
@@ -437,9 +645,26 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
 
     assert.equal(bookingRes.success, true);
     assert.equal(bookingRes.booking.status, "scheduled");
+    assert.equal(bookingRes.booking.consentConfirmed, true);
     booking1 = bookingRes.booking;
 
-    // 2. Conflict Check 1: Same Theatre Room overlapping
+    // 2. Command Idempotency replay with same commandId
+    const replayRes = await bookTheatreCase({
+      hospitalId,
+      commandId,
+      theatreRoomId: theatreRoom1Id,
+      patientId: patient1Id,
+      leadSurgeonDoctorId: surgeon1Id,
+      anesthetistDoctorId: anesthetist1Id,
+      procedureName: "Laparoscopic Cholecystectomy",
+      scheduledStartTime: startSlot,
+      scheduledEndTime: endSlot,
+    });
+    assert.equal(replayRes.success, true);
+    assert.equal(replayRes.idempotentReplay, true);
+    assert.equal(replayRes.booking._id.toString(), booking1._id.toString());
+
+    // 3. Conflict Check 1: Same Theatre Room overlapping
     await assert.rejects(
       () =>
         bookTheatreCase({
@@ -456,7 +681,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       /Theatre room OT-01 is already booked/
     );
 
-    // 3. Conflict Check 2: Same Lead Surgeon overlapping in different room
+    // 4. Conflict Check 2: Same Lead Surgeon overlapping in different room
     await assert.rejects(
       () =>
         bookTheatreCase({
@@ -473,7 +698,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       /Lead surgeon is already booked/
     );
 
-    // 4. Conflict Check 3: Same Anesthetist overlapping in different room
+    // 5. Conflict Check 3: Same Anesthetist overlapping in different room
     await assert.rejects(
       () =>
         bookTheatreCase({
@@ -490,7 +715,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       /Anesthetist is already booked/
     );
 
-    // 5. Non-overlapping slot succeeds for same room and team
+    // 6. Non-overlapping slot succeeds for same room and team
     const afternoonRes = await bookTheatreCase({
       hospitalId,
       theatreRoomId: theatreRoom1Id,
@@ -499,6 +724,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       anesthetistDoctorId: anesthetist1Id,
       procedureName: "Inguinal Hernia Repair",
       urgency: "elective",
+      consentConfirmed: true,
       scheduledStartTime: new Date("2026-10-25T12:00:00Z"), // After 11:00!
       scheduledEndTime: new Date("2026-10-25T14:00:00Z"),
     });
@@ -515,6 +741,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       anesthetistDoctorId: anesthetist2Id,
       procedureName: "Diagnostic Laparoscopy",
       urgency: "elective",
+      consentConfirmed: true,
       scheduledStartTime: new Date("2026-10-25T15:00:00Z"),
       scheduledEndTime: new Date("2026-10-25T17:00:00Z"),
     });
@@ -537,14 +764,37 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       /Theatre room OT-02 is already booked/
     );
 
+    // Stale version cancellation rejected
+    await assert.rejects(
+      () =>
+        cancelTheatreCase({
+          hospitalId,
+          bookingId: tempCase.booking._id,
+          reason: "Patient moved to ICU",
+          expectedVersion: 42,
+        }),
+      /Theatre booking was modified concurrently/
+    );
+
     // Cancel tempCase
     const cancelRes = await cancelTheatreCase({
       hospitalId,
       bookingId: tempCase.booking._id,
       reason: "Patient hemodynamically unstable, moved to ICU instead",
+      expectedVersion: 0,
+      actor: { staffId: surgeon2Id },
     });
     assert.equal(cancelRes.success, true);
     assert.equal(cancelRes.booking.status, "cancelled");
+
+    // Repeated cancel is idempotent
+    const repeatCancel = await cancelTheatreCase({
+      hospitalId,
+      bookingId: tempCase.booking._id,
+      reason: "Duplicate cancellation attempt",
+    });
+    assert.equal(repeatCancel.success, true);
+    assert.equal(repeatCancel.alreadyCancelled, true);
 
     // Now re-booking the emergency case in that same window succeeds immediately!
     const rebookRes = await bookTheatreCase({
@@ -555,6 +805,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
       anesthetistDoctorId: anesthetist1Id,
       procedureName: "STAT Exploratory Laparotomy",
       urgency: "emergency_stat",
+      consentConfirmed: true,
       scheduledStartTime: new Date("2026-10-25T15:30:00Z"),
       scheduledEndTime: new Date("2026-10-25T16:30:00Z"),
     });
@@ -562,7 +813,41 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
     assert.equal(rebookRes.booking.status, "scheduled");
   });
 
-  await t.test("5. WHO Surgical Safety Checklist stage sequence and mandatory checkpoints", async () => {
+  await t.test("5. WHO Surgical Safety Checklist stage sequence, mandatory checkpoints, consent, and role guards", async () => {
+    // Case without consent fails WHO checklist
+    const unconsentedCase = await bookTheatreCase({
+      hospitalId,
+      theatreRoomId: theatreRoom1Id,
+      patientId: patient2Id,
+      leadSurgeonDoctorId: surgeon2Id,
+      anesthetistDoctorId: anesthetist2Id,
+      procedureName: "Unconsented Surgery",
+      urgency: "elective",
+      consentConfirmed: false,
+      scheduledStartTime: new Date("2026-10-25T18:00:00Z"),
+      scheduledEndTime: new Date("2026-10-25T20:00:00Z"),
+    });
+
+    await assert.rejects(
+      () =>
+        recordWhoChecklistStage({
+          hospitalId,
+          bookingId: unconsentedCase.booking._id,
+          stage: "signIn",
+          checkpoints: {
+            patient_identity_confirmed: true,
+            surgical_site_marked: true,
+            anesthesia_safety_check_complete: true,
+            pulse_oximeter_operating: true,
+            allergy_status_verified: true,
+            airway_aspiration_risk_evaluated: true,
+            blood_loss_risk_prepared: true,
+          },
+          actor: { staffId: nurse1Id },
+        }),
+      /Surgical consent verification is required/
+    );
+
     // 1. Missing mandatory checkpoints in Sign In
     await assert.rejects(
       () =>
@@ -575,6 +860,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
             surgical_site_marked: true,
             // missing other mandatory checkpoints
           },
+          actor: { staffId: nurse1Id },
         }),
       /missing mandatory verified items/
     );
@@ -595,6 +881,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
             antibiotic_prophylaxis_administered_within_60m: true,
             essential_imaging_displayed: true,
           },
+          actor: { role: "DOCTOR", doctorId: surgeon1Id },
         }),
       /Cannot perform Time Out before Sign In/
     );
@@ -613,31 +900,58 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
         airway_aspiration_risk_evaluated: true,
         blood_loss_risk_prepared: true,
       },
+      expectedVersion: 0,
       actor: { staffId: nurse1Id },
     });
     assert.equal(signInRes.success, true);
     assert.equal(signInRes.status, "in_progress");
+    assert.equal(signInRes.booking.version, 1);
     assert.ok(signInRes.booking.actualStartTime);
 
-    // 4. Cannot jump to Sign Out before Time Out
+    // 4. Non-doctor (nurse or admin) cannot sign Time Out
     await assert.rejects(
       () =>
         recordWhoChecklistStage({
           hospitalId,
           bookingId: booking1._id,
-          stage: "signOut",
+          stage: "timeOut",
           checkpoints: {
-            procedure_name_recorded: true,
-            instrument_sponge_needle_counts_correct: true,
-            surgical_specimen_labeled: true,
-            equipment_issues_recorded: true,
-            surgeon_anesthetist_nurse_recovery_plan_agreed: true,
+            team_introductions_complete: true,
+            patient_procedure_site_confirmed: true,
+            surgeon_critical_events_reviewed: true,
+            anesthetist_concerns_reviewed: true,
+            nursing_sterility_confirmed: true,
+            antibiotic_prophylaxis_administered_within_60m: true,
+            essential_imaging_displayed: true,
           },
+          actor: { role: "NURSE", staffId: nurse1Id }, // Non-doctor!
         }),
-      /Cannot perform Sign Out before Time Out/
+      /WHO Surgical Safety Checklist Time Out must be verified by an operating surgeon/
     );
 
-    // 5. Complete Time Out checklist
+    // Stale version rejected
+    await assert.rejects(
+      () =>
+        recordWhoChecklistStage({
+          hospitalId,
+          bookingId: booking1._id,
+          stage: "timeOut",
+          checkpoints: {
+            team_introductions_complete: true,
+            patient_procedure_site_confirmed: true,
+            surgeon_critical_events_reviewed: true,
+            anesthetist_concerns_reviewed: true,
+            nursing_sterility_confirmed: true,
+            antibiotic_prophylaxis_administered_within_60m: true,
+            essential_imaging_displayed: true,
+          },
+          expectedVersion: 0, // stale! Current version is 1
+          actor: { role: "DOCTOR", doctorId: surgeon1Id },
+        }),
+      /WHO checklist was modified concurrently/
+    );
+
+    // 5. Complete Time Out checklist by authorized doctor
     const timeOutRes = await recordWhoChecklistStage({
       hospitalId,
       bookingId: booking1._id,
@@ -651,10 +965,13 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
         antibiotic_prophylaxis_administered_within_60m: true,
         essential_imaging_displayed: true,
       },
-      actor: { doctorId: surgeon1Id },
+      expectedVersion: 1,
+      actor: { role: "DOCTOR", doctorId: surgeon1Id },
     });
     assert.equal(timeOutRes.success, true);
     assert.equal(timeOutRes.booking.whoChecklist.timeOut.completed, true);
+    assert.equal(timeOutRes.booking.whoChecklist.timeOut.verifiedByDoctorId.toString(), surgeon1Id.toString());
+    assert.equal(timeOutRes.booking.version, 2);
 
     // 6. Complete Sign Out checklist -> Moves booking to completed
     const signOutRes = await recordWhoChecklistStage({
@@ -668,26 +985,41 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
         equipment_issues_recorded: true,
         surgeon_anesthetist_nurse_recovery_plan_agreed: true,
       },
+      expectedVersion: 2,
       actor: { staffId: nurse1Id },
     });
     assert.equal(signOutRes.success, true);
     assert.equal(signOutRes.status, "completed");
+    assert.equal(signOutRes.booking.version, 3);
     assert.ok(signOutRes.booking.actualEndTime);
   });
 
-  await t.test("6. PACU recovery Aldrete clinical scoring and ward discharge gate", async () => {
-    // 1. Invalid Aldrete score (e.g. 12)
+  await t.test("6. PACU recovery Aldrete clinical scoring, ward discharge gate, and role validation", async () => {
+    // 1. Non-clinician cannot perform PACU recovery evaluation
+    await assert.rejects(
+      () =>
+        recordPacuRecovery({
+          hospitalId,
+          bookingId: booking1._id,
+          aldreteScore: 9,
+          actor: { role: "HOSPITAL_ADMIN", staffId: new mongoose.Types.ObjectId() },
+        }),
+      /PACU recovery evaluation must be conducted by a qualified clinician/
+    );
+
+    // 2. Invalid Aldrete score (e.g. 12)
     await assert.rejects(
       () =>
         recordPacuRecovery({
           hospitalId,
           bookingId: booking1._id,
           aldreteScore: 12,
+          actor: { role: "NURSE", staffId: nurse1Id },
         }),
       /Valid Aldrete recovery score/
     );
 
-    // 2. Premature ward discharge attempt with low Aldrete score (e.g. 6/10)
+    // 3. Premature ward discharge attempt with low Aldrete score (e.g. 6/10)
     await assert.rejects(
       () =>
         recordPacuRecovery({
@@ -695,29 +1027,46 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
           bookingId: booking1._id,
           aldreteScore: 6,
           dischargedToWard: true,
+          actor: { role: "NURSE", staffId: nurse1Id },
         }),
       /PACU safety violation: Aldrete recovery score of 6 is insufficient for ward transfer/
     );
 
-    // 3. Score 6 recorded while remaining in PACU for recovery monitoring
+    // 4. Stale version rejected
+    await assert.rejects(
+      () =>
+        recordPacuRecovery({
+          hospitalId,
+          bookingId: booking1._id,
+          aldreteScore: 6,
+          dischargedToWard: false,
+          expectedVersion: 0, // stale!
+          actor: { role: "NURSE", staffId: nurse1Id },
+        }),
+      /Theatre booking was modified concurrently/
+    );
+
+    // 5. Score 6 recorded while remaining in PACU for recovery monitoring
     const pacuMonitorRes = await recordPacuRecovery({
       hospitalId,
       bookingId: booking1._id,
       aldreteScore: 6,
       dischargedToWard: false,
-      actor: { staffId: nurse1Id },
+      expectedVersion: 3,
+      actor: { role: "NURSE", staffId: nurse1Id },
     });
     assert.equal(pacuMonitorRes.success, true);
     assert.equal(pacuMonitorRes.pacu.aldreteScore, 6);
     assert.equal(pacuMonitorRes.pacu.dischargedToWard, false);
 
-    // 4. Score 9 recorded with ward discharge authorization
+    // 6. Score 9 recorded with ward discharge authorization
     const wardTransferRes = await recordPacuRecovery({
       hospitalId,
       bookingId: booking1._id,
       aldreteScore: 9,
       dischargedToWard: true,
-      actor: { staffId: nurse1Id },
+      expectedVersion: 4,
+      actor: { role: "NURSE", staffId: nurse1Id },
     });
     assert.equal(wardTransferRes.success, true);
     assert.equal(wardTransferRes.pacu.aldreteScore, 9);
@@ -735,6 +1084,7 @@ test("Task AG20: Emergency and Theatre Workflows (Unit & Domain)", async (t) => 
           patientName: "Trauma Patient",
           triageLevel: 1,
           chiefComplaint: "Severe head injury",
+          actor: { role: "NURSE", staffId: nurse1Id },
         }),
       (err) => err.status === 503 || err.message.includes("Database service is unavailable")
     );

@@ -38,6 +38,7 @@ const assertDbConnected = () => {
 export const registerEmergencyPatient = async ({
   hospitalId,
   patientId = null,
+  familyMemberId = null,
   patientName,
   age = null,
   gender = "unknown",
@@ -52,6 +53,7 @@ export const registerEmergencyPatient = async ({
     return testDouble.registerEmergencyPatient({
       hospitalId,
       patientId,
+      familyMemberId,
       patientName,
       age,
       gender,
@@ -61,6 +63,10 @@ export const registerEmergencyPatient = async ({
       assignedBay,
       actor,
     });
+  }
+
+  if (actor?.role && !["DOCTOR", "NURSE"].includes(actor.role)) {
+    throw accessError(403, "Emergency clinical triage must be conducted by a qualified clinician (DOCTOR or NURSE role)");
   }
 
   if (!patientName || !String(patientName).trim()) {
@@ -89,6 +95,7 @@ export const registerEmergencyPatient = async ({
     hospitalId,
     emergencyNumber,
     patientId,
+    familyMemberId,
     patientName: String(patientName).trim(),
     age: age ? Number(age) : null,
     gender,
@@ -97,9 +104,18 @@ export const registerEmergencyPatient = async ({
     triageCategory: triageConfig.code,
     chiefComplaint: String(chiefComplaint).trim(),
     assignedBay: String(assignedBay).trim() || (triageLevel === 1 ? "RESUSCITATION-BAY-1" : "ACUTE-BAY-1"),
-    attendingDoctorId: actor?.doctorId || null,
+    attendingDoctorId: actor?.doctorId || (actor?.role === "DOCTOR" ? actor?.staffId : null),
     triagedByStaffId: actor?.staffId || null,
     status: "triaged",
+    version: 0,
+    statusHistory: [
+      {
+        status: "triaged",
+        changedAt: new Date(),
+        changedByStaffId: actor?.staffId || null,
+        notes: `Initial emergency triage: Level ${triageLevel} (${triageConfig.code})`,
+      },
+    ],
   });
 
   return {
@@ -179,6 +195,9 @@ export const bookTheatreCase = async ({
   urgency = "elective",
   scheduledStartTime,
   scheduledEndTime,
+  commandId = null,
+  consentConfirmed = false,
+  consentFormRef = "",
   actor,
 }) => {
   assertDbConnected();
@@ -196,6 +215,9 @@ export const bookTheatreCase = async ({
       urgency,
       scheduledStartTime,
       scheduledEndTime,
+      commandId,
+      consentConfirmed,
+      consentFormRef,
       actor,
     });
   }
@@ -217,6 +239,17 @@ export const bookTheatreCase = async ({
     if (!hospital) throw accessError(404, "Hospital not found");
     assertTenantNotSuspended(hospital);
     checkFeatureEntitlement(hospital, "emergency_theatre");
+
+    if (commandId) {
+      const existing = await OtSchedule.findOne({ hospitalId, commandId }).session(session);
+      if (existing) {
+        return {
+          success: true,
+          booking: existing,
+          idempotentReplay: true,
+        };
+      }
+    }
 
     const theatre = await TheatreRoom.findOne({ _id: theatreRoomId, hospitalId, isActive: true }).session(session);
     if (!theatre) throw accessError(404, "Active theatre room not found in this hospital");
@@ -275,6 +308,11 @@ export const bookTheatreCase = async ({
         {
           hospitalId,
           bookingNumber,
+          commandId: commandId || null,
+          consentConfirmed: Boolean(consentConfirmed),
+          consentFormRef: String(consentFormRef || "").trim(),
+          consentConfirmedAt: consentConfirmed ? new Date() : null,
+          consentConfirmedByStaffId: consentConfirmed ? actor?.staffId || null : null,
           theatreRoomId,
           patientId,
           admissionId,
@@ -302,10 +340,10 @@ export const bookTheatreCase = async ({
 /**
  * 4. Cancellation & Immediate Resource Release
  */
-export const cancelTheatreCase = async ({ hospitalId, bookingId, reason, actor }) => {
+export const cancelTheatreCase = async ({ hospitalId, bookingId, reason, expectedVersion, actor }) => {
   assertDbConnected();
   if (testDouble?.cancelTheatreCase) {
-    return testDouble.cancelTheatreCase({ hospitalId, bookingId, reason, actor });
+    return testDouble.cancelTheatreCase({ hospitalId, bookingId, reason, expectedVersion, actor });
   }
 
   if (!reason || !String(reason).trim()) {
@@ -315,13 +353,32 @@ export const cancelTheatreCase = async ({ hospitalId, bookingId, reason, actor }
   const booking = await OtSchedule.findOne({
     _id: bookingId,
     hospitalId,
-    status: { $in: ["scheduled", "in_progress"] },
   });
   if (!booking) throw accessError(404, "Active theatre booking not found");
+
+  if (booking.status === "cancelled") {
+    return {
+      success: true,
+      booking,
+      alreadyCancelled: true,
+    };
+  }
+
+  if (booking.status === "completed") {
+    throw accessError(400, "Cannot cancel a completed surgical case");
+  }
+
+  if (expectedVersion !== undefined && booking.version !== undefined && booking.version !== Number(expectedVersion)) {
+    throw accessError(
+      409,
+      `Theatre booking was modified concurrently (expected version ${expectedVersion}, actual version ${booking.version}). Please refresh and retry.`
+    );
+  }
 
   booking.status = "cancelled";
   booking.cancellationReason = String(reason).trim();
   booking.cancellationTimestamp = new Date();
+  booking.cancelledByStaffId = actor?.staffId || null;
   booking.version = (booking.version || 0) + 1;
   await booking.save();
 
@@ -339,16 +396,23 @@ export const recordWhoChecklistStage = async ({
   bookingId,
   stage, // 'signIn' | 'timeOut' | 'signOut'
   checkpoints = {},
+  expectedVersion,
   actor,
 }) => {
   assertDbConnected();
   if (testDouble?.recordWhoChecklistStage) {
-    return testDouble.recordWhoChecklistStage({ hospitalId, bookingId, stage, checkpoints, actor });
+    return testDouble.recordWhoChecklistStage({ hospitalId, bookingId, stage, checkpoints, expectedVersion, actor });
   }
 
   const validStages = ["signIn", "timeOut", "signOut"];
   if (!validStages.includes(stage)) {
     throw accessError(400, `Invalid WHO checklist stage: '${stage}'. Allowed: [${validStages.join(", ")}]`);
+  }
+
+  if (stage === "timeOut") {
+    if (actor?.role && actor.role !== "DOCTOR") {
+      throw accessError(403, "WHO Surgical Safety Checklist Time Out must be verified by an operating surgeon (DOCTOR role)");
+    }
   }
 
   const stageKey = stage === "signIn" ? "SIGN_IN" : stage === "timeOut" ? "TIME_OUT" : "SIGN_OUT";
@@ -372,6 +436,25 @@ export const recordWhoChecklistStage = async ({
 
     if (!booking) throw accessError(404, "Active theatre booking not found");
 
+    if (expectedVersion !== undefined && booking.version !== undefined && booking.version !== Number(expectedVersion)) {
+      throw accessError(
+        409,
+        `WHO checklist was modified concurrently by another team member (expected version ${expectedVersion}, actual version ${booking.version}). Please refresh and retry.`
+      );
+    }
+
+    // Consent gate: Sign In and Time Out require confirmed informed surgical consent
+    const consentVerified =
+      Boolean(booking.consentConfirmed) ||
+      Boolean(checkpoints.patient_consent_verified) ||
+      Boolean(checkpoints.consent_confirmed);
+    if (!consentVerified) {
+      throw accessError(
+        400,
+        "Surgical consent verification is required before proceeding with WHO checklist"
+      );
+    }
+
     // Sequence gate enforcement: Time Out requires Sign In; Sign Out requires Time Out
     if (stage === "timeOut" && !booking.whoChecklist?.signIn?.completed) {
       throw accessError(400, "Cannot perform Time Out before Sign In checklist is complete");
@@ -383,7 +466,7 @@ export const recordWhoChecklistStage = async ({
     booking.whoChecklist[stage] = {
       completed: true,
       completedAt: new Date(),
-      verifiedByDoctorId: stage === "timeOut" ? actor?.doctorId || booking.leadSurgeonDoctorId : null,
+      verifiedByDoctorId: stage === "timeOut" ? actor?.doctorId || (actor?.role === "DOCTOR" ? actor?.staffId : null) : null,
       verifiedByStaffId: stage !== "timeOut" ? actor?.staffId || null : null,
       checkpoints: new Map(Object.entries(checkpoints)),
     };
@@ -419,11 +502,16 @@ export const recordPacuRecovery = async ({
   bookingId,
   aldreteScore,
   dischargedToWard = false,
+  expectedVersion,
   actor,
 }) => {
   assertDbConnected();
   if (testDouble?.recordPacuRecovery) {
-    return testDouble.recordPacuRecovery({ hospitalId, bookingId, aldreteScore, dischargedToWard, actor });
+    return testDouble.recordPacuRecovery({ hospitalId, bookingId, aldreteScore, dischargedToWard, expectedVersion, actor });
+  }
+
+  if (actor?.role && !["DOCTOR", "NURSE"].includes(actor.role)) {
+    throw accessError(403, "PACU recovery evaluation must be conducted by a qualified clinician (NURSE or DOCTOR role)");
   }
 
   const score = Number(aldreteScore);
@@ -439,8 +527,19 @@ export const recordPacuRecovery = async ({
     );
   }
 
-  const booking = await OtSchedule.findOne({ _id: bookingId, hospitalId, status: "completed" });
-  if (!booking) throw accessError(404, "Completed theatre surgery booking not found for PACU recovery");
+  const booking = await OtSchedule.findOne({ _id: bookingId, hospitalId });
+  if (!booking) throw accessError(404, "Theatre surgery booking not found for PACU recovery");
+
+  if (booking.status !== "completed") {
+    throw accessError(400, "Cannot record PACU recovery before surgery is completed");
+  }
+
+  if (expectedVersion !== undefined && booking.version !== undefined && booking.version !== Number(expectedVersion)) {
+    throw accessError(
+      409,
+      `Theatre booking was modified concurrently (expected version ${expectedVersion}, actual version ${booking.version}). Please refresh and retry.`
+    );
+  }
 
   booking.pacu = {
     aldreteScore: score,
@@ -448,12 +547,30 @@ export const recordPacuRecovery = async ({
     dischargedToWard: Boolean(dischargedToWard),
     dischargedAt: dischargedToWard ? new Date() : null,
   };
+  booking.version = (booking.version || 0) + 1;
 
   await booking.save();
 
   return {
     success: true,
     pacu: booking.pacu,
+  };
+};
+
+const enrichWithOverdue = (reg) => {
+  if (!reg) return reg;
+  const triageConfig = EMERGENCY_TRIAGE_LEVELS[reg.triageLevel];
+  const maxWait = triageConfig?.maxWaitMinutes ?? 120;
+  const arrivalMs = new Date(reg.arrivalTime || Date.now()).getTime();
+  const waitMinutes = Math.max(0, Math.floor((Date.now() - arrivalMs) / 60000));
+  const isOverdue = reg.status === "triaged" && waitMinutes > maxWait;
+  const overdueMinutes = isOverdue ? waitMinutes - maxWait : 0;
+  return {
+    ...reg,
+    waitMinutes,
+    maxWaitMinutes: maxWait,
+    isOverdue,
+    overdueMinutes,
   };
 };
 
@@ -517,7 +634,7 @@ export const getEmergencyRegistrations = async ({
 
   return {
     success: true,
-    registrations,
+    registrations: registrations.map(enrichWithOverdue),
     total,
     page: parsedPage,
     limit: parsedLimit,
@@ -540,7 +657,7 @@ export const getEmergencyRegistrationById = async ({ hospitalId, emergencyRegist
     .lean();
 
   if (!registration) throw accessError(404, "Emergency registration not found");
-  return registration;
+  return enrichWithOverdue(registration);
 };
 
 export const updateEmergencyStatus = async ({
@@ -551,6 +668,7 @@ export const updateEmergencyStatus = async ({
   assignedBay,
   outcomeNotes,
   linkedAdmissionId,
+  expectedVersion,
   actor,
 }) => {
   assertDbConnected();
@@ -563,6 +681,7 @@ export const updateEmergencyStatus = async ({
       assignedBay,
       outcomeNotes,
       linkedAdmissionId,
+      expectedVersion,
       actor,
     });
   }
@@ -577,6 +696,13 @@ export const updateEmergencyStatus = async ({
     hospitalId,
   });
   if (!registration) throw accessError(404, "Emergency registration not found");
+
+  if (expectedVersion !== undefined && registration.version !== undefined && registration.version !== Number(expectedVersion)) {
+    throw accessError(
+      409,
+      `Emergency registration was updated concurrently by another user (expected version ${expectedVersion}, actual version ${registration.version}). Please refresh and retry.`
+    );
+  }
 
   if (status) {
     registration.status = status;
@@ -596,6 +722,15 @@ export const updateEmergencyStatus = async ({
   if (linkedAdmissionId !== undefined) {
     registration.linkedAdmissionId = linkedAdmissionId || null;
   }
+
+  registration.version = (registration.version || 0) + 1;
+  registration.statusHistory = registration.statusHistory || [];
+  registration.statusHistory.push({
+    status: status || registration.status,
+    changedAt: new Date(),
+    changedByStaffId: actor?.staffId || null,
+    notes: String(outcomeNotes || `Status updated to ${status || registration.status}`).trim(),
+  });
 
   await registration.save();
 

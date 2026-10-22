@@ -23,7 +23,7 @@ emergencyTheatreRouter.use(nosqlGuard);
 emergencyTheatreRouter.post(
   "/registrations",
   validateStaff,
-  requireRole("DOCTOR", "NURSE", "HOSPITAL_ADMIN"),
+  requireRole("DOCTOR", "NURSE"),
   registerEmergencyPatientHandler
 );
 emergencyTheatreRouter.get(
@@ -41,7 +41,7 @@ emergencyTheatreRouter.get(
 emergencyTheatreRouter.patch(
   "/registrations/:id/status",
   validateStaff,
-  requireRole("DOCTOR", "NURSE", "HOSPITAL_ADMIN"),
+  requireRole("DOCTOR", "NURSE"),
   updateEmergencyStatusHandler
 );
 

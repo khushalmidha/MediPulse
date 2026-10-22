@@ -33,9 +33,19 @@ const emergencyRegistrationSchema = new mongoose.Schema(
       default: "triaged",
       index: true,
     },
+    familyMemberId: { type: objectId, default: null },
     linkedAdmissionId: { type: objectId, ref: "IpdAdmission", default: null },
     outcomeNotes: { type: String, default: "" },
     dispositionTime: { type: Date, default: null },
+    version: { type: Number, default: 0 },
+    statusHistory: [
+      {
+        status: { type: String, required: true },
+        changedAt: { type: Date, default: Date.now },
+        changedByStaffId: { type: objectId, ref: "HospitalStaff", default: null },
+        notes: { type: String, default: "" },
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -63,6 +73,11 @@ const otScheduleSchema = new mongoose.Schema(
   {
     hospitalId: { type: objectId, ref: "Hospital", required: true, index: true },
     bookingNumber: { type: String, required: true, unique: true, index: true },
+    commandId: { type: String, default: null, index: true },
+    consentConfirmed: { type: Boolean, default: false },
+    consentFormRef: { type: String, default: "" },
+    consentConfirmedAt: { type: Date, default: null },
+    consentConfirmedByStaffId: { type: objectId, ref: "HospitalStaff", default: null },
     theatreRoomId: { type: objectId, ref: "TheatreRoom", required: true, index: true },
     patientId: { type: objectId, ref: "user", required: true, index: true },
     admissionId: { type: objectId, ref: "IpdAdmission", default: null, index: true },
@@ -89,6 +104,7 @@ const otScheduleSchema = new mongoose.Schema(
     },
     cancellationReason: { type: String, default: "" },
     cancellationTimestamp: { type: Date, default: null },
+    cancelledByStaffId: { type: objectId, ref: "HospitalStaff", default: null },
     whoChecklist: {
       signIn: {
         completed: { type: Boolean, default: false },
@@ -121,6 +137,7 @@ const otScheduleSchema = new mongoose.Schema(
 );
 
 otScheduleSchema.index({ hospitalId: 1, theatreRoomId: 1, scheduledStartTime: 1, scheduledEndTime: 1 });
+otScheduleSchema.index({ hospitalId: 1, commandId: 1 }, { unique: true, partialFilterExpression: { commandId: { $type: "string" } } });
 
 export const EmergencyRegistration =
   mongoose.models.EmergencyRegistration || mongoose.model("EmergencyRegistration", emergencyRegistrationSchema);
