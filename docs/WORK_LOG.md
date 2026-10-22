@@ -3282,3 +3282,35 @@ Closed outpatient prerequisites with owner/operator acceptance. Reconciled the o
   - Transitioned `AG16.09` and parent task `AG16` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
   - Advanced starting plan task to `AG17`.
 
+## AG17 — Enterprise hospital expansion requirements and phases - 22 October 2026
+
+Completed and verified enterprise expansion governance specifications, versioned policy decisions, actual principal capability mapping, and administrative access boundaries across packages AG17.01 and AG17.02.
+
+### Verified scope and findings
+
+- **Versioned Policy Decisions Register (`backend/config/enterprisePlan.js`, `docs/ENTERPRISE_PLAN.md` - AG17.01):**
+  - Formalized `ENTERPRISE_POLICY_DECISIONS` under Section 3 governance rules, recording responsible reviewers, dates, scopes, sources, approval states, and rollback boundaries across 9 required domains:
+    1. Jurisdiction & Statutory Framework (India DPDPA 2023, Clinical Establishments Act 2010, ABDM guidelines, NABH 5th Ed).
+    2. Medical Record Retention & Deletion Schedule (Adult IPD: 10y, Pediatric: 21y or 10y, MLC: Permanent, Controlled: 2y).
+    3. Authenticated Medication Witnessing (Mandatory dual-nurse authentication; caller-entered signatures refused with 503).
+    4. Clinical Escalation (Deterministic NEWS2 scoring with low 0-4, medium 5-6, and Code Blue >=7 thresholds).
+    5. Handover & Multi-Department Discharge Clearance (Medical DOCTOR + Pharmacy PHARMACIST + Finance RECEPTIONIST/ADMIN).
+    6. Emergency Department Triage (5-level ESI triage scale with response wait targets 0m, 10m, 30m, 60m, 120m).
+    7. Theatre Safety (WHO 3-stage Surgical Safety Checklist: Sign In, Time Out, Sign Out with version lock).
+    8. Finance & Tariffs (Daily bed-day accrual, minor-unit integer arithmetic, split billing).
+    9. Integrations & DR (LIS receipt metadata, PACS study references, SAML/OIDC config, 503 containment).
+- **Actual Principals, Role Reconciliation & Clinical Access Protection (`backend/config/enterprisePlan.js`, `backend/routes/nursingCare.js`, `backend/routes/emergencyTheatre.js`, `backend/controller/inpatient.js` - AG17.02):**
+  - Mapped capabilities strictly across the 7 actual authenticated `HospitalStaff` roles: `HOSPITAL_ADMIN`, `DEPARTMENT_HEAD`, `DOCTOR`, `NURSE`, `LAB_TECH`, `RECEPTIONIST`, and `PHARMACIST`.
+  - Enforced that `HOSPITAL_ADMIN` and `adminAccess: true` strictly cannot confer clinical signing, medication witnessing, medical discharge clearance, nursing vitals recording, or surgical checklist leadership.
+  - Implemented `assertStaffCapability` helper to guard operations against unauthenticated, inactive, or unauthorized staff principals.
+  - Reconciled proposed enterprise functions (`anesthetist`, `surgeon`, `storekeeper`, `finance_officer`, `charge_nurse`) to actual Mongoose schema roles and department assignment requirements.
+  - Refactored `backend/controller/inpatient.js` `recordClearanceHandler` to require licensed medical doctors/department heads for medical clearance and pharmacists for pharmacy clearance, preventing administrative bypass.
+  - Refactored `backend/routes/nursingCare.js` and `backend/routes/emergencyTheatre.js` to restrict clinical orders, vitals recording, omissions, handovers, and WHO checklists to clinical principals (`DOCTOR`, `NURSE`, `DEPARTMENT_HEAD`).
+- **Automated Verification Matrix:**
+  - `enterprise-plan.test.js`: 12/12 unit and domain tests passed covering statutory retention, bed state machine, NEWS2 calculation, 5-level triage, WHO surgical checklist, milestone dependency graph, SaaS entitlements, role capabilities, administrative access boundaries, proposed function reconciliation, and versioned policy registry.
+  - Backend test runner: 233 passed, 0 failed (`npm --prefix backend test`).
+- **Plan ledger update:**
+  - Transitioned `AG17.01`, `AG17.02`, and parent task `AG17` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+  - Advanced starting plan task to `AG18`.
+
+

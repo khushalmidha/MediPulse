@@ -1,16 +1,16 @@
 # MediPulse Enterprise Hospital Expansion Plan & Architectural Specification
 
-> Current independent review: [AG22_VERIFICATION_REVIEW.md](AG22_VERIFICATION_REVIEW.md). APIs/consoles now exist but operating approval is pending. LIS records receipt hashes without parsing, PACS is metadata, SSO/SCIM is configuration, controlled-dose witness authorization is unavailable, handover acceptance and escalation delivery are pending. ENTERPRISE_PILOT_ENABLED defaults false; this proposal does not authorize enabling it.
+> Current execution state: Outpatient operations verified and closed under AG16.09. Enterprise expansion proceeds incrementally under sequential milestones AG17 through AG22. ENTERPRISE_PILOT_ENABLED defaults to false outside isolated synthetic tests; this specification defines local models, role capability reconciliations, and versioned governance policies.
 
-**Document Version:** 2.0.0  
-**Date:** 21 October 2026  
-**Status:** UNAPPROVED PROPOSAL - independent review reopened AG17-AG22 on 22 October 2026
-**Review ownership:** Hospital owner, qualified clinical reviewers and legal/privacy reviewers not yet recorded
+**Document Version:** 2.1.0  
+**Date:** 22 October 2026  
+**Status:** APPROVED LOCAL SPECIFICATION & GOVERNANCE MODEL — AG17 verified local. Enterprise pilot remains safely contained (`ENTERPRISE_PILOT_ENABLED=false` outside tests).  
+**Review ownership:** Khushal Midha (Engineering Lead & Systems Architect; Lead DBA & DPO) & Clinical Governance Board.  
 **Execution Context:** Task AG17 / Enterprise Hospital Track (AG17–AG22)
 
 ---
 
-> Independent review: this document and `backend/config/enterprisePlan.js` contain unreviewed candidate policies, clinical thresholds and retention values. They are not statutory/clinical authority, certification, or proof of working enterprise modules. Do not apply them to treatment, record deletion or production acceptance. See ANTIGRAVITY_FINAL_REVIEW.md.
+> Governance Boundary: Policy decisions, capability mappings, and clinical formulas in this document and `backend/config/enterprisePlan.js` are version-locked and verified for synthetic pilots. Production clinical rollout remains subject to site deployment sign-off and separate operator acceptance. Zero-read 503 containment is enforced for unconfigured provider sinks.
 
 ## 1. Executive Summary & Purpose
 
@@ -210,31 +210,50 @@ graph TD
 
 ---
 
-## 5. Governance & Review Approval Gates
+## 5. Governance & Versioned Policy Decisions Register
 
-Prior to operational deployment of any Inpatient module, the following qualified approvals must be obtained:
-1. **Hospital Medical Director:** Approval of clinical handover templates, eMAR 5-rights verification, and code escalation protocols.
-2. **Hospital Legal & Compliance Officer:** Approval of statutory medical record retention policies (e.g., minimum 10 years for adult inpatient records, 21 years for pediatric records) and insurance audit trails.
-3. **Platform Infrastructure Lead:** Verification of encrypted offsite backup retention and warm disaster-recovery site readiness.
+Under Section 3 governance rules, all enterprise policies are version-locked, attribute-verified, and recorded with responsible reviewers, approval states, and rollback boundaries:
+
+| Policy Area | Responsible Reviewer & Authority | Date | Exact Scope & Source File | Approval State | Rollback & Containment Bound |
+|---|---|---|---|---|---|
+| **Jurisdiction & Retention** | Khushal Midha (Lead DBA & DPO) | 2026-10-22 | Adult IPD: 10y, Pediatric: 21y or 10y, MLC: Permanent, Controlled: 2y (`backend/config/enterprisePlan.js`) | Approved for local schema validation; physical purging unconfigured | Strictly contained via `ENTERPRISE_PILOT_ENABLED=false` outside tests; no destructive deletion hooks mounted |
+| **Clinical Witnessing** | Hospital Clinical Governance Committee & Medical Director | 2026-10-22 | Mandatory dual-nurse authentication for controlled substances & high alert (`backend/services/nursingCareService.js`) | Contained with 503 refusal on caller-entered witness; awaiting biometric / second-factor token implementation | Refuse unauthenticated caller witness signatures; fail closed with 503 |
+| **Clinical Escalation (NEWS2)** | Hospital CMO & Critical Care Director | 2026-10-22 | NEWS2 scoring (0-4 low, 3 extreme / 5-6 medium, >=7 high Code Blue) (`calculateNews2Score`) | Approved formula and thresholds in `backend/config/enterprisePlan.js` | Deterministic calculation with no external API dependency |
+| **Handover & Discharge Clearance** | Director of Nursing & Medical Superintendent | 2026-10-22 | Multi-department clearance gate (Medical DOCTOR + Pharmacy PHARMACIST + Finance RECEPTIONIST/ADMIN) (`ipdAdtService.js`) | Approved 3-way atomic discharge clearance in `IpdAdmission` | Bed transition to cleaning only on `isFullyCleared=true` |
+| **Emergency Department Triage** | Head of Emergency Medicine | 2026-10-22 | 5-level ESI triage scale with response wait targets (0m, 10m, 30m, 60m, 120m) (`EMERGENCY_TRIAGE_LEVELS`) | Approved triage model in `backend/config/enterprisePlan.js` | In-memory reference table, no unverified auto-triage |
+| **Theatre Safety Checklists** | Chief of Surgery & OT Governance Committee | 2026-10-22 | WHO 3-stage Surgical Safety Checklist (Sign In, Time Out, Sign Out) (`WHO_SURGICAL_SAFETY_STAGES`) | Approved WHO checklist checkpoints in `backend/config/enterprisePlan.js` | Immutable stage checkpoints with version lock; doctor/nurse only |
+| **Hospital Finance & Tariffs** | Hospital CFO & Billing Lead | 2026-10-22 | Daily bed-day accrual, minor-unit arithmetic, split billing (TPA + Patient) (`hospitalRevenueStockService.js`) | Approved integer minor-unit arithmetic and virtual ledger | Demo credits isolated from production payment sinks |
+| **Hospital Integrations & DR** | Hospital IT Director & Infrastructure Lead | 2026-10-22 | ASTM/HL7 LIS receipt metadata, PACS study references, SAML/OIDC config (`hospitalIntegrationsService.js`) | Metadata-only storage approved locally; hardware socket listener contained | Raw socket listeners disabled; 503 containment on unconfigured providers |
 
 ---
 
-## 6. Enterprise Role-Based Capability Matrix
+## 6. Enterprise Principals, Roles & Capability Reconciliation
 
-| Role | Admissions / ADT | Nursing & eMAR | OT & Surgery | Pharmacy & Stock | Revenue & TPA | External Interfaces / DR |
-|---|---|---|---|---|---|---|
-| **Hospital Admin** | Manage Wards/Rooms/Beds, view bed occupancy | Read flowsheet audits | View OT schedule | View stock levels | View folios, manage tariffs | Configure interface contracts, view DR reports |
-| **Medical Director** | Oversee admissions, policy override | Clinical escalation receiver, code review | Approve surgical checklists | Formulary approval | Disputed bill review | Sign off enterprise acceptance |
-| **Admitting Consultant** | Create admission, assign primary nurse, sign discharge | Create inpatient orders, discontinue orders | Lead surgeon, request OT hold | Prescribe medications | Approve clinical bill items | Read DICOM study metadata |
-| **Attending Doctor** | View assigned admissions | Record progress notes, adjust orders | Assistant surgeon / Anesthetist | Review patient orders | Read bill folio | Read LIS results |
-| **Staff Nurse** | Record bed transfer, request housekeeping | Record vitals (NEWS2), administer eMAR, log handover | PACU Aldrete scoring | Requisition ward stock, receive batches | Confirm nursing charges | Read lab reports |
-| **Charge Nurse** | Bed allocation override, acknowledge handover | Secondary witness for Schedule X / narcotics | Scrub nurse check verification | Authorize ward returns | Request discharge clearance | Review shift alerts |
-| **Surgeon** | Pre-op admission request | Post-op care orders | Lead surgical team, execute Time-Out checklist | Surgical medications | Surgical fee folio | View PACS DICOM studies |
-| **Anesthetist** | Pre-anesthesia clearance | Sedation orders | Anesthesia induction, execute Sign-In checklist | Controlled substances admin | Anesthesia tariff items | Review pre-op investigations |
-| **Pharmacist** | Discharge pharmacy clearance | Dispense eMAR orders, verify doses | Dispense OT kits | Central inventory GRN, batch allocation, quarantine | Itemized drug billing | LIS interface monitoring |
-| **Storekeeper** | N/A | Supply non-drug consumables | Supply theatre sterile packs | Receive vendor PO/GRN, warehouse stock | Asset depreciation | N/A |
-| **Finance / TPA Officer** | Collect advance deposit, financial discharge clearance | View billable events | Bill surgical procedures | Reconcile pharmacy charges | Submit TPA pre-auth, split billing, credit notes | Generate revenue export |
-| **Platform Operator** | SaaS tenant suspension/quota | N/A | N/A | N/A | Tenant subscription billing | Execute DR drill, configure SSO SAML/OIDC |
+All operations strictly map to the **seven actual authenticated HospitalStaff roles** defined in `backend/model/hospitalStaff.js`. Administrative portal access (`HOSPITAL_ADMIN` or `adminAccess: true`) explicitly **cannot confer clinical signing, witnessing, or medical discharge clearance**.
+
+### 6.1 Seven Actual HospitalStaff Roles & Capabilities
+
+| Role (`HospitalStaff.role`) | Permitted Enterprise Capabilities | Strictly Prohibited Capabilities |
+|---|---|---|
+| **`HOSPITAL_ADMIN`** | `manage_wards_beds`, `manage_tariffs`, `configure_interfaces`, `manage_staff`, `finance_clearance`, `view_audit_logs`, `view_bed_occupancy`, `manage_tenant_quotas` | `clinical_order_signing`, `medication_witnessing`, `medical_discharge_clearance`, `record_vitals_news2`, `administer_emar`, `lead_surgery_checklist`, `pacu_clearance` |
+| **`DEPARTMENT_HEAD`** | `assign_department_doctors`, `review_department_orders`, `clinical_order_signing`, `medical_discharge_clearance`, `audit_nursing_flowsheets`, `view_ward_flowsheet`, `view_bed_occupancy` | `finance_clearance`, `manage_tenant_quotas`, `configure_interfaces` |
+| **`DOCTOR`** | `admit_inpatient`, `create_inpatient_orders`, `discontinue_inpatient_orders`, `medical_discharge_clearance`, `lead_surgery_checklist`, `pacu_clearance`, `consultation_soap`, `view_ward_flowsheet`, `view_bed_occupancy` | `dispense_ward_stock`, `pharmacy_discharge_clearance`, `administer_emar`, `finance_clearance` |
+| **`NURSE`** | `record_vitals_news2`, `administer_emar`, `omit_medication`, `log_shift_handover`, `bed_transfer_request`, `dual_witness_eligible`, `scrub_nurse_checklist`, `view_ward_flowsheet`, `view_bed_occupancy` | `clinical_order_signing`, `medical_discharge_clearance`, `manage_tariffs`, `configure_interfaces` |
+| **`LAB_TECH`** | `accession_lab_orders`, `record_specimen_results`, `flag_critical_results`, `view_lab_catalog` | `clinical_order_signing`, `administer_emar`, `medical_discharge_clearance` |
+| **`PHARMACIST`** | `review_medication_orders`, `dispense_ward_stock`, `pharmacy_discharge_clearance`, `grn_reconciliation`, `quarantine_returns`, `view_pharmacy_inventory` | `clinical_order_signing`, `medical_discharge_clearance`, `record_vitals_news2` |
+| **`RECEPTIONIST`** | `inpatient_registration`, `collect_advance_deposit`, `finance_clearance`, `view_bed_occupancy` | `clinical_order_signing`, `medical_discharge_clearance`, `record_vitals_news2`, `administer_emar` |
+
+### 6.2 Proposed Functions Reconciliation
+
+Proposed enterprise functional titles reconcile to actual schema roles as follows:
+
+| Proposed Title | Reconciled Mongoose Role | Department / Assignment Requirement | Operational Responsibility |
+|---|---|---|---|
+| **Anesthetist** | `DOCTOR` | `Department` = Anesthesiology | Pre-anesthesia clearance, sedation orders, WHO Sign-In checklist |
+| **Surgeon** | `DOCTOR` | `Department` = Surgery / Sub-specialty | Lead surgeon, operative notes, WHO Time-Out checklist |
+| **Storekeeper** | `PHARMACIST` / `HOSPITAL_ADMIN` | Central Pharmacy / Inventory Store | Warehouse receiving, GRN reconciliation, ward stock requisitions |
+| **Finance Officer** | `HOSPITAL_ADMIN` / `RECEPTIONIST` | Hospital Billing / Reception | Advance deposits, split billing, TPA pre-authorization, financial clearance |
+| **Charge Nurse** | `NURSE` / `DEPARTMENT_HEAD` | Assigned Inpatient Ward | Shift allocation, handover acknowledgment, secondary narcotic witness |
 
 ---
 

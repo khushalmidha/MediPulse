@@ -121,11 +121,11 @@ export const transferBedHandler = asyncHandler(async (req, res) => {
 
 export const recordClearanceHandler = asyncHandler(async (req, res) => {
   const { clearanceType } = req.body;
-  if (clearanceType === "medical" && req.staff.role !== "DOCTOR" && !req.staff.adminAccess) {
-    return res.status(403).json({ message: "Only medical doctors or hospital admins can issue medical clearance" });
+  if (clearanceType === "medical" && !["DOCTOR", "DEPARTMENT_HEAD"].includes(req.staff.role)) {
+    return res.status(403).json({ message: "Only medical doctors or clinical department heads can issue medical clearance; administrative access cannot authorize clinical discharge" });
   }
-  if (clearanceType === "pharmacy" && req.staff.role !== "PHARMACIST" && !req.staff.adminAccess) {
-    return res.status(403).json({ message: "Only pharmacy staff or hospital admins can issue pharmacy clearance" });
+  if (clearanceType === "pharmacy" && req.staff.role !== "PHARMACIST") {
+    return res.status(403).json({ message: "Only licensed pharmacy staff can issue pharmacy clearance" });
   }
   if (
     clearanceType === "finance" &&

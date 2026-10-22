@@ -89,13 +89,13 @@ emergencyTheatreRouter.post(
 emergencyTheatreRouter.post(
   "/bookings/:id/who-checklist",
   validateStaff,
-  requireRole("DOCTOR", "NURSE", "HOSPITAL_ADMIN"),
+  requireRole("DOCTOR", "NURSE"),
   recordWhoChecklistStageHandler
 );
 emergencyTheatreRouter.post(
   "/bookings/:id/pacu",
   validateStaff,
-  requireRole("DOCTOR", "NURSE", "HOSPITAL_ADMIN"),
+  requireRole("DOCTOR", "NURSE"),
   recordPacuRecoveryHandler
 );
 

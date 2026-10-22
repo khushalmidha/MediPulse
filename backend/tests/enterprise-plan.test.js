@@ -11,7 +11,14 @@ import {
   EMERGENCY_TRIAGE_LEVELS,
   WHO_SURGICAL_SAFETY_STAGES,
   getStatutoryRetention,
-  validateMilestonePrerequisites
+  validateMilestonePrerequisites,
+  ENTERPRISE_STAFF_ROLES,
+  ENTERPRISE_ROLE_CAPABILITIES,
+  STRICTLY_CLINICAL_CAPABILITIES,
+  PROPOSED_FUNCTION_RECONCILIATION,
+  reconcileProposedFunction,
+  assertStaffCapability,
+  ENTERPRISE_POLICY_DECISIONS
 } from "../config/enterprisePlan.js";
 import {
   PLAN_ENTITLEMENTS,
@@ -243,4 +250,165 @@ test("Enterprise Hospital Expansion Plan & Governance Specification (AG17)", asy
     assert.equal(growthEntitlements.features.includes("ipd_beds"), false);
     assert.equal(growthEntitlements.features.includes("nursing_emar"), false);
   });
+
+  await t.test("8. Enterprise Staff Roles & Reconciled Capabilities (AG17.02)", () => {
+    // 7 actual HospitalStaff roles
+    assert.deepEqual(ENTERPRISE_STAFF_ROLES, [
+      "HOSPITAL_ADMIN",
+      "DEPARTMENT_HEAD",
+      "DOCTOR",
+      "NURSE",
+      "LAB_TECH",
+      "RECEPTIONIST",
+      "PHARMACIST"
+    ]);
+
+    // Role capabilities defined for every role
+    for (const role of ENTERPRISE_STAFF_ROLES) {
+      assert.ok(Array.isArray(ENTERPRISE_ROLE_CAPABILITIES[role]), `Missing capabilities for ${role}`);
+      assert.ok(ENTERPRISE_ROLE_CAPABILITIES[role].length > 0, `Empty capabilities for ${role}`);
+    }
+
+    // Doctor capabilities
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.DOCTOR.includes("create_inpatient_orders"));
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.DOCTOR.includes("medical_discharge_clearance"));
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.DOCTOR.includes("lead_surgery_checklist"));
+
+    // Nurse capabilities
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.NURSE.includes("record_vitals_news2"));
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.NURSE.includes("administer_emar"));
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.NURSE.includes("dual_witness_eligible"));
+
+    // Pharmacist capabilities
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.PHARMACIST.includes("pharmacy_discharge_clearance"));
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.PHARMACIST.includes("dispense_ward_stock"));
+
+    // Hospital Admin capabilities (strictly administrative)
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.HOSPITAL_ADMIN.includes("manage_wards_beds"));
+    assert.ok(ENTERPRISE_ROLE_CAPABILITIES.HOSPITAL_ADMIN.includes("finance_clearance"));
+    assert.equal(ENTERPRISE_ROLE_CAPABILITIES.HOSPITAL_ADMIN.includes("clinical_order_signing"), false);
+    assert.equal(ENTERPRISE_ROLE_CAPABILITIES.HOSPITAL_ADMIN.includes("medical_discharge_clearance"), false);
+    assert.equal(ENTERPRISE_ROLE_CAPABILITIES.HOSPITAL_ADMIN.includes("record_vitals_news2"), false);
+  });
+
+  await t.test("9. Administrative Access Boundaries & Clinical Protection (AG17.02)", () => {
+    const adminStaff = {
+      _id: "507f191e810c19729de860ea",
+      role: "HOSPITAL_ADMIN",
+      adminAccess: true,
+      isActive: true,
+      inviteStatus: "accepted"
+    };
+
+    const doctorStaff = {
+      _id: "507f191e810c19729de860eb",
+      role: "DOCTOR",
+      adminAccess: false,
+      isActive: true,
+      inviteStatus: "accepted"
+    };
+
+    const nurseStaff = {
+      _id: "507f191e810c19729de860ec",
+      role: "NURSE",
+      adminAccess: false,
+      isActive: true,
+      inviteStatus: "accepted"
+    };
+
+    // Admin can perform administrative functions
+    assert.doesNotThrow(() => assertStaffCapability(adminStaff, "manage_wards_beds"));
+    assert.doesNotThrow(() => assertStaffCapability(adminStaff, "finance_clearance"));
+
+    // Admin CANNOT perform strictly clinical functions, even with adminAccess: true!
+    for (const clinicalCap of STRICTLY_CLINICAL_CAPABILITIES) {
+      assert.throws(
+        () => assertStaffCapability(adminStaff, clinicalCap),
+        /strictly clinical and cannot be exercised by HOSPITAL_ADMIN or administrative access/
+      );
+    }
+
+    // Doctor can perform clinical order and discharge clearance
+    assert.doesNotThrow(() => assertStaffCapability(doctorStaff, "create_inpatient_orders"));
+    assert.doesNotThrow(() => assertStaffCapability(doctorStaff, "medical_discharge_clearance"));
+    // Doctor cannot dispense pharmacy stock
+    assert.throws(() => assertStaffCapability(doctorStaff, "dispense_ward_stock"), /does not possess capability/);
+
+    // Nurse can record vitals and administer eMAR
+    assert.doesNotThrow(() => assertStaffCapability(nurseStaff, "record_vitals_news2"));
+    assert.doesNotThrow(() => assertStaffCapability(nurseStaff, "administer_emar"));
+    // Nurse cannot sign medical discharge clearance
+    assert.throws(() => assertStaffCapability(nurseStaff, "medical_discharge_clearance"), /does not possess capability/);
+
+    // Inactive / expired staff are denied all capabilities
+    const inactiveDoctor = { ...doctorStaff, isActive: false };
+    assert.throws(() => assertStaffCapability(inactiveDoctor, "create_inpatient_orders"), /account is inactive/);
+
+    const expiredStaff = { ...nurseStaff, inviteStatus: "expired" };
+    assert.throws(() => assertStaffCapability(expiredStaff, "record_vitals_news2"), /account is inactive/);
+
+    // Unauthenticated staff throws 401
+    assert.throws(() => assertStaffCapability(null, "manage_wards_beds"), /Authenticated staff principal required/);
+  });
+
+  await t.test("10. Proposed Enterprise Functions Reconciliation (AG17.02)", () => {
+    // Anesthetist maps to DOCTOR with Anesthesiology requirement
+    const anesthetist = reconcileProposedFunction("anesthetist");
+    assert.equal(anesthetist.requiredRole, "DOCTOR");
+    assert.equal(anesthetist.departmentRequirement, "Anesthesiology");
+
+    // Surgeon maps to DOCTOR with Surgery requirement
+    const surgeon = reconcileProposedFunction("surgeon");
+    assert.equal(surgeon.requiredRole, "DOCTOR");
+    assert.equal(surgeon.departmentRequirement, "Surgery");
+
+    // Storekeeper maps to PHARMACIST or HOSPITAL_ADMIN
+    const storekeeper = reconcileProposedFunction("storekeeper");
+    assert.equal(storekeeper.requiredRole, "PHARMACIST");
+    assert.equal(storekeeper.alternativeRole, "HOSPITAL_ADMIN");
+
+    // Finance officer maps to HOSPITAL_ADMIN or RECEPTIONIST
+    const financeOfficer = reconcileProposedFunction("finance_officer");
+    assert.equal(financeOfficer.requiredRole, "HOSPITAL_ADMIN");
+    assert.equal(financeOfficer.alternativeRole, "RECEPTIONIST");
+
+    // Charge nurse maps to NURSE or DEPARTMENT_HEAD
+    const chargeNurse = reconcileProposedFunction("charge_nurse");
+    assert.equal(chargeNurse.requiredRole, "NURSE");
+    assert.equal(chargeNurse.alternativeRole, "DEPARTMENT_HEAD");
+
+    // Unknown function throws
+    assert.throws(() => reconcileProposedFunction("unregistered_function"), /Unknown proposed enterprise function/);
+  });
+
+  await t.test("11. Versioned Enterprise Policy Decisions Register & Governance Audit (AG17.01)", () => {
+    const policies = ENTERPRISE_POLICY_DECISIONS;
+    const requiredDomains = [
+      "jurisdiction",
+      "retention",
+      "clinicalWitness",
+      "escalationNews2",
+      "handoverDischarge",
+      "emergencyTriage",
+      "theatreSafety",
+      "financeTariffs",
+      "integrationsRecovery"
+    ];
+
+    for (const domain of requiredDomains) {
+      assert.ok(policies[domain], `Missing policy decision for ${domain}`);
+      const entry = policies[domain];
+      assert.ok(entry.reviewer, `Reviewer required for ${domain}`);
+      assert.ok(entry.date, `Date required for ${domain}`);
+      assert.ok(entry.scope, `Scope required for ${domain}`);
+      assert.ok(entry.approvalState, `Approval state required for ${domain}`);
+      assert.ok(entry.rollbackBound, `Rollback bound required for ${domain}`);
+    }
+
+    // Check specific critical containment boundaries
+    assert.ok(policies.clinicalWitness.approvalState.includes("Contained with 503 refusal"));
+    assert.ok(policies.integrationsRecovery.rollbackBound.includes("503 containment"));
+    assert.ok(policies.jurisdiction.rollbackBound.includes("ENTERPRISE_PILOT_ENABLED=false"));
+  });
 });
+

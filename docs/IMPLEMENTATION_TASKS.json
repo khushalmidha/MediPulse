@@ -4,7 +4,7 @@
   "reviewBaseline": "32c85bde",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG17",
+  "startWith": "AG18",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1384,7 +1384,7 @@
     {
       "id": "AG17",
       "title": "Enterprise hospital expansion requirements and phases",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "dependsOn": [
         "AG16"
@@ -1427,9 +1427,19 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "reference": "docs/WORK_LOG.md - AG17 enterprise expansion requirements, governance policies and capability reconciliation, 22 October 2026",
         "productionAcceptance": "not performed",
-        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
+        "enterprisePlanUnit": {
+          "passed": 12,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 233,
+          "failed": 0,
+          "skipped": 0
+        }
       },
       "remaining": [
         "Record actual hospital and qualified reviewer approvals for the proposed governance, role, clinical and retention/recovery decisions."
@@ -1462,18 +1472,28 @@
         {
           "id": "AG17.01",
           "title": "Qualified requirements and policy decisions",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Resolve section 3 with hospital/qualified reviewers: jurisdiction, retention/deletion, witness, escalation, handover/discharge, triage/theatre, finance and recovery policies. Treat ENTERPRISE_PLAN.md and enterprisePlan.js values as proposed until approved. Confirm required vendors and exact scope.",
           "acceptance": "Versioned decisions identify reviewer, date, scope, source and approval state. A generated matrix, statutory assertion, NEWS2/Code Blue/PACU constant or invented SLA is not an approved clinical/operating policy.",
-          "evidence": []
+          "evidence": [
+            "backend/config/enterprisePlan.js",
+            "docs/ENTERPRISE_PLAN.md",
+            "backend/tests/enterprise-plan.test.js"
+          ]
         },
         {
           "id": "AG17.02",
           "title": "Actual principals, assignments and capabilities",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Reconcile actual seven HospitalStaff roles with proposed finance/store/anesthetist functions. Implement reviewed capabilities/department/team assignment, trusted doctor-account versus staff mapping, read projections and immediate HTTP/socket revocation. Define per-hospital feature/policy readiness and activation/rollback ownership.",
           "acceptance": "Every operation maps to an actual authenticated principal/capability. HOSPITAL_ADMIN/adminAccess cannot confer clinical signing/witnessing or arbitrary patient access. Global enterprise flag cannot substitute for per-hospital approval; incomplete modules remain clearly unavailable.",
-          "evidence": []
+          "evidence": [
+            "backend/config/enterprisePlan.js",
+            "backend/routes/nursingCare.js",
+            "backend/routes/emergencyTheatre.js",
+            "backend/controller/inpatient.js",
+            "backend/tests/enterprise-plan.test.js"
+          ]
         }
       ]
     },

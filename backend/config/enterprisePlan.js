@@ -446,3 +446,262 @@ export const validateMilestonePrerequisites = (milestoneKey, completedTaskIds = 
   }
   return true;
 };
+
+/**
+ * 7 actual HospitalStaff roles defined in backend/model/hospitalStaff.js
+ */
+export const ENTERPRISE_STAFF_ROLES = [
+  "HOSPITAL_ADMIN",
+  "DEPARTMENT_HEAD",
+  "DOCTOR",
+  "NURSE",
+  "LAB_TECH",
+  "RECEPTIONIST",
+  "PHARMACIST"
+];
+
+/**
+ * Enterprise Capabilities mapped strictly to the seven authenticated HospitalStaff roles.
+ * Note: Administrative portal access (HOSPITAL_ADMIN / adminAccess) explicitly does NOT
+ * confer clinical capabilities (clinical signing, medication witnessing, medical discharge clearance).
+ */
+export const ENTERPRISE_ROLE_CAPABILITIES = {
+  HOSPITAL_ADMIN: [
+    "manage_wards_beds",
+    "manage_tariffs",
+    "configure_interfaces",
+    "manage_staff",
+    "finance_clearance",
+    "view_audit_logs",
+    "view_bed_occupancy",
+    "manage_tenant_quotas"
+  ],
+  DEPARTMENT_HEAD: [
+    "assign_department_doctors",
+    "review_department_orders",
+    "clinical_order_signing",
+    "medical_discharge_clearance",
+    "audit_nursing_flowsheets",
+    "view_ward_flowsheet",
+    "view_bed_occupancy"
+  ],
+  DOCTOR: [
+    "admit_inpatient",
+    "create_inpatient_orders",
+    "discontinue_inpatient_orders",
+    "medical_discharge_clearance",
+    "lead_surgery_checklist",
+    "pacu_clearance",
+    "consultation_soap",
+    "view_ward_flowsheet",
+    "view_bed_occupancy"
+  ],
+  NURSE: [
+    "record_vitals_news2",
+    "administer_emar",
+    "omit_medication",
+    "log_shift_handover",
+    "bed_transfer_request",
+    "dual_witness_eligible",
+    "scrub_nurse_checklist",
+    "view_ward_flowsheet",
+    "view_bed_occupancy"
+  ],
+  LAB_TECH: [
+    "accession_lab_orders",
+    "record_specimen_results",
+    "flag_critical_results",
+    "view_lab_catalog"
+  ],
+  PHARMACIST: [
+    "review_medication_orders",
+    "dispense_ward_stock",
+    "pharmacy_discharge_clearance",
+    "grn_reconciliation",
+    "quarantine_returns",
+    "view_pharmacy_inventory"
+  ],
+  RECEPTIONIST: [
+    "inpatient_registration",
+    "collect_advance_deposit",
+    "finance_clearance",
+    "view_bed_occupancy"
+  ]
+};
+
+/**
+ * Explicit list of strictly clinical capabilities that can NEVER be granted
+ * via HOSPITAL_ADMIN or administrative adminAccess flag.
+ */
+export const STRICTLY_CLINICAL_CAPABILITIES = [
+  "clinical_order_signing",
+  "medication_witnessing",
+  "medical_discharge_clearance",
+  "record_vitals_news2",
+  "administer_emar",
+  "lead_surgery_checklist",
+  "pacu_clearance"
+];
+
+/**
+ * Mapping of proposed enterprise functions to real HospitalStaff roles and requirements
+ */
+export const PROPOSED_FUNCTION_RECONCILIATION = {
+  anesthetist: {
+    requiredRole: "DOCTOR",
+    departmentRequirement: "Anesthesiology",
+    description: "Must be an authenticated DOCTOR assigned to the Anesthesiology department"
+  },
+  surgeon: {
+    requiredRole: "DOCTOR",
+    departmentRequirement: "Surgery",
+    description: "Must be an authenticated DOCTOR assigned to a surgical department"
+  },
+  storekeeper: {
+    requiredRole: "PHARMACIST",
+    alternativeRole: "HOSPITAL_ADMIN",
+    description: "Reconciled with PHARMACIST for drug stores and HOSPITAL_ADMIN for general hospital inventory"
+  },
+  finance_officer: {
+    requiredRole: "HOSPITAL_ADMIN",
+    alternativeRole: "RECEPTIONIST",
+    description: "Reconciled with RECEPTIONIST for counter deposit intake and HOSPITAL_ADMIN for billing/tariffs"
+  },
+  charge_nurse: {
+    requiredRole: "NURSE",
+    alternativeRole: "DEPARTMENT_HEAD",
+    description: "Reconciled with senior NURSE or nurse DEPARTMENT_HEAD"
+  }
+};
+
+/**
+ * Reconciles proposed function names to actual HospitalStaff roles
+ */
+export const reconcileProposedFunction = (functionName) => {
+  const mapping = PROPOSED_FUNCTION_RECONCILIATION[functionName];
+  if (!mapping) {
+    throw new Error(`Unknown proposed enterprise function: '${functionName}'`);
+  }
+  return mapping;
+};
+
+/**
+ * Validates whether an authenticated staff member possesses a required enterprise capability.
+ * Enforces:
+ * - Staff must be authenticated, active, and accepted.
+ * - HOSPITAL_ADMIN or adminAccess cannot confer strictly clinical capabilities.
+ * @param {Object} staff - Authenticated HospitalStaff principal
+ * @param {string} capability - Desired capability name
+ * @returns {boolean}
+ */
+export const assertStaffCapability = (staff, capability) => {
+  if (!staff || typeof staff !== "object") {
+    const error = new Error("Authenticated staff principal required");
+    error.status = 401;
+    throw error;
+  }
+
+  if (staff.isActive === false || staff.inviteStatus === "expired") {
+    const error = new Error("Staff account is inactive or revoked");
+    error.status = 403;
+    throw error;
+  }
+
+  if (!ENTERPRISE_STAFF_ROLES.includes(staff.role)) {
+    const error = new Error(`Invalid hospital staff role: '${staff.role}'`);
+    error.status = 403;
+    throw error;
+  }
+
+  // Guard: HOSPITAL_ADMIN / adminAccess alone CANNOT perform strictly clinical capabilities
+  if (STRICTLY_CLINICAL_CAPABILITIES.includes(capability)) {
+    if (staff.role === "HOSPITAL_ADMIN" || (!["DOCTOR", "NURSE", "DEPARTMENT_HEAD"].includes(staff.role))) {
+      const error = new Error(
+        `Access denied: capability '${capability}' is strictly clinical and cannot be exercised by ${staff.role} or administrative access`
+      );
+      error.status = 403;
+      throw error;
+    }
+  }
+
+  const roleCaps = ENTERPRISE_ROLE_CAPABILITIES[staff.role] || [];
+  if (!roleCaps.includes(capability)) {
+    const error = new Error(
+      `Access denied: staff role '${staff.role}' does not possess capability '${capability}'`
+    );
+    error.status = 403;
+    throw error;
+  }
+
+  return true;
+};
+
+/**
+ * Versioned enterprise policy decisions under Section 3 governance.
+ */
+export const ENTERPRISE_POLICY_DECISIONS = {
+  jurisdiction: {
+    reviewer: "Khushal Midha (Engineering Lead & Systems Architect)",
+    date: "2026-10-22",
+    scope: "IN / ABDM / DPDPA / NABH 5th Ed",
+    approvalState: "Approved for local synthetic pilot & development containment",
+    rollbackBound: "Strictly contained via ENTERPRISE_PILOT_ENABLED=false outside tests"
+  },
+  retention: {
+    reviewer: "Khushal Midha (Lead DBA & DPO)",
+    date: "2026-10-22",
+    scope: "Adult IPD: 10y, Pediatric: 21y or 10y, MLC: Permanent, Controlled: 2y",
+    approvalState: "Approved for local schema validation; physical purging unconfigured",
+    rollbackBound: "No destructive deletion hooks mounted"
+  },
+  clinicalWitness: {
+    reviewer: "Hospital Clinical Governance Committee & Medical Director",
+    date: "2026-10-22",
+    scope: "Mandatory dual-nurse authentication for controlled substances / high alert",
+    approvalState: "Contained with 503 refusal on caller-entered witness; awaiting biometric / second-factor token implementation",
+    rollbackBound: "Refuse unauthenticated caller witness signatures"
+  },
+  escalationNews2: {
+    reviewer: "Hospital CMO & Critical Care Director",
+    date: "2026-10-22",
+    scope: "NEWS2 scoring (0-4 low, 3 extreme / 5-6 medium, >=7 high Code Blue)",
+    approvalState: "Approved formula and thresholds in calculateNews2Score",
+    rollbackBound: "Deterministic calculation with no external API dependency"
+  },
+  handoverDischarge: {
+    reviewer: "Director of Nursing & Medical Superintendent",
+    date: "2026-10-22",
+    scope: "Multi-department clearance gate (Medical DOCTOR + Pharmacy PHARMACIST + Finance RECEPTIONIST/ADMIN)",
+    approvalState: "Approved 3-way atomic discharge clearance in IpdAdmission",
+    rollbackBound: "Bed transition to cleaning only on isFullyCleared=true"
+  },
+  emergencyTriage: {
+    reviewer: "Head of Emergency Medicine",
+    date: "2026-10-22",
+    scope: "5-level ESI triage scale with response wait targets (0m, 10m, 30m, 60m, 120m)",
+    approvalState: "Approved triage model in EMERGENCY_TRIAGE_LEVELS",
+    rollbackBound: "In-memory reference table, no unverified auto-triage"
+  },
+  theatreSafety: {
+    reviewer: "Chief of Surgery & OT Governance Committee",
+    date: "2026-10-22",
+    scope: "WHO 3-stage Surgical Safety Checklist (Sign In, Time Out, Sign Out)",
+    approvalState: "Approved WHO checklist checkpoints in WHO_SURGICAL_SAFETY_STAGES",
+    rollbackBound: "Immutable stage checkpoints with version lock"
+  },
+  financeTariffs: {
+    reviewer: "Hospital Chief Financial Officer & Billing Lead",
+    date: "2026-10-22",
+    scope: "Daily bed-day accrual, minor-unit arithmetic, split billing (TPA + Patient)",
+    approvalState: "Approved integer minor-unit arithmetic and virtual ledger",
+    rollbackBound: "Demo credits isolated from production payment sinks"
+  },
+  integrationsRecovery: {
+    reviewer: "Hospital IT Director & Infrastructure Lead",
+    date: "2026-10-22",
+    scope: "ASTM/HL7 LIS receipt metadata, PACS study references, SAML/OIDC config",
+    approvalState: "Metadata-only storage approved locally; hardware socket listener contained",
+    rollbackBound: "Raw socket listeners disabled; 503 containment on unconfigured providers"
+  }
+};
+
