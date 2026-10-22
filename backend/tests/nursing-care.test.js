@@ -5,9 +5,11 @@ import {
   createInpatientOrder,
   discontinueInpatientOrder,
   recordNursingVitals,
+  acknowledgeVitalsEscalation,
   administerMedication,
   recordMedicationOmission,
   recordShiftHandover,
+  acceptShiftHandover,
   getInpatientFlowsheet,
   getShiftHandovers,
   getInpatientOrders,
@@ -37,7 +39,20 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
   };
 
   setNursingTestDouble({
-    createInpatientOrder: async ({ admissionId, orderType, medicationDetails, nursingInstructions }) => {
+    createInpatientOrder: async ({ admissionId: admId, patientId: patId, orderType, medicationDetails, nursingInstructions, prescribedByDoctorId, actor }) => {
+      if (actor?.role && !["DOCTOR", "DEPARTMENT_HEAD"].includes(actor.role)) {
+        throw Object.assign(new Error("Administrative staff cannot prescribe clinical orders; must be a licensed doctor or department head"), { status: 403 });
+      }
+      if (prescribedByDoctorId && (actor?.doctorId || actor?.staffId)) {
+        const allowedId = String(actor.doctorId || actor.staffId);
+        if (String(prescribedByDoctorId) !== allowedId) {
+          throw Object.assign(new Error("Cannot forge prescribedByDoctorId; order must be prescribed by authenticated clinician"), { status: 403 });
+        }
+      }
+      if (patId && String(patId) !== String(patientId)) {
+        throw Object.assign(new Error("Patient ID does not match active admission"), { status: 400 });
+      }
+
       const validTypes = ["medication", "investigation", "nursing_care", "diet", "monitoring"];
       if (!validTypes.includes(orderType)) {
         throw Object.assign(new Error(`Invalid order type: ${orderType}`), { status: 400 });
@@ -49,11 +64,11 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
       const order = {
         _id: new mongoose.Types.ObjectId(),
         hospitalId,
-        admissionId,
+        admissionId: admId,
         patientId,
         orderType,
         status: "active",
-        prescribedByDoctorId: doctorId,
+        prescribedByDoctorId: actor?.doctorId || actor?.staffId || prescribedByDoctorId || doctorId,
         medicationDetails: {
           drugName: medicationDetails.drugName,
           dose: medicationDetails.dose,
@@ -75,7 +90,7 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
         const emar = {
           _id: new mongoose.Types.ObjectId(),
           hospitalId,
-          admissionId,
+          admissionId: admId,
           orderId: order._id,
           order,
           patientId,
@@ -89,12 +104,23 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
 
       return { success: true, order, scheduledDosesCount: doses.length };
     },
-    discontinueInpatientOrder: async ({ orderId, reason }) => {
+    discontinueInpatientOrder: async ({ orderId, reason, expectedVersion, actor }) => {
+      if (actor?.role && !["DOCTOR", "DEPARTMENT_HEAD"].includes(actor.role)) {
+        throw Object.assign(new Error("Administrative staff cannot discontinue clinical orders; must be a licensed doctor or department head"), { status: 403 });
+      }
       if (!reason) throw Object.assign(new Error("Reason for order discontinuation is required"), { status: 400 });
       const order = state.orders.find((o) => o._id.toString() === orderId.toString());
       if (!order) throw Object.assign(new Error("Order not found"), { status: 404 });
+
+      if (expectedVersion !== null && expectedVersion !== undefined) {
+        if (Number(order.version) !== Number(expectedVersion)) {
+          throw Object.assign(new Error("Stale order version; please refresh and try again"), { status: 409 });
+        }
+      }
+
       order.status = "discontinued";
       order.discontinuedReason = reason;
+      order.version = (order.version || 0) + 1;
 
       let cancelled = 0;
       for (const emar of state.emars.filter((e) => e.orderId.toString() === orderId.toString() && e.status === "scheduled")) {
@@ -104,12 +130,12 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
       }
       return { success: true, order, cancelledDosesCount: cancelled };
     },
-    recordNursingVitals: async ({ admissionId, vitals, actor }) => {
+    recordNursingVitals: async ({ admissionId: admId, vitals, actor }) => {
       const news2Result = calculateNews2Score(vitals);
       const vitalsRecord = {
         _id: new mongoose.Types.ObjectId(),
         hospitalId,
-        admissionId,
+        admissionId: admId,
         patientId,
         recordedByStaffId: actor?.staffId || nurse1Id,
         ...vitals,
@@ -120,10 +146,31 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
           requiresDoctorEscalation: news2Result.requiresDoctorEscalation,
           requiresCodeBlue: news2Result.requiresCodeBlue,
         },
+        escalationNotified: false,
+        escalatedToDoctorId: null,
+        escalationAcknowledgedAt: null,
         recordedAt: new Date(),
       };
       state.vitals.push(vitalsRecord);
       return { success: true, vitals: vitalsRecord, news2: news2Result, requiresCodeBlue: news2Result.requiresCodeBlue };
+    },
+    acknowledgeVitalsEscalation: async ({ vitalsId, actor, responseNotes }) => {
+      const v = state.vitals.find((item) => item._id.toString() === vitalsId.toString());
+      if (!v) throw Object.assign(new Error("Nursing vitals record not found"), { status: 404 });
+      if (!v.news2?.requiresDoctorEscalation && !v.news2?.requiresCodeBlue) {
+        throw Object.assign(new Error("Vitals record does not require clinical escalation"), { status: 400 });
+      }
+      if (v.escalationAcknowledgedAt) {
+        throw Object.assign(new Error("Clinical escalation has already been acknowledged"), { status: 409 });
+      }
+      if (actor?.role && !["DOCTOR", "DEPARTMENT_HEAD"].includes(actor.role)) {
+        throw Object.assign(new Error("Only licensed doctors or department heads can acknowledge clinical vitals escalation"), { status: 403 });
+      }
+      v.escalationNotified = true;
+      v.escalatedToDoctorId = actor?.doctorId || actor?.staffId || doctorId;
+      v.escalationAcknowledgedAt = new Date();
+      v.escalationResponseNotes = responseNotes || "";
+      return { success: true, vitals: v };
     },
     administerMedication: async ({ emarId, fiveRightsVerified, dualWitnessStaffId, dualWitnessSignature, actor }) => {
       const { rightPatient, rightDrug, rightDose, rightRoute, rightTime } = fiveRightsVerified || {};
@@ -183,15 +230,32 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
         shiftType,
         outgoingNurseStaffId,
         incomingNurseStaffId,
+        status: "pending",
         totalPatients: (patientSummaries || []).length,
         criticalPatientsCount: criticalCount,
         patientSummaries,
         codeBlueEvents,
-        acknowledgedAt: new Date(),
+        acknowledgedAt: null,
         handoverNotes,
       };
       state.handovers.push(handover);
       return { success: true, handover, criticalPatientsCount: criticalCount };
+    },
+    acceptShiftHandover: async ({ handoverId, actor, acceptanceNotes }) => {
+      const handover = state.handovers.find((h) => h._id.toString() === handoverId.toString());
+      if (!handover) throw Object.assign(new Error("Shift handover record not found"), { status: 404 });
+      if (handover.acknowledgedAt) throw Object.assign(new Error("Shift handover has already been accepted"), { status: 409 });
+      if (actor?.staffId && handover.outgoingNurseStaffId.toString() === actor.staffId.toString()) {
+        throw Object.assign(new Error("Outgoing nurse cannot accept their own shift handover"), { status: 403 });
+      }
+      if (actor?.staffId && handover.incomingNurseStaffId.toString() !== actor.staffId.toString() && actor.role !== "DEPARTMENT_HEAD") {
+        throw Object.assign(new Error("Only the designated incoming nurse can accept this shift handover"), { status: 403 });
+      }
+      handover.status = "accepted";
+      handover.acknowledgedAt = new Date();
+      handover.acknowledgedByStaffId = actor?.staffId || handover.incomingNurseStaffId;
+      handover.acceptanceNotes = acceptanceNotes || "";
+      return { success: true, handover };
     },
     getInpatientFlowsheet: async () => ({
       admissionId,
@@ -206,7 +270,7 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
   });
 
   await t.test("1. Inpatient order creation and automatic eMAR dose scheduling", async () => {
-    // 1. Regular Antibiotic Order (Cefrtriaxone 1g IV BD for 5 days)
+    // 1. Regular Antibiotic Order (Ceftriaxone 1g IV BD for 5 days)
     const antibioticRes = await createInpatientOrder({
       hospitalId,
       admissionId,
@@ -220,6 +284,7 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
         durationDays: 5,
       },
       nursingInstructions: "Infuse over 30 minutes in 100ml NS",
+      actor: { role: "DOCTOR", doctorId, staffId: doctorId },
     });
 
     assert.equal(antibioticRes.success, true);
@@ -227,11 +292,81 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
     assert.equal(antibioticRes.order.medicationDetails.drugName, "Ceftriaxone");
     assert.ok(antibioticRes.scheduledDosesCount >= 1);
 
-    // 2. Discontinuation cancels future scheduled doses
+    // Administrative ordering attempt fails with 403
+    await assert.rejects(
+      () =>
+        createInpatientOrder({
+          hospitalId,
+          admissionId,
+          patientId,
+          orderType: "medication",
+          medicationDetails: { drugName: "Amoxicillin", dose: "500mg" },
+          actor: { role: "HOSPITAL_ADMIN", staffId: nurse1Id },
+        }),
+      /Administrative staff cannot prescribe clinical orders/
+    );
+
+    // Prescribing doctor forgery attempt fails with 403
+    await assert.rejects(
+      () =>
+        createInpatientOrder({
+          hospitalId,
+          admissionId,
+          patientId,
+          orderType: "medication",
+          medicationDetails: { drugName: "Amoxicillin", dose: "500mg" },
+          prescribedByDoctorId: new mongoose.Types.ObjectId(), // Forged!
+          actor: { role: "DOCTOR", doctorId, staffId: doctorId },
+        }),
+      /Cannot forge prescribedByDoctorId/
+    );
+
+    // Mismatched patient ID fails with 400
+    await assert.rejects(
+      () =>
+        createInpatientOrder({
+          hospitalId,
+          admissionId,
+          patientId: new mongoose.Types.ObjectId(), // Foreign patient!
+          orderType: "medication",
+          medicationDetails: { drugName: "Amoxicillin", dose: "500mg" },
+          actor: { role: "DOCTOR", doctorId, staffId: doctorId },
+        }),
+      /Patient ID does not match active admission/
+    );
+
+    // Stale version discontinuation fails with 409
+    await assert.rejects(
+      () =>
+        discontinueInpatientOrder({
+          hospitalId,
+          orderId: antibioticRes.order._id,
+          reason: "Stale update attempt",
+          expectedVersion: 99,
+          actor: { role: "DOCTOR", doctorId },
+        }),
+      /Stale order version/
+    );
+
+    // Non-doctor discontinuation fails with 403
+    await assert.rejects(
+      () =>
+        discontinueInpatientOrder({
+          hospitalId,
+          orderId: antibioticRes.order._id,
+          reason: "Unauthorized attempt",
+          actor: { role: "HOSPITAL_ADMIN", staffId: nurse1Id },
+        }),
+      /Administrative staff cannot discontinue clinical orders/
+    );
+
+    // 2. Legitimate discontinuation cancels future scheduled doses
     const discRes = await discontinueInpatientOrder({
       hospitalId,
       orderId: antibioticRes.order._id,
       reason: "Culture showed sensitivity to oral amoxicillin",
+      expectedVersion: 0,
+      actor: { role: "DOCTOR", doctorId },
     });
     assert.equal(discRes.success, true);
     assert.equal(discRes.order.status, "discontinued");
@@ -280,6 +415,50 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
     assert.ok(critRes.news2.score >= 7);
     assert.equal(critRes.news2.riskLevel, "HIGH");
     assert.equal(critRes.requiresCodeBlue, true);
+
+    // Nurse attempting to acknowledge escalation fails with 403
+    await assert.rejects(
+      () =>
+        acknowledgeVitalsEscalation({
+          hospitalId,
+          vitalsId: critRes.vitals._id,
+          actor: { role: "NURSE", staffId: nurse1Id },
+        }),
+      /Only licensed doctors or department heads/
+    );
+
+    // Non-escalated vitals cannot be acknowledged (fails with 400)
+    await assert.rejects(
+      () =>
+        acknowledgeVitalsEscalation({
+          hospitalId,
+          vitalsId: normRes.vitals._id,
+          actor: { role: "DOCTOR", doctorId },
+        }),
+      /does not require clinical escalation/
+    );
+
+    // Doctor acknowledges clinical vitals escalation -> succeeds
+    const ackRes = await acknowledgeVitalsEscalation({
+      hospitalId,
+      vitalsId: critRes.vitals._id,
+      actor: { role: "DOCTOR", doctorId },
+      responseNotes: "Code blue team dispatched to ICU bed 1",
+    });
+    assert.equal(ackRes.success, true);
+    assert.ok(ackRes.vitals.escalationAcknowledgedAt);
+    assert.equal(ackRes.vitals.escalationNotified, true);
+
+    // Duplicate acknowledgement fails with 409
+    await assert.rejects(
+      () =>
+        acknowledgeVitalsEscalation({
+          hospitalId,
+          vitalsId: critRes.vitals._id,
+          actor: { role: "DOCTOR", doctorId },
+        }),
+      /already been acknowledged/
+    );
   });
 
   await t.test("3. 5-Rights bedside medication administration enforcement", async () => {
@@ -509,7 +688,52 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
     assert.equal(handoverRes.success, true);
     assert.equal(handoverRes.handover.totalPatients, 2);
     assert.equal(handoverRes.criticalPatientsCount, 1);
-    assert.ok(handoverRes.handover.acknowledgedAt);
+    assert.equal(handoverRes.handover.status, "pending");
+    assert.equal(handoverRes.handover.acknowledgedAt, null);
+
+    // Outgoing nurse attempting self-acceptance fails with 403
+    await assert.rejects(
+      () =>
+        acceptShiftHandover({
+          hospitalId,
+          handoverId: handoverRes.handover._id,
+          actor: { role: "NURSE", staffId: nurse1Id },
+        }),
+      /Outgoing nurse cannot accept their own shift handover/
+    );
+
+    // Wrong nurse attempting acceptance fails with 403
+    await assert.rejects(
+      () =>
+        acceptShiftHandover({
+          hospitalId,
+          handoverId: handoverRes.handover._id,
+          actor: { role: "NURSE", staffId: new mongoose.Types.ObjectId() },
+        }),
+      /Only the designated incoming nurse can accept this shift handover/
+    );
+
+    // Legitimate incoming nurse accepts handover
+    const acceptRes = await acceptShiftHandover({
+      hospitalId,
+      handoverId: handoverRes.handover._id,
+      actor: { role: "NURSE", staffId: nurse2Id },
+      acceptanceNotes: "Acknowledged all 2 patients and checked narcotic count.",
+    });
+    assert.equal(acceptRes.success, true);
+    assert.equal(acceptRes.handover.status, "accepted");
+    assert.ok(acceptRes.handover.acknowledgedAt);
+
+    // Duplicate acceptance fails with 409
+    await assert.rejects(
+      () =>
+        acceptShiftHandover({
+          hospitalId,
+          handoverId: handoverRes.handover._id,
+          actor: { role: "NURSE", staffId: nurse2Id },
+        }),
+      /Shift handover has already been accepted/
+    );
 
     // Verify flowsheet aggregation
     const flowsheet = await getInpatientFlowsheet({ hospitalId, admissionId });

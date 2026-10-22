@@ -3342,5 +3342,42 @@ Completed and verified inpatient admission identity, family member scoping, data
   - Transitioned `AG18.01`, `AG18.02`, `AG18.03`, and parent task `AG18` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
   - Advanced starting plan task to `AG19`.
 
+## AG19 — Inpatient clinical orders, nursing and medication administration - 22 October 2026
+
+Completed and verified trusted inpatient orders, clinician identity binding, dual-nurse controlled witnessing policy, incoming shift handover acceptance, and objective NEWS2 escalation acknowledgement across packages AG19.01, AG19.02, AG19.03, and AG19.04.
+
+### Verified scope and findings
+
+- **Trusted Orders and Assignments (`backend/services/nursingCareService.js`, `backend/controller/nursingCare.js`, `backend/routes/nursingCare.js` - AG19.01):**
+  - Restricted inpatient order creation and discontinuation strictly to clinical practitioners (`DOCTOR` / `DEPARTMENT_HEAD`). Prohibited administrative staff (`HOSPITAL_ADMIN`) from prescribing or discontinuing orders with 403.
+  - Enforced prescriber identity binding: prevented caller forgery of `prescribedByDoctorId`. The authenticated clinician's doctor/staff identity is validated and bound to the order.
+  - Enforced active admission validation and patient ID consistency: mismatched patient IDs fail with 400.
+  - Implemented optimistic locking on order discontinuation: passing stale `expectedVersion` fails with 409 conflict.
+- **Independent Authenticated Witness Policy (`backend/services/nursingCareService.js`, `backend/config/enterprisePlan.js` - AG19.02):**
+  - Enforced 5-Rights bedside verification for medication administration.
+  - For controlled substances (Narcotics / Schedule X) and high-alert medications, missing secondary witness fails with 403, and self-witnessing fails with 403.
+  - Maintained strict 503 containment policy (`accessError(503, "Independent authenticated medication witness approval is not implemented; caller-entered signatures cannot authorize administration")`) until independent dual-nurse authentication workflow is enabled in production pilot rehearsal.
+- **Incoming Handover Acceptance (`backend/services/nursingCareService.js`, `backend/model/nursingCare.js`, `frontend/src/pages/hospital-staff/InpatientConsole.jsx` - AG19.03):**
+  - Added structured shift handover lifecycle: newly recorded handovers enter `pending` state with `acknowledgedAt: null`.
+  - Added `acceptShiftHandover` service and `POST /api/nursing/handover/:handoverId/accept` route.
+  - Prevented outgoing nurses from accepting their own handovers (403). Prevented unrelated staff from accepting (403: only designated incoming nurse or department head can accept).
+  - Prevented duplicate acceptance (409).
+  - Updated `InpatientConsole.jsx` handover card UI to display pending vs. accepted badges and an interactive "Accept Handover" button for incoming nurses.
+- **Escalation Delivery and Nursing Worklists (`backend/services/nursingCareService.js`, `backend/model/nursingCare.js`, `frontend/src/pages/hospital-staff/InpatientConsole.jsx` - AG19.04):**
+  - Deterministic NEWS2 calculation identifies critical deterioration (score >= 7) triggering Code Blue recommendations.
+  - Added `acknowledgeVitalsEscalation` service and `POST /api/nursing/admissions/:admissionId/vitals/:vitalsId/escalate-ack` route.
+  - Restricted escalation acknowledgement strictly to doctors and department heads (403 for non-doctors).
+  - Rejected acknowledgement on non-escalated vitals (400) and duplicate acknowledgement (409).
+  - Updated `InpatientConsole.jsx` vitals flowsheet with an Escalation column displaying Dr. Ack status and providing an "Ack Escalation" action button for physicians.
+- **Automated Verification Matrix:**
+  - `backend/tests/nursing-care.test.js`: 9/9 unit and domain tests passed covering order creation, eMAR scheduling, vitals & NEWS2 scoring, doctor escalation acknowledgement, 5-rights bedside administration, dual-nurse controlled witnessing, omission/refusal logging, shift handover pending state and incoming nurse acceptance, fail-closed 503 behavior, and flowsheet queries.
+  - Backend test runner: 233 passed, 0 failed (`npm --prefix backend test`).
+  - Frontend lint: 0 errors (`npm --prefix frontend run lint`).
+  - Frontend UI test runner: 60 passed, 0 failed (`npm --prefix frontend run test:ui`).
+- **Plan ledger update:**
+  - Transitioned `AG19.01`, `AG19.02`, `AG19.03`, `AG19.04`, and parent task `AG19` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+  - Advanced starting plan task to `AG20`.
+
+
 
 

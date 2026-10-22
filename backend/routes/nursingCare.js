@@ -5,9 +5,11 @@ import {
   createInpatientOrderHandler,
   discontinueInpatientOrderHandler,
   recordNursingVitalsHandler,
+  acknowledgeVitalsEscalationHandler,
   administerMedicationHandler,
   recordMedicationOmissionHandler,
   recordShiftHandoverHandler,
+  acceptShiftHandoverHandler,
   getInpatientFlowsheetHandler,
   getShiftHandoversHandler,
   getInpatientOrdersHandler,
@@ -26,6 +28,7 @@ nursingRouter.post("/orders/:orderId/discontinue", validateStaff, requireRole("D
 // Vitals & NEWS2: Nurses & Department Heads
 nursingRouter.post("/admissions/:admissionId/vitals", validateStaff, requireRole("NURSE", "DEPARTMENT_HEAD"), recordNursingVitalsHandler);
 nursingRouter.get("/admissions/:admissionId/vitals", validateStaff, getNursingVitalsHandler);
+nursingRouter.post("/admissions/:admissionId/vitals/:vitalsId/escalate-ack", validateStaff, requireRole("DOCTOR", "DEPARTMENT_HEAD"), acknowledgeVitalsEscalationHandler);
 
 // Bedside Medication Administration (eMAR): Nurses only
 nursingRouter.post("/emar/:emarId/administer", validateStaff, requireRole("NURSE"), administerMedicationHandler);
@@ -34,6 +37,7 @@ nursingRouter.get("/admissions/:admissionId/emar", validateStaff, getEmarSchedul
 
 // Shift Handovers: Nurses & Department Heads
 nursingRouter.post("/handover", validateStaff, requireRole("NURSE", "DEPARTMENT_HEAD"), recordShiftHandoverHandler);
+nursingRouter.post("/handover/:handoverId/accept", validateStaff, requireRole("NURSE", "DEPARTMENT_HEAD"), acceptShiftHandoverHandler);
 nursingRouter.get("/handovers", validateStaff, getShiftHandoversHandler);
 
 // Comprehensive Flowsheet: Authenticated Hospital Staff

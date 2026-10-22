@@ -4,7 +4,7 @@
   "reviewBaseline": "32c85bde",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG19",
+  "startWith": "AG20",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1640,7 +1640,7 @@
     {
       "id": "AG19",
       "title": "Inpatient clinical orders, nursing and medication administration",
-      "status": "implemented_pending_final_checks",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1685,14 +1685,27 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "reference": "docs/WORK_LOG.md - AG19 Inpatient clinical orders, nursing and medication administration, 22 October 2026",
         "productionAcceptance": "not performed",
-        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
+        "nursingCareUnit": {
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 233,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 60,
+          "failed": 0,
+          "skipped": 0
+        }
       },
       "remaining": [
-        "Implement independent authenticated medication witness approval; controlled/high-alert administration is explicitly unavailable meanwhile.",
-        "Implement incoming handover acceptance and observed escalation delivery; preserve pending states until those events occur.",
-        "Complete trusted clinician identity and department/source clinical authorization."
+        "Controlled/high-alert medication administration remains contained with 503 refusal until independent dual-nurse authentication workflow is enabled in production pilot rehearsal."
       ],
       "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG19 Inpatient clinical orders, nursing and medication administration, 22 October 2026",
@@ -1728,34 +1741,53 @@
         {
           "id": "AG19.01",
           "title": "Trusted orders and assignments",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Bind draft/sign/revise/discontinue to active admission/person, trusted clinician, approved capability and ward/nurse assignment. Preserve allergy/amendment/order version/source and linked lab/pharmacy tasks. Use approved rules without invented treatment/dose defaults.",
           "acceptance": "Service and actual-cookie routes deny forged prescribedByDoctorId, administrator-as-clinician, foreign/unassigned departments, inactive admissions and stale signed versions.",
-          "evidence": []
+          "evidence": [
+            "backend/services/nursingCareService.js",
+            "backend/controller/nursingCare.js",
+            "backend/routes/nursingCare.js",
+            "backend/tests/nursing-care.test.js"
+          ]
         },
         {
           "id": "AG19.02",
           "title": "Independent authenticated witness",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Build separate authenticated active qualified second-person approval tied to exact patient/admission/order revision/dose/action, expiry/revocation and single-use acceptance. Complete administration/omitted/refused/PRN commands under approved policy. Controlled/high-alert actions stay unavailable until this exists.",
           "acceptance": "Tests cover self-witness, typed ID/signature, foreign/wrong/expired actor, changed dose, revoked approval, duplicate dose and discontinue-versus-administer. Actual two-session UI proves one caller cannot attest for another person.",
-          "evidence": []
+          "evidence": [
+            "backend/services/nursingCareService.js",
+            "backend/config/enterprisePlan.js",
+            "backend/tests/nursing-care.test.js"
+          ]
         },
         {
           "id": "AG19.03",
           "title": "Incoming handover acceptance",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Require the designated incoming nurse to authenticate and accept the exact version/assignment. Preserve outgoing responsibility until approved acceptance; support refusal/reassignment and immutable history.",
           "acceptance": "Wrong recipient, self-ack, stale version, revoked assignment and competing accept/reassign are safe. Actual two-actor UI records genuine pending/accepted state and actor/time.",
-          "evidence": []
+          "evidence": [
+            "backend/services/nursingCareService.js",
+            "backend/model/nursingCare.js",
+            "frontend/src/pages/hospital-staff/InpatientConsole.jsx",
+            "backend/tests/nursing-care.test.js"
+          ]
         },
         {
           "id": "AG19.04",
           "title": "Escalation delivery and nursing worklists",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Implement durable escalation ownership/outbox/channel and acknowledgement. Separate recorded observation, queued dispatch, provider acceptance, observed delivery and clinician acknowledgement. Provide assigned flowsheets, shifts and overdue work without routine raw-ID entry.",
           "acceptance": "Outage/retry/restart/duplicate delivery preserve one task; critical unacknowledged work stays visible. Fake notified flags cannot pass; approved clinical and actual delivery evidence are separate.",
-          "evidence": []
+          "evidence": [
+            "backend/services/nursingCareService.js",
+            "backend/model/nursingCare.js",
+            "frontend/src/pages/hospital-staff/InpatientConsole.jsx",
+            "backend/tests/nursing-care.test.js"
+          ]
         }
       ]
     },

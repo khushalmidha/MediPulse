@@ -75,6 +75,17 @@ export const createInpatientOrder = async ({
     throw accessError(400, `Invalid order type: ${orderType}. Allowed: ${validTypes.join(", ")}`);
   }
 
+  if (actor?.role && !["DOCTOR", "DEPARTMENT_HEAD"].includes(actor.role)) {
+    throw accessError(403, "Administrative staff cannot prescribe clinical orders; must be a licensed doctor or department head");
+  }
+
+  if (prescribedByDoctorId && (actor?.doctorId || actor?.staffId)) {
+    const allowedId = String(actor.doctorId || actor.staffId);
+    if (String(prescribedByDoctorId) !== allowedId) {
+      throw accessError(403, "Cannot forge prescribedByDoctorId; order must be prescribed by authenticated clinician");
+    }
+  }
+
   if (orderType === "medication") {
     if (!medicationDetails.drugName || !String(medicationDetails.drugName).trim()) {
       throw accessError(400, "Drug name is required for medication orders");
@@ -97,6 +108,10 @@ export const createInpatientOrder = async ({
     }).session(session);
     if (!admission) throw accessError(404, "Active inpatient admission not found");
 
+    if (patientId && String(patientId) !== String(admission.patientId)) {
+      throw accessError(400, "Patient ID does not match active admission");
+    }
+
     const durationDays = Math.max(1, Number(medicationDetails.durationDays) || 1);
     const orderStartDate = new Date(startDate);
     const orderEndDate = new Date(orderStartDate.getTime() + durationDays * 24 * 3600 * 1000);
@@ -109,7 +124,7 @@ export const createInpatientOrder = async ({
           patientId: admission.patientId,
           orderType,
           status: "active",
-          prescribedByDoctorId: prescribedByDoctorId || actor?.doctorId || admission.admittingDoctorId,
+          prescribedByDoctorId: actor?.doctorId || actor?.staffId || prescribedByDoctorId || admission.admittingDoctorId,
           departmentId: admission.departmentId,
           medicationDetails: {
             drugName: String(medicationDetails.drugName || "").trim(),
@@ -179,11 +194,16 @@ export const discontinueInpatientOrder = async ({
   hospitalId,
   orderId,
   reason,
+  expectedVersion = null,
   actor,
 }) => {
   assertDbConnected();
   if (testDouble?.discontinueInpatientOrder) {
-    return testDouble.discontinueInpatientOrder({ hospitalId, orderId, reason, actor });
+    return testDouble.discontinueInpatientOrder({ hospitalId, orderId, reason, expectedVersion, actor });
+  }
+
+  if (actor?.role && !["DOCTOR", "DEPARTMENT_HEAD"].includes(actor.role)) {
+    throw accessError(403, "Administrative staff cannot discontinue clinical orders; must be a licensed doctor or department head");
   }
 
   if (!reason || !String(reason).trim()) {
@@ -199,9 +219,15 @@ export const discontinueInpatientOrder = async ({
 
     if (!order) throw accessError(404, "Active inpatient order not found");
 
+    if (expectedVersion !== null && expectedVersion !== undefined) {
+      if (Number(order.version) !== Number(expectedVersion)) {
+        throw accessError(409, "Stale order version; please refresh and try again");
+      }
+    }
+
     order.status = "discontinued";
     order.discontinuedReason = String(reason).trim();
-    order.discontinuedByDoctorId = actor?.doctorId || null;
+    order.discontinuedByDoctorId = actor?.doctorId || actor?.staffId || null;
     order.version = (order.version || 0) + 1;
     await order.save({ session });
 
@@ -285,6 +311,47 @@ export const recordNursingVitals = async ({
     vitals: vitalsRecord,
     news2: news2Result,
     requiresCodeBlue: news2Result.requiresCodeBlue,
+  };
+};
+
+/**
+ * 3b. Acknowledge Clinical Vitals Escalation (NEWS2 / Code Blue)
+ */
+export const acknowledgeVitalsEscalation = async ({
+  hospitalId,
+  vitalsId,
+  actor,
+  responseNotes = "",
+}) => {
+  assertDbConnected();
+  if (testDouble?.acknowledgeVitalsEscalation) {
+    return testDouble.acknowledgeVitalsEscalation({ hospitalId, vitalsId, actor, responseNotes });
+  }
+
+  const vitals = await NursingVitals.findOne({ _id: vitalsId, hospitalId });
+  if (!vitals) throw accessError(404, "Nursing vitals record not found");
+
+  if (!vitals.news2?.requiresDoctorEscalation && !vitals.news2?.requiresCodeBlue) {
+    throw accessError(400, "Vitals record does not require clinical escalation");
+  }
+
+  if (vitals.escalationAcknowledgedAt) {
+    throw accessError(409, "Clinical escalation has already been acknowledged");
+  }
+
+  if (actor?.role && !["DOCTOR", "DEPARTMENT_HEAD"].includes(actor.role)) {
+    throw accessError(403, "Only licensed doctors or department heads can acknowledge clinical vitals escalation");
+  }
+
+  vitals.escalationNotified = true;
+  vitals.escalatedToDoctorId = actor?.doctorId || actor?.staffId || null;
+  vitals.escalationAcknowledgedAt = new Date();
+  vitals.escalationResponseNotes = String(responseNotes || "").trim();
+  await vitals.save();
+
+  return {
+    success: true,
+    vitals,
   };
 };
 
@@ -484,6 +551,7 @@ export const recordShiftHandover = async ({
     shiftType,
     outgoingNurseStaffId,
     incomingNurseStaffId,
+    status: "pending",
     totalPatients: patientSummaries.length,
     criticalPatientsCount: criticalCount,
     patientSummaries,
@@ -496,6 +564,47 @@ export const recordShiftHandover = async ({
     success: true,
     handover,
     criticalPatientsCount: criticalCount,
+  };
+};
+
+/**
+ * 6b. Accept Shift Handover by Designated Incoming Nurse
+ */
+export const acceptShiftHandover = async ({
+  hospitalId,
+  handoverId,
+  actor,
+  acceptanceNotes = "",
+}) => {
+  assertDbConnected();
+  if (testDouble?.acceptShiftHandover) {
+    return testDouble.acceptShiftHandover({ hospitalId, handoverId, actor, acceptanceNotes });
+  }
+
+  const handover = await NurseShiftHandover.findOne({ _id: handoverId, hospitalId });
+  if (!handover) throw accessError(404, "Shift handover record not found");
+
+  if (handover.acknowledgedAt) {
+    throw accessError(409, "Shift handover has already been accepted");
+  }
+
+  if (actor?.staffId && String(handover.outgoingNurseStaffId) === String(actor.staffId)) {
+    throw accessError(403, "Outgoing nurse cannot accept their own shift handover");
+  }
+
+  if (actor?.staffId && String(handover.incomingNurseStaffId) !== String(actor.staffId) && actor?.role !== "DEPARTMENT_HEAD") {
+    throw accessError(403, "Only the designated incoming nurse can accept this shift handover");
+  }
+
+  handover.status = "accepted";
+  handover.acknowledgedAt = new Date();
+  handover.acknowledgedByStaffId = actor?.staffId || handover.incomingNurseStaffId;
+  handover.acceptanceNotes = String(acceptanceNotes || "").trim();
+  await handover.save();
+
+  return {
+    success: true,
+    handover,
   };
 };
 
@@ -619,9 +728,11 @@ export default {
   createInpatientOrder,
   discontinueInpatientOrder,
   recordNursingVitals,
+  acknowledgeVitalsEscalation,
   administerMedication,
   recordMedicationOmission,
   recordShiftHandover,
+  acceptShiftHandover,
   getInpatientFlowsheet,
   getShiftHandovers,
   getInpatientOrders,

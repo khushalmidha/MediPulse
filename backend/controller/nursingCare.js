@@ -3,9 +3,11 @@ import {
   createInpatientOrder,
   discontinueInpatientOrder,
   recordNursingVitals,
+  acknowledgeVitalsEscalation,
   administerMedication,
   recordMedicationOmission,
   recordShiftHandover,
+  acceptShiftHandover,
   getInpatientFlowsheet,
   getShiftHandovers,
   getInpatientOrders,
@@ -14,6 +16,13 @@ import {
 } from "../services/nursingCareService.js";
 
 export const createInpatientOrderHandler = asyncHandler(async (req, res) => {
+  const clinicianDoctorId = req.staff.doctorId || req.staff.id;
+  if (req.body.prescribedByDoctorId && String(req.body.prescribedByDoctorId) !== String(clinicianDoctorId)) {
+    return res.status(403).json({
+      success: false,
+      message: "Cannot forge prescribedByDoctorId; order must be prescribed by authenticated clinician",
+    });
+  }
   const result = await createInpatientOrder({
     hospitalId: req.staff.hospitalId,
     admissionId: req.body.admissionId,
@@ -22,10 +31,10 @@ export const createInpatientOrderHandler = asyncHandler(async (req, res) => {
     medicationDetails: req.body.medicationDetails,
     nursingInstructions: req.body.nursingInstructions,
     startDate: req.body.startDate,
-    prescribedByDoctorId: req.body.prescribedByDoctorId,
+    prescribedByDoctorId: clinicianDoctorId,
     actor: {
       staffId: req.staff.id,
-      doctorId: req.body.prescribedByDoctorId || req.staff.doctorId || req.staff.id,
+      doctorId: clinicianDoctorId,
       role: req.staff.role,
       name: req.staff.name,
     },
@@ -38,6 +47,7 @@ export const discontinueInpatientOrderHandler = asyncHandler(async (req, res) =>
     hospitalId: req.staff.hospitalId,
     orderId: req.params.orderId,
     reason: req.body.reason,
+    expectedVersion: req.body.expectedVersion,
     actor: {
       staffId: req.staff.id,
       doctorId: req.staff.doctorId || req.staff.id,
@@ -61,6 +71,21 @@ export const recordNursingVitalsHandler = asyncHandler(async (req, res) => {
     },
   });
   res.status(201).json(result);
+});
+
+export const acknowledgeVitalsEscalationHandler = asyncHandler(async (req, res) => {
+  const result = await acknowledgeVitalsEscalation({
+    hospitalId: req.staff.hospitalId,
+    vitalsId: req.params.vitalsId,
+    actor: {
+      staffId: req.staff.id,
+      doctorId: req.staff.doctorId || req.staff.id,
+      role: req.staff.role,
+      name: req.staff.name,
+    },
+    responseNotes: req.body.responseNotes,
+  });
+  res.json(result);
 });
 
 export const administerMedicationHandler = asyncHandler(async (req, res) => {
@@ -101,7 +126,7 @@ export const recordShiftHandoverHandler = asyncHandler(async (req, res) => {
     wardId: req.body.wardId,
     shiftDate: req.body.shiftDate,
     shiftType: req.body.shiftType,
-    outgoingNurseStaffId: req.body.outgoingNurseStaffId || req.staff.id,
+    outgoingNurseStaffId: req.staff.id,
     incomingNurseStaffId: req.body.incomingNurseStaffId,
     patientSummaries: req.body.patientSummaries,
     codeBlueEvents: req.body.codeBlueEvents,
@@ -113,6 +138,20 @@ export const recordShiftHandoverHandler = asyncHandler(async (req, res) => {
     },
   });
   res.status(201).json(result);
+});
+
+export const acceptShiftHandoverHandler = asyncHandler(async (req, res) => {
+  const result = await acceptShiftHandover({
+    hospitalId: req.staff.hospitalId,
+    handoverId: req.params.handoverId,
+    actor: {
+      staffId: req.staff.id,
+      role: req.staff.role,
+      name: req.staff.name,
+    },
+    acceptanceNotes: req.body.acceptanceNotes,
+  });
+  res.json(result);
 });
 
 export const getInpatientFlowsheetHandler = asyncHandler(async (req, res) => {
@@ -165,9 +204,11 @@ export default {
   createInpatientOrderHandler,
   discontinueInpatientOrderHandler,
   recordNursingVitalsHandler,
+  acknowledgeVitalsEscalationHandler,
   administerMedicationHandler,
   recordMedicationOmissionHandler,
   recordShiftHandoverHandler,
+  acceptShiftHandoverHandler,
   getInpatientFlowsheetHandler,
   getShiftHandoversHandler,
   getInpatientOrdersHandler,

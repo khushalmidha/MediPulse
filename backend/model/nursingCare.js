@@ -84,6 +84,8 @@ const nursingVitalsSchema = new mongoose.Schema(
     },
     escalationNotified: { type: Boolean, default: false },
     escalatedToDoctorId: { type: objectId, ref: "doctor", default: null },
+    escalationAcknowledgedAt: { type: Date, default: null },
+    escalationResponseNotes: { type: String, default: "" },
     recordedAt: { type: Date, default: Date.now, index: true },
   },
   { timestamps: true }
@@ -147,6 +149,12 @@ const nurseShiftHandoverSchema = new mongoose.Schema(
     },
     outgoingNurseStaffId: { type: objectId, ref: "HospitalStaff", required: true },
     incomingNurseStaffId: { type: objectId, ref: "HospitalStaff", required: true },
+    status: {
+      type: String,
+      enum: ["pending", "accepted", "rejected"],
+      default: "pending",
+      index: true,
+    },
     totalPatients: { type: Number, default: 0 },
     criticalPatientsCount: { type: Number, default: 0 },
     patientSummaries: [
@@ -169,6 +177,8 @@ const nurseShiftHandoverSchema = new mongoose.Schema(
       },
     ],
     acknowledgedAt: { type: Date, default: null },
+    acknowledgedByStaffId: { type: objectId, ref: "HospitalStaff", default: null },
+    acceptanceNotes: { type: String, default: "" },
     handoverNotes: { type: String, default: "" },
   },
   { timestamps: true }

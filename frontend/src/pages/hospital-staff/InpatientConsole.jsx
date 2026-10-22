@@ -7,6 +7,7 @@ import {
   Plus,
   ArrowRightLeft,
   CheckCircle2,
+  Clock,
   FileText,
   LogOut,
   HeartPulse,
@@ -664,6 +665,46 @@ function InpatientWorkspace({ initialTab = "beds" }) {
     }
   };
 
+  // Handle Accepting Shift Handover
+  const handleAcceptHandover = async (handoverId) => {
+    setSubmitting(true);
+    setError("");
+    setFeedback("");
+    try {
+      await axios.post(
+        `${BACKEND_URL}/api/nursing/handover/${handoverId}/accept`,
+        { acceptanceNotes: "Shift handover accepted by incoming nurse." },
+        { withCredentials: true }
+      );
+      setFeedback("Shift handover accepted successfully.");
+      await fetchHandovers();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to accept shift handover");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handle Acknowledging Clinical Vitals Escalation
+  const handleAcknowledgeEscalation = async (vitalsId) => {
+    setSubmitting(true);
+    setError("");
+    setFeedback("");
+    try {
+      await axios.post(
+        `${BACKEND_URL}/api/nursing/admissions/${selectedAdmissionId}/vitals/${vitalsId}/escalate-ack`,
+        { responseNotes: "Clinical escalation reviewed and acknowledged by physician." },
+        { withCredentials: true }
+      );
+      setFeedback("Clinical vitals escalation acknowledged.");
+      await fetchFlowsheet();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to acknowledge clinical escalation");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Stats calculation for Bed Board
   const totalBeds = beds.length;
   const availableBeds = beds.filter((b) => b.status === "available").length;
@@ -1020,6 +1061,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                           <th>Temp (°C)</th>
                           <th>NEWS2 Score</th>
                           <th>Clinical Action</th>
+                          <th>Escalation</th>
                           <th>Recorded By</th>
                         </tr>
                       </thead>
@@ -1027,6 +1069,7 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                         {flowsheetData.vitalsHistory.map((vh) => {
                           const n = vh.news2 || {};
                           const scoreTone = n.score >= 7 ? "danger" : n.score >= 5 ? "warning" : n.score >= 1 ? "info" : "positive";
+                          const needsEscalation = n.requiresDoctorEscalation || n.requiresCodeBlue;
                           return (
                             <tr key={vh._id} style={{ background: n.score >= 7 ? "rgba(220, 38, 38, 0.05)" : undefined }}>
                               <td>{new Date(vh.recordedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
@@ -1042,6 +1085,31 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                               </td>
                               <td style={{ fontSize: "0.8rem", color: n.score >= 7 ? "#dc2626" : undefined, fontWeight: n.score >= 7 ? 600 : 400 }}>
                                 {n.action}
+                              </td>
+                              <td>
+                                {vh.escalationAcknowledgedAt ? (
+                                  <span className="mp-badge mp-badge--positive" style={{ fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.2rem" }}>
+                                    <CheckCircle2 size={10} /> Ack&apos;d by Dr
+                                  </span>
+                                ) : needsEscalation ? (
+                                  isDoctor ? (
+                                    <Button
+                                      variant="secondary"
+                                      size="small"
+                                      onClick={() => handleAcknowledgeEscalation(vh._id)}
+                                      disabled={submitting}
+                                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}
+                                    >
+                                      Ack Escalation
+                                    </Button>
+                                  ) : (
+                                    <span className="mp-badge mp-badge--danger" style={{ fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.2rem" }}>
+                                      <Clock size={10} /> Pending Dr Ack
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="mp-muted" style={{ fontSize: "0.75rem" }}>Normal</span>
+                                )}
                               </td>
                               <td>{vh.recordedByStaffId?.name || "Staff Nurse"}</td>
                             </tr>
@@ -1318,9 +1386,30 @@ function InpatientWorkspace({ initialTab = "beds" }) {
                         Ward: {h.wardId?.name || "General Ward"} • Outgoing Nurse: {h.outgoingNurseStaffId?.name || "Staff Nurse"} ➔ Incoming Nurse: {h.incomingNurseStaffId?.name || "Relieving Nurse"}
                       </div>
                     </div>
-                    <span className="mp-badge mp-badge--positive" style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                      <CheckCircle2 size={12} /> Acknowledged
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      {h.acknowledgedAt || h.status === "accepted" ? (
+                        <span className="mp-badge mp-badge--positive" style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                          <CheckCircle2 size={12} /> Accepted ({h.acknowledgedByStaffId?.name || "Incoming Nurse"})
+                        </span>
+                      ) : (
+                        <>
+                          <span className="mp-badge mp-badge--warning" style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                            <Clock size={12} /> Pending Acceptance
+                          </span>
+                          {isNurse && (
+                            <Button
+                              variant="secondary"
+                              size="small"
+                              onClick={() => handleAcceptHandover(h._id)}
+                              disabled={submitting}
+                              style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}
+                            >
+                              Accept Handover
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   {h.handoverNotes && (
