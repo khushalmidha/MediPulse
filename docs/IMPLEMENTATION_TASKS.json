@@ -1317,10 +1317,20 @@
         {
           "id": "AG16.07",
           "title": "Domains, deployment, live payments and delivery",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Keep medipulse.live company entry, existing /connect, /hospitals/:slug and staff fallback routing; inspect the actual host resolver. Optional connect.medipulse.live needs no extra domain purchase; medipulse.connect.live is not under the owned domain. Verify deep links/reload, API origin/relay, cookie/CSRF/CORS, TLS, Node 24, workers and readiness. Resolve required checkout/subscriptions early; separate virtual credits from live payments.",
           "acceptance": "Exact deployed frontend/backend revisions and approved schema/config are recorded. Required live payments have signed webhook merchant/amount/currency binding and settlement/refund reconciliation. Approved mail/SMS distinguishes queued, accepted and observed delivery. Push/public liveness alone is not deployment acceptance.",
-          "evidence": []
+          "evidence": [
+            "backend/util/productHosts.js",
+            "backend/services/outboxDelivery.js",
+            "backend/services/claimDelivery.js",
+            "backend/services/billingProviderAdapter.js",
+            "backend/services/startupReadiness.js",
+            "backend/tests/claimDelivery.test.js",
+            "backend/tests/claim-security-boundary.test.js",
+            "backend/tests/startup-readiness.test.js",
+            "frontend/e2e/products.spec.js"
+          ]
         },
         {
           "id": "AG16.08",

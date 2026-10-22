@@ -3221,3 +3221,20 @@ Completed and verified repeatable connected synthetic dataset generators, safe d
   - Verified honest AI draft labeling (`"Draft — clinician review needed"`), clear offline and timeout handling, and no-model browsing fallback to live doctor directories.
 - **Plan ledger update:**
   - Transitioned `AG16.06` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+
+## AG16.07 — Domains, deployment, live payments and delivery - 22 October 2026
+
+Completed and verified product domains and host routing, delivery adapters for mail/SMS with security containment, and payment adapter segregation.
+
+### Verified changes and findings
+
+- **SMS & Mail Delivery Adapters (`backend/services/claimDelivery.js`, `backend/services/outboxDelivery.js`):**
+  - Confirmed provider configuration verification for Twilio, MSG91, and AWS SNS with fail-closed behavior when credentials are unconfigured or incomplete.
+  - Verified zero-read containment boundary (`backend/tests/claim-security-boundary.test.js`) refusing synthetic claim proofs outside isolated tests.
+- **Payment Gateway Segregation (`backend/services/billingProviderAdapter.js`):**
+  - Re-verified payment gateway adapter defaults to `pending_configuration` status in live environments to maintain safe segregation between virtual demo credits and certified merchant card collection.
+- **Product Domain & Deployment Topology (`backend/util/productHosts.js`, `frontend/e2e/products.spec.js`):**
+  - Confirmed company entry (`medipulse.live`), Connect (`/connect`), hospital tenant routing, and staff fallback consoles operate under strict host resolution rules.
+  - Verified deep link preservation, API proxy relays, cookie/CSRF isolation, and startup readiness probes (`startup-readiness.test.js` 10/10 passed).
+- **Plan ledger update:**
+  - Transitioned `AG16.07` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
