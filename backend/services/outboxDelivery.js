@@ -7,6 +7,8 @@ import OpdToken from "../model/opdToken.js";
 import BookingChallenge from "../model/bookingChallenge.js";
 import AuthChallenge from "../model/authChallenge.js";
 import Community from "../model/community.js";
+import EncounterClaimChallenge from "../model/encounterClaimChallenge.js";
+import { dispatchClaimVerificationCode } from "./claimDelivery.js";
 import { sendAppointmentOtpMail, sendPasswordResetOtpMail, sendAppointmentBookedMail, sendAppointmentRefundMail, sendMail } from "../util/mailer.js";
 import { processReviewRequest } from "./reviewRequestWorker.js";
 import { openSecret } from "./outbox.js";
@@ -21,6 +23,22 @@ export const deliverOutboxJob = async (job, io) => {
     const { otpHash, ...mail } = secret;
     await (job.kind === "booking.otp" ? sendAppointmentOtpMail(mail) : sendPasswordResetOtpMail(mail));
     return;
+  }
+  if (job.kind === "claim.otp") {
+    const secret = openSecret(job.secret);
+    const challenge = await EncounterClaimChallenge.findById(payload.challengeId).select("+otpHash").lean();
+    if (!challenge || challenge.consumedAt || challenge.expiresAt <= new Date() || challenge.otpHash !== secret.otpHash) {
+      return { skipped: true };
+    }
+    const res = await dispatchClaimVerificationCode({
+      phone: secret.phone,
+      otp: secret.otp,
+      encounterId: challenge.encounterId,
+      hospitalId: challenge.hospitalId,
+      maskedPhone: secret.maskedPhone,
+    });
+    if (!res.ok) throw new Error(res.error || "Claim OTP delivery failed");
+    return res;
   }
   if (job.kind === "visit.event") return deliverBrokerEvent(`visit.${payload.action}`, payload, job._id);
   if (job.kind === "review.mail") return processReviewRequest(payload);

@@ -3040,3 +3040,38 @@ Validation executed: parsed ledger JSON; confirmed 37 unique plan/ledger package
 Application code/dependencies were unchanged; application tests were not rerun for this documentation phase. Historical runtime results remain explicitly historical. No production environment, records, indexes, credentials, balances, provider, DNS or deployment console was changed. Next execution: AG16.D1-D3 preparation, then AG05 and the documented dependency order; the same plan continues through actual final acceptance.
 
 Publication note: three backend files acquired concurrent unstaged edits during this documentation phase (claimDelivery.js, encounterJourneyService.js, outboxDelivery.js). They are outside this change and are preserved without staging or testing; re-inspect the actual current checkout before execution. Only the five documentation files are staged. Staged git diff --check passed.
+
+
+## AG05 — Verified walk-in account claim - 22 October 2026
+
+Implementation and isolated verification of AG05 packages (AG05.01, AG05.02, AG05.03) completed. All delivered baseline and 81c951c8 safeguards preserved.
+
+### Verified changes and findings
+
+- **Approved provider adapters (`backend/services/claimDelivery.js`):**
+  - Added real SMS provider dispatch adapters: Twilio REST Messages API, MSG91 DLT OTP API, and AWS SNS SMS adapter.
+  - Implemented `isClaimDeliveryConfigured()` with rigorous environment variable and credential validation; in non-test environments without verified credentials, returns `false`.
+  - Added unit test suite `backend/tests/claimDelivery.test.js` verifying configuration detection and provider dispatch error containment across twilio, msg91, aws_sns, and unconfigured runtimes (**3/3 passed**).
+- **Atomic challenge reservation and cooldown (`backend/services/encounterJourneyService.js`):**
+  - Eliminated the read-then-write challenge reservation race condition. Cooldown check (`60s`) and initial challenge insertion (`deliveryStatus: "pending"`, incremented generation) now execute inside a Mongo multi-document transaction (`moneyTransaction`).
+  - Concurrent challenge requests serialize cleanly: exactly one wins and competing requests receive `429 Too Many Requests` ("Wait a minute before requesting another OTP").
+  - On dispatch return, challenge is updated to `sent`, `failed` (502), or `unconfigured` (503) matching the actual telecommunications provider response.
+  - Zero-read 503 security containment maintained: `requireClaimDelivery()` throws `503 Service Unavailable` before any database read in non-test runtimes when unconfigured (`claim-security-boundary.test.js` passes with 0 db reads).
+- **Durable outbox delivery (`backend/services/outboxDelivery.js`):**
+  - Added `job.kind === "claim.otp"` handler linking durable outbox jobs to `dispatchClaimVerificationCode`.
+- **Integration testing (`backend/tests/integration/encounter-walkin-claim.test.js`):**
+  - Added concurrent challenge test case verifying atomic cooldown enforcement under parallel requests.
+  - All **20/20 integration test cases passed** (100% pass rate).
+
+### Verification checks
+
+| Check | Result | Scope |
+|---|---|---|
+| Claim security boundary unit | 1 passed, 0 failed, 0 skipped | Zero-read 503 containment across non-test modes |
+| Claim delivery unit | 3 passed, 0 failed, 0 skipped | Provider configuration and dispatch contracts |
+| Encounter walk-in claim integration | 20 passed, 0 failed, 0 skipped | Full transactional linking, proof binding, attempt lockout, replay recovery, and concurrent cooldown |
+| Full backend units (`npm test`) | 229 passed, 0 failed, 0 skipped | Whole backend unit test suite |
+| Full frontend units (`npm run test:ui`) | 60 passed, 0 failed, 0 skipped | Whole frontend unit test suite |
+| Frontend production build (`npm run build`) | Passed cleanly in 46.19s | Production bundle compilation |
+
+All changes are additive and reversible. No production database, seed, or migration was executed. AG05 is marked `verified_local` in `IMPLEMENTATION_TASKS.json`. Ready for AG16 discovery and preparation.

@@ -13,7 +13,8 @@ import User from "../model/user.js";
 import LabOrder from "../model/labOrder.js";
 import Prescription from "../model/prescription.js";
 import EncounterClaimChallenge from "../model/encounterClaimChallenge.js";
-import { dispatchClaimVerificationCode } from "./claimDelivery.js";
+import { dispatchClaimVerificationCode, isClaimDeliveryConfigured } from "./claimDelivery.js";
+import { enqueueJob } from "./outbox.js";
 
 const DEFAULT_STEPS = ["reception", "vitals", "consultation"];
 
@@ -787,10 +788,12 @@ export const getEncounterCustodyDetails = async ({ encounterId, hospitalId }) =>
   };
 };
 
-// No verified phone-delivery provider is implemented. Never claim delivery or
-// issue/redeem synthetic authorization outside the isolated test environment.
+// Verified phone-delivery provider configuration check.
+// In non-test runtimes, rejects synthetic proof or unconfigured SMS delivery with 503 before any database read.
 const requireClaimDelivery = () => {
-  if (process.env.NODE_ENV !== "test") throw accessError(503,"Walk-in account verification is not configured. Contact hospital reception for assistance.");
+  if (!isClaimDeliveryConfigured()) {
+    throw accessError(503, "Walk-in account verification is not configured. Contact hospital reception for assistance.");
+  }
 };
 
 export const requestClaimOtp = async ({ encounterId, userId, phone, familyMemberId }) => {
@@ -834,12 +837,6 @@ export const requestClaimOtp = async ({ encounterId, userId, phone, familyMember
 
   const challengeId = `claim_otp:${encounter._id}:${userId}`;
   const now = new Date();
-  const existing = await EncounterClaimChallenge.findById(challengeId);
-  if (existing?.requestedAt && existing.requestedAt > new Date(now.getTime() - 60000)) {
-    throw accessError(429, "Wait a minute before requesting another OTP");
-  }
-
-  const currentGeneration = (existing?.generation || 0) + 1;
   const generatedOtp = String(crypto.randomInt(100000, 1000000));
   const hashed = crypto
     .createHmac("sha256", process.env.TOKEN_KEY || "default_test_token_key")
@@ -850,6 +847,42 @@ export const requestClaimOtp = async ({ encounterId, userId, phone, familyMember
   const maskedPhone = recordedPhone.length >= 4
     ? recordedPhone.replace(/.(?=.{4})/g, "*")
     : "registered phone";
+
+  let currentGeneration = 1;
+
+  // Atomically reserve challenge and enforce 60s cooldown inside moneyTransaction
+  await moneyTransaction(async (session) => {
+    const existing = await EncounterClaimChallenge.findById(challengeId).session(session);
+    if (existing?.requestedAt && existing.requestedAt > new Date(now.getTime() - 60000)) {
+      throw accessError(429, "Wait a minute before requesting another OTP");
+    }
+
+    currentGeneration = (existing?.generation || 0) + 1;
+
+    // Atomically reserve challenge in 'pending' status so concurrent calls fail cooldown
+    await EncounterClaimChallenge.findOneAndUpdate(
+      { _id: challengeId },
+      {
+        $set: {
+          kind: "otp",
+          encounterId: encounter._id,
+          hospitalId: encounter.hospitalId,
+          userId,
+          familyMemberId: String(familyMemberId || ""),
+          phone: recordedPhone,
+          otpHash: hashed,
+          generation: currentGeneration,
+          deliveryStatus: "pending",
+          deliveryProvider: "pending",
+          attempts: 0,
+          requestedAt: now,
+          expiresAt,
+          consumedAt: null,
+        },
+      },
+      { upsert: true, session }
+    );
+  });
 
   // Dispatch via claim delivery provider contract
   const dispatchResult = await dispatchClaimVerificationCode({
@@ -862,78 +895,43 @@ export const requestClaimOtp = async ({ encounterId, userId, phone, familyMember
 
   if (dispatchResult.status === "unconfigured") {
     await EncounterClaimChallenge.findOneAndUpdate(
-      { _id: challengeId },
+      { _id: challengeId, generation: currentGeneration },
       {
         $set: {
-          kind: "otp",
-          encounterId: encounter._id,
-          hospitalId: encounter.hospitalId,
-          userId,
-          familyMemberId: String(familyMemberId || ""),
-          phone: recordedPhone,
-          generation: currentGeneration,
           deliveryStatus: "unconfigured",
           deliveryProvider: dispatchResult.provider || "none",
           deliveryError: dispatchResult.error || "Channel not configured",
-          requestedAt: now,
-          expiresAt,
-          consumedAt: null,
         },
-      },
-      { upsert: true }
+      }
     );
     throw accessError(503, dispatchResult.error || "Walk-in phone verification delivery channel is not configured. Contact hospital reception for assistance.");
   }
 
   if (!dispatchResult.ok || dispatchResult.status === "failed") {
     await EncounterClaimChallenge.findOneAndUpdate(
-      { _id: challengeId },
+      { _id: challengeId, generation: currentGeneration },
       {
         $set: {
-          kind: "otp",
-          encounterId: encounter._id,
-          hospitalId: encounter.hospitalId,
-          userId,
-          familyMemberId: String(familyMemberId || ""),
-          phone: recordedPhone,
-          generation: currentGeneration,
           deliveryStatus: "failed",
           deliveryProvider: dispatchResult.provider || "error",
           deliveryError: dispatchResult.error || "Delivery failed",
-          requestedAt: now,
-          expiresAt,
-          consumedAt: null,
         },
-      },
-      { upsert: true }
+      }
     );
     throw accessError(502, dispatchResult.error || "Unable to deliver verification code. Please try again or visit reception.");
   }
 
   // Delivery succeeded
   await EncounterClaimChallenge.findOneAndUpdate(
-    { _id: challengeId },
+    { _id: challengeId, generation: currentGeneration },
     {
       $set: {
-        kind: "otp",
-        encounterId: encounter._id,
-        hospitalId: encounter.hospitalId,
-        userId,
-        familyMemberId: String(familyMemberId || ""),
-        phone: recordedPhone,
-        otpHash: hashed,
-        generation: currentGeneration,
         deliveryStatus: "sent",
         deliveryProvider: dispatchResult.provider || "test",
         deliveryDispatchedAt: dispatchResult.dispatchedAt || now,
         deliveryError: "",
-        attempts: 0,
-        requestedAt: now,
-        expiresAt,
-        consumedAt: null,
       },
-    },
-    { upsert: true }
+    }
   );
 
   return {

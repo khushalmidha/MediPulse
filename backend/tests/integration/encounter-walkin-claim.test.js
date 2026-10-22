@@ -903,3 +903,21 @@ test("AG05 actual router: replay recovery idempotently returns 200 with isReplay
   assert.equal(replayLink.body.isReplay, true);
   assert.equal(replayLink.body.encounter.revision, rev, "Replay must be idempotent");
 });
+
+test("AG05 actual router: concurrent challenge requests serialize atomically and enforce 60s cooldown", async () => {
+  const { journey } = await createWalkInFixture("9876543210");
+
+  const [res1, res2] = await Promise.all([
+    apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+      body: { phone: "9876543210" },
+      token: patientToken1,
+    }),
+    apiCall(`/api/encounters/${journey._id}/claim-challenge`, {
+      body: { phone: "9876543210" },
+      token: patientToken1,
+    }),
+  ]);
+
+  const statuses = [res1.status, res2.status].sort();
+  assert.deepEqual(statuses, [200, 429], "Exactly one challenge request succeeds and concurrent request hits 60s cooldown with 429");
+});

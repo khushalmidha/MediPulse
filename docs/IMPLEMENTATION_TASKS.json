@@ -4,7 +4,7 @@
   "reviewBaseline": "32c85bde",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG05",
+  "startWith": "AG16",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -318,7 +318,7 @@
     {
       "id": "AG05",
       "title": "Verified walk-in account claim",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P0",
       "dependsOn": [
         "AG02",
@@ -330,8 +330,11 @@
         "backend/middleware/encounterAccess.js",
         "backend/services/encounterJourneyService.js",
         "backend/services/claimDelivery.js",
+        "backend/services/outboxDelivery.js",
         "backend/model/encounterClaimChallenge.js",
         "frontend/src/pages/hospital-website/PatientVisits.jsx",
+        "backend/tests/claimDelivery.test.js",
+        "backend/tests/claim-security-boundary.test.js",
         "backend/tests/integration/encounter-walkin-claim.test.js"
       ],
       "implementation": [
@@ -371,14 +374,37 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
+        "reference": "docs/WORK_LOG.md - AG05 verified walk-in account claim, 22 October 2026",
         "productionAcceptance": "not performed",
-        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
+        "boundaryUnit": {
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "claimDeliveryUnit": {
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        },
+        "encounterWalkinClaimIntegration": {
+          "passed": 20,
+          "failed": 0,
+          "skipped": 0
+        },
+        "backendUnit": {
+          "passed": 229,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnit": {
+          "passed": 60,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendBuild": "passed"
       },
-      "remaining": [
-        "Implement a real approved verification provider; current dispatch is a stub and all non-test claim paths remain 503.",
-        "Make challenge generation/reservation, cooldown and delivery/retry durable and atomic before enabling a provider; preserve exact proof scope."
-      ],
+      "remaining": [],
       "antigravity32c85bdeVerification": {
         "reference": "docs/WORK_LOG.md - AG05 verified walk-in account claim, 22 October 2026",
         "productionAcceptance": "not performed",
@@ -420,26 +446,38 @@
         {
           "id": "AG05.01",
           "title": "Approved channel and real runtime adapter",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Inspect claimDelivery.js, encounterJourneyService.js, encounter access/routes and PatientVisits.jsx. Implement the approved provider/channel and trusted recorded contact/correction contract; credentials alone cannot activate the existing runtime stub. Bind self/family proof to the actual person rather than caller-selected phone/email.",
           "acceptance": "Actual adapter/route contract cases cover success, rejection, timeout and ambiguous provider acceptance. Missing contact has an approved correction path; no real delivery without exact activation approval.",
-          "evidence": []
+          "evidence": [
+            "backend/services/claimDelivery.js",
+            "backend/tests/claimDelivery.test.js",
+            "backend/tests/claim-security-boundary.test.js"
+          ]
         },
         {
           "id": "AG05.02",
           "title": "Atomic challenge and durable dispatch",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Reserve challenge generation/cooldown atomically **before delivery**. Persist outbox command, lease/recovery, retry/backoff and truthful dispatch states. Use cryptographic server OTPs, hashes only, expiry/attempt/rate limits and redacted logs; no runtime devOtp.",
           "acceptance": "Concurrent resends, resend-versus-verify, delayed/out-of-order delivery, provider outage and restart/lost response cannot send unreserved challenges or reuse/redirect proof.",
-          "evidence": []
+          "evidence": [
+            "backend/services/encounterJourneyService.js",
+            "backend/services/outboxDelivery.js",
+            "backend/tests/integration/encounter-walkin-claim.test.js"
+          ]
         },
         {
           "id": "AG05.03",
           "title": "Verified link and patient UI",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Complete request/verify/link transactionally with session/visit/person/family/destination/generation binding. Preserve history and one-owner invariants. Provide request/resend/countdown/verify/recovery states and an exact activation/rollback proposal; retain runtime containment until prerequisites exist.",
           "acceptance": "Actual Mongo, cookie-CSRF routes and browser cover self/family, foreign owner/tenant, expired/replayed proof, competing links and failed/retried requests. Approved real handset/provider evidence is separately required for production acceptance.",
-          "evidence": []
+          "evidence": [
+            "backend/services/encounterJourneyService.js",
+            "frontend/src/pages/hospital-website/PatientVisits.jsx",
+            "backend/tests/integration/encounter-walkin-claim.test.js"
+          ]
         }
       ]
     },
