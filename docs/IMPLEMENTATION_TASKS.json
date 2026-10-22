@@ -1286,10 +1286,19 @@
         {
           "id": "AG16.05",
           "title": "Connect, SaaS and AI reliability",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Reverify independent-practice verification/publication/sessions, hospital/practice isolation, communities/moderation/events/pagination/preferences and real outbox callers. Complete tenant onboarding, one-use setup, quota/entitlement/suspension and admin capability flows. Verify the symptom-to-doctor recommendation entry point, consent/provenance, timeouts and no-provider fallback.",
           "acceptance": "Browser/router cases cover dual-practice isolation, moderation, setup expiry/replay, concurrent quotas, revoked access and AI outage. AI cannot invent available doctors or claim diagnosis/clinical validation; core care works without it.",
-          "evidence": []
+          "evidence": [
+            "backend/services/productHosts.js",
+            "backend/services/saasService.js",
+            "backend/tests/ai-reliability.test.js",
+            "backend/tests/independent-doctor-community.test.js",
+            "frontend/e2e/products.spec.js",
+            "frontend/e2e/dashboard-assistant.spec.js",
+            "frontend/e2e/accounts.spec.js",
+            "frontend/e2e/marketing.spec.js"
+          ]
         },
         {
           "id": "AG16.06",

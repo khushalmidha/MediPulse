@@ -55,7 +55,7 @@ function ProfileForm({ user, role, setUser }) {
       }
       return response;
     }, response => {
-      setUser(response.data); setForm(profileDraft(response.data)); setDirty(false); task.setFeedback({ message: "Profile and practice settings updated successfully.", tone: "info" });
+      setUser(response.data); setForm(profileDraft(response.data)); setDirty(false); task.setFeedback({ message: "Profile updated successfully.", tone: "info" });
     });
   };
   return <AccountPage wide title="Edit Profile" description="Keep your account information up to date."><Feedback feedback={task.feedback} />{!task.online && <Banner>You are offline. Your edits are kept on this page until you reconnect.</Banner>}<Card as="form" onSubmit={submit} className="mp-stack" aria-busy={task.busy}><h2>Personal details</h2><div className="mp-form-row">{field("firstName", "First name", { required: true, pattern: ".*[^ ].*", autoComplete: "given-name" })}{field("lastName", "Last name", { autoComplete: "family-name" })}</div><div className="mp-form-row"><GenderField value={form.gender} disabled={task.busy} onChange={update("gender")} />{field("phoneNumber", "Phone number", { type: "tel", pattern: "[1-9][0-9]{9}", hint: "10 digits. Leave blank to keep the recorded number." })}</div>{field("bio", "About you", { as: "textarea", rows: 4 })}

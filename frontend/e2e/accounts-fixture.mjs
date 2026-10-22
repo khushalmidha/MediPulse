@@ -2,6 +2,14 @@
 export async function handleAccounts({ req, state, reply, doctor, staff, hospitalId }) {
   const url = new URL(req.url, "http://127.0.0.1:19080"), path = url.pathname;
   const respond = (body, code = 200) => { reply(body, code); return true; };
+  if (path === "/doctor/practice-settings" || path === "/api/doctor/practice-settings") {
+    if (req.method === "GET") return respond({ isPublished: state.doctorProfile?.isPublished ?? false, independentPractice: state.doctorProfile?.independentPractice ?? { enabled: true }, consultationFee: state.doctorProfile?.consultationFee ?? 500 });
+    if (req.method === "PUT") {
+      let raw = ""; for await (const chunk of req) raw += chunk; const body = JSON.parse(raw || "{}");
+      state.doctorProfile = { ...(state.doctorProfile || {}), ...body };
+      return respond({ success: true, ...body });
+    }
+  }
   if (path === `/api/hospitals/${hospitalId}/staff/invite/accept`) return state.failInviteRead ? respond({ message: "Synthetic invitation outage" }, 503) : state.inviteExpired ? respond({ message: "Invite is invalid or expired" }, 410) : respond({ staff: { ...staff, role: state.inviteRole || "NURSE", email: "fixture@example.invalid", doctorProfile: { specialization: "General Medicine", qualification: "Recorded qualification", experience: state.inviteExperience ?? 0 } } });
   const signup = /^\/(user|doctor)\/signup$/.test(path), login = path === "/doctor/login" || path === "/user/staff/login" || path === "/user/login" && state.failLogin;
   const reset = /^\/(user|doctor)\/forgot-password\/(send-otp|reset)$/.test(path), profile = ["/user", "/doctor"].includes(path) && req.method === "PUT";

@@ -3182,3 +3182,25 @@ Completed and verified clinical records, laboratory order fulfillment, multi-ver
   - `frontend/e2e/laboratory.unit.mjs` & `frontend/e2e/pharmacy.unit.mjs`: verified scoped command handling, non-destructive parameter code mapping, and batch return math.
 - **Plan ledger update:**
   - Transitioned `AG16.04` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+
+## AG16.05 — Connect, SaaS and AI reliability - 22 October 2026
+
+Completed and verified Connect independent practice publication, SaaS multi-tenant isolation, host/subdomain routing, account workflows, and AI reliability safeguards.
+
+### Verified changes and findings
+
+- **Doctor Practice Settings & Feedback Alignment (`frontend/src/pages/EditProfile.jsx`, `frontend/e2e/accounts-fixture.mjs`):**
+  - Standardized profile update feedback message to `"Profile updated successfully."` across all user roles.
+  - Added synthetic fixture support for `GET` and `PUT /doctor/practice-settings` to properly test practice publishing and consultation fee updates.
+- **Connect & Multi-Tenant Host Routing (`frontend/e2e/products.spec.js`):**
+  - Verified 24 browser check scenarios pass across company (`medipulse.live`), Connect (`/connect`), hospital microsites, and staff fallback consoles with strict domain isolation and unclaimed host fail-closed behavior.
+- **AI Reliability & Boundary Safeguards (`backend/tests/ai-reliability.test.js`, `frontend/e2e/dashboard-assistant.spec.js`):**
+  - Verified 9 unit tests in `ai-reliability.test.js`: timeout fallbacks without hanging, PII minimization, deterministic SOAP fallback when offline, and red-flag emergency detection.
+  - Verified 10 browser checks in `dashboard-assistant.spec.js`: directory search without model hallucination, chat disposal on account switch, and clear unavailable states during provider outage.
+- **Account Journeys & Marketing Checks:**
+  - `frontend/e2e/accounts.spec.js`: 33 passed, 1 skipped.
+  - `frontend/e2e/marketing.spec.js`: 11 passed, 1 skipped.
+  - `frontend/e2e/route-loading.spec.js`: 4 passed.
+  - `backend/tests/independent-doctor-community.test.js`, `p17.test.js`, `p07.test.js`: 22 passed.
+- **Plan ledger update:**
+  - Transitioned `AG16.05` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
