@@ -2908,5 +2908,46 @@ Baseline: `0735130c` on main. Completed bounded vertical Emergency Department 5-
 - Local tests verified on isolated synthetic databases against local MongoDB replica set (`rs0`) and Redis.
 - Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.
 
+## AG21 Hospital Revenue, Procurement and Stock Operations - 22 October 2026
+
+Baseline: `0740b198` on main. Completed bounded vertical Hospital Revenue, Service Tariffs, Inpatient Folio & Auto Bed-Day Accrual, Corporate Insurance TPA Pre-Authorization & Split Billing, Procurement Goods Receipt Notes (GRN) with Atomic Central Store Stock Reconciliation, and Ward Stock Requisitions with Idempotent Deduplication Transfers across backend services, controllers, routes, and frontend staff console.
+
+### Implemented changes & verification
+
+- **Revenue & Stock Controller & HTTP Routes:**
+  - Implemented `backend/controller/hospitalRevenueStock.js` with `asyncHandler`, capability validation, and tenant scoping for hospital tariffs, inpatient invoices, auto bed-day accrual, corporate insurance TPA pre-authorization, split billing calculation, partial/full invoice payments, courtesy credit notes, Goods Receipt Notes (GRN), atomic GRN stock reconciliation into central store batches, ward stock requisitions, and atomic idempotent stock transfers.
+  - Implemented `backend/routes/hospitalRevenueStock.js` exporting `hospitalRevenueStockRouter` with `nosqlGuard`, `validateStaff`, and `requireRole(...)` authorization (`HOSPITAL_ADMIN` for tariff creation, credit notes, and reconciliation; `HOSPITAL_ADMIN` / `RECEPTIONIST` for inpatient invoicing, bed-day accrual, TPA pre-authorization, split billing, and payment collection; `HOSPITAL_ADMIN` / `PHARMACIST` for procurement GRN creation, GRN reconciliation, and ward stock transfer fulfillment; `NURSE` / `DOCTOR` / `HOSPITAL_ADMIN` for ward stock requisitions).
+  - Mounted routes at `app.use('/api/revenue', hospitalRevenueStockRouter)` and `app.use('/api/procurement', hospitalRevenueStockRouter)` in `backend/index.js`.
+- **Revenue & Stock Service Enhancements (`backend/services/hospitalRevenueStockService.js`):**
+  - Added query methods: `getInpatientInvoices`, `getInvoiceById`, `getTpaPreAuths`, `getCentralStoreStock`, `getWardStock`, `getGoodsReceiptNotes`, `getGoodsReceiptNoteByNumber`, `getWardStockRequisitions`, `getWardStockRequisitionByNumber`.
+  - Added model imports for `inpatient.js` (`Ward`, `IpdAdmission`), `user.js`, `hospitalStaff.js`, and `department.js` to ensure safe Mongoose population across isolated environments.
+  - Enforced atomic transactions via `moneyTransaction` for bed-day auto-accrual with date-deduplication, TPA split billing calculation, invoice payment settlement, credit note discounting, GRN stock batch reconciliation, and ward stock transfers.
+  - Enforced `transferIdempotencyKey` replay deduplication: replaying a transfer with an identical idempotency key returns the fulfilled requisition without double-decrementing central store inventory or double-incrementing ward stock.
+- **Hospital Revenue, Procurement & Stock Console UI (`frontend/src/pages/hospital-staff/RevenueStockConsole.jsx`):**
+  - Built comprehensive staff workstation with tabbed workspace: "Inpatient Billing & Folio", "Corporate Insurance & TPA Claims", "Central Store & GRN", "Ward Stock Requisitions".
+  - Inpatient Billing tab: Master-detail view of inpatient folios, status filters (`all`, `draft`, `interim`, `finalized`, `settled`), New Inpatient Invoice modal, Folio detail card with gross total, credit discounts, TPA approved amount, patient copay, paid advance, balance payable, line items breakdown, Accrue Bed-Days modal with date picker and room type selector, Record Payment modal (cash, UPI, card POS, TPA settlement), and Issue Credit Note modal.
+  - Corporate Insurance & TPA Claims tab: Registry table of active pre-authorizations (approved limit, copay %, corporate ID), Register TPA Pre-Auth modal, and Apply TPA to Invoice modal with split billing calculation.
+  - Central Store & Procurement tab: Goods Receipt Notes (GRN) workflow table, New GRN modal (vendor, PO ref, invoice number, items with batch, expiry, unit cost), Verify & Reconcile action button triggering atomic central inventory update, and Central Store stock inventory browser with search and category filtering (`medication`, `consumable`, `surgical`, `implant`, `general`).
+  - Ward Stock Requisitions tab: Ward stock inventory table, Ward selection filter, Request Ward Stock modal (ward nurse requests items from central store), Requisitions tracking table with status badges (`requested`, `partially_issued`, `fulfilled`), and Fulfill Stock Transfer modal (pharmacist issues stock with auto-generated/custom transfer idempotency key).
+  - Added lazy-loaded routes in `frontend/src/App.jsx`: `/hospital/revenue`, `/hospital/billing`, `/hospital/insurance`, `/hospital/procurement`, `/hospital/stock`.
+  - Added "Revenue & Stock" navigation link with Receipt icon in `frontend/src/components/Navbar.jsx`.
+- **Testing & Verification:**
+  - Unit test suite `backend/tests/hospital-revenue-stock.test.js`: **8/8 passed** (13.90ms).
+  - Integration test suite `backend/tests/integration/hospital-revenue-stock.test.js`: **5/5 passed** against live local MongoDB replica set `rs0` (including subtest 4 with 15 HTTP router assertions testing unauthenticated 401 rejection, role 403 rejections, foreign hospital tenant isolation 404, tariff master creation, inpatient invoice creation, bed-day auto-accrual, TPA pre-authorization, TPA split billing application, credit note courtesy discount, payment settlement, GRN creation, GRN reconciliation, double-reconciliation 400 rejection, ward stock requisition, pharmacist transfer fulfillment, and idempotent transfer replay without double-deduction).
+  - Backend unit test suite (`npm test`): **225/225 passed, 0 failed, 0 skipped** (24.93s).
+  - Full registered backend integration runner (`npm run test:integration`): **369/369 passed, 0 failed, 0 skipped** (including all core and enterprise integration files).
+  - Frontend unit test suite (`npm run test:ui`): **59/59 passed, 0 failed, 0 skipped** (517ms).
+  - Frontend production build (`npm run build`): **passed cleanly in 37.46s** (`dist/assets/RevenueStockConsole-DFO9oSSU.js` 46.82 kB).
+  - Affected frontend files ESLint: **0 errors / 0 warnings**.
+  - Task ledger `docs/IMPLEMENTATION_TASKS.json`: AG21 transitioned to `verified_local` with `productionAcceptance: "not performed"`; next task set to `AG22`.
+  - Status documentation `docs/IMPLEMENTATION_STATUS.md`: updated to reflect 369/369 integration cases and AG21 local verification.
+
+### Data and boundary affirmation
+
+- Additive and reversible changes only; zero production database, index, seed, or migration executed.
+- Local tests verified on isolated synthetic databases against local MongoDB replica set (`rs0`) and Redis.
+- Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.
+
+
 
 

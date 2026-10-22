@@ -10,7 +10,10 @@ import {
   WardStockRequisition,
 } from "../model/hospitalRevenueStock.js";
 import Hospital from "../model/hospital.js";
-import { IpdAdmission } from "../model/inpatient.js";
+import { IpdAdmission, Ward } from "../model/inpatient.js";
+import User from "../model/user.js";
+import HospitalStaff from "../model/hospitalStaff.js";
+import Department from "../model/department.js";
 import { accessError } from "./hospitalAccess.js";
 import { moneyTransaction } from "./moneyTransaction.js";
 import { assertTenantNotSuspended, checkFeatureEntitlement } from "./saasOperationsService.js";
@@ -724,6 +727,227 @@ export const fulfillWardStockTransfer = async ({
   });
 };
 
+/**
+ * 7. Inpatient Invoices & Folio Queries
+ */
+export const getInpatientInvoices = async ({
+  hospitalId,
+  status = null,
+  patientId = null,
+  admissionId = null,
+  limit = 50,
+  page = 1,
+}) => {
+  assertDbConnected();
+  if (testDouble?.getInpatientInvoices) {
+    return testDouble.getInpatientInvoices({ hospitalId, status, patientId, admissionId, limit, page });
+  }
+
+  const query = { hospitalId };
+  if (status) query.status = status;
+  if (patientId) query.patientId = patientId;
+  if (admissionId) query.admissionId = admissionId;
+
+  const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+  const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  const [invoices, total] = await Promise.all([
+    InpatientInvoice.find(query)
+      .populate("patientId", "firstName lastName email phoneNumber")
+      .populate("admissionId", "admissionNumber roomNumber bedNumber careClass")
+      .populate("tpaPreAuthId")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .lean(),
+    InpatientInvoice.countDocuments(query),
+  ]);
+
+  return { success: true, invoices, total, page: parsedPage, limit: parsedLimit };
+};
+
+export const getInvoiceById = async ({ hospitalId, invoiceId }) => {
+  assertDbConnected();
+  if (testDouble?.getInvoiceById) {
+    return testDouble.getInvoiceById({ hospitalId, invoiceId });
+  }
+
+  const invoice = await InpatientInvoice.findOne({ _id: invoiceId, hospitalId })
+    .populate("patientId", "firstName lastName email phoneNumber")
+    .populate("admissionId", "admissionNumber roomNumber bedNumber careClass attendingDoctorId")
+    .populate("tpaPreAuthId")
+    .lean();
+
+  if (!invoice) throw accessError(404, "Inpatient invoice not found");
+  return { success: true, invoice };
+};
+
+/**
+ * 8. TPA Pre-Authorizations Queries
+ */
+export const getTpaPreAuths = async ({ hospitalId, admissionId = null, patientId = null, status = null }) => {
+  assertDbConnected();
+  if (testDouble?.getTpaPreAuths) {
+    return testDouble.getTpaPreAuths({ hospitalId, admissionId, patientId, status });
+  }
+
+  const query = { hospitalId };
+  if (admissionId) query.admissionId = admissionId;
+  if (patientId) query.patientId = patientId;
+  if (status) query.status = status;
+
+  const preAuths = await TpaPreAuth.find(query)
+    .populate("patientId", "firstName lastName email phoneNumber")
+    .populate("admissionId", "admissionNumber roomNumber bedNumber")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return { success: true, preAuths };
+};
+
+/**
+ * 9. Stock & Inventory Queries
+ */
+export const getCentralStoreStock = async ({ hospitalId, category = null, search = "" }) => {
+  assertDbConnected();
+  if (testDouble?.getCentralStoreStock) {
+    return testDouble.getCentralStoreStock({ hospitalId, category, search });
+  }
+
+  const query = { hospitalId };
+  if (category) query.category = category;
+  if (search && String(search).trim()) {
+    const s = String(search).trim();
+    query.$or = [
+      { itemCode: { $regex: s, $options: "i" } },
+      { itemName: { $regex: s, $options: "i" } },
+    ];
+  }
+
+  const stock = await CentralStoreStock.find(query).sort({ itemName: 1 }).lean();
+  return { success: true, stock };
+};
+
+export const getWardStock = async ({ hospitalId, wardId = null, search = "" }) => {
+  assertDbConnected();
+  if (testDouble?.getWardStock) {
+    return testDouble.getWardStock({ hospitalId, wardId, search });
+  }
+
+  const query = { hospitalId };
+  if (wardId) query.wardId = wardId;
+  if (search && String(search).trim()) {
+    const s = String(search).trim();
+    query.$or = [
+      { itemCode: { $regex: s, $options: "i" } },
+      { itemName: { $regex: s, $options: "i" } },
+    ];
+  }
+
+  const stock = await WardStock.find(query)
+    .populate("wardId", "name code")
+    .sort({ itemName: 1 })
+    .lean();
+  return { success: true, stock };
+};
+
+/**
+ * 10. Procurement (GRN) & Requisition Queries
+ */
+export const getGoodsReceiptNotes = async ({ hospitalId, status = null, limit = 50, page = 1 }) => {
+  assertDbConnected();
+  if (testDouble?.getGoodsReceiptNotes) {
+    return testDouble.getGoodsReceiptNotes({ hospitalId, status, limit, page });
+  }
+
+  const query = { hospitalId };
+  if (status) query.status = status;
+
+  const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+  const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  const [grns, total] = await Promise.all([
+    GoodsReceiptNote.find(query)
+      .populate("receivedByStaffId", "name role")
+      .populate("verifiedByStaffId", "name role")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .lean(),
+    GoodsReceiptNote.countDocuments(query),
+  ]);
+
+  return { success: true, grns, total, page: parsedPage, limit: parsedLimit };
+};
+
+export const getGoodsReceiptNoteByNumber = async ({ hospitalId, grnNumber }) => {
+  assertDbConnected();
+  if (testDouble?.getGoodsReceiptNoteByNumber) {
+    return testDouble.getGoodsReceiptNoteByNumber({ hospitalId, grnNumber });
+  }
+
+  const grn = await GoodsReceiptNote.findOne({ hospitalId, grnNumber })
+    .populate("receivedByStaffId", "name role")
+    .populate("verifiedByStaffId", "name role")
+    .lean();
+
+  if (!grn) throw accessError(404, "Goods Receipt Note not found");
+  return { success: true, grn };
+};
+
+export const getWardStockRequisitions = async ({
+  hospitalId,
+  wardId = null,
+  status = null,
+  limit = 50,
+  page = 1,
+}) => {
+  assertDbConnected();
+  if (testDouble?.getWardStockRequisitions) {
+    return testDouble.getWardStockRequisitions({ hospitalId, wardId, status, limit, page });
+  }
+
+  const query = { hospitalId };
+  if (wardId) query.wardId = wardId;
+  if (status) query.status = status;
+
+  const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+  const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  const [requisitions, total] = await Promise.all([
+    WardStockRequisition.find(query)
+      .populate("wardId", "name code")
+      .populate("requestedByStaffId", "name role")
+      .populate("issuedByStaffId", "name role")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .lean(),
+    WardStockRequisition.countDocuments(query),
+  ]);
+
+  return { success: true, requisitions, total, page: parsedPage, limit: parsedLimit };
+};
+
+export const getWardStockRequisitionByNumber = async ({ hospitalId, requisitionNumber }) => {
+  assertDbConnected();
+  if (testDouble?.getWardStockRequisitionByNumber) {
+    return testDouble.getWardStockRequisitionByNumber({ hospitalId, requisitionNumber });
+  }
+
+  const requisition = await WardStockRequisition.findOne({ hospitalId, requisitionNumber })
+    .populate("wardId", "name code")
+    .populate("requestedByStaffId", "name role")
+    .populate("issuedByStaffId", "name role")
+    .lean();
+
+  if (!requisition) throw accessError(404, "Ward stock requisition not found");
+  return { success: true, requisition };
+};
+
 export default {
   createTariff,
   getTariffs,
@@ -737,4 +961,13 @@ export default {
   verifyAndReconcileGrn,
   requestWardStock,
   fulfillWardStockTransfer,
+  getInpatientInvoices,
+  getInvoiceById,
+  getTpaPreAuths,
+  getCentralStoreStock,
+  getWardStock,
+  getGoodsReceiptNotes,
+  getGoodsReceiptNoteByNumber,
+  getWardStockRequisitions,
+  getWardStockRequisitionByNumber,
 };

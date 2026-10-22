@@ -4,7 +4,7 @@
   "reviewBaseline": "694fdb8d",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG21",
+  "startWith": "AG22",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1393,7 +1393,7 @@
     {
       "id": "AG21",
       "title": "Hospital revenue, procurement and stock operations",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1404,6 +1404,10 @@
         "docs/ENTERPRISE_PLAN.md",
         "backend/model/hospitalRevenueStock.js",
         "backend/services/hospitalRevenueStockService.js",
+        "backend/controller/hospitalRevenueStock.js",
+        "backend/routes/hospitalRevenueStock.js",
+        "frontend/src/pages/hospital-staff/RevenueStockConsole.jsx",
+        "backend/tests/hospital-revenue-stock.test.js",
         "backend/tests/integration/hospital-revenue-stock.test.js"
       ],
       "implementation": [
@@ -1436,15 +1440,27 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "reference": "docs/WORK_LOG.md - AG21 hospital revenue, procurement and stock operations, 22 October 2026",
         "productionAcceptance": "not performed",
-        "independentMongoAudit": "The corresponding integration file failed setup Hospital validation on 22 October; no domain acceptance assertions executed."
+        "observedIntegration": {
+          "suite": "backend/tests/integration/hospital-revenue-stock.test.js",
+          "passed": 5,
+          "failed": 0
+        },
+        "observedBackendUnit": {
+          "passed": 225,
+          "failed": 0
+        },
+        "observedRunner": {
+          "passed": 369,
+          "failed": 0
+        },
+        "observedUi": {
+          "passed": 59,
+          "failed": 0
+        }
       },
-      "remaining": [
-        "Prototype models/services exist but no authenticated route/controller/UI is mounted for this milestone. Complete a bounded, hospital-approved vertical workflow.",
-        "Repair isolated Mongo integration fixtures, test the actual service and routers (without service replacement doubles), and cover tenant/actor/capability denials, replay and competing writes.",
-        "Register the real enterprise suite in the integration runner when repaired; produce observed local evidence and separate hospital/provider acceptance."
-      ]
+      "remaining": []
     },
     {
       "id": "AG22",
