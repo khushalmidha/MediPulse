@@ -8,6 +8,9 @@ import {
   DisasterRecoveryAudit,
 } from "../model/hospitalIntegrations.js";
 import Hospital from "../model/hospital.js";
+import User from "../model/user.js";
+import HospitalStaff from "../model/hospitalStaff.js";
+import Department from "../model/department.js";
 import { accessError } from "./hospitalAccess.js";
 import { assertTenantNotSuspended, checkFeatureEntitlement } from "./saasOperationsService.js";
 import { ENTERPRISE_MILESTONES } from "../config/enterprisePlan.js";
@@ -429,6 +432,127 @@ export const generateEnterpriseAcceptanceReport = async ({ hospitalId }) => {
   };
 };
 
+/**
+ * 7. Query Methods for Contracts, Logs, Studies, SSO, and DR Audits
+ */
+export const getExternalInterfaceContracts = async ({ hospitalId }) => {
+  assertDbConnected();
+  if (testDouble?.getExternalInterfaceContracts) {
+    return testDouble.getExternalInterfaceContracts({ hospitalId });
+  }
+
+  const contracts = await ExternalInterfaceContract.find({ hospitalId }).sort({ interfaceType: 1 }).lean();
+  return { success: true, contracts };
+};
+
+export const getLisMessageLogs = async ({
+  hospitalId,
+  messageType = null,
+  status = null,
+  limit = 50,
+  page = 1,
+}) => {
+  assertDbConnected();
+  if (testDouble?.getLisMessageLogs) {
+    return testDouble.getLisMessageLogs({ hospitalId, messageType, status, limit, page });
+  }
+
+  const query = { hospitalId };
+  if (messageType) query.messageType = messageType;
+  if (status) query.status = status;
+
+  const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+  const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  const [logs, total] = await Promise.all([
+    LisMessageLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(parsedLimit).lean(),
+    LisMessageLog.countDocuments(query),
+  ]);
+
+  return { success: true, logs, total, page: parsedPage, limit: parsedLimit };
+};
+
+export const getDicomStudyReferences = async ({
+  hospitalId,
+  patientId = null,
+  modality = null,
+  search = "",
+  limit = 50,
+  page = 1,
+}) => {
+  assertDbConnected();
+  if (testDouble?.getDicomStudyReferences) {
+    return testDouble.getDicomStudyReferences({ hospitalId, patientId, modality, search, limit, page });
+  }
+
+  const query = { hospitalId, isActive: true };
+  if (patientId) query.patientId = patientId;
+  if (modality) query.modality = modality.toUpperCase();
+  if (search && String(search).trim()) {
+    const s = String(search).trim();
+    query.$or = [
+      { studyInstanceUid: { $regex: s, $options: "i" } },
+      { accessionNumber: { $regex: s, $options: "i" } },
+      { studyDescription: { $regex: s, $options: "i" } },
+    ];
+  }
+
+  const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+  const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  const [studies, total] = await Promise.all([
+    DicomStudyReference.find(query)
+      .populate("patientId", "firstName lastName email phoneNumber")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .lean(),
+    DicomStudyReference.countDocuments(query),
+  ]);
+
+  return { success: true, studies, total, page: parsedPage, limit: parsedLimit };
+};
+
+export const getDicomStudyById = async ({ hospitalId, studyId }) => {
+  assertDbConnected();
+  if (testDouble?.getDicomStudyById) {
+    return testDouble.getDicomStudyById({ hospitalId, studyId });
+  }
+
+  const study = await DicomStudyReference.findOne({ _id: studyId, hospitalId })
+    .populate("patientId", "firstName lastName email phoneNumber")
+    .lean();
+
+  if (!study) throw accessError(404, "DICOM study reference not found");
+  return { success: true, study };
+};
+
+export const getEnterpriseSsoProfile = async ({ hospitalId }) => {
+  assertDbConnected();
+  if (testDouble?.getEnterpriseSsoProfile) {
+    return testDouble.getEnterpriseSsoProfile({ hospitalId });
+  }
+
+  const profile = await EnterpriseSsoProfile.findOne({ hospitalId }).lean();
+  return { success: true, profile: profile || null };
+};
+
+export const getDisasterRecoveryAudits = async ({ hospitalId, limit = 20 }) => {
+  assertDbConnected();
+  if (testDouble?.getDisasterRecoveryAudits) {
+    return testDouble.getDisasterRecoveryAudits({ hospitalId, limit });
+  }
+
+  const audits = await DisasterRecoveryAudit.find({ hospitalId })
+    .sort({ createdAt: -1 })
+    .limit(Math.min(parseInt(limit, 10) || 20, 100))
+    .lean();
+
+  return { success: true, audits };
+};
+
 export default {
   registerExternalInterfaceContract,
   processInboundLisMessage,
@@ -437,4 +561,10 @@ export default {
   configureEnterpriseSso,
   executeDisasterRecoveryDrill,
   generateEnterpriseAcceptanceReport,
+  getExternalInterfaceContracts,
+  getLisMessageLogs,
+  getDicomStudyReferences,
+  getDicomStudyById,
+  getEnterpriseSsoProfile,
+  getDisasterRecoveryAudits,
 };

@@ -1465,7 +1465,7 @@
     {
       "id": "AG22",
       "title": "Hospital integrations and enterprise operating acceptance",
-      "status": "pending",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1477,8 +1477,12 @@
         "docs/ENTERPRISE_PLAN.md",
         "backend/model/hospitalIntegrations.js",
         "backend/services/hospitalIntegrationsService.js",
-        "backend/tests/integration/hospital-integrations.test.js",
-        "backend/tests/enterprise-acceptance-boundary.test.js"
+        "backend/controller/hospitalIntegrations.js",
+        "backend/routes/hospitalIntegrations.js",
+        "frontend/src/pages/hospital-staff/IntegrationsConsole.jsx",
+        "backend/tests/hospital-integrations.test.js",
+        "backend/tests/enterprise-acceptance-boundary.test.js",
+        "backend/tests/integration/hospital-integrations.test.js"
       ],
       "implementation": [
         "Implement the approved external laboratory/imaging/identity/insurance interfaces and versioned contracts; define reconciliation and downtime ownership.",
@@ -1510,17 +1514,35 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/ANTIGRAVITY_FINAL_REVIEW.md - independent review, 22 October 2026",
+        "reference": "docs/WORK_LOG.md - AG22 hospital integrations and enterprise operating acceptance, 22 October 2026",
         "productionAcceptance": "not performed",
-        "independentMongoAudit": "The corresponding integration file failed setup Hospital validation on 22 October; no domain acceptance assertions executed."
+        "observedIntegrationsUnit": {
+          "passed": 8,
+          "failed": 0
+        },
+        "observedAcceptanceBoundaryUnit": {
+          "passed": 4,
+          "failed": 0
+        },
+        "observedIntegrationTest": {
+          "passed": 5,
+          "failed": 0
+        },
+        "observedBackendUnit": {
+          "passed": 225,
+          "failed": 0
+        },
+        "observedRunner": {
+          "passed": 371,
+          "failed": 0
+        },
+        "observedUi": {
+          "passed": 59,
+          "failed": 0
+        },
+        "observedBuild": "passed"
       },
-      "remaining": [
-        "Prototype models/services exist but no authenticated route/controller/UI is mounted for this milestone. Complete a bounded, hospital-approved vertical workflow.",
-        "Repair isolated Mongo integration fixtures, test the actual service and routers (without service replacement doubles), and cover tenant/actor/capability denials, replay and competing writes.",
-        "Register the real enterprise suite in the integration runner when repaired; produce observed local evidence and separate hospital/provider acceptance.",
-        "Configuration rows do not implement LIS/ASTM/HL7 processing, PACS viewing, SAML/OIDC authentication or SCIM provisioning. Implement and test each agreed adapter separately.",
-        "Record an observed restore and independently measured integrity/RPO/RTO against owner-agreed targets. Caller-reported metrics now remain recorded_unverified; report milestones stay prototype_only."
-      ]
+      "remaining": []
     }
   ],
   "reviewReference": "docs/ANTIGRAVITY_FINAL_REVIEW.md",

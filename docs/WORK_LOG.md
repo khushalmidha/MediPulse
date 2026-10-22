@@ -2948,6 +2948,48 @@ Baseline: `0740b198` on main. Completed bounded vertical Hospital Revenue, Servi
 - Local tests verified on isolated synthetic databases against local MongoDB replica set (`rs0`) and Redis.
 - Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.
 
+## AG22 Hospital Integrations and Enterprise Operating Acceptance - 22 October 2026
 
+Baseline: `f08cafa1` on main. Completed bounded vertical Hospital Integrations & Enterprise Operating Acceptance across backend models, services, controllers, routes, and frontend staff workstation console:
 
+### Implemented changes & verification
 
+- **External Interface Contracts & LIS Message Ingestion:**
+  - Implemented data schemas in `backend/model/hospitalIntegrations.js`: `ExternalInterfaceContract` (`LIS_HL7`, `LIS_ASTM`, `PACS_DICOM`, `SSO_SAML`, `SSO_OIDC`, `ABDM_BRIDGE`) with versioning, endpoint URLs, downtime escalation contacts, resolution SLAs, and queue policies (`store_and_forward` vs. `fail_closed`).
+  - Implemented `LisMessageLog` supporting `HL7_ORU_R01`, `HL7_OML_O21`, and `ASTM_E1394` message formats with SHA-256 payload hashing (`crypto.createHash("sha256")`), duplicate `messageControlId` replay idempotency, and failed message replaying (`replayCount`, status `replay_queued`).
+- **PACS / DICOM Metadata Registration:**
+  - Implemented `DicomStudyReference` storing lightweight DICOM study references (Study Instance UID, Modality, Accession Number, Series Count, Instance Count, WADO-RS viewer URI, and radiology impression summary) with zero raw pixel bloat, preventing database storage bloat and ensuring viewer URI compatibility.
+- **Enterprise SSO & Disaster Recovery Auditing:**
+  - Implemented `EnterpriseSsoProfile` for enterprise identity federation (`azure_ad`, `okta`, `saml2`, `oidc`) with SCIM automated role provisioning toggles.
+  - Implemented `DisasterRecoveryAudit` for measured RPO/RTO restoration drill tracking, strictly preserving the truthful `recorded_unverified` boundary (`recordsIntegrityVerified: false`, `rpoTargetMet: false`, `rtoTargetMet: false`) with zero unsupported regulatory or SLA compliance claims.
+  - Implemented truthful `generateEnterpriseAcceptanceReport` returning `operatingAcceptance.status = "not_accepted"` with a clear operating disclaimer declaring that physical analyzers, on-premise PACS networks, SAML identity providers, and ABDM bridges require separate site-specific deployments.
+- **Hospital Integrations Controller & HTTP Routes:**
+  - Implemented `backend/controller/hospitalIntegrations.js` with `asyncHandler`, capability validation, and tenant scoping (`getHospitalId(req)`, `getActor(req)`) for interface contracts, LIS message ingestion, LIS replay, DICOM study registration, SSO profile configuration, DR drill recording, and enterprise acceptance report generation.
+  - Implemented `backend/routes/hospitalIntegrations.js` exporting `hospitalIntegrationsRouter` with `nosqlGuard`, `validateStaff`, and `requireRole(...)` authorization (`HOSPITAL_ADMIN` for contracts, SSO, DR drills, and acceptance reports; `HOSPITAL_ADMIN` / `LAB_TECH` for LIS inbound ingestion and replay; `HOSPITAL_ADMIN` / `DOCTOR` / `LAB_TECH` for DICOM study registration).
+  - Mounted routes at `app.use('/api/integrations', hospitalIntegrationsRouter)` and `app.use('/api/enterprise', hospitalIntegrationsRouter)` in `backend/index.js`.
+- **Integrations & Enterprise Console UI (`frontend/src/pages/hospital-staff/IntegrationsConsole.jsx`):**
+  - Built comprehensive staff workstation with 5 operational tabs: "Interface Contracts", "LIS Analyzer Exchange", "PACS / DICOM Imaging", "Enterprise SSO & SCIM", and "DR Drills & Acceptance".
+  - Tab 1 (Interface Contracts): Summary metric cards, interface contract list, Configure Interface Contract modal with SLA and offline queue policy options.
+  - Tab 2 (LIS Analyzer Exchange): Inbound analyzer message stream with SHA-256 hash badges and payload inspector, Ingest Analyzer Message modal, and Replay Failed Message button.
+  - Tab 3 (PACS / DICOM Imaging): Study registry table with modality color tags, Register DICOM Study modal with series/instance count and WADO-RS URI inputs, and Diagnostic Viewer dialog launching WADO-RS link.
+  - Tab 4 (Enterprise SSO & SCIM): Identity Provider profile overview, Configure SSO modal (Entity ID, metadata URL, SCIM toggle), and SCIM role mapping matrix.
+  - Tab 5 (DR Drills & Acceptance): Truthful Operating Acceptance banner, milestone progress indicators, Record DR Drill Observation modal, and DR drill history table.
+  - Added lazy-loaded routes in `frontend/src/App.jsx`: `/hospital/integrations`, `/hospital/enterprise`, `/hospital/contracts`, `/hospital/lis`, `/hospital/pacs`, `/hospital/sso`, `/hospital/dr`.
+  - Added "Integrations & DR" navigation link with `Network` icon in `frontend/src/components/Navbar.jsx` for `HOSPITAL_ADMIN`.
+- **Testing & Verification:**
+  - Unit tests: `backend/tests/hospital-integrations.test.js` (**8/8 passed**, 15ms).
+  - Acceptance boundary tests: `backend/tests/enterprise-acceptance-boundary.test.js` (**4/4 passed**, 7ms).
+  - Integration suite `backend/tests/integration/hospital-integrations.test.js`: **5/5 passed** (3015ms) covering unauthenticated 401 rejection, role 403 rejections, foreign hospital tenant isolation 404, LIS message ingestion, LIS replay idempotency, DICOM study registration, SSO config, DR drill recording, and truthful acceptance reporting.
+  - Full backend unit tests (`npm test`): **225/225 passed, 0 failed, 0 skipped** (22.57s).
+  - Full registered integration runner (`npm run test:integration`): **371/371 passed, 0 failed, 0 skipped** (368.69s).
+  - Frontend UI unit tests (`npm run test:ui`): **59/59 passed, 0 failed, 0 skipped** (321ms).
+  - Frontend production build (`npm run build`): **passed cleanly in 19.82s** (`dist/assets/IntegrationsConsole-B1Gr60Mp.js` 35.16 kB).
+  - Affected frontend files ESLint: **0 errors / 0 warnings**.
+  - All 23 tasks in `docs/IMPLEMENTATION_TASKS.json` (AG00 to AG22) are now transitioned to `verified_local`. Plan check tool `node tools/check-implementation-plan.mjs --next` confirms: `"next": null`.
+  - Status documentation `docs/IMPLEMENTATION_STATUS.md`: updated to reflect 371/371 integration cases and AG22 completion.
+
+### Data and boundary affirmation
+
+- Additive and reversible changes only; zero production database, index, seed, or migration executed.
+- Local tests verified on isolated synthetic databases against local MongoDB replica set (`rs0`) and Redis.
+- Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.

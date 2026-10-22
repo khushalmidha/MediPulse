@@ -19,6 +19,7 @@ import {
   Sun,
   Siren,
   Receipt,
+  Network,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -256,6 +257,7 @@ const Navbar = () => {
     ...(['HOSPITAL_ADMIN', 'NURSE', 'DOCTOR'].includes(staffRole) || staffUser?.adminAccess ? [{ to: '/hospital/nursing', label: 'Inpatient Care', icon: HeartPulse }] : []),
     ...(['HOSPITAL_ADMIN', 'NURSE', 'DOCTOR', 'RECEPTIONIST'].includes(staffRole) || staffUser?.adminAccess ? [{ to: '/hospital/emergency', label: 'Emergency & OT', icon: Siren }] : []),
     ...(['HOSPITAL_ADMIN', 'PHARMACIST', 'RECEPTIONIST', 'NURSE'].includes(staffRole) || staffUser?.adminAccess ? [{ to: '/hospital/revenue', label: 'Revenue & Stock', icon: Receipt }] : []),
+    ...((staffRole === 'HOSPITAL_ADMIN' || staffUser?.adminAccess) ? [{ to: '/hospital/integrations', label: 'Integrations & DR', icon: Network }] : []),
     ...(staffRole === 'DOCTOR' ? [{ to: '/hospital/doctor-opd', label: 'Consultation', icon: Stethoscope, badge: staffOpdBadge }] : []),
     ...(['DOCTOR', 'LAB_TECH', 'NURSE', 'DEPARTMENT_HEAD', 'HOSPITAL_ADMIN'].includes(staffRole) || staffUser?.adminAccess ? [{ to: '/hospital/laboratory', label: 'Laboratory', icon: ClipboardList }] : []),
     ...(staffRole === 'PHARMACIST' ? [{ to: '/hospital/pharmacy', label: 'Pharmacy', icon: ClipboardList }] : []),

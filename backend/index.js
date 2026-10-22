@@ -43,6 +43,7 @@ import inpatientRouter from './routes/inpatient.js'
 import nursingRouter from './routes/nursingCare.js'
 import emergencyTheatreRouter from './routes/emergencyTheatre.js'
 import hospitalRevenueStockRouter from './routes/hospitalRevenueStock.js'
+import hospitalIntegrationsRouter from './routes/hospitalIntegrations.js'
 import { startAutoRefundWorker } from './controller/appointment.js'
 import { startReviewRequestWorker } from './services/reviewRequestWorker.js'
 import { StaffVerifier, Verifier } from './controller/auth.js'
@@ -118,6 +119,8 @@ const start = async () => {
   app.use('/api/theatre', emergencyTheatreRouter)
   app.use('/api/revenue', hospitalRevenueStockRouter)
   app.use('/api/procurement', hospitalRevenueStockRouter)
+  app.use('/api/integrations', hospitalIntegrationsRouter)
+  app.use('/api/enterprise', hospitalIntegrationsRouter)
   app.use('/vpay', virtualPaymentRouter)
   app.get('/verify', asyncHandler(Verifier))
   app.get('/verify/staff', asyncHandler(StaffVerifier))

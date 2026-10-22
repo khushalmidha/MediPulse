@@ -1,11 +1,16 @@
 import test, { before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { once } from "node:events";
+import express from "express";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Hospital from "../../model/hospital.js";
 import Department from "../../model/department.js";
 import User from "../../model/user.js";
 import HospitalStaff from "../../model/hospitalStaff.js";
+import AuthSession from "../../model/authSession.js";
 import {
   ExternalInterfaceContract,
   LisMessageLog,
@@ -17,11 +22,19 @@ import { localTestTargets } from "../../util/testTargets.js";
 import {
   registerExternalInterfaceContract,
   processInboundLisMessage,
+  replayFailedLisMessage,
   registerDicomStudy,
   configureEnterpriseSso,
   executeDisasterRecoveryDrill,
   generateEnterpriseAcceptanceReport,
+  getExternalInterfaceContracts,
+  getLisMessageLogs,
+  getDicomStudyReferences,
+  getDicomStudyById,
+  getEnterpriseSsoProfile,
+  getDisasterRecoveryAudits,
 } from "../../services/hospitalIntegrationsService.js";
+import hospitalIntegrationsRouter from "../../routes/hospitalIntegrations.js";
 
 let uri = null;
 try {
@@ -33,6 +46,7 @@ try {
 
 const id = () => new mongoose.Types.ObjectId();
 const hospitalId = id();
+const foreignHospitalId = id();
 const departmentId = id();
 const staffId = id();
 const patientId = id();
@@ -70,6 +84,18 @@ beforeEach(async () => {
     type: "private",
     email: "medanta-enterprise@example.test",
     address: { city: "Gurugram", state: "Haryana" },
+    status: "active",
+    subscription: { plan: "enterprise", status: "active" },
+  });
+
+  await Hospital.create({
+    _id: foreignHospitalId,
+    name: "Apollo Global Foreign Hospital",
+    slug: "apollo-foreign",
+    registrationNumber: "REG-APOLLO-999",
+    type: "private",
+    email: "foreign@apollo.test",
+    address: { city: "Delhi", state: "Delhi" },
     status: "active",
     subscription: { plan: "enterprise", status: "active" },
   });
@@ -178,5 +204,269 @@ test("Task AG22: Hospital Integrations and Enterprise Operating Acceptance (Inte
     const report = await generateEnterpriseAcceptanceReport({ hospitalId });
     assert.equal(report.operatingAcceptance.outpatientPilotPreserved, false);
     assert.equal(report.operatingAcceptance.status, "not_accepted");
+  });
+
+  await t.test("3. Service queries for contracts, LIS logs, DICOM studies, SSO, and DR audits", async () => {
+    const contracts = await getExternalInterfaceContracts({ hospitalId });
+    assert.equal(contracts.success, true);
+    assert.ok(Array.isArray(contracts.contracts));
+
+    const lisLogs = await getLisMessageLogs({ hospitalId });
+    assert.equal(lisLogs.success, true);
+    assert.ok(Array.isArray(lisLogs.logs));
+
+    const studies = await getDicomStudyReferences({ hospitalId });
+    assert.equal(studies.success, true);
+    assert.ok(Array.isArray(studies.studies));
+
+    const sso = await getEnterpriseSsoProfile({ hospitalId });
+    assert.equal(sso.success, true);
+
+    const drAudits = await getDisasterRecoveryAudits({ hospitalId });
+    assert.equal(drAudits.success, true);
+    assert.ok(Array.isArray(drAudits.audits));
+  });
+
+  await t.test("4. Comprehensive HTTP Router Integration: Auth, Roles, Isolation, LIS Replay, DICOM & DR Truthfulness", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(cookieParser());
+    app.use("/api/integrations", hospitalIntegrationsRouter);
+    app.use("/api/enterprise", hospitalIntegrationsRouter);
+
+    app.use((err, req, res, next) => {
+      res.status(err.status || 500).json({ error: err.message });
+    });
+
+    const server = app.listen(0);
+    await once(server, "listening");
+    const port = server.address().port;
+    const apiOrigin = `http://127.0.0.1:${port}`;
+
+    try {
+      const createStaffSession = async ({ role, adminAccess = false, hId = hospitalId }) => {
+        const staffMember = await HospitalStaff.create({
+          hospitalId: hId,
+          departmentIds: [departmentId],
+          name: `Staff Member ${role}`,
+          email: `staff.${role.toLowerCase()}.${crypto.randomBytes(4).toString("hex")}@medanta.test`,
+          role,
+          adminAccess,
+          isActive: true,
+          inviteStatus: "accepted",
+        });
+        const sid = crypto.randomUUID();
+        await AuthSession.create({
+          _id: sid,
+          principalId: staffMember._id,
+          kind: "staff",
+          authVersion: 0,
+          csrfToken: "csrf-token-test",
+          expiresAt: new Date(Date.now() + 600000),
+        });
+        const token = jwt.sign(
+          {
+            id: String(staffMember._id),
+            sid,
+            role,
+            type: "staff",
+            hospitalId: String(hId),
+          },
+          process.env.TOKEN_KEY || "local-development-signing-key-replace-before-production"
+        );
+        return { staff: staffMember, token };
+      };
+
+      const { token: adminToken } = await createStaffSession({ role: "HOSPITAL_ADMIN", adminAccess: true });
+      const { token: labTechToken } = await createStaffSession({ role: "LAB_TECH" });
+      const { token: doctorToken } = await createStaffSession({ role: "DOCTOR" });
+      const { token: nurseToken } = await createStaffSession({ role: "NURSE" });
+      const { token: foreignAdminToken } = await createStaffSession({ role: "HOSPITAL_ADMIN", adminAccess: true, hId: foreignHospitalId });
+
+      const request = async (path, { method = "GET", token, body } = {}) => {
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch(`${apiOrigin}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const data = await res.json().catch(() => ({}));
+        return { status: res.status, data };
+      };
+
+      // 4.1 Unauthenticated request returns 401
+      const unauthRes = await request("/api/integrations/contracts");
+      assert.equal(unauthRes.status, 401);
+
+      // 4.2 Role boundaries
+      // Only HOSPITAL_ADMIN can register contracts: NURSE gets 403
+      const nurseContractRes = await request("/api/integrations/contracts", {
+        method: "POST",
+        token: nurseToken,
+        body: { interfaceType: "LIS_HL7", contractVersion: "v1", endpointUrl: "http://test" },
+      });
+      assert.equal(nurseContractRes.status, 403);
+
+      // Only HOSPITAL_ADMIN can configure SSO: LAB_TECH gets 403
+      const labSsoRes = await request("/api/integrations/sso/configure", {
+        method: "POST",
+        token: labTechToken,
+        body: { idpType: "azure_ad", entityId: "spn:medanta" },
+      });
+      assert.equal(labSsoRes.status, 403);
+
+      // Only HOSPITAL_ADMIN can execute DR drills: DOCTOR gets 403
+      const docDrillRes = await request("/api/integrations/dr/drills", {
+        method: "POST",
+        token: doctorToken,
+        body: { drillType: "failover_simulation", measuredRpoMinutes: 5, measuredRtoMinutes: 15, recordsIntegrityVerified: true, conductedBy: "Dr." },
+      });
+      assert.equal(docDrillRes.status, 403);
+
+      // 4.3 External Interface Contract Registration via Admin HTTP
+      const registerContractRes = await request("/api/integrations/contracts", {
+        method: "POST",
+        token: adminToken,
+        body: {
+          interfaceType: "PACS_DICOM",
+          contractVersion: "DICOM-3.0-2026",
+          endpointUrl: "https://pacs.medanta.internal/dicom-web",
+          downtimeOwnership: {
+            primaryContact: "Radiology Systems Engineer Ramesh (ext 502)",
+            escalationMinutes: 15,
+            offlineQueuePolicy: "store_and_forward",
+          },
+          authConfig: {
+            clientId: "pacs-client-01",
+            issuerUrl: "https://auth.medanta.internal",
+          },
+        },
+      });
+      assert.equal(registerContractRes.status, 201);
+      assert.equal(registerContractRes.data.contract.interfaceType, "PACS_DICOM");
+
+      // List contracts
+      const listContractsRes = await request("/api/integrations/contracts", {
+        token: adminToken,
+      });
+      assert.equal(listContractsRes.status, 200);
+      assert.ok(listContractsRes.data.contracts.length >= 1);
+
+      // 4.4 Inbound LIS Message Processing via LAB_TECH HTTP
+      const lisRes = await request("/api/integrations/lis/inbound", {
+        method: "POST",
+        token: labTechToken,
+        body: {
+          messageControlId: "MSG-HL7-HTTP-001",
+          messageType: "HL7_ORU_R01",
+          accessionNumber: "ACC-LAB-881",
+          payload: { hematology: { hb: 13.5, platelets: 250000 } },
+        },
+      });
+      assert.equal(lisRes.status, 201);
+      assert.equal(lisRes.data.idempotentReplay, false);
+      assert.equal(lisRes.data.status, "processed");
+
+      // 4.5 Inbound LIS Idempotent Replay with duplicate messageControlId returns 200 without duplicate insertion
+      const lisReplayRes = await request("/api/integrations/lis/inbound", {
+        method: "POST",
+        token: labTechToken,
+        body: {
+          messageControlId: "MSG-HL7-HTTP-001",
+          messageType: "HL7_ORU_R01",
+          accessionNumber: "ACC-LAB-881",
+          payload: { hematology: { hb: 13.5, platelets: 250000 } },
+        },
+      });
+      assert.equal(lisReplayRes.status, 200);
+      assert.equal(lisReplayRes.data.idempotentReplay, true);
+
+      // Replay failed LIS message endpoint
+      const replayActionRes = await request("/api/integrations/lis/logs/MSG-HL7-HTTP-001/replay", {
+        method: "POST",
+        token: labTechToken,
+      });
+      assert.equal(replayActionRes.status, 200);
+      assert.equal(replayActionRes.data.replayCount, 1);
+
+      // 4.6 PACS DICOM Study Registration via DOCTOR HTTP
+      const dicomRes = await request("/api/integrations/pacs/studies", {
+        method: "POST",
+        token: doctorToken,
+        body: {
+          studyInstanceUid: "1.2.840.113619.2.55.3.HTTP.7711",
+          accessionNumber: "ACC-RAD-7711",
+          patientId,
+          modality: "CT",
+          studyDescription: "Contrast-Enhanced Chest CT",
+          seriesCount: 4,
+          instanceCount: 320,
+          wadoRsUri: "https://pacs.medanta.internal/wado/studies/1.2.840.113619.2.55.3.HTTP.7711",
+          reportSummary: "Clear lung parenchyma without evidence of pulmonary embolism or consolidation.",
+        },
+      });
+      assert.equal(dicomRes.status, 201);
+      const studyId = dicomRes.data.study._id;
+
+      // Retrieve study by ID
+      const studyGetRes = await request(`/api/integrations/pacs/studies/${studyId}`, {
+        token: nurseToken,
+      });
+      assert.equal(studyGetRes.status, 200);
+      assert.equal(studyGetRes.data.study.modality, "CT");
+
+      // 4.7 Enterprise SSO Configuration via Admin HTTP
+      const ssoConfigRes = await request("/api/integrations/sso/configure", {
+        method: "POST",
+        token: adminToken,
+        body: {
+          idpType: "azure_ad",
+          entityId: "spn:medanta-enterprise-identity",
+          metadataUrl: "https://login.microsoftonline.com/medanta/federationmetadata/2007-06/federationmetadata.xml",
+          scimEnabled: true,
+          autoProvisionRoles: ["DOCTOR", "NURSE"],
+        },
+      });
+      assert.equal(ssoConfigRes.status, 200);
+      assert.equal(ssoConfigRes.data.profile.scimEnabled, true);
+
+      // 4.8 Disaster Recovery Drill Observation via Admin HTTP
+      const drDrillRes = await request("/api/integrations/dr/drills", {
+        method: "POST",
+        token: adminToken,
+        body: {
+          drillType: "oplog_replay_check",
+          measuredRpoMinutes: 4,
+          measuredRtoMinutes: 22,
+          recordsIntegrityVerified: true,
+          conductedBy: "IT Lead Devinder Sharma",
+          auditNotes: "Oplog replay verified against synthetic point-in-time snapshot.",
+        },
+      });
+      assert.equal(drDrillRes.status, 201);
+      // Confirms truthful boundary: observations recorded but unverified by machine
+      assert.equal(drDrillRes.data.audit.status, "recorded_unverified");
+      assert.equal(drDrillRes.data.audit.recordsIntegrityVerified, false);
+      assert.equal(drDrillRes.data.audit.reportedIntegrityVerified, true);
+
+      // 4.9 Truthful Enterprise Acceptance Report via Admin HTTP
+      const reportRes = await request("/api/enterprise/acceptance/report", {
+        token: adminToken,
+      });
+      assert.equal(reportRes.status, 200);
+      assert.equal(reportRes.data.report.operatingAcceptance.status, "not_accepted");
+      assert.equal(reportRes.data.report.operatingAcceptance.outpatientPilotPreserved, false);
+      assert.ok(reportRes.data.report.operatingAcceptance.disclaimer);
+
+      // 4.10 Tenant Isolation: Foreign hospital staff cannot see Medanta contracts or studies
+      const foreignContractsRes = await request("/api/integrations/contracts", {
+        token: foreignAdminToken,
+      });
+      assert.equal(foreignContractsRes.status, 200);
+      assert.equal(foreignContractsRes.data.contracts.length, 0); // Isolated!
+    } finally {
+      server.close();
+    }
   });
 });
