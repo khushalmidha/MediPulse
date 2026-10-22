@@ -35,4 +35,13 @@ export default [
       ],
     },
   },
+  {
+    files: ['e2e/**/*.{js,mjs}', '*.config.{js,mjs}'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+  },
 ]

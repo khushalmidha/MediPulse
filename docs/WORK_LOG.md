@@ -3238,3 +3238,22 @@ Completed and verified product domains and host routing, delivery adapters for m
   - Verified deep link preservation, API proxy relays, cookie/CSRF isolation, and startup readiness probes (`startup-readiness.test.js` 10/10 passed).
 - **Plan ledger update:**
   - Transitioned `AG16.07` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+
+## AG16.08 — Operations, privacy, capacity and full checks - 22 October 2026
+
+Completed and executed whole-application candidate verification across all backend services, frontend routes, build tooling, portable browser runs, and security audits.
+
+### Verified changes and findings
+
+- **Frontend Linter & Configuration (`frontend/eslint.config.js`):**
+  - Updated ESLint configuration to include `globals.node` for e2e and configuration files, resolving `no-undef` linting errors on `process`.
+  - Executed `npm --prefix frontend run lint`: 0 errors.
+- **Frontend Production Compilation:**
+  - Executed `npm --prefix frontend run build`: 0 errors, full bundle built cleanly in 31.74s.
+- **Automated Test Matrix Coverage:**
+  - Backend units: 229 passed, 0 failed (`npm --prefix backend test`).
+  - Frontend units: 60 passed, 0 failed (`npm --prefix frontend run test:ui`).
+  - Browser test suites: 14 test specs executed on Chromium across desktop (1440px), tablet (768px), and mobile (360px) viewports (316 passed, 6 duplicate viewports skipped).
+  - Dependency audits: 0 vulnerabilities across frontend and backend workspaces.
+- **Plan ledger update:**
+  - Transitioned `AG16.08` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.

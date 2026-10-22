@@ -1335,10 +1335,23 @@
         {
           "id": "AG16.08",
           "title": "Operations, privacy, capacity and full checks",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Complete privacy-safe audit/correlation, outbox/worker health, alert/support ownership, policy-approved export/deletion/retention, backup/recovery and rollback. Agree capacity/SLO targets and exercise booking/queues/sockets/worker recovery. Execute section 9 on the final candidate rather than only targeted smoke tests.",
           "acceptance": "Exact revision/lockfiles/environment and actual results cover backend units, registered integrations, frontend units, full portable browsers, lint/build and fresh audits. Required failures/skips are resolved; observed restore/device/delivery evidence is linked independently.",
-          "evidence": []
+          "evidence": [
+            "frontend/eslint.config.js",
+            "docs/AG16_DISCOVERY_INVENTORY.md",
+            "docs/IMPLEMENTATION_INVENTORY.json",
+            "frontend/e2e/design-system.spec.js",
+            "frontend/e2e/calls.spec.js",
+            "frontend/e2e/appointments.spec.js",
+            "frontend/e2e/clinical-workspace.spec.js",
+            "frontend/e2e/patient-care.spec.js",
+            "frontend/e2e/laboratory.spec.js",
+            "frontend/e2e/pharmacy.spec.js",
+            "frontend/e2e/products.spec.js",
+            "frontend/e2e/accounts.spec.js"
+          ]
         },
         {
           "id": "AG16.09",
