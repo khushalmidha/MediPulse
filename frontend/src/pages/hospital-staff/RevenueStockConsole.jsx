@@ -140,7 +140,7 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
   const [reqWardId, setReqWardId] = useState("");
   const [reqItemCode, setReqItemCode] = useState("");
   const [reqQty, setReqQty] = useState("");
-  const [fulfillIssueQty, setFulfillIssueQty] = useState("");
+  const [fulfillItemQuantities, setFulfillItemQuantities] = useState({});
   const [fulfillIdempKey, setFulfillIdempKey] = useState("");
 
   const authHeaders = useMemo(() => {
@@ -507,10 +507,32 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
   const handleFulfillTransfer = async (e) => {
     e.preventDefault();
     if (!selectedRequisition) return;
-    const key = fulfillIdempKey || `TRANSFER-${selectedRequisition.requisitionNumber}-${Date.now()}`;
-    const targetItem = selectedRequisition.items[0];
-    const qty = fulfillIssueQty.trim() === "" ? targetItem.quantityRequested - targetItem.quantityIssued : Number(fulfillIssueQty);
-    if (!Number.isSafeInteger(qty) || qty <= 0) { setFeedback({ tone: "error", message: "Enter a positive whole issue quantity." }); return; }
+    const key = fulfillIdempKey.trim() || `TRANSFER-${selectedRequisition.requisitionNumber}-${Date.now()}`;
+    const storageKey = `medipulse.fulfillKey.${selectedRequisition.requisitionNumber}`;
+    try { sessionStorage.setItem(storageKey, key); } catch { /* ignore */ }
+
+    const itemsToIssue = [];
+    for (const item of (selectedRequisition.items || [])) {
+      const rawVal = fulfillItemQuantities[item.itemCode];
+      const qty = rawVal === "" || rawVal === undefined ? 0 : Number(rawVal);
+      if (!Number.isSafeInteger(qty) || qty < 0) {
+        setFeedback({ tone: "error", message: `Invalid quantity for ${item.itemName || item.itemCode}. Must be 0 or a positive whole number.` });
+        return;
+      }
+      const remaining = Math.max(0, item.quantityRequested - (item.quantityIssued || 0));
+      if (qty > remaining) {
+        setFeedback({ tone: "error", message: `Quantity for ${item.itemName || item.itemCode} (${qty}) exceeds remaining requested quantity (${remaining}).` });
+        return;
+      }
+      if (qty > 0) {
+        itemsToIssue.push({ itemCode: item.itemCode, quantityToIssue: qty });
+      }
+    }
+
+    if (itemsToIssue.length === 0) {
+      setFeedback({ tone: "error", message: "Enter a positive issue quantity for at least one item (items set to 0 will not be transferred)." });
+      return;
+    }
     setFulfillIdempKey(key);
 
     try {
@@ -518,18 +540,19 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
         `${BACKEND_URL}/api/procurement/stock/requisitions/${selectedRequisition.requisitionNumber}/fulfill`,
         {
           transferIdempotencyKey: key,
-          itemsToIssue: [{ itemCode: targetItem.itemCode, quantityToIssue: qty }],
+          itemsToIssue,
         },
         authHeaders
       );
       if (res.data?.success) {
+        try { sessionStorage.removeItem(storageKey); } catch { /* ignore */ }
         const replayMsg = res.data.idempotentReplay ? " (Idempotent Replay Verified)" : "";
         setFeedback({
           tone: "positive",
           message: `Stock transfer fulfilled${replayMsg}! Central Store decremented and Ward stock incremented.`,
         });
         setFulfillReqModalOpen(false);
-        setFulfillIssueQty("");
+        setFulfillItemQuantities({});
         setFulfillIdempKey("");
         loadWardOperations();
       }
@@ -1331,8 +1354,20 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
                                 variant="primary"
                                 onClick={() => {
                                   setSelectedRequisition(req);
-                                  setFulfillIssueQty(String(req.items[0]?.quantityRequested || 1));
-                                  setFulfillIdempKey(`IDEMP-TX-${req.requisitionNumber}-${Date.now().toString(36)}`);
+                                  const storageKey = `medipulse.fulfillKey.${req.requisitionNumber}`;
+                                  let savedKey = null;
+                                  try { savedKey = sessionStorage.getItem(storageKey); } catch { /* ignore */ }
+                                  const idempKey = savedKey || `IDEMP-TX-${req.requisitionNumber}-${Date.now().toString(36)}`;
+                                  try { sessionStorage.setItem(storageKey, idempKey); } catch { /* ignore */ }
+
+                                  const initialQuantities = {};
+                                  (req.items || []).forEach((it) => {
+                                    const remaining = Math.max(0, it.quantityRequested - (it.quantityIssued || 0));
+                                    initialQuantities[it.itemCode] = remaining;
+                                  });
+
+                                  setFulfillItemQuantities(initialQuantities);
+                                  setFulfillIdempKey(idempKey);
                                   setFulfillReqModalOpen(true);
                                 }}
                               >
@@ -1820,23 +1855,67 @@ function RevenueStockWorkspace({ initialTab = "billing" }) {
       >
         <form onSubmit={handleFulfillTransfer} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <p style={{ fontSize: "0.875rem", color: "var(--mp-muted)" }}>
-            This will atomically decrement Central Store stock batches and increment Ward stock inventory with
-            strict idempotency protection.
+            Atomically decrement Central Store stock batches and increment Ward stock inventory with
+            strict idempotency protection. Explicit 0 quantities remain requested for future fulfillment.
           </p>
-          <Field
-            label="Quantity to Issue"
-            required
-            type="number"
-            min="1"
-            value={fulfillIssueQty}
-            onChange={(e) => setFulfillIssueQty(e.target.value)}
-          />
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxHeight: "300px", overflowY: "auto" }}>
+            {selectedRequisition?.items?.map((it) => {
+              const remaining = Math.max(0, it.quantityRequested - (it.quantityIssued || 0));
+              return (
+                <div
+                  key={it.itemCode}
+                  style={{
+                    padding: "0.75rem",
+                    borderRadius: "6px",
+                    border: "1px solid var(--mp-border)",
+                    background: remaining === 0 ? "var(--mp-surface-subtle)" : "var(--mp-surface)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "1rem",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>{it.itemName || it.itemCode}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--mp-muted)" }}>
+                      Code: {it.itemCode} | Req: {it.quantityRequested} | Issued: {it.quantityIssued || 0} | <strong>Remaining: {remaining}</strong>
+                    </div>
+                  </div>
+                  <div style={{ width: "120px" }}>
+                    <Field
+                      label="Issue Qty"
+                      type="number"
+                      min="0"
+                      max={String(remaining)}
+                      disabled={remaining === 0}
+                      value={fulfillItemQuantities[it.itemCode] !== undefined ? fulfillItemQuantities[it.itemCode] : remaining}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFulfillItemQuantities((prev) => ({
+                          ...prev,
+                          [it.itemCode]: val === "" ? "" : Number(val),
+                        }));
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           <Field
             label="Transfer Idempotency Key"
             required
             value={fulfillIdempKey}
-            onChange={(e) => setFulfillIdempKey(e.target.value)}
-            hint="Guarantees atomic deduplication: identical keys replay the transfer without double-deduction."
+            onChange={(e) => {
+              const val = e.target.value;
+              setFulfillIdempKey(val);
+              if (selectedRequisition) {
+                try { sessionStorage.setItem(`medipulse.fulfillKey.${selectedRequisition.requisitionNumber}`, val); } catch { /* ignore */ }
+              }
+            }}
+            hint="Guarantees atomic deduplication: identical keys replay the transfer without double-deduction. Persisted in session."
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
             <Button variant="ghost" onClick={() => setFulfillReqModalOpen(false)}>

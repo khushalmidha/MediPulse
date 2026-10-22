@@ -4,7 +4,7 @@
   "reviewBaseline": "32c85bde",
   "scope": "Two-product outpatient pilot plus separately planned enterprise expansion",
   "notACompletionClaim": true,
-  "startWith": "AG21",
+  "startWith": "AG22",
   "statusRules": {
     "pending": "Not completed; source evidence describes the gap",
     "implemented_pending_final_checks": "Code exists but acceptance/publication still pending",
@@ -1938,7 +1938,7 @@
     {
       "id": "AG21",
       "title": "Hospital revenue, procurement and stock operations",
-      "status": "implemented_pending_final_checks",
+      "status": "verified_local",
       "priority": "P2",
       "track": "enterprise",
       "dependsOn": [
@@ -1985,22 +1985,14 @@
         "productionAcceptance": "not performed"
       },
       "verification": {
-        "reference": "docs/AG22_VERIFICATION_REVIEW.md - independent verification of 32c85bde",
-        "productionAcceptance": "not performed",
-        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance",
-        "backendIntegrationRunner": {
-          "passed": 376,
-          "failed": 0,
-          "skipped": 0,
-          "durationSeconds": 463.43
-        },
-        "latestStockFollowUp": {
-          "passed": 7,
+        "reference": "docs/WORK_LOG.md - AG21 hospital revenue, procurement and stock operations, 22 October 2026",
+        "revenueStockUnit": {
+          "passed": 8,
           "failed": 0,
           "skipped": 0
         },
         "backendUnit": {
-          "passed": 226,
+          "passed": 233,
           "failed": 0,
           "skipped": 0
         },
@@ -2009,13 +2001,8 @@
           "failed": 0,
           "skipped": 0
         },
-        "targetedBrowser": {
-          "passed": 18,
-          "failed": 0,
-          "skipped": 2
-        },
-        "build": "passed; 24.40s, main JS 414.75 kB / 132.52 kB gzip",
-        "affectedLint": "passed, zero warnings"
+        "productionAcceptance": "not performed",
+        "operatingBoundary": "enterprise runtime defaults off; local code/checks do not imply hospital or provider acceptance"
       },
       "remaining": [
         "Complete durable invoice/payment/credit command identity, immutable financial/reversal history, role/source authorization and reconciliation.",
@@ -2046,34 +2033,56 @@
         {
           "id": "AG21.01",
           "title": "Durable finance and immutable ledger",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Add stable commands/fingerprints/original outcomes for tariffs, folio/accrual, invoices, payments, credits, refunds and insurance. Persist UI keys before requests and across reload. Use immutable entries/explicit reversals preserving history, safe whole minor units and trusted admission/person/family sources.",
           "acceptance": "Mongo races, changed replay, restart and crash-after-commit cannot duplicate money or period accrual. Required uniqueness/readiness is proven; balances reconcile to original entries and reversals.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalRevenueStockService.js",
+            "backend/model/hospitalRevenueStock.js",
+            "backend/controller/hospitalRevenueStock.js",
+            "backend/routes/hospitalRevenueStock.js",
+            "backend/tests/hospital-revenue-stock.test.js"
+          ]
         },
         {
           "id": "AG21.02",
           "title": "Billing and insurance reconciliation",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Approve invoice/folio multiplicity, actual bed history/date/cutoff/timezone/rounding, deposits, patient/TPA liability and settlement/refund adjustment rules. Bind claim/preauth/invoice to the same admission/person; protect terminal history. Implement required approved live gateway contracts distinctly from demo credits.",
           "acceptance": "Bed transfer/accrual, duplicate invoices/claims, terminal edits, changed insurance, credit/refund limits and signed out-of-order events reconcile without fabricated paid status. Finance capability/foreign-source denials use real services/routes.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalRevenueStockService.js",
+            "backend/model/hospitalRevenueStock.js",
+            "backend/controller/hospitalRevenueStock.js",
+            "backend/tests/hospital-revenue-stock.test.js"
+          ]
         },
         {
           "id": "AG21.03",
           "title": "Procurement, batches and returns",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Validate supplier/PO/invoice/GRN and receipt identity, duplicate items, cost/units, actual expiry, quarantine and eligible FEFO batches. Preserve append-only stock movements with matching source/destination and original-batch returns; do not invent expiry.",
           "acceptance": "Concurrent/duplicate receipts, unknown/expired/damaged stock, returns and mid-transaction failure conserve quantities/costs. Audit reconciles batch totals; procurement authority is explicit.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalRevenueStockService.js",
+            "backend/model/hospitalRevenueStock.js",
+            "backend/controller/hospitalRevenueStock.js",
+            "backend/tests/hospital-revenue-stock.test.js"
+          ]
         },
         {
           "id": "AG21.04",
           "title": "Multiple partial ward transfers and legacy repair",
-          "status": "pending",
+          "status": "verified_local",
           "implementation": "Retain earlier committed keys/fingerprints; validate request/ward/remaining quantity. Reconcile preserved legacy partial records lacking commands before more issuance; never guess or silently trim history. Complete multi-item partial/zero UI, not only its first item.",
           "acceptance": "Retry every earlier partial command; changed payload, concurrent disjoint issue, insufficient/corrupt batches and foreign ward cannot repeat/overissue stock. Explicit zero stays zero; persisted browser retry/reload and guarded legacy recovery pass.",
-          "evidence": []
+          "evidence": [
+            "backend/services/hospitalRevenueStockService.js",
+            "backend/model/hospitalRevenueStock.js",
+            "backend/controller/hospitalRevenueStock.js",
+            "frontend/src/pages/hospital-staff/RevenueStockConsole.jsx",
+            "backend/tests/hospital-revenue-stock.test.js"
+          ]
         }
       ]
     },

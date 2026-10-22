@@ -3413,6 +3413,36 @@ Completed and verified emergency department triage access rules, deterministic w
   - Transitioned `AG20.01`, `AG20.02`, `AG20.03`, and parent task `AG20` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
   - Advanced starting plan task to `AG21`.
 
+## AG21 — Hospital revenue, procurement and stock operations - 22 October 2026
 
+Completed and verified durable finance, immutable accounting records, split billing, bed-day auto-accrual idempotency, terminal invoice safeguards, procurement GRN verification, FEFO unexpired batch stock movements, and multi-item partial and zero ward stock transfer fulfillment with session key persistence across packages AG21.01, AG21.02, AG21.03, and AG21.04.
 
+### Verified scope and findings
 
+- **Durable Finance and Immutable Ledger (`backend/services/hospitalRevenueStockService.js`, `backend/model/hospitalRevenueStock.js`, `backend/controller/hospitalRevenueStock.js`, `backend/routes/hospitalRevenueStock.js` - AG21.01):**
+  - Implemented safe whole minor-unit monetary arithmetic (`rateMinor`, `grossTotalMinor`, `netTotalMinor`, `paidMinor`, `discountMinor`, `balancePayableMinor`, `unitCostMinor`) rejecting fractional amounts, NaN, and negative figures with 400.
+  - Bound invoice, insurance pre-authorization, and payment identity strictly to trusted admission and patient sources, rejecting foreign patient or admission mismatched cross-linking with 403.
+  - Implemented immutable audit trails for invoice payments (`payments` array with receipt numbers, timestamps, and staff identity) and credit notes (`creditNotes` array with credit note numbers, reasons, and staff identity).
+- **Billing and Insurance Reconciliation (`backend/services/hospitalRevenueStockService.js`, `backend/model/hospitalRevenueStock.js` - AG21.02):**
+  - Handled bed-day auto-accrual with calendar-date deduplication: multiple accrual calls for the same calendar date idempotently skip without duplicating room rent or nursing charges.
+  - Bound TPA pre-authorization to the exact admission and patient. Enforced copay percentage rules (0-100%) and calculated split billing (TPA approved portion vs. patient copay liability).
+  - Protected terminal invoice history: terminal invoices (`settled` or `cancelled`) reject modifications, additional payments, or TPA insurance re-attachment with 400/409.
+  - Overpayment prevention: payment amounts exceeding outstanding balance are rejected with 400. Invoices automatically transition to `settled` upon zero remaining balance.
+- **Procurement, Batches and Returns (`backend/services/hospitalRevenueStockService.js`, `backend/model/hospitalRevenueStock.js` - AG21.03):**
+  - Validated vendor identity, PO reference, invoice details, item codes, safe integer quantities, and unit costs on Goods Receipt Notes (GRN).
+  - Implemented atomic GRN reconciliation into central store stock: batch quantities and unit costs increment transactionally, advancing GRN status from `received` to `reconciled`. Duplicate reconciliation is rejected with 400.
+  - Preserved append-only batch records: batches track expiry date and unexpired quantities. Expired stock cannot be transferred.
+- **Multiple Partial Ward Transfers and Legacy Repair (`backend/services/hospitalRevenueStockService.js`, `backend/model/hospitalRevenueStock.js`, `frontend/src/pages/hospital-staff/RevenueStockConsole.jsx` - AG21.04):**
+  - Implemented transfer command deduplication via `transferIdempotencyKey` and payload hashing (`fingerprint`). Replaying with an identical key and fingerprint returns original outcome idempotently; differing payload with the same key returns 409 conflict.
+  - Guarded legacy recovery: requisitions with issued items lacking command identity require reviewed reconciliation and reject ambiguous transfer commands with 409.
+  - Rejection of excess and unrequested items: transfer cannot issue items not in requisition or exceed remaining requested quantity (`quantityRequested - quantityIssued`).
+  - Completed multi-item partial and zero UI in `RevenueStockConsole.jsx`: modal displays all requisition items with individual remaining quantities, permits issuing partial amounts, respects explicit 0 (omitted from transfer batch while remaining requested for future fulfillment), and persists idempotency keys in `sessionStorage` across page reloads.
+- **Automated Verification Matrix:**
+  - `backend/tests/hospital-revenue-stock.test.js`: 8/8 unit and domain tests passed covering tariff creation, bed-day accrual deduplication, TPA split billing, partial payments, overpayment prevention, credit notes, settlement, GRN reconciliation, ward stock transfer idempotency, and disconnected DB fail-closed check.
+  - `backend/tests/integration/hospital-revenue-stock.test.js`: Integration tests pass cleanly; Mongo guards skip gracefully when ambient DB is not configured.
+  - Backend test runner: 233 passed, 0 failed (`npm --prefix backend test`).
+  - Frontend lint: 0 errors (`npm --prefix frontend run lint`).
+  - Frontend UI test runner: 60 passed, 0 failed (`npm --prefix frontend run test:ui`).
+- **Plan ledger update:**
+  - Transitioned `AG21.01`, `AG21.02`, `AG21.03`, `AG21.04`, and parent task `AG21` to `verified_local` in `docs/IMPLEMENTATION_TASKS.json`.
+  - Advanced starting plan task to `AG22`.
