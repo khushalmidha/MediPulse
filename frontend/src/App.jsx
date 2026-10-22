@@ -103,8 +103,11 @@ function App() {
               <Route path="/hospital/laboratory" element={<LaboratoryConsole />} />
               <Route path="/hospital/lab" element={<LaboratoryConsole />} />
               <Route path="/hospital/pharmacy" element={<PharmacyConsole />} />
-              <Route path="/hospital/inpatient" element={<InpatientConsole />} />
-              <Route path="/hospital/beds" element={<InpatientConsole />} />
+              <Route path="/hospital/inpatient" element={<InpatientConsole initialTab="beds" />} />
+              <Route path="/hospital/beds" element={<InpatientConsole initialTab="beds" />} />
+              <Route path="/hospital/nursing" element={<InpatientConsole initialTab="nursing" />} />
+              <Route path="/hospital/inpatient-care" element={<InpatientConsole initialTab="nursing" />} />
+              <Route path="/hospital/handovers" element={<InpatientConsole initialTab="handovers" />} />
               <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
               <Route path="/staff/setup" element={<HospitalAdminSetup />} />
               <Route path="/hospital/setup" element={<HospitalAdminSetup />} />

@@ -50,6 +50,7 @@ export const createInpatientOrder = async ({
   medicationDetails = {},
   nursingInstructions = "",
   startDate = new Date(),
+  prescribedByDoctorId = null,
   actor,
 }) => {
   assertDbConnected();
@@ -62,6 +63,7 @@ export const createInpatientOrder = async ({
       medicationDetails,
       nursingInstructions,
       startDate,
+      prescribedByDoctorId,
       actor,
     });
   }
@@ -105,7 +107,7 @@ export const createInpatientOrder = async ({
           patientId: admission.patientId,
           orderType,
           status: "active",
-          prescribedByDoctorId: actor?.doctorId || admission.admittingDoctorId,
+          prescribedByDoctorId: prescribedByDoctorId || actor?.doctorId || admission.admittingDoctorId,
           departmentId: admission.departmentId,
           medicationDetails: {
             drugName: String(medicationDetails.drugName || "").trim(),
@@ -524,6 +526,88 @@ export const getInpatientFlowsheet = async ({ hospitalId, admissionId }) => {
   };
 };
 
+/**
+ * 8. Query Handovers by Ward / Shift Date
+ */
+export const getShiftHandovers = async ({ hospitalId, wardId, shiftDate, limit = 20 }) => {
+  assertDbConnected();
+  if (testDouble?.getShiftHandovers) {
+    return testDouble.getShiftHandovers({ hospitalId, wardId, shiftDate, limit });
+  }
+
+  const query = { hospitalId };
+  if (wardId) query.wardId = wardId;
+  if (shiftDate) query.shiftDate = shiftDate;
+
+  return await NurseShiftHandover.find(query)
+    .populate("wardId", "name code")
+    .populate("outgoingNurseStaffId", "name role")
+    .populate("incomingNurseStaffId", "name role")
+    .sort({ createdAt: -1 })
+    .limit(Math.min(Number(limit) || 20, 100))
+    .lean();
+};
+
+/**
+ * 9. Query Inpatient Orders
+ */
+export const getInpatientOrders = async ({ hospitalId, admissionId, status, orderType }) => {
+  assertDbConnected();
+  if (testDouble?.getInpatientOrders) {
+    return testDouble.getInpatientOrders({ hospitalId, admissionId, status, orderType });
+  }
+
+  const query = { hospitalId };
+  if (admissionId) query.admissionId = admissionId;
+  if (status) query.status = status;
+  if (orderType) query.orderType = orderType;
+
+  return await InpatientOrder.find(query)
+    .populate("prescribedByDoctorId", "name specialization")
+    .sort({ createdAt: -1 })
+    .lean();
+};
+
+/**
+ * 10. Query Nursing Vitals Log
+ */
+export const getNursingVitals = async ({ hospitalId, admissionId, limit = 50 }) => {
+  assertDbConnected();
+  if (testDouble?.getNursingVitals) {
+    return testDouble.getNursingVitals({ hospitalId, admissionId, limit });
+  }
+
+  const query = { hospitalId };
+  if (admissionId) query.admissionId = admissionId;
+
+  return await NursingVitals.find(query)
+    .populate("recordedByStaffId", "name role")
+    .sort({ recordedAt: -1 })
+    .limit(Math.min(Number(limit) || 50, 100))
+    .lean();
+};
+
+/**
+ * 11. Query eMAR Records
+ */
+export const getEmarSchedule = async ({ hospitalId, admissionId, status }) => {
+  assertDbConnected();
+  if (testDouble?.getEmarSchedule) {
+    return testDouble.getEmarSchedule({ hospitalId, admissionId, status });
+  }
+
+  const query = { hospitalId };
+  if (admissionId) query.admissionId = admissionId;
+  if (status) query.status = status;
+
+  return await MedicationAdministrationRecord.find(query)
+    .populate("orderId", "medicationDetails orderType")
+    .populate("administeredByStaffId", "name")
+    .populate("dualWitnessStaffId", "name")
+    .sort({ scheduledTime: 1 })
+    .lean();
+};
+
 export default {
   createInpatientOrder,
   discontinueInpatientOrder,
@@ -532,4 +616,8 @@ export default {
   recordMedicationOmission,
   recordShiftHandover,
   getInpatientFlowsheet,
+  getShiftHandovers,
+  getInpatientOrders,
+  getNursingVitals,
+  getEmarSchedule,
 };

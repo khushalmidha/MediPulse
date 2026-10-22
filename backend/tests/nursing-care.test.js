@@ -9,6 +9,10 @@ import {
   recordMedicationOmission,
   recordShiftHandover,
   getInpatientFlowsheet,
+  getShiftHandovers,
+  getInpatientOrders,
+  getNursingVitals,
+  getEmarSchedule,
   setNursingTestDouble,
 } from "../services/nursingCareService.js";
 import { calculateNews2Score } from "../config/enterprisePlan.js";
@@ -195,6 +199,10 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
       activeOrders: state.orders.filter((o) => o.status === "active"),
       emarSchedule: state.emars,
     }),
+    getShiftHandovers: async () => state.handovers,
+    getInpatientOrders: async () => state.orders,
+    getNursingVitals: async () => state.vitals,
+    getEmarSchedule: async () => state.emars,
   });
 
   await t.test("1. Inpatient order creation and automatic eMAR dose scheduling", async () => {
@@ -516,5 +524,27 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and eMAR (Unit & Domain)", a
       () => createInpatientOrder({ hospitalId, admissionId, orderType: "medication" }),
       (err) => err.status === 503 || err.message.includes("Database service is unavailable")
     );
+  });
+
+  await t.test("8. Flowsheet query helpers (handovers, orders, vitals, emar)", async () => {
+    // Re-bind test double
+    setNursingTestDouble({
+      getShiftHandovers: async () => state.handovers,
+      getInpatientOrders: async () => state.orders,
+      getNursingVitals: async () => state.vitals,
+      getEmarSchedule: async () => state.emars,
+    });
+
+    const [handovers, orders, vitals, emar] = await Promise.all([
+      getShiftHandovers({ hospitalId }),
+      getInpatientOrders({ hospitalId, admissionId }),
+      getNursingVitals({ hospitalId, admissionId }),
+      getEmarSchedule({ hospitalId, admissionId }),
+    ]);
+
+    assert.ok(Array.isArray(handovers));
+    assert.ok(Array.isArray(orders));
+    assert.ok(Array.isArray(vitals));
+    assert.ok(Array.isArray(emar));
   });
 });

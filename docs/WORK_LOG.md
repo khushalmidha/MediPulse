@@ -2828,3 +2828,43 @@ Baseline: `ee789a23` on main. Completed bounded vertical Inpatient ADT workflow 
 - Local tests verified on isolated synthetic databases against local MongoDB replica set (`rs0`) and Redis.
 - Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.
 
+
+## AG19 Inpatient Clinical Orders, Nursing and Medication Administration - 22 October 2026
+
+Baseline: `ee789a23` on main. Completed bounded vertical Inpatient Clinical Orders, NEWS2 Vitals Flowsheet, Nurse Shift Handovers, and eMAR Bedside Medication Administration across backend routes, controllers, services, database invariants, and staff UI.
+
+### Implemented changes & verification
+
+- **Nursing Care Controller & HTTP Routes:**
+  - Implemented `backend/controller/nursingCare.js` with `asyncHandler`, capability validation, and robust parameter handling for clinical order prescribing and discontinuation, NEWS2 vitals recording, eMAR bedside medication administration (5-rights verification, dual-nurse witness sign-off on Schedule X narcotics), omission/refusal recording, structured SBAR shift handovers, inpatient care flowsheets, and timeline queries.
+  - Implemented `backend/routes/nursingCare.js` exporting `nursingRouter` with `nosqlGuard`, `validateStaff`, and `requireRole(...)` role authorization (`DOCTOR` / `HOSPITAL_ADMIN` for orders/discontinuations; `NURSE` for eMAR medication administration; `NURSE` / `HOSPITAL_ADMIN` for vitals and shift handovers).
+  - Mounted `app.use('/api/nursing', nursingRouter)` in `backend/index.js`.
+- **Nursing Care Service Enhancements (`backend/services/nursingCareService.js`):**
+  - Added query methods: `getShiftHandovers`, `getInpatientOrders`, `getNursingVitals`, and `getEmarSchedule`.
+  - Added `prescribedByDoctorId` support in `createInpatientOrder` with fallback to `actor.doctorId` and `admission.admittingDoctorId`.
+  - Implemented deterministic NEWS2 calculation, high-risk code blue outreach alert, 5-rights verification, dual-nurse witness sign-off on controlled substances (Schedule X / narcotics), and structured omission/refusal reasons.
+- **Inpatient Care Flowsheet & eMAR Console UI:**
+  - Extended `frontend/src/pages/hospital-staff/InpatientConsole.jsx` with tabbed workspace: "Bed Board & ADT", "Nursing Care, Orders & eMAR", "Nurse Shift Handover".
+  - Bed Board integrates direct "Care & eMAR" jump links on occupied beds.
+  - Inpatient Care Flowsheet provides real-time client-side preview of NEWS2 calculation, vitals recording modal with Code Blue outreach notification, physician order entry modal with dosage/frequency/PRN options, order discontinuation modal, bedside eMAR schedule with 5-rights verification checklist and mandatory dual-nurse witness verification (PIN / signature) for Schedule X narcotics, and structured omission logging.
+  - Nurse Shift Handover tab supports structured shift logging (date, shift type, distinct incoming/outgoing nurse validation, patient summaries with critical alerts) and historical handovers ledger.
+  - Added lazy-loaded routes `/hospital/nursing`, `/hospital/inpatient-care`, and `/hospital/handovers` in `frontend/src/App.jsx`.
+  - Added "Inpatient Care" navigation link in `frontend/src/components/Navbar.jsx`.
+- **Testing & Verification:**
+  - Unit test suite `backend/tests/nursing-care.test.js`: **9/9 passed** (913ms).
+  - Integration test suite `backend/tests/integration/nursing-care.test.js`: **6/6 passed** against live local MongoDB replica set `rs0` (including subtest 5 with 16 assertions testing HTTP 401 unauthenticated denial, 403 role denials, 5-rights validation, mandatory dual-nurse witness on narcotics, replay/double-administration denial, omission logging, order discontinuation, shift handover, and foreign hospital tenant isolation).
+  - Backend unit test suite (`npm test`): **225/225 passed, 0 failed, 0 skipped** (26.00s).
+  - Full registered backend integration runner (`npm run test:integration`): **364/364 passed, 0 failed, 0 skipped** (304.45s).
+  - Frontend unit test suite (`npm run test:ui`): **59/59 passed, 0 failed, 0 skipped** (483ms).
+  - Frontend production build (`npm run build`): **passed cleanly in 33.39s** (`dist/assets/InpatientConsole-Dp2YbLvm.js` 60.94 kB).
+  - Affected frontend files ESLint: **0 errors / 0 warnings**.
+  - Task ledger `docs/IMPLEMENTATION_TASKS.json`: AG19 transitioned to `verified_local` with `productionAcceptance: "not performed"`; next task set to `AG20`.
+  - Status documentation `docs/IMPLEMENTATION_STATUS.md`: updated to reflect 364/364 integration cases and AG19 local verification.
+
+### Data and boundary affirmation
+
+- Additive and reversible changes only; zero production database, index, seed, or migration executed.
+- Local tests verified on isolated synthetic databases against local MongoDB replica set (`rs0`) and Redis.
+- Verified local tests certify software implementation correctness and state machine invariants; they do not constitute live clinical regulatory certification.
+
+

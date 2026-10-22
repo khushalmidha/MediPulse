@@ -24,6 +24,12 @@ import {
   recordShiftHandover,
   getInpatientFlowsheet,
 } from "../../services/nursingCareService.js";
+import express from "express";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
+import { once } from "node:events";
+import AuthSession from "../../model/authSession.js";
+import nursingRouter from "../../routes/nursingCare.js";
 
 const uri = new URL(localTestTargets().mongo);
 uri.pathname = "/medipulse_test_nursing_" + crypto.randomBytes(6).toString("hex");
@@ -338,4 +344,337 @@ test("Task AG19: Inpatient Clinical Orders, Nursing and Medication Administratio
     const flowsheet = await getInpatientFlowsheet({ hospitalId, admissionId });
     assert.ok(flowsheet.activeOrders.length >= 1);
   });
+
+  await t.test("5. Nursing HTTP router integration: authentication, role gating, eMAR bedside verification, and tenant isolation", async () => {
+    const app = express();
+    app.use(cookieParser());
+    app.use(express.json());
+    app.use("/api/nursing", nursingRouter);
+    app.use((error, req, res, next) => {
+      const status = error.status || (error.name === "ValidationError" || error.name === "CastError" ? 400 : error.code === 11000 ? 409 : 500);
+      res.status(status).json({ message: status < 500 ? error.message : "Request could not be completed" });
+    });
+
+    const server = app.listen(0);
+    await once(server, "listening");
+    const apiOrigin = `http://127.0.0.1:${server.address().port}`;
+
+    try {
+      const foreignHospitalId = id();
+      await Hospital.create({
+        _id: foreignHospitalId,
+        name: "Foreign General Hospital",
+        slug: "foreign-general-" + crypto.randomBytes(4).toString("hex"),
+        registrationNumber: "REG-FOR-" + crypto.randomBytes(4).toString("hex"),
+        type: "private",
+        email: "foreign@general.test",
+        address: { city: "Bengaluru", state: "Karnataka" },
+        status: "active",
+        subscription: { plan: "enterprise", status: "active" },
+      });
+
+      const createStaffSession = async ({ role, adminAccess = false, hId = hospitalId }) => {
+        const staffMember = await HospitalStaff.create({
+          hospitalId: hId,
+          departmentIds: [departmentId],
+          name: `Staff Member ${role}`,
+          email: `staff.${role.toLowerCase()}.${crypto.randomBytes(4).toString("hex")}@max.test`,
+          role,
+          adminAccess,
+          isActive: true,
+          inviteStatus: "accepted",
+        });
+        const sid = crypto.randomUUID();
+        await AuthSession.create({
+          _id: sid,
+          principalId: staffMember._id,
+          kind: "staff",
+          authVersion: 0,
+          csrfToken: "csrf-token-test",
+          expiresAt: new Date(Date.now() + 600000),
+        });
+        const token = jwt.sign(
+          { id: String(staffMember._id), sid, role, type: "staff", hospitalId: String(hId) },
+          process.env.TOKEN_KEY || "local-development-signing-key-replace-before-production"
+        );
+        return { staff: staffMember, token };
+      };
+
+      const { token: adminToken } = await createStaffSession({ role: "HOSPITAL_ADMIN", adminAccess: true });
+      const { token: doctorToken, staff: staffDoc } = await createStaffSession({ role: "DOCTOR" });
+      const { token: nurseToken, staff: staffNurse1 } = await createStaffSession({ role: "NURSE" });
+      const { token: witnessNurseToken, staff: staffNurse2 } = await createStaffSession({ role: "NURSE" });
+      const { token: pharmacistToken } = await createStaffSession({ role: "PHARMACIST" });
+      const { token: foreignToken } = await createStaffSession({ role: "HOSPITAL_ADMIN", adminAccess: true, hId: foreignHospitalId });
+
+      const request = async (path, { method = "GET", token, body } = {}) => {
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch(`${apiOrigin}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const data = await res.json().catch(() => ({}));
+        return { status: res.status, data };
+      };
+
+      // 1. Unauthenticated request -> 401
+      const unauth = await request("/api/nursing/orders");
+      assert.equal(unauth.status, 401);
+
+      // 2. Nurse attempting to prescribe orders -> 403 (orders require DOCTOR or HOSPITAL_ADMIN)
+      const nursePrescribe = await request("/api/nursing/orders", {
+        method: "POST",
+        token: nurseToken,
+        body: { admissionId, orderType: "medication", medicationDetails: { drugName: "Amoxicillin", dose: "500mg" } },
+      });
+      assert.equal(nursePrescribe.status, 403);
+
+      // 3. Doctor creating Inpatient Medication Order -> 201
+      const orderRes = await request("/api/nursing/orders", {
+        method: "POST",
+        token: doctorToken,
+        body: {
+          admissionId,
+          orderType: "medication",
+          medicationDetails: {
+            drugName: "Meropenem",
+            dose: "1g",
+            route: "iv",
+            frequency: "tds",
+            durationDays: 2,
+            isControlledSubstance: false,
+          },
+          nursingInstructions: "Administer via slow IV bolus",
+        },
+      });
+      assert.equal(orderRes.status, 201);
+      assert.equal(orderRes.data.success, true);
+      assert.equal(orderRes.data.order.medicationDetails.drugName, "Meropenem");
+      const orderId = orderRes.data.order._id;
+      // 2 days * 3 doses/day = 6 scheduled doses
+      assert.equal(orderRes.data.scheduledDosesCount, 6);
+
+      // 4. Query orders via HTTP -> 200
+      const listOrders = await request(`/api/nursing/orders?admissionId=${admissionId}`, { token: nurseToken });
+      assert.equal(listOrders.status, 200);
+      assert.ok(listOrders.data.orders.some((o) => o._id === orderId));
+
+      // 5. Query flowsheet via HTTP -> 200
+      const flowsheetRes = await request(`/api/nursing/admissions/${admissionId}/flowsheet`, { token: nurseToken });
+      assert.equal(flowsheetRes.status, 200);
+      assert.ok(flowsheetRes.data.activeOrders.length >= 1);
+      assert.ok(flowsheetRes.data.emarSchedule.length >= 6);
+      const scheduledEmar = flowsheetRes.data.emarSchedule.find((e) => e.orderId._id === orderId && e.status === "scheduled");
+      assert.ok(scheduledEmar);
+
+      // 6. Doctor attempting to administer medication -> 403 (bedside administration is strictly NURSE role)
+      const docAdmin = await request(`/api/nursing/emar/${scheduledEmar._id}/administer`, {
+        method: "POST",
+        token: doctorToken,
+        body: {
+          fiveRightsVerified: { rightPatient: true, rightDrug: true, rightDose: true, rightRoute: true, rightTime: true },
+        },
+      });
+      assert.equal(docAdmin.status, 403);
+
+      // 7. Nurse administers medication without complete 5-rights -> 400
+      const badRightsAdmin = await request(`/api/nursing/emar/${scheduledEmar._id}/administer`, {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          fiveRightsVerified: { rightPatient: false, rightDrug: true, rightDose: true, rightRoute: true, rightTime: true },
+        },
+      });
+      assert.equal(badRightsAdmin.status, 400);
+
+      // 8. Nurse administers medication with complete 5-rights -> 200
+      const validAdmin = await request(`/api/nursing/emar/${scheduledEmar._id}/administer`, {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          fiveRightsVerified: { rightPatient: true, rightDrug: true, rightDose: true, rightRoute: true, rightTime: true },
+          injectionSite: "Left forearm IV cannula",
+        },
+      });
+      assert.equal(validAdmin.status, 200);
+      assert.equal(validAdmin.data.success, true);
+      assert.equal(validAdmin.data.emar.status, "administered");
+
+      // 9. Replay attempt on already administered dose -> 404
+      const replayAdmin = await request(`/api/nursing/emar/${scheduledEmar._id}/administer`, {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          fiveRightsVerified: { rightPatient: true, rightDrug: true, rightDose: true, rightRoute: true, rightTime: true },
+        },
+      });
+      assert.equal(replayAdmin.status, 404);
+
+      // 10. Nurse records high-frequency vitals triggering NEWS2 code escalation -> 201
+      const vitalsRes = await request(`/api/nursing/admissions/${admissionId}/vitals`, {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          vitals: {
+            respirationRate: 28,
+            spO2: 90,
+            supplementalOxygen: true,
+            systolicBP: 85,
+            pulse: 125,
+            consciousness: "V",
+            temperature: 39.0,
+            painScore: 6,
+          },
+        },
+      });
+      assert.equal(vitalsRes.status, 201);
+      assert.equal(vitalsRes.data.success, true);
+      assert.ok(vitalsRes.data.news2.score >= 7);
+      assert.equal(vitalsRes.data.news2.requiresCodeBlue, true);
+
+      // 11. Controlled Substance (Fentanyl) requires dual-nurse witness
+      const narcoticOrderRes = await request("/api/nursing/orders", {
+        method: "POST",
+        token: doctorToken,
+        body: {
+          admissionId,
+          orderType: "medication",
+          medicationDetails: {
+            drugName: "Fentanyl IV",
+            dose: "25mcg",
+            route: "iv",
+            frequency: "stat",
+            isControlledSubstance: true,
+          },
+        },
+      });
+      assert.equal(narcoticOrderRes.status, 201);
+      const narcoticOrderId = narcoticOrderRes.data.order._id;
+
+      const flowsheetNarcotic = await request(`/api/nursing/admissions/${admissionId}/flowsheet`, { token: nurseToken });
+      const narcoticEmar = flowsheetNarcotic.data.emarSchedule.find((e) => e.orderId._id === narcoticOrderId && e.status === "scheduled");
+      assert.ok(narcoticEmar);
+
+      // Missing secondary witness -> 403
+      const missingWitnessRes = await request(`/api/nursing/emar/${narcoticEmar._id}/administer`, {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          fiveRightsVerified: { rightPatient: true, rightDrug: true, rightDose: true, rightRoute: true, rightTime: true },
+        },
+      });
+      assert.equal(missingWitnessRes.status, 403);
+
+      // Self-witnessing attempt -> 403
+      const selfWitnessRes = await request(`/api/nursing/emar/${narcoticEmar._id}/administer`, {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          fiveRightsVerified: { rightPatient: true, rightDrug: true, rightDose: true, rightRoute: true, rightTime: true },
+          dualWitnessStaffId: staffNurse1._id, // same nurse!
+          dualWitnessSignature: "Staff Nurse Priya",
+        },
+      });
+      assert.equal(selfWitnessRes.status, 403);
+
+      // Valid administration with secondary nurse witness -> 200
+      const validNarcoticAdmin = await request(`/api/nursing/emar/${narcoticEmar._id}/administer`, {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          fiveRightsVerified: { rightPatient: true, rightDrug: true, rightDose: true, rightRoute: true, rightTime: true },
+          dualWitnessStaffId: staffNurse2._id,
+          dualWitnessSignature: "Charge Nurse Anjali Sharma RN",
+        },
+      });
+      assert.equal(validNarcoticAdmin.status, 200);
+      assert.equal(validNarcoticAdmin.data.emar.status, "administered");
+
+      // 12. Medication Omission / Refusal logging via HTTP -> 200
+      const nextScheduledDose = flowsheetNarcotic.data.emarSchedule.find(
+        (e) => e.orderId._id === orderId && e.status === "scheduled" && e._id !== scheduledEmar._id
+      );
+      assert.ok(nextScheduledDose);
+
+      const omitRes = await request(`/api/nursing/emar/${nextScheduledDose._id}/omit`, {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          omissionReason: "fasting_for_procedure",
+          omissionNote: "NPO for emergency CT scan",
+        },
+      });
+      assert.equal(omitRes.status, 200);
+      assert.equal(omitRes.data.emar.status, "omitted");
+      assert.equal(omitRes.data.emar.omissionReason, "fasting_for_procedure");
+
+      // 13. Order Discontinuation cancels future scheduled doses -> 200
+      const discRes = await request(`/api/nursing/orders/${orderId}/discontinue`, {
+        method: "POST",
+        token: doctorToken,
+        body: { reason: "De-escalated to oral amoxicillin-clavulanate" },
+      });
+      assert.equal(discRes.status, 200);
+      assert.equal(discRes.data.order.status, "discontinued");
+      assert.ok(discRes.data.cancelledDosesCount >= 1);
+
+      // 14. Structured Shift Handover via HTTP -> 201
+      const handoverRes = await request("/api/nursing/handover", {
+        method: "POST",
+        token: nurseToken,
+        body: {
+          wardId,
+          shiftDate: "2026-10-22",
+          shiftType: "night",
+          outgoingNurseStaffId: staffNurse1._id,
+          incomingNurseStaffId: staffNurse2._id,
+          patientSummaries: [
+            {
+              admissionId,
+              bedNumber: "HDU-BED-01",
+              patientName: "Vikramaditya Rao",
+              diagnosis: "Lobar Pneumonia",
+              news2Score: 8,
+              pendingTasks: ["Repeat blood gas at 02:00"],
+              criticalAlerts: "NEWS2 8 - Code Blue alert active",
+            },
+          ],
+          codeBlueEvents: [],
+          handoverNotes: "Night shift handover complete; high acuity monitoring active.",
+        },
+      });
+      assert.equal(handoverRes.status, 201);
+      assert.equal(handoverRes.data.handover.shiftType, "night");
+      assert.equal(handoverRes.data.criticalPatientsCount, 1);
+
+      // 15. Query Handovers via HTTP -> 200
+      const listHandovers = await request(`/api/nursing/handovers?wardId=${wardId}&shiftDate=2026-10-22`, { token: nurseToken });
+      assert.equal(listHandovers.status, 200);
+      assert.ok(listHandovers.data.handovers.length >= 1);
+
+      // 16. Tenant Boundary Isolation: Foreign Hospital staff cannot view or access admissions of Hospital 1
+      const foreignFlowsheet = await request(`/api/nursing/admissions/${admissionId}/flowsheet`, { token: foreignToken });
+      assert.equal(foreignFlowsheet.status, 200);
+      assert.equal(foreignFlowsheet.data.activeOrders.length, 0);
+      assert.equal(foreignFlowsheet.data.vitalsHistory.length, 0);
+      assert.equal(foreignFlowsheet.data.emarSchedule.length, 0);
+
+      const foreignPrescribe = await request("/api/nursing/orders", {
+        method: "POST",
+        token: foreignToken,
+        body: {
+          admissionId,
+          orderType: "medication",
+          medicationDetails: { drugName: "Foreign Med", dose: "100mg" },
+        },
+      });
+      assert.equal(foreignPrescribe.status, 404);
+    } finally {
+      server.close();
+      await once(server, "close");
+    }
+  });
 });
+
