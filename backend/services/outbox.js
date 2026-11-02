@@ -22,7 +22,7 @@ export const enqueueJob = async ({ id, kind, payload = {}, secret, availableAt =
 };
 export const claimJob = async ({ now = new Date(), leaseMs = 120000 } = {}) => OutboxJob.findOneAndUpdate({ $or: [
   { state: "pending", availableAt: { $lte: now } }, { state: "processing", leaseUntil: { $lte: now } },
-] }, { $set: { state: "processing", leaseToken: crypto.randomUUID(), leaseUntil: new Date(now.getTime() + leaseMs) }, $inc: { attempts: 1 } },
+] , ...(process.env.NODE_ENV !== 'test' && process.env.REELS_ENABLED !== 'true' ? { kind: { $ne: 'reels.process' } } : {}) }, { $set: { state: "processing", leaseToken: crypto.randomUUID(), leaseUntil: new Date(now.getTime() + leaseMs) }, $inc: { attempts: 1 } },
 { new: true, sort: { availableAt: 1, _id: 1 } }).select("+secret");
 export const runOutboxBatch = async (deliver, { now = () => new Date(), limit = 10, leaseMs = 120000, maxAttempts = 8 } = {}) => {
   const counts = { delivered: 0, retried: 0, failed: 0, skipped: 0 };

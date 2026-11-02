@@ -2410,5 +2410,61 @@
         "backend/tests/integration/nursing-care.test.js": "0932cb87fc349497cb5cae9d6d24be7ebb3d634d0aace3859160762da849a592"
       }
     }
+  },
+  "featureTracks": {
+    "doctorReels": {
+      "status": "verified_local",
+      "date": "2026-11-02",
+      "baseRevision": "b90d3d9b",
+      "reference": "docs/REELS.md",
+      "handoff": "docs/REELS_ANTIGRAVITY_TASKS.md",
+      "routes": [
+        "/reels",
+        "/doctor/reels",
+        "/api/reels"
+      ],
+      "verification": {
+        "backendUnits": {
+          "passed": 250,
+          "failed": 0,
+          "skipped": 0
+        },
+        "reelsIntegration": {
+          "passed": 16,
+          "failed": 0,
+          "skipped": 0,
+          "realVideoAndEmbedding": true
+        },
+        "existingIntegrationRegression": {
+          "passed": 29,
+          "failed": 0,
+          "skipped": 0
+        },
+        "frontendUnits": {
+          "passed": 62,
+          "failed": 0
+        },
+        "browser": {
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0,
+          "scope": "desktop/mobile, synthetic API identities; real HLS and browser-recorded WebM server probing"
+        },
+        "lint": "0 errors, 1 existing Fast Refresh warning",
+        "build": "passed; lazy HLS chunk warning",
+        "productionAudits": {
+          "backend": 0,
+          "frontend": 0
+        }
+      },
+      "antigravityDelegation": "No supported direct integration; file handoff prepared; no Antigravity implementation attributed.",
+      "productionAcceptance": "not activated; requires approved additive indexes, private persistent media/model volumes, pinned cache, approved independent verified reviewer IDs and REELS_ENABLED=true",
+      "limitations": [
+        "bounded 400-candidate retrieval, no catalogue-scale load evidence",
+        "real device/Safari acceptance not performed",
+        "7 moderate frontend development-tool advisories remain; production audits zero",
+        "Docker compose configuration validated; image build/production deployment not executed"
+      ]
+    }
   }
 }

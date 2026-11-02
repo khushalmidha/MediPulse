@@ -15,6 +15,10 @@ import { openSecret } from "./outbox.js";
 import { emitOpdEvent } from "./hospitalAccess.js";
 const name = record => [record?.firstName, record?.lastName].filter(Boolean).join(" ") || record?.name || "there";
 export const deliverOutboxJob = async (job, io) => {
+  if (job.kind === 'reels.process') {
+    const { processReelJob } = await import('./reelProcessing.js');
+    return processReelJob(job);
+  }
   const payload = job.payload;
   if (job.kind === "booking.otp" || job.kind === "reset.otp") {
     const secret = openSecret(job.secret), Model = job.kind === "booking.otp" ? BookingChallenge : AuthChallenge;

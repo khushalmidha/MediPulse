@@ -32,6 +32,8 @@ yarn.lock
 Thumbs.db
 
 # Machine Learning Artifacts
+reels-media/
+.reels-model-cache/
 *.pkl
 *.db
 mlruns/

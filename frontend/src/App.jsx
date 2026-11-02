@@ -54,6 +54,8 @@ const ReviewVisit = lazy(() => import("./pages/ReviewVisit"));
 const OpdTriage = lazy(() => import("./pages/OpdTriage"));
 const SmartBooking = lazy(() => import("./pages/SmartBooking"));
 const PatientHealthPortal = lazy(() => import("./pages/PatientHealthPortal"));
+const Reels = lazy(() => import("./pages/Reels"));
+const ReelStudio = lazy(() => import("./pages/ReelStudio"));
 
 function App() {
   const product = useProduct();
@@ -163,6 +165,8 @@ function App() {
             <Route path="/appointments/current/:appointmentId" element={<CurrentVisit />} />
             <Route path="/appointments/reservations/:reservationId" element={<ReservationTracking />} />
             <Route path="/doctor/appointments" element={<DoctorAppointments />} />
+            <Route path="/reels" element={<Reels />} />
+            <Route path="/doctor/reels" element={<ReelStudio />} />
             <Route path="/communities" element={<CommunityForm />} />
             <Route path="/events" element={<Events />} />
             <Route path="/events/past" element={<PastEvents />} />

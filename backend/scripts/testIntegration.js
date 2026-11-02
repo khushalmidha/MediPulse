@@ -44,7 +44,8 @@ try {
     fileURLToPath(new URL("../tests/integration/nursing-care.test.js", import.meta.url)),
     fileURLToPath(new URL("../tests/integration/emergency-theatre.test.js", import.meta.url)),
     fileURLToPath(new URL("../tests/integration/hospital-revenue-stock.test.js", import.meta.url)),
-    fileURLToPath(new URL("../tests/integration/hospital-integrations.test.js", import.meta.url))], {
+    fileURLToPath(new URL("../tests/integration/hospital-integrations.test.js", import.meta.url)),
+    fileURLToPath(new URL("../tests/integration/reels.test.js", import.meta.url))], {
     stdio: "inherit", env: { ...process.env, TEST_DATABASE_URL: target.mongo, TEST_REDIS_URL: target.redis },
   });
   child.on("exit", (code) => { process.exitCode = code ?? 1; });

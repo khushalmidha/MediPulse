@@ -1,4 +1,5 @@
 import schedulingRouter from "./routes/scheduling.js";
+import reelsRouter from './routes/reels.js';
 import { startScheduleExpiryWorker } from "./services/scheduling.js";
 import { startOutboxWorker } from "./services/outbox.js";
 import { deliverOutboxJob } from "./services/outboxDelivery.js";
@@ -99,6 +100,7 @@ const start = async () => {
   app.use('/gemini', geminiRouter)
   app.use('/appointment', appointmentRouter)
   app.use('/api/scheduling', schedulingRouter)
+  app.use('/api/reels', reelsRouter)
   app.use('/api/triage', triageRouter)
   app.use('/api/hospitals', hospitalRouter)
   app.use('/api/opd', opdRouter)

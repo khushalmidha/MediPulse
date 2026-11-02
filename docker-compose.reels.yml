@@ -1,0 +1,17 @@
+# Local opt-in overlay; no paid service, production approval or schema apply implied.
+services:
+  backend:
+    environment:
+      REELS_ENABLED: "true"
+      REELS_MEDIA_ROOT: /var/lib/medipulse/reels
+      REELS_EMBEDDING_CACHE_DIR: /var/lib/medipulse/models
+      REELS_EMBEDDING_ALLOW_DOWNLOAD: "false"
+      REELS_REVIEWER_DOCTOR_IDS: ${REELS_REVIEWER_DOCTOR_IDS:-}
+      REELS_FFMPEG_PATH: /usr/bin/ffmpeg
+      REELS_FFPROBE_PATH: /usr/bin/ffprobe
+    volumes:
+      - reels_media:/var/lib/medipulse/reels
+      - reels_models:/var/lib/medipulse/models
+volumes:
+  reels_media:
+  reels_models:

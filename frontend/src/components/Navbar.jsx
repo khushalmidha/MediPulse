@@ -268,6 +268,8 @@ const Navbar = () => {
     ...(isAuth ? [{ to: '/dashboard', label: 'Dashboard' }] : []),
     ...(isAuth && role !== 'doctor' ? [{ to: '/my-appointments', label: 'My Appointments', badge: appointmentBadge }] : []),
     { to: '/doctors', label: 'Doctors' },
+    { to: '/reels', label: 'Reels' },
+    ...(isAuth && role === 'doctor' ? [{ to: '/doctor/reels', label: 'Reel Studio' }] : []),
     { to: '/hospitals', label: 'Hospitals' },
     ...(isAuth ? [{ to: '/communities', label: 'Communities' }] : []),
     { to: '/events', label: 'Events' },

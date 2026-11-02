@@ -1,5 +1,13 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Doctor Reels extension - 2 November 2026
+
+Implemented and locally verified: `/reels` feed, `/doctor/reels` recording/upload/review studio, `/api/reels`, actual HLS/thumbnail processing and pinned multilingual HF embeddings with opt-in behavioral hybrid ranking. Includes account CSRF, verified ownership, independent version-bound moderation, reaction/event idempotency and worker/upload lease fences. Existing enterprise completion states are unchanged.
+
+Checks: backend units **250/250**, real Reels router/media/model integration **16/16**, existing integration regression subset **29/29**, frontend units **62/62**, desktop/mobile Reels browsers **10/10**; frontend lint zero errors/one existing warning, build passed. Production dependency audits both zero. Full frontend audit still has seven moderate development-tool advisories; no downgrade/force fix was applied. HLS remains a separately lazy-loaded ~599kB chunk with a build size warning. No unexecuted full legacy integration/browser suite or Docker image build is claimed.
+
+Production Reels activation was not performed. Prepare approved additive indexes, private persistent media/model storage, pinned local model cache, explicitly approved independent verified reviewer IDs and feature flag before live use. No paid services or production records/configuration were changed. Physical camera/Safari acceptance and catalogue-scale capacity remain operating checks. See [REELS.md](REELS.md) and [WORK_LOG.md](WORK_LOG.md) for actual evidence/configuration; [Antigravity handoff](REELS_ANTIGRAVITY_TASKS.md) is file-based because no direct integration was available.
+
 Current independently checked application source: **74c5243f** (same application code as 780bdd07), with the two test corrections described below. The latest Antigravity work adds real code, but the blanket AG00-AG22 completion labels exceeded their package acceptance criteria. This update corrects those labels without removing implementation or historical evidence.
 
 ## Current scope

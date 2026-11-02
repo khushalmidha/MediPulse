@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
-    "test:ui": "node --test e2e/visual-system.unit.mjs e2e/appointments.unit.mjs e2e/account-forms.unit.mjs e2e/patient-care.unit.mjs e2e/clinical-workspace.unit.mjs e2e/staff-workspaces.unit.mjs e2e/encounter-journey.unit.mjs e2e/pharmacy.unit.mjs e2e/laboratory.unit.mjs"
+    "test:ui": "node --test e2e/visual-system.unit.mjs e2e/appointments.unit.mjs e2e/account-forms.unit.mjs e2e/patient-care.unit.mjs e2e/clinical-workspace.unit.mjs e2e/staff-workspaces.unit.mjs e2e/encounter-journey.unit.mjs e2e/pharmacy.unit.mjs e2e/laboratory.unit.mjs src/utils/reelsPlayback.test.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -17,6 +17,7 @@
     "@tailwindcss/vite": "^4.0.4",
     "axios": "^1.8.1",
     "date-fns": "^4.1.0",
+    "hls.js": "^1.7.4",
     "js-cookie": "^3.0.5",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.475.0",
