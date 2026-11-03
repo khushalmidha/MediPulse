@@ -1,5 +1,9 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS existing-spend audit - 4 November 2026 IST
+
+Read-only17region inventory and public probes identify active ThreatGraph/Bachat applications on the two EC2 instances; owner/guest-data review is pending, neither is certified safe for deletion. Latest gross actual2.519USD/forecast31.915USD. Conditional stopping of both saves22.484USD per730-hour month but retains2.88USD EBS; adding12USD Lightsail plus0.50backup costs15.38USD before tax and fails the15USD cap. Local299second full API/outbox/offline HF/HLS run passed:912MiB backend-container peak,381light HTTP probes/0failures,p95=110ms; target AWS sustained CPU/reboot/device acceptance remains open. [Audit and next steps](../deploy/aws/SPENDING_AUDIT.md), [manual IAM/MFA](../deploy/aws/IAM_CONSOLE_SETUP.md). No AWS mutations, production flag/data/DNS changes, paid provisioning or push; current Vercel/Render preserved. App/enterprise completion states unchanged.
+
 ## AWS budget planning - 3 November 2026
 
 Deployment preparation only: Vercel/Render preserved, no push/DNS/paid resources. Verified creditsUSD170.82; free gross budget updated to15 with actual5/10/12/15 and forecast15 alerts. Existing account forecastUSD31.718 already exceeds15; read-only inventory found two running t3.micro/publicIPv4 and36GB EBS in us-east-1. No shutdown performed. USD30-35 EC2 plan superseded. Conditional Lightsail2GB+existingVercel candidate costs12.50-13USD before taxes/overages; strict all-in fit and full load not accepted. See [budget plan](../deploy/aws/README.md). Root temporary CLI login verified; non-root deployment identity pending. Reels/enterprise production flags unchanged.

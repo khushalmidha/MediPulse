@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-03",
+  "date": "2026-11-04",
   "targetGrossMonthlyUSD": 10,
   "maximumGrossMonthlyUSD": 15,
   "creditsDoNotIncreaseMaximum": true,
@@ -19,11 +19,12 @@
     "configuredAndVerified": true
   },
   "accountSpendAtCheck": {
-    "actualGrossUSD": 1.848,
-    "forecastGrossUSD": 31.718,
+    "actualGrossUSD": 2.519,
+    "forecastGrossUSD": 31.915,
+    "remainingAgainstPostedActualUSD": 12.481,
     "forecastAlreadyExceedsMaximum": true
   },
-  "recommendedImmediateAction": "Preserve existing Render/Vercel; identify current charges before adding paid AWS resources",
+  "recommendedImmediateAction": "Preserve Render/Vercel; neither active ThreatGraph/Bachat workload is certified safe for cleanup. No paid AWS deployment fits while preserving both legacy disks plus Lightsail/backups.",
   "candidateAfterExistingChargesResolved": {
     "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
     "region": "ap-south-1",
@@ -41,7 +42,7 @@
       12.5,
       13
     ],
-    "fitsStrictAllIn15": "not established; verify tax, existing charges, data and backup limits",
+    "fitsStrictAllIn15": "false with retained legacy disks: 12 + 2.88 + 0.50 backup = 15.38 before tax; legacy disk deletion is not approved",
     "loadAccepted": false
   },
   "rejectedDefaultEC2": {
@@ -75,6 +76,25 @@
     "swap": false,
     "fullApiRedisOsLongVideoConcurrencyIncluded": false
   },
+  "localFullApiCapacity": {
+    "videoSeconds": 299,
+    "sourceBytes": 32493055,
+    "backendMemoryLimitMiB": 1280,
+    "backendPeakMiB": 912,
+    "backendCpuLimit": 1.6,
+    "swap": false,
+    "redisSeparateMemoryLimitMiB": 128,
+    "processingSeconds": 135.59,
+    "httpSamples": 381,
+    "httpFailures": 0,
+    "p95Ms": 110,
+    "maxMs": 4215,
+    "actualFullApiOutboxOfflineEmbeddingReviewPublishAuthenticatedHls": true,
+    "embeddingDimension": 384,
+    "syntheticLocalDatabaseCleaned": true,
+    "awsHostOsProxyBurstDepletionDeviceAcceptance": false,
+    "assessment": "Plausible low-traffic pilot memory envelope only; Lightsail 2GB sustained CPU baseline approximately 0.4CPU not simulated. Production flags unchanged."
+  },
   "verifiedCreditsUSD": 170.82,
   "verifiedActiveOffers": 4,
   "lightsailEligibleOffers": 4,
@@ -103,7 +123,24 @@
     "runningT3Micro": 2,
     "attachedEbsGB": 36,
     "publicIPv4": 2,
-    "noResourcesStoppedOrDeleted": true
+    "noResourcesStoppedOrDeleted": true,
+    "activeOtherApplications": ["ThreatGraph", "Bachat"],
+    "humanOwnerAndGuestDataVerified": false,
+    "certifiedSafeDeletionCandidates": 0,
+    "unattachedVolumesFound": 0,
+    "allocatedEipsFound": 0,
+    "ownedEbsSnapshotsFound": 0,
+    "verifiedUSEastMicroHourlyUSD": 0.0104,
+    "verifiedUSEastGp3MonthlyPerGiBUSD": 0.08,
+    "publicIPv4HourlyPerAddressUSD": 0.005,
+    "bothRunningMonthly730hBeforeTaxAndExtrasUSD": 25.364,
+    "bothStoppedConditionalMonthlySaving730hUSD": 22.484,
+    "bothStoppedRetainedEbsMonthlyUSD": 2.88,
+    "modeledNovemberForecastIfBothStoppedAt20261103T2116UTC": 11.87,
+    "modeledForecastIsNotActualAwsUpdate": true,
+    "coverageErrorsUnsupportedLightsailEndpoints": 14,
+    "taxRegistrationStatus": "TaxSettings ResourceNotFoundException; actual invoice tax treatment not verified",
+    "taxIllustrationPercent": 18
   },
   "iamOwnerSetup": {
     "ownerAuthorized": true,
