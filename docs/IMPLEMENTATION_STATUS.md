@@ -1,5 +1,10 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS budget planning - 3 November 2026
+
+Deployment preparation only: Vercel/Render preserved, no push/DNS/paid resources. Verified creditsUSD170.82; free gross budget updated to15 with actual5/10/12/15 and forecast15 alerts. Existing account forecastUSD31.718 already exceeds15; read-only inventory found two running t3.micro/publicIPv4 and36GB EBS in us-east-1. No shutdown performed. USD30-35 EC2 plan superseded. Conditional Lightsail2GB+existingVercel candidate costs12.50-13USD before taxes/overages; strict all-in fit and full load not accepted. See [budget plan](../deploy/aws/README.md). Root temporary CLI login verified; non-root deployment identity pending. Reels/enterprise production flags unchanged.
+
+
 ## Doctor Reels deployment continuation - 3 November 2026
 
 Added read-only backend deployment preflight; production remains blocked because the owner confirmed no persistent Render disk is attached. No paid provisioning, production schema/flag change or deployment occurred. See REELS_PRODUCTION_READINESS.md for the existing activation sequence.

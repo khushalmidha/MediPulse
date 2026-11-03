@@ -1,0 +1,8 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid":"ViewOwnCredentialSetup","Effect":"Allow","Action":["iam:GetAccountPasswordPolicy","iam:ListVirtualMFADevices"],"Resource":"*"},
+    {"Sid":"ManageOwnPasswordAndMFA","Effect":"Allow","Action":["iam:GetUser","iam:ChangePassword","iam:ListMFADevices","iam:EnableMFADevice","iam:ResyncMFADevice"],"Resource":"arn:aws:iam::*:user/medipulse-deployer"},
+    {"Sid":"CreateOwnVirtualMFA","Effect":"Allow","Action":["iam:CreateVirtualMFADevice","iam:DeleteVirtualMFADevice"],"Resource":"arn:aws:iam::*:mfa/medipulse-deployer*"}
+  ]
+}

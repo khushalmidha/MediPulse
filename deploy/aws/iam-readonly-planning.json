@@ -1,0 +1,22 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "MetadataAndCostPlanningOnly",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeRegions", "ec2:DescribeInstances", "ec2:DescribeVolumes", "ec2:DescribeAddresses",
+        "ec2:DescribeSnapshots", "ec2:DescribeSecurityGroups", "ec2:DescribeVpcs", "ec2:DescribeSubnets",
+        "ec2:DescribeRouteTables", "ec2:DescribeInstanceTypes", "ec2:DescribeInstanceStatus", "ec2:DescribeInstanceCreditSpecifications",
+        "lightsail:GetRegions", "lightsail:GetBundles", "lightsail:GetInstances", "lightsail:GetInstance",
+        "lightsail:GetStaticIps", "lightsail:GetDisks", "lightsail:GetInstanceSnapshots", "lightsail:GetInstanceMetricData",
+        "cloudfront:ListDistributions", "cloudfront:GetDistribution", "cloudfront:GetDistributionConfig",
+        "acm:ListCertificates", "acm:DescribeCertificate",
+        "s3:ListAllMyBuckets", "s3:GetBucketLocation", "s3:GetBucketVersioning", "s3:GetBucketPublicAccessBlock", "s3:GetEncryptionConfiguration",
+        "pricing:GetProducts", "pricing:DescribeServices", "pricing:GetAttributeValues",
+        "billing:GetCredits", "budgets:ViewBudget"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

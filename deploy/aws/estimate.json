@@ -1,0 +1,115 @@
+{
+  "date": "2026-11-03",
+  "targetGrossMonthlyUSD": 10,
+  "maximumGrossMonthlyUSD": 15,
+  "creditsDoNotIncreaseMaximum": true,
+  "budget": {
+    "name": "MediPulse-AWS-Pilot-Gross-Monthly",
+    "limitUSD": 15,
+    "actualAlertsUSD": [
+      5,
+      10,
+      12,
+      15
+    ],
+    "forecastAlertUSD": 15,
+    "includeCredits": false,
+    "includeTax": true,
+    "hardCapEnforced": false,
+    "configuredAndVerified": true
+  },
+  "accountSpendAtCheck": {
+    "actualGrossUSD": 1.848,
+    "forecastGrossUSD": 31.718,
+    "forecastAlreadyExceedsMaximum": true
+  },
+  "recommendedImmediateAction": "Preserve existing Render/Vercel; identify current charges before adding paid AWS resources",
+  "candidateAfterExistingChargesResolved": {
+    "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
+    "region": "ap-south-1",
+    "bundleId": "small_3_1",
+    "bundleMonthlyUSD": 12,
+    "ramGiB": 2,
+    "includedDiskGB": 60,
+    "includedRegionalTransferGB": 1536,
+    "extraIPv4USDWhileAttached": 0,
+    "estimatedBackupUSD": [
+      0.5,
+      1
+    ],
+    "estimatedGrossBeforeTaxAndOveragesUSD": [
+      12.5,
+      13
+    ],
+    "fitsStrictAllIn15": "not established; verify tax, existing charges, data and backup limits",
+    "loadAccepted": false
+  },
+  "rejectedDefaultEC2": {
+    "t3aMediumComputeMonthlyUSD": 17.958,
+    "rootAndDataGp3MonthlyUSD": 7.296,
+    "publicIPv4MonthlyUSD": 3.65,
+    "baseTotalUSD": 28.904,
+    "reason": "Exceeds gross15 before backups/traffic/tax"
+  },
+  "lighterEC2Illustration": {
+    "instance": "t3a.small",
+    "computeUSD": 8.979,
+    "gp3GB": 30,
+    "gp3USD": 2.736,
+    "ipv4USD": 3.65,
+    "baseUSD": 15.365,
+    "rateStatus": "small compute derived from family sizing; re-quote before any approval",
+    "reason": "Already exceeds15 before backups/tax and storage is tight"
+  },
+  "freeRenderVercel": {
+    "incrementalAwsUSD": 0,
+    "fullPersistentReelsAcceptance": false,
+    "reason": "Existing free Render filesystem is ephemeral; cannot claim persistent media/local model pipeline production-ready"
+  },
+  "localMemorySmoke": {
+    "actualOfflineModelAndHls": true,
+    "peakContainerMiB": 521,
+    "clipSeconds": 5,
+    "sourceResolution": "720x1280",
+    "memoryLimitMiB": 1536,
+    "swap": false,
+    "fullApiRedisOsLongVideoConcurrencyIncluded": false
+  },
+  "verifiedCreditsUSD": 170.82,
+  "verifiedActiveOffers": 4,
+  "lightsailEligibleOffers": 4,
+  "creditExpiryIST": [
+    {
+      "estimatedUSD": 30.82,
+      "expiresAt": "2027-08-01T05:29:59+05:30"
+    },
+    {
+      "estimatedUSD": 100,
+      "expiresAt": "2027-09-20T16:48:56+05:30"
+    },
+    {
+      "estimatedUSD": 40,
+      "expiresAt": "2027-09-20T16:49:30+05:30"
+    }
+  ],
+  "paidResourcesProvisioned": false,
+  "dnsChanged": false,
+  "existingDeploymentsStopped": false,
+  "codePushed": false,
+  "automaticShutdown": "Investigated only; none enabled. Billing lag and residual storage/IP charges prevent a guaranteed account cap. Stopped Lightsail remains billed.",
+  "existingEc2Inventory": {
+    "regionsChecked": 17,
+    "regionWithResources": "us-east-1",
+    "runningT3Micro": 2,
+    "attachedEbsGB": 36,
+    "publicIPv4": 2,
+    "noResourcesStoppedOrDeleted": true
+  },
+  "iamOwnerSetup": {
+    "ownerAuthorized": true,
+    "automaticCreation": "rejected by automatic approval review before execution; reason blocked by policy",
+    "identityCreated": false,
+    "privatePasswordGenerated": false,
+    "manualMfaAndConsoleSetup": "pending; policies prepared"
+  }
+}

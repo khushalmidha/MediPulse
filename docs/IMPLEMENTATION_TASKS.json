@@ -2506,6 +2506,36 @@
           "durationSeconds": 12.63
         }
       }
+    },
+    "awsMigration": {
+      "status": "prepared_pending_existing_cost_review_and_approval",
+      "date": "2026-11-03",
+      "reference": "deploy/aws/README.md",
+      "targetGrossMonthlyUSD": 10,
+      "maximumGrossMonthlyUSD": 15,
+      "budgetConfigured": true,
+      "creditBalanceVerifiedUSD": 170.82,
+      "existingAccountActualUSD": 1.848,
+      "existingAccountForecastUSD": 31.718,
+      "resourceFinding": "2 running t3.micro, 2 publicIPv4, 36GB EBS in us-east-1; no mutation",
+      "paidResourcesCreated": false,
+      "dnsChanged": false,
+      "pushed": false,
+      "deploymentIdentity": "Root temporary CLI verified; owner requested new IAM user/MFA; automatic creation rejected, safe manual Console setup pending",
+      "selectedDeployment": "No paid deployment approved; conditional Vercel/Lightsail2GB hybrid after cost/load review",
+      "localChecks": "Compose/Caddy/JSON/SPA/Python checks passed; actual short-model/media helper peak521MiB; no AWS app acceptance",
+      "budgetAlerts": {
+        "actualUSD": [
+          5,
+          10,
+          12,
+          15
+        ],
+        "forecastUSD": 15,
+        "type": "ABSOLUTE_VALUE",
+        "ownerEmailAssociationsVerified": true,
+        "automaticShutdown": "not enabled"
+      }
     }
   }
 }

@@ -1,0 +1,89 @@
+# EC2 REFERENCE ONLY: exceeds current USD15 budget; no provisioning authorized.
+# AWS pilot draft. Review/approve infrastructure first; no production env in Git.
+# The systemd unit checks that EBS is mounted before starting this stack.
+name: medipulse-aws
+services:
+  backend:
+    image: ${MEDIPULSE_IMAGE:?Set the immutable approved backend image tag or digest}
+    env_file: /etc/medipulse/backend.env
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      API_INSTANCES: "1"
+      USE_REAL_REDIS: "true"
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BROKERS: ""
+      REELS_ENABLED: "false"
+      ENTERPRISE_PILOT_ENABLED: "false"
+      REELS_MEDIA_ROOT: /var/lib/medipulse/reels
+      REELS_EMBEDDING_CACHE_DIR: /var/lib/medipulse/models
+      REELS_EMBEDDING_ALLOW_DOWNLOAD: "false"
+      REELS_FFMPEG_PATH: /usr/bin/ffmpeg
+      REELS_FFPROBE_PATH: /usr/bin/ffprobe
+    volumes:
+      - type: bind
+        source: /srv/medipulse/reels
+        target: /var/lib/medipulse/reels
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/medipulse/models
+        target: /var/lib/medipulse/models
+        read_only: true
+        bind: {create_host_path: false}
+    depends_on:
+      redis: {condition: service_healthy}
+    networks: [edge, cache]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    init: true
+    stop_grace_period: 30s
+    healthcheck:
+      test: [CMD, node, scripts/healthcheck.js]
+      interval: 30s
+      timeout: 15s
+      start_period: 90s
+      retries: 3
+    logging: &logging
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  redis:
+    image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    command: [redis-server, --appendonly, "yes", --appendfsync, everysec, --maxmemory, 256mb, --maxmemory-policy, noeviction]
+    volumes:
+      - type: bind
+        source: /srv/medipulse/redis
+        target: /data
+        bind: {create_host_path: false}
+    networks: [cache]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging: *logging
+  proxy:
+    image: caddy:2@sha256:36c24ad91a7ff7bc4c87fe22bfa8df3c4b18da0773d73fc12ee2c52b98c0bb7e
+    environment:
+      API_HOST: ${API_HOST:?Set approved api-staging.medipulse.live or api.medipulse.live}
+      TLS_EMAIL: ${TLS_EMAIL:?Set the certificate contact email}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - type: bind
+        source: /srv/medipulse/caddy
+        target: /data
+        bind: {create_host_path: false}
+    networks: [edge]
+    depends_on: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    logging: *logging
+networks:
+  edge: {}
+  cache: {internal: true}
+
+# No auto-restart policy: systemd owns restart ordering and EBS mount checks.
+# Redis/Caddy digests are pinned to inspected local images; backend must also be immutable.
+# Kafka is deliberately absent: reviewed initial scope excludes optional broker analytics.
+# REELS_ENABLED is forced off here; activation requires a separately approved overlay.
