@@ -177,7 +177,8 @@ export async function feed(auth, query) {
     const cursor = readCursor(query.cursor);
     if (cursor.identity !== identity || cursor.expires < Date.now() || !Number.isSafeInteger(cursor.offset) || cursor.offset < 0) throw reelError(409, 'Feed expired or preferences changed; refresh');
     snapshotId = cursor.snapshotId; offset = cursor.offset;
-    const cached = await redis.get(`reels:feed:${identity}:${snapshotId}`); if (!cached) throw reelError(409, 'Feed expired; refresh'); snapshot = JSON.parse(cached);
+    let cached = null; try { cached = await redis.get(`reels:feed:${identity}:${snapshotId}`); } catch { cached = null; }
+    if (!cached) throw reelError(409, 'Feed expired; refresh'); snapshot = JSON.parse(cached);
   } else {
     const follows = await ReelFollow.find({ actorKey: actorKey(auth) }).limit(500).lean(), followed = follows.map(x => String(x.doctorId));
     const base = { status: 'published', mediaStatus: 'ready', ...(topic ? { topics: topic } : {}), ...(doctorId ? { doctorId } : {}), ...(mode === 'following' ? { doctorId: { $in: followed } } : {}) };
@@ -194,13 +195,13 @@ export async function feed(auth, query) {
     const ranked = rankReels(candidates, { vector, topics: pref.personalizationEnabled ? pref.topics : [], followed: pref.personalizationEnabled || mode === 'following' ? followed : [], signals: new Map(signals.map(x => [String(x.reelId), x])), explore: mode === 'explore' });
     const reports = await ReelReport.find({ actorKey: actorKey(auth) }).select('reelId').lean(), excluded = new Set(reports.map(r => String(r.reelId)));
     snapshot = { ids: ranked.filter(r => !excluded.has(String(r._id))).map(r => String(r._id)), expires: Date.now() + 600000, coldStart: !vector.length };
-    snapshotId = crypto.randomUUID(); await redis.set(`reels:feed:${identity}:${snapshotId}`, JSON.stringify(snapshot), 'EX', 600);
+    snapshotId = crypto.randomUUID(); try { await redis.set(`reels:feed:${identity}:${snapshotId}`, JSON.stringify(snapshot), 'EX', 600); } catch { snapshotId = null; }
   }
   const ids = snapshot.ids.slice(offset, offset + 12), rows = await Reel.find({ _id: { $in: ids }, status: 'published', mediaStatus: 'ready' }).lean();
   const verified = await Doctor.find({ _id: { $in: rows.map(r => r.doctorId) }, 'credentialVerification.status': 'verified' }).select('_id').lean(), allowed = new Set(verified.map(d => String(d._id)));
   const hidden = new Set((await ReelReport.find({ actorKey: actorKey(auth), reelId: { $in: ids } }).select('reelId').lean()).map(r => String(r.reelId)));
   const ordered = ids.map(id => rows.find(r => String(r._id) === id)).filter(r => r && allowed.has(String(r.doctorId)) && !hidden.has(String(r._id)));
-  const next = offset + 12 < snapshot.ids.length ? signCursor({ identity, snapshotId, offset: offset + 12, expires: snapshot.expires }) : null;
+  const next = snapshotId && offset + 12 < snapshot.ids.length ? signCursor({ identity, snapshotId, offset: offset + 12, expires: snapshot.expires }) : null;
   return { items: await serializeReels(ordered, auth), nextCursor: next, personalization: { enabled: pref.personalizationEnabled, rankingVersion: RANKING_VERSION, coldStart: snapshot.coldStart, clinicalDataUsed: false } };
 }
 export async function reaction(auth, id, body) {

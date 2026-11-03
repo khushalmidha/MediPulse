@@ -185,4 +185,17 @@ test('worker/upload leases, retry recovery and cursor tampering use actual persi
     assert.equal((await request('/feed?cursor=' + encodeURIComponent('a.' + 'é'.repeat(43)))).status, 400);
     assert.equal((await request('/preferences', { method: 'POST', body: [] })).status, 400);
   });
+  await t.test('feed degrades safely to Mongo-backed candidates when Redis is unavailable', async () => {
+    const redis = (await import('../../services/redis.js')).getRedis();
+    const originalSet = redis.set;
+    redis.set = () => { throw new Error('Simulated Redis outage'); };
+    try {
+      const result = await request('/feed');
+      assert.equal(result.status, 200);
+      assert.equal(result.data.nextCursor, null);
+      assert.ok(Array.isArray(result.data.items));
+    } finally {
+      redis.set = originalSet;
+    }
+  });
 });

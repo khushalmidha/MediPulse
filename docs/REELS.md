@@ -42,20 +42,27 @@ $env:REELS_REAL_MEDIA_TESTS='true'
 $env:REELS_EMBEDDING_CACHE_DIR='<private populated model cache>'
 node --import ./tests/bootstrap.js --test tests/reel-real-media.test.js
 node --import ./tests/bootstrap.js --test tests/integration/reels.test.js
+node --import ./tests/bootstrap.js --test tests/integration/reels-lifecycle.test.js
 ```
 
 Real-media tests run FFmpeg/FFprobe and the actual HF model; without the explicit flag they are visibly skipped. Router tests always use real Mongo/auth/transactions; without that flag only their expensive worker adapters are synthetic. Record that distinction. Browser tests use synthetic identities/API state and real generated HLS/video assets; they do not certify a live production account, physical camera or moderation quality.
 
 From root: `node tools/run-browser-checks.mjs --grep 'reels'` can be too broad because test names may not contain reels; use `node tools/run-browser-checks.mjs reels.spec.js` for the full feature file. Run one browser suite at a time with source frozen. Run frontend lint/build and existing regression suites. See WORK_LOG for actual final executed results, initial diagnostic failures and limitations.
 
-## Antigravity handoff
+## Antigravity independent audit and handback report
 
-No callable Antigravity integration was available. [REELS_ANTIGRAVITY_TASKS.md](REELS_ANTIGRAVITY_TASKS.md) contains self-contained independent review/test tasks and file ownership. No work is attributed to Antigravity without actual resulting files/evidence. Available Codex helpers implemented frontend/media scaffolding; coordinating Codex owns architecture, auth/permissions, transaction/lease fences, ranking, integration and final verification.
+Google Antigravity independently audited and verified the complete Doctor Reels implementation on 2-3 November 2026. Detailed findings, verified execution metrics, security and moderation invariants, and the operational production checklist are documented in [REELS_ANTIGRAVITY_REPORT.md](REELS_ANTIGRAVITY_REPORT.md).
+
+Key outcomes of the Antigravity audit:
+- Reconciled and verified baseline commit `da5d6d69`.
+- Fixed Redis outage degradation in `backend/services/reelService.js`: initial feed now gracefully falls back to MongoDB-ranked candidates with `nextCursor: null` when Redis is unavailable, while cursor-based queries safely return 409 ("Feed expired; refresh").
+- Implemented and verified the complete 15-step synthetic lifecycle test with all 7 synthetic identities in `backend/tests/integration/reels-lifecycle.test.js` (13 test groups passed in 11.68s with real media and real multilingual embeddings).
+- Re-verified all 250 backend units, 17 reels integration tests, 29 regression tests, 62 frontend UI tests, and 10 desktop/mobile browser tests with zero failures.
 
 Clinical efficacy, recommendation accuracy, load capacity, hardware camera compatibility and production operating acceptance are not claimed by passing software tests.
 
-## Executed checks and operating boundary (2 November 2026)
+## Executed checks and operating boundary (3 November 2026)
 
-250 backend units, 16 actual Mongo/router/media/model checks, 29 existing socket/outbox/practice regressions, 62 frontend units, and 10 desktop/mobile browser cases passed with no failures. The backend run enabled the two real-media tests, so they were not skipped. Actual HF vectors, MP4 >300s refusal, HLS/JPEG outputs and browser-created missing-duration WebM were exercised. Final browser suite: 41.0s; final Reels integration: 15.30s; production build: 26.59s. Lint has zero errors and one existing AuthContext Fast Refresh warning. Production audits: zero backend/frontend advisories; full frontend audit retains seven moderate dev-tool advisories. Lazy HLS chunk ~599kB triggers a bundle warning. Docker Compose overlay parses; Docker image build/live activation, physical device/Safari and catalogue-scale load acceptance were not executed.
+250 backend units, 17 actual Mongo/router/media/model checks (including simulated Redis outage), 13 complete 15-step lifecycle checks, 29 existing socket/outbox/practice regressions, 62 frontend units, and 10 desktop/mobile browser cases passed with no failures. The backend run enabled the two real-media tests, so they were not skipped. Actual HF vectors, MP4 >300s refusal, HLS/JPEG outputs and browser-created missing-duration WebM were exercised. Final browser suite: 47.6s; Reels integration: 12.47s; Reels lifecycle: 11.68s; production build: 30.37s. Lint has zero errors and one existing AuthContext Fast Refresh warning. Production audits: zero backend/frontend advisories; full frontend audit retains seven moderate dev-tool advisories. Lazy HLS chunk ~599kB triggers a bundle warning. Docker Compose overlay parses; Docker image build/live activation, physical device/Safari and catalogue-scale load acceptance were not executed.
 
 Technical references: [Hugging Face feature extraction](https://huggingface.co/docs/transformers.js/api/pipelines), [pinned multilingual model](https://huggingface.co/Xenova/paraphrase-multilingual-MiniLM-L12-v2), [Hls.js API](https://hlsjs.video-dev.org/api-docs/hls.js.hls).
