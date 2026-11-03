@@ -18,6 +18,7 @@ import AuthSession from '../../model/authSession.js';
 import OutboxJob from '../../model/outboxJob.js';
 import { Reel, ReelReaction, ReelSignal, ReelPlayback, ReelComment, ReelReport, ReelAudit, ReelFollow } from '../../model/reel.js';
 import { applyReelsSchema } from '../../scripts/reelsSchema.js';
+import { inspectReelsDeployment } from '../../scripts/reelsPreflight.js';
 import { embedReelText } from '../../services/reelEmbedding.js';
 import { processReelJob } from '../../services/reelProcessing.js';
 import { runOutboxBatch } from '../../services/outbox.js';
@@ -561,6 +562,35 @@ test('Complete 15-Step Doctor Reels Lifecycle with 7 Synthetic Identities', asyn
   });
 });
 
+
+test('deployment preflight is read-only and never substitutes technical checks for production acceptance', async () => {
+  const beforeIndexes = await mongoose.connection.db.listCollections().toArray();
+  const beforeCount = await Doctor.countDocuments();
+  const env = { ...process.env, REELS_ENABLED: 'false', API_INSTANCES: '1', ENTERPRISE_PILOT_ENABLED: 'false', REELS_EMBEDDING_ALLOW_DOWNLOAD: 'false' };
+  const report = await inspectReelsDeployment(env);
+  assert.equal(report.technicalChecksPassed, true, JSON.stringify(report.checks));
+  assert.equal(report.productionAccepted, false);
+  assert.equal(report.featureEnabled, false);
+  assert.equal(report.configuredReviewerCount, 1);
+  assert.equal(JSON.stringify(report).includes(String(ids.approvedReviewerDoctor)), false, 'No reviewer identity in report');
+  const cli = spawnSync(process.execPath, ['scripts/reelsPreflight.js', `--confirm-database=${uri.pathname.slice(1)}`], {
+    encoding: 'utf8', env: { ...env, DATABASE_URL: uri.href }, timeout: 15000,
+  });
+  assert.equal(cli.status, 0, cli.stderr);
+  assert.equal(JSON.parse(cli.stdout).technicalChecksPassed, true);
+  assert.equal(JSON.parse(cli.stdout).productionAccepted, false);
+  const blocked = await inspectReelsDeployment({ ...env, REELS_REVIEWER_DOCTOR_IDS: String(ids.unverifiedDoctor), REELS_MEDIA_ROOT: path.join(root, 'not-created'), REELS_EMBEDDING_CACHE_DIR: path.join(root, 'missing-cache') });
+  assert.equal(blocked.technicalChecksPassed, false);
+  assert.equal(blocked.checks.reviewerAccountsVerified, false);
+  assert.equal(blocked.checks.privateMediaDirectoryAccessible, false);
+  assert.equal(blocked.checks.pinnedModelFilesPresent, false);
+  assert.equal(await Doctor.countDocuments(), beforeCount);
+  assert.deepEqual(await mongoose.connection.db.listCollections().toArray(), beforeIndexes);
+  await assert.rejects(fs.access(path.join(root, 'not-created')));
+  const child = spawnSync(process.execPath, ['scripts/reelsPreflight.js'], { encoding: 'utf8', env: { ...env, DATABASE_URL: 'mongodb://secret-user:secret-password@127.0.0.1:27017/medipulse' }, timeout: 10000 });
+  assert.equal(child.status, 1, 'No explicit database confirmation must fail before connection');
+  assert.equal(child.stderr.includes('secret-password'), false);
+});
 
 test('actual HF embeddings and authenticated watch events change fresh For You order', { timeout: 120000 }, async () => {
   // Directly published synthetic fixtures test retrieval/ranking, not moderation.

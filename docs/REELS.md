@@ -70,4 +70,6 @@ Technical references: [Hugging Face feature extraction](https://huggingface.co/d
 
 ## Final engineering review - 3 November 2026
 
+Deployment continuation: `npm run reels:preflight -- --confirm-database=medipulse` (backend, approved runtime environment) checks configuration, existing paths/model assets/binaries, indexes and verified reviewer accounts without writes/downloads/activation. It does not certify disk persistence or live acceptance. The owner confirmed that the Render persistent disk is not yet attached; keep Reels disabled.
+
 See [production readiness and exact deployment steps](REELS_PRODUCTION_READINESS.md). The Redis fault test now demonstrably exercises the real reused Redis client and nonempty snapshots. Actual HF/watch events change API ordering. Final Reels/lifecycle checks32/32; focused p06 regressions also passed. Actual non-root Linux Docker/offline model/H264-AAC runtime smoke passed. Production indexes/storage/cache/reviewers/flags and authenticated operating acceptance remain unverified; earlier audit performance/retention/real-Redis claims are corrected in that report. No production activation occurred.

@@ -67,6 +67,8 @@ Logs live under local %TEMP%: medipulse-reels-final-review-units.log; medipulse-
 
 ## Activation blockers
 
+Owner update, 3 November 2026: backend/frontend basic variables are reported configured, but the owner confirmed that no persistent Render disk is attached. Reels activation therefore remains blocked. No paid disk, production migration or activation has been executed.
+
 1. render.yaml describes a native Node backend, npm install/npm start, with no persistent disk or Reels model/media preparation. It does not deploy the Dockerfile/Compose overlay. Approve persistent private storage/capacity/cost/backup and one API instance with its existing co-located outbox worker. A Render disk cannot be shared with another service/worker or multiple instances. Default storage is ephemeral.
 2. Inspect and approve additive Reels indexes in the exact medipulse database after backup/rehearsal; require empty missing/conflict arrays. Global ready=true cannot establish this. No production inspection/apply occurred here.
 3. Prepare persistent pinned model cache, actual host FFmpeg/FFprobe and writable private paths. A persistent Render disk is runtime-only; build/predeploy cache preparation cannot populate that mounted disk.
@@ -124,8 +126,11 @@ Review missing/conflict names and backup/rehearsal evidence. **Only after exact 
 
     npm run reels:schema -- --apply --confirm-database=medipulse
     npm run reels:schema
+    npm run reels:preflight -- --confirm-database=medipulse
 
 Require empty missing/conflict arrays. Duplicate/conflicting index errors stop activation for reviewed repair; never delete documents/drop indexes to force success. Additive apply can leave partial additions on failure; inspect again. Recovery normally disables Reels while preserving data/indexes, not an automatic destructive rollback.
+
+The new preflight command is read-only: it checks configured flags, single-instance setting, existing private directory access, model file presence, actual FFmpeg/FFprobe execution, Mongo replica-set status, named indexes and verified reviewer accounts. It does not load dotenv, write records/files, create directories/indexes, download the model or enable flags. It suppresses raw database errors/credentials and reviewer identities. Exit 0 requires all technical checks to pass; productionAccepted always remains false because disk persistence, actual inference, governance and live operating acceptance need separate evidence. Run it only with the approved runtime target; do not paste production credentials into chat.
 
 ### 5. Vercel and relay acceptance
 

@@ -15,6 +15,7 @@
     "test:integration": "node scripts/testIntegration.js",
     "consumer:local": "node scripts/startLocal.js consumer",
     "reels:schema": "node scripts/reelsSchema.js",
+    "reels:preflight": "node scripts/reelsPreflight.js",
     "reels:prepare-model": "node scripts/prepareReelsModel.js"
   },
   "keywords": [],

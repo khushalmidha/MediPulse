@@ -2492,6 +2492,19 @@
         "dockerOfflineNonrootRuntime": "passed; adaptive H264/AAC decode, JPEG and pinned384D inference",
         "liveScope": "Public frontend revision69fb1485, SPA/health/anonymous401 only; authenticated Reels unverified",
         "productionChanges": "none"
+      },
+      "deploymentPreflight": {
+        "date": "2026-11-03",
+        "command": "npm run reels:preflight -- --confirm-database=medipulse",
+        "mode": "read-only, explicit target; never certifies production acceptance",
+        "productionBlocker": "Owner confirmed persistent Render disk not attached",
+        "productionChanges": "none",
+        "localLifecycleVerification": {
+          "passed": 15,
+          "failed": 0,
+          "skipped": 0,
+          "durationSeconds": 12.63
+        }
       }
     }
   }
