@@ -24,7 +24,7 @@
     "remainingAgainstPostedActualUSD": 12.481,
     "forecastAlreadyExceedsMaximum": true
   },
-  "recommendedImmediateAction": "Preserve Render/Vercel; neither active ThreatGraph/Bachat workload is certified safe for cleanup. No paid AWS deployment fits while preserving both legacy disks plus Lightsail/backups.",
+  "recommendedImmediateAction": "Owner-approved two-instance termination verified; preserve Render/Vercel, reconcile refreshed whole-account bill/taxes, complete non-root MFA and re-quote backups/headroom before separately approved paid staging.",
   "candidateAfterExistingChargesResolved": {
     "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
     "region": "ap-south-1",
@@ -42,7 +42,7 @@
       12.5,
       13
     ],
-    "fitsStrictAllIn15": "false with retained legacy disks: 12 + 2.88 + 0.50 backup = 15.38 before tax; legacy disk deletion is not approved",
+    "fitsStrictAllIn15": "Not established: legacy disks now deleted; 12 + 0.50 backup = 12.50 pretax, 14.75 at illustrative18%GST with only0.25 headroom. Actual tax, backup size and overages unverified.",
     "loadAccepted": false
   },
   "rejectedDefaultEC2": {
@@ -120,11 +120,46 @@
   "existingEc2Inventory": {
     "regionsChecked": 17,
     "regionWithResources": "us-east-1",
+    "runningT3Micro": 0,
+    "attachedEbsGB": 0,
+    "publicIPv4": 0,
+    "noResourcesStoppedOrDeleted": false,
+    "activeOtherApplications": [],
+    "unattachedVolumesFound": 0,
+    "allocatedEipsFound": 0,
+    "ownedEbsSnapshotsFound": 0,
+    "verifiedUSEastMicroHourlyUSD": 0.0104,
+    "verifiedUSEastGp3MonthlyPerGiBUSD": 0.08,
+    "publicIPv4HourlyPerAddressUSD": 0.005,
+    "coverageErrorsUnsupportedLightsailEndpoints": 14,
+    "taxRegistrationStatus": "TaxSettings ResourceNotFoundException; actual invoice tax treatment not verified",
+    "taxIllustrationPercent": 18,
+    "cleanupVerificationRegion": "us-east-1",
+    "cleanupVerifiedAtUtc": "2026-11-03T21:42:35.873840+00:00",
+    "instancesTerminated": 2,
+    "rootVolumesDeleted": 2,
+    "removedMonthly730hIdentifiedRunRateUSD": 25.364,
+    "remainingIdentifiedEc2VolumeIpRunRateUSD": 0,
+    "otherRegionsRescannedAfterCleanup": false
+  },
+  "iamOwnerSetup": {
+    "ownerAuthorized": true,
+    "automaticCreation": "rejected by automatic approval review before execution; reason blocked by policy",
+    "identityCreated": false,
+    "privatePasswordGenerated": false,
+    "manualMfaAndConsoleSetup": "pending; policies prepared"
+  },
+  "historicalPreCleanupEc2Inventory": {
+    "regionsChecked": 17,
+    "regionWithResources": "us-east-1",
     "runningT3Micro": 2,
     "attachedEbsGB": 36,
     "publicIPv4": 2,
     "noResourcesStoppedOrDeleted": true,
-    "activeOtherApplications": ["ThreatGraph", "Bachat"],
+    "activeOtherApplications": [
+      "ThreatGraph",
+      "Bachat"
+    ],
     "humanOwnerAndGuestDataVerified": false,
     "certifiedSafeDeletionCandidates": 0,
     "unattachedVolumesFound": 0,
@@ -142,11 +177,13 @@
     "taxRegistrationStatus": "TaxSettings ResourceNotFoundException; actual invoice tax treatment not verified",
     "taxIllustrationPercent": 18
   },
-  "iamOwnerSetup": {
-    "ownerAuthorized": true,
-    "automaticCreation": "rejected by automatic approval review before execution; reason blocked by policy",
-    "identityCreated": false,
-    "privatePasswordGenerated": false,
-    "manualMfaAndConsoleSetup": "pending; policies prepared"
+  "cleanupPerformed": {
+    "explicitOwnerApprovalForEachNamedInstance": true,
+    "method": "TerminateInstances with original DeleteOnTermination=true roots",
+    "paidBackupsCreated": false,
+    "otherResourcesDeleted": false,
+    "rootTemporarySessionUsed": true,
+    "nonRootDeploymentIdentityStillPending": true,
+    "officialForecastNotRefreshed": true
   }
 }

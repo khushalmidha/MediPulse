@@ -1,5 +1,9 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS owner-approved cleanup - 4 November 2026,03:12 IST
+
+Owner explicitly approved deleting both named instances. AWS confirms ThreatGraph/Bachat terminated and16/20GiB root volumes deleted; fresh us-east-1 inventory has no non-terminated instances/volumes/EIPs. Removed identified run rate25.364USD per730-hour month before extras/tax. Actual2.519/forecast31.915USD still unchanged pending billing refresh; no refund/zero-account-bill claim. Existing temporary root login used within exact deletion scope; no protection/IAM bypass, new snapshot/paid host, DNS, production MediPulse data/flags, Render/Vercel or push changes. Non-root IAM/MFA, actual tax/backup cost and approved AWS staging remain pending. [Cleanup results](../deploy/aws/SPENDING_AUDIT.md). Earlier audit below is historical; retained36GiB disk scenarios are superseded.
+
 ## AWS existing-spend audit - 4 November 2026 IST
 
 Read-only17region inventory and public probes identify active ThreatGraph/Bachat applications on the two EC2 instances; owner/guest-data review is pending, neither is certified safe for deletion. Latest gross actual2.519USD/forecast31.915USD. Conditional stopping of both saves22.484USD per730-hour month but retains2.88USD EBS; adding12USD Lightsail plus0.50backup costs15.38USD before tax and fails the15USD cap. Local299second full API/outbox/offline HF/HLS run passed:912MiB backend-container peak,381light HTTP probes/0failures,p95=110ms; target AWS sustained CPU/reboot/device acceptance remains open. [Audit and next steps](../deploy/aws/SPENDING_AUDIT.md), [manual IAM/MFA](../deploy/aws/IAM_CONSOLE_SETUP.md). No AWS mutations, production flag/data/DNS changes, paid provisioning or push; current Vercel/Render preserved. App/enterprise completion states unchanged.

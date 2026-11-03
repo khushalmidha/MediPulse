@@ -1,5 +1,17 @@
 # AWS spending audit — 4 November 2026 IST
 
+## Owner-approved cleanup completed — 4 November 2026,03:12 IST
+
+The owner explicitly replied **delete it** separately for ThreatGraph-Server and bachat-backend-server. Rechecked the exact account, instance IDs/names, original attached volumes, default DeleteOnTermination=true, disabled termination protection and successful IAM dry run before submitting one scoped termination request. No protection or IAM restriction was bypassed; the existing temporary root CLI session was used, not a newly created deployment identity. Non-root IAM/MFA setup remains pending for deployment.
+
+AWS verification at3November2026 21:42:35UTC confirms **both instances terminated and both16/20GiB root volumes deleted**. No non-terminated EC2 instances, EBS volumes or allocated EIPs remain in us-east-1. Their automatic public addresses are released. Other regions were not rescanned after cleanup; the earlier17region inventory is historical. Exact before/request/after evidence remains private in aws-termination-before.json, aws-termination-result.json and aws-cleanup-verification.json. No paid snapshot/backup was created; this deletion is permanent and no recovery is promised. No other application/DB/provider resource, DNS, feature flag, Render or Vercel configuration was changed.
+
+Removed identified run rate: **25.364USD per730-hour month before tax/extras**, including2.88USD EBS. This supersedes the stop-only proposal below: those disks are no longer retained/billed. Already accrued usage is not refunded. Latest AWS budget still reports actual2.519USD/forecast31.915USD; billing/forecast have not caught up, so do not claim the official forecast has fallen or that the whole account has zero charges.
+
+Next: preserve Render/Vercel, finish [non-root IAM/MFA](IAM_CONSOLE_SETUP.md), verify the refreshed bill and actual tax/backup requirements. With the old disks gone, a12USD Lightsail +0.50USD assumed backup scenario is12.50USD before tax,14.75USD at illustrative18% GST, leaving only0.25USD headroom. Larger backups/overages can exceed15; actual tax and target-host capacity remain unverified. **No new paid deployment or DNS change is approved by the deletion instruction.**
+
+## Historical audit before the approved deletion
+
 **Decision: do not add paid infrastructure yet.** Existing services exceed the USD15 gross monthly ceiling. Both EC2 machines visibly serve separate applications; neither is approved or proven safe to stop/delete. No AWS resources, permissions, DNS, production data, feature flags or existing deployments were changed during this audit. No code was pushed.
 
 ## Observed resources and ownership
