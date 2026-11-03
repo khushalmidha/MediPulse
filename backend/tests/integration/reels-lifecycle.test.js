@@ -18,9 +18,10 @@ import AuthSession from '../../model/authSession.js';
 import OutboxJob from '../../model/outboxJob.js';
 import { Reel, ReelReaction, ReelSignal, ReelPlayback, ReelComment, ReelReport, ReelAudit, ReelFollow } from '../../model/reel.js';
 import { applyReelsSchema } from '../../scripts/reelsSchema.js';
+import { embedReelText } from '../../services/reelEmbedding.js';
 import { processReelJob } from '../../services/reelProcessing.js';
 import { runOutboxBatch } from '../../services/outbox.js';
-import { closeRedis } from '../../services/redis.js';
+import { closeRedis, getRedis } from '../../services/redis.js';
 import router from '../../routes/reels.js';
 
 const uri = new URL(localTestTargets().mongo);
@@ -72,6 +73,10 @@ async function request(url, { role = 'patient', method = 'GET', body, csrf = tru
 }
 
 before(async () => {
+  process.env.USE_REAL_REDIS = 'true';
+  process.env.REDIS_URL = localTestTargets().redis;
+  process.env.REDIS_KEY_PREFIX = `reels-review:${crypto.randomUUID()}:`;
+  assert.equal(await getRedis().ping(), 'PONG');
   await mongoose.connect(uri.href, { autoIndex: false, autoCreate: false, serverSelectionTimeoutMS: 5000 });
   await applyReelsSchema();
   await OutboxJob.createIndexes();
@@ -285,6 +290,14 @@ test('Complete 15-Step Doctor Reels Lifecycle with 7 Synthetic Identities', asyn
     // Private draft is NOT readable by patient or unapproved doctors
     const patientPreview = await request(createdReel.playbackUrl.replace('/api/reels', ''), { role: 'patient' });
     assert.equal(patientPreview.status, 404, 'Private draft playback must not be accessible to public');
+    const mediaBase = path.posix.dirname(createdReel.playbackUrl.replace('/api/reels', ''));
+    for (const suffix of ['master.m3u8', '360p/index.m3u8', '360p/segment_00000.ts', 'thumbnail.jpg']) {
+      for (const role of ['patient', 'unrelatedDoctor']) {
+        assert.equal((await request(`${mediaBase}/${suffix}`, { role })).status, 404, `Private ${suffix} must deny ${role}`);
+      }
+      assert.equal((await request(`${mediaBase}/${suffix}`, { token: 'invalid.jwt.token' })).status, 401);
+    }
+
   });
 
   await t.test('Step 9: Version-bound submission by creator', async () => {
@@ -534,9 +547,65 @@ test('Complete 15-Step Doctor Reels Lifecycle with 7 Synthetic Identities', asyn
     // Creator manifest also returns 404
     const creatorManifest = await request(createdReel.playbackUrl.replace('/api/reels', ''), { role: 'creatorDoctor' });
     assert.equal(creatorManifest.status, 404);
+    const mediaBase = path.posix.dirname(createdReel.playbackUrl.replace('/api/reels', ''));
+    for (const suffix of ['master.m3u8', '360p/index.m3u8', '360p/segment_00000.ts', 'thumbnail.jpg']) {
+      for (const role of ['patient', 'creatorDoctor', 'approvedReviewerDoctor']) {
+        assert.equal((await request(`${mediaBase}/${suffix}`, { role })).status, 404, `Removed ${suffix} must deny ${role}`);
+      }
+    }
+
 
     // Feed excludes removed content
     const feed = await request('/feed', { role: 'patient' });
     assert.ok(!feed.data.items.some(x => x.id === createdReel.id));
   });
+});
+
+
+test('actual HF embeddings and authenticated watch events change fresh For You order', { timeout: 120000 }, async () => {
+  // Directly published synthetic fixtures test retrieval/ranking, not moderation.
+  const specs = [
+    { _id: new mongoose.Types.ObjectId('100000000000000000000001'), title: 'Heart health: regular exercise helps prevent cardiovascular disease.', language: 'en' },
+    { _id: new mongoose.Types.ObjectId('200000000000000000000001'), title: 'Rankingcheck Dental care: brush your teeth twice a day.', language: 'en' },
+    { _id: new mongoose.Types.ObjectId('300000000000000000000001'), title: 'Rankingcheck Cardiovascular health: exercise regularly to prevent heart disease.', language: 'en' },
+  ];
+  const publishedAt = new Date(), rows = [];
+  try {
+    for (const spec of specs) {
+      const embedded = await embedReelText({ title: spec.title, language: spec.language });
+      rows.push(await Reel.create({ ...spec, doctorId: ids.creatorDoctor, creationKey: crypto.randomUUID(),
+        status: 'published', mediaStatus: 'ready', duration: 20, publishedAt,
+        embedding: embedded.vector, embeddingModel: embedded.model, embeddingRevision: embedded.revision }));
+    }
+    const seed = String(rows[0]._id), dental = String(rows[1]._id), heart = String(rows[2]._id);
+    await request('/preferences', { method: 'POST', body: { personalizationEnabled: false, resetHistory: true, topics: [] } });
+    const freshFeed = () => request('/feed?q=Rankingcheck');
+    const cold = await freshFeed(); assert.equal(cold.status, 200);
+    assert.deepEqual(cold.data.items.map(x => x.id), [dental, heart]);
+    await request('/preferences', { method: 'POST', body: { personalizationEnabled: true, topics: [] } });
+    const playback = await request(`/${seed}/playback`, { method: 'POST', body: {} });
+    await ReelPlayback.updateOne({ _id: playback.data.sessionId }, { $set: { lastEventAt: new Date(Date.now() - 15000) } });
+    const event = { eventId: crypto.randomUUID(), sessionId: playback.data.sessionId, sequence: 1, type: 'watch', watchMs: 15000 };
+    const watched = await request(`/${seed}/events`, { method: 'POST', body: event });
+    assert.equal(watched.status, 200); assert.equal(watched.data.creditedWatchMs, 15000);
+    const personalized = await freshFeed(); assert.equal(personalized.status, 200);
+    assert.equal(personalized.data.personalization.coldStart, false);
+    assert.deepEqual(personalized.data.items.map(x => x.id), [heart, dental], 'Watch history must change actual API order toward related content');
+    assert.equal((await request(`/${seed}/events`, { method: 'POST', body: event })).data.replay, true);
+    assert.equal((await ReelSignal.findOne({ actorKey: `user:${ids.patient}`, reelId: seed })).watchMs, 15000);
+    await request('/preferences', { method: 'POST', body: { personalizationEnabled: true, resetHistory: true, topics: [] } });
+    const reset = await freshFeed(); assert.equal(reset.data.personalization.coldStart, true);
+    assert.deepEqual(reset.data.items.map(x => x.id), [dental, heart]);
+    const skipped = await request(`/${seed}/playback`, { method: 'POST', body: {} });
+    assert.equal((await request(`/${seed}/events`, { method: 'POST', body: {
+      eventId: crypto.randomUUID(), sessionId: skipped.data.sessionId, sequence: 1, type: 'skip', watchMs: 0,
+    } })).status, 200);
+    assert.deepEqual((await freshFeed()).data.items.map(x => x.id), [dental, heart], 'Skip feedback must move away from the skipped semantic direction');
+    await request('/preferences', { method: 'POST', body: { personalizationEnabled: false, resetHistory: true, topics: [] } });
+    assert.equal(await ReelSignal.countDocuments({ actorKey: `user:${ids.patient}` }), 0);
+    const optedOut = await freshFeed(); assert.equal(optedOut.data.personalization.enabled, false);
+    assert.deepEqual(optedOut.data.items.map(x => x.id), [dental, heart]);
+  } finally {
+    await Reel.deleteMany({ _id: { $in: specs.map(row => row._id) } });
+  }
 });

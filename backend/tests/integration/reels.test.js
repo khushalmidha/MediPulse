@@ -20,7 +20,7 @@ import { applyReelsSchema, inspectReelsSchema } from '../../scripts/reelsSchema.
 import { assertReelsReady, finalizeUpload } from '../../services/reelService.js';
 import { processReelJob } from '../../services/reelProcessing.js';
 import { runOutboxBatch } from '../../services/outbox.js';
-import { closeRedis } from '../../services/redis.js';
+import { closeRedis, getRedis } from '../../services/redis.js';
 import router from '../../routes/reels.js';
 
 const uri = new URL(localTestTargets().mongo); uri.pathname = `/medipulse_test_reels_${crypto.randomBytes(8).toString('hex')}`;
@@ -45,6 +45,10 @@ const fixtureAdapters = {
   },
 };
 before(async () => {
+  process.env.USE_REAL_REDIS = 'true';
+  process.env.REDIS_URL = localTestTargets().redis;
+  process.env.REDIS_KEY_PREFIX = `reels-review:${crypto.randomUUID()}:`;
+  assert.equal(await getRedis().ping(), 'PONG');
   await mongoose.connect(uri.href, { autoIndex: false, autoCreate: false, serverSelectionTimeoutMS: 5000 });
   assert.ok((await inspectReelsSchema()).some(x => x.missing.length)); await assert.rejects(assertReelsReady(), /migration/);
   await applyReelsSchema(); await OutboxJob.createIndexes(); await AuthSession.createIndexes();
@@ -131,6 +135,7 @@ test('real reels router, upload, review, engagement and personalization boundari
     await request(`/doctors/${ids.author}/follow`, { method: 'POST', body: { active: true } }); assert.equal((await request('/feed?mode=following')).data.items.length, 1);
     await request(`/${reel.id}/reactions`, { method: 'POST', body: { kind: 'save', active: true } }); assert.equal((await request('/feed?saved=true')).data.items.length, 1);
     await Doctor.updateOne({ _id: ids.author }, { $set: { 'credentialVerification.status': 'rejected' } }); assert.equal((await request('/feed')).data.items.length, 0);
+    assert.equal((await request(reel.playbackUrl.replace('/api/reels', ''))).status, 404, 'Credential revocation must immediately revoke patient media access');
     await Doctor.updateOne({ _id: ids.author }, { $set: { 'credentialVerification.status': 'verified' } });
     await request(`/${reel.id}/report`, { method: 'POST', body: { reason: 'patient_privacy', details: 'Synthetic test report' } }); assert.equal((await request('/feed')).data.items.length, 0);
     assert.equal((await request('/reports', { role: 'author' })).status, 200); // Explicit configured reviewer, not ordinary author privilege.
@@ -185,17 +190,45 @@ test('worker/upload leases, retry recovery and cursor tampering use actual persi
     assert.equal((await request('/feed?cursor=' + encodeURIComponent('a.' + 'é'.repeat(43)))).status, 400);
     assert.equal((await request('/preferences', { method: 'POST', body: [] })).status, 400);
   });
-  await t.test('feed degrades safely to Mongo-backed candidates when Redis is unavailable', async () => {
-    const redis = (await import('../../services/redis.js')).getRedis();
-    const originalSet = redis.set;
-    redis.set = () => { throw new Error('Simulated Redis outage'); };
+  await t.test('real Redis snapshots degrade on write/read rejection with nonempty candidates', async () => {
+    // Published synthetic rows isolate cache behavior; publication is tested above.
+    const rows = await Reel.create(Array.from({ length: 13 }, (_, i) => ({
+      doctorId: ids.otherDoctor, creationKey: crypto.randomUUID(), title: `Cachecheck ${i}`,
+      status: 'published', mediaStatus: 'ready', duration: 20, publishedAt: new Date(),
+    })));
+    const redis = getRedis(), originalSet = redis.set, originalGet = redis.get;
+    let writes = 0, reads = 0;
     try {
-      const result = await request('/feed');
-      assert.equal(result.status, 200);
+      const initial = await request('/feed?q=Cachecheck');
+      assert.equal(initial.status, 200); assert.equal(initial.data.items.length, 12);
+      assert.ok(initial.data.nextCursor, 'Real Redis must retain the 13-item snapshot');
+      const cursorUrl = '/feed?q=Cachecheck&cursor=' + encodeURIComponent(initial.data.nextCursor);
+      assert.equal((await request(cursorUrl)).data.items.length, 1);
+      redis.set = async () => { writes++; throw new Error('Simulated async Redis write outage'); };
+      const result = await request('/feed?q=Cachecheck');
+      assert.equal(writes, 1, 'The exact client used by feed must reject');
+      assert.equal(result.status, 200); assert.equal(result.data.items.length, 12);
       assert.equal(result.data.nextCursor, null);
-      assert.ok(Array.isArray(result.data.items));
+      redis.get = async () => { reads++; throw new Error('Simulated async Redis read outage'); };
+      assert.equal((await request(cursorUrl)).status, 409); assert.equal(reads, 1);
     } finally {
-      redis.set = originalSet;
+      redis.set = originalSet; redis.get = originalGet;
+      await Reel.deleteMany({ _id: { $in: rows.map(row => row._id) } });
+    }
+  });
+  await t.test('disabled non-test runtime holds jobs without consuming attempts', async () => {
+    const previousMode = process.env.NODE_ENV, previousFlag = process.env.REELS_ENABLED;
+    try {
+      // Modules are already loaded under bootstrap; never load a deployment env.
+      process.env.NODE_ENV = 'production'; process.env.REELS_ENABLED = 'false';
+      assert.equal((await request('/feed')).status, 503);
+      const attempts = await OutboxJob.find({ kind: 'reels.process' }).select('attempts').lean();
+      const result = await runOutboxBatch(() => { throw new Error('Disabled Reels must not deliver'); });
+      assert.equal(result.delivered, 0); assert.equal(result.retried, 0);
+      assert.deepEqual(await OutboxJob.find({ kind: 'reels.process' }).select('attempts').lean(), attempts);
+    } finally {
+      process.env.NODE_ENV = previousMode;
+      if (previousFlag === undefined) delete process.env.REELS_ENABLED; else process.env.REELS_ENABLED = previousFlag;
     }
   });
 });

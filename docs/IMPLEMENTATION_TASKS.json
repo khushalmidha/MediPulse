@@ -2471,8 +2471,28 @@
         "bounded 400-candidate retrieval, no catalogue-scale load evidence",
         "real device/Safari acceptance not performed",
         "7 moderate frontend development-tool advisories remain; production audits zero",
-        "Docker compose configuration validated; image build/production deployment not executed"
-      ]
+        "Local Docker build/offline nonroot runtime verified; production deployment and disk persistence not verified"
+      ],
+      "finalEngineeringReview": {
+        "date": "2026-11-03",
+        "reviewedRevision": "69fb1485",
+        "reference": "docs/REELS_PRODUCTION_READINESS.md",
+        "reelsAndLifecycle": {
+          "passed": 32,
+          "failed": 0,
+          "skipped": 0,
+          "realRedis": true,
+          "realVideoAndEmbedding": true,
+          "watchBehaviorChangesApiOrder": true
+        },
+        "targetedUnitsPassed": 17,
+        "focusedIntegrationWithP06Passed": 48,
+        "frontendUnitsPassed": 62,
+        "browserPassed": 10,
+        "dockerOfflineNonrootRuntime": "passed; adaptive H264/AAC decode, JPEG and pinned384D inference",
+        "liveScope": "Public frontend revision69fb1485, SPA/health/anonymous401 only; authenticated Reels unverified",
+        "productionChanges": "none"
+      }
     }
   }
 }
