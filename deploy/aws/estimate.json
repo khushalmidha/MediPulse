@@ -185,5 +185,30 @@
     "rootTemporarySessionUsed": true,
     "nonRootDeploymentIdentityStillPending": true,
     "officialForecastNotRefreshed": true
+  },
+  "furtherCostReview": {
+    "dateIST": "2026-11-04",
+    "newPaidResources": false,
+    "newDnsChanges": false,
+    "cliAuthenticatedAtCheck": false,
+    "ownerConfirmedNonRootMfaPending": true,
+    "verifiedFeaturePreservingHostBelow12USD": false,
+    "oneGiBRejected": "Backend alone peaked912MiB in full local workload; Redis/OS/proxy excluded from that figure",
+    "ipv6OnlyNotSelected": "No incoming/outgoing public IPv4 traffic; dependencies/client compatibility unverified",
+    "oldLightsailFreeTrialAssumed": false,
+    "conditionalSnapshotBilledGBMonth": 10,
+    "conditionalBeforeTaxUSD": 12.5,
+    "illustrativeTaxPercent": 18,
+    "illustrativeTotalUSD": 14.75,
+    "illustrativeHeadroomUSD": 0.25,
+    "snapshotBilledGBMonthRoundedDownCeilingNoOtherFeesAt18Percent": 14.23,
+    "backupAcceptanceStillPending": true,
+    "backupDeletionOrPruningAuthorized": false,
+    "localLightsailDraftFiles": [
+      "lightsail.override.yml",
+      "medipulse-lightsail.service"
+    ],
+    "mergedComposeValidationPassed": true,
+    "targetHostOrSystemdRuntimeVerified": false
   }
 }

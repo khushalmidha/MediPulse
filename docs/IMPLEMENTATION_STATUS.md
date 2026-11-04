@@ -1,5 +1,10 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS further cost review - 4 November 2026 IST
+
+No independently accepted full-feature host below12USD base. Conditional10billedGB-month backup quote14.75USD at illustrative18%GST; actual tax/backup/overages and AWS load remain unverified. Local Lightsail override/unit prepared and mergedCompose checked; no runtime install or paid provisioning. CLI expired; owner confirms non-root IAM/MFA not set up. No root re-login or IAM bypass. Render/Vercel/DNS/data/flags unchanged; no push. See deploy/aws/README.md for the bounded draft and remaining gates.
+
+
 ## AWS owner-approved cleanup - 4 November 2026,03:12 IST
 
 Owner explicitly approved deleting both named instances. AWS confirms ThreatGraph/Bachat terminated and16/20GiB root volumes deleted; fresh us-east-1 inventory has no non-terminated instances/volumes/EIPs. Removed identified run rate25.364USD per730-hour month before extras/tax. Actual2.519/forecast31.915USD still unchanged pending billing refresh; no refund/zero-account-bill claim. Existing temporary root login used within exact deletion scope; no protection/IAM bypass, new snapshot/paid host, DNS, production MediPulse data/flags, Render/Vercel or push changes. Non-root IAM/MFA, actual tax/backup cost and approved AWS staging remain pending. [Cleanup results](../deploy/aws/SPENDING_AUDIT.md). Earlier audit below is historical; retained36GiB disk scenarios are superseded.

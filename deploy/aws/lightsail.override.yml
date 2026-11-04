@@ -1,0 +1,28 @@
+# Local preparation only. Paid host, backups and DNS require separate approval.
+# Reuse the base app/proxy/auth configuration; no additional EBS/MSK/ElastiCache.
+# docker compose -f compose.yml -f lightsail.override.yml ...
+name: medipulse-lightsail
+services:
+  backend:
+    # Same backend envelope as the successful local 299-second capacity check.
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    cpus: 1.6
+    logging: &bounded_logs
+      driver: json-file
+      options: {max-size: 5m, max-file: "2"}
+  redis:
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.1
+    command: [redis-server, --appendonly, "yes", --appendfsync, everysec, --maxmemory, 64mb, --maxmemory-policy, noeviction]
+    logging: *bounded_logs
+  proxy:
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.2
+    logging: *bounded_logs
+# Total container memory ceilings:1536MiB, leaving approximately512MiB for OS.
+# Host CPU baseline, simultaneous traffic and Redis pressure still need staging.
+# Persistent bind paths remain on the approved INCLUDED Lightsail root SSD.
+# Both production feature flags stay false in the base file.
