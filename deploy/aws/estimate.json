@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-05",
+  "date": "2026-11-06",
   "targetGrossMonthlyUSD": 10,
   "maximumGrossMonthlyUSD": 15,
   "creditsDoNotIncreaseMaximum": true,
@@ -19,9 +19,9 @@
     "configuredAndVerified": true
   },
   "accountSpendAtCheck": {
-    "actualGrossUSD": 3.282,
-    "forecastGrossUSD": 39.527,
-    "remainingAgainstPostedActualUSD": 11.718,
+    "actualGrossUSD": 3.586,
+    "forecastGrossUSD": 41.023,
+    "remainingAgainstPostedActualUSD": 11.414,
     "forecastAlreadyExceedsMaximum": true
   },
   "recommendedImmediateAction": "Preserve new JobFinder; owner confirms it must remain. Non-root login verified. Free Tier API denied: owner must review separate read-only permission. Explore conditional shared ARM t4g.small trial; no new paid host or cutover before quota, compatibility, combined-load and exact-scope approval.",
@@ -283,7 +283,7 @@
     "localArmTestIsEmulationNotNativeAws": true
   },
   "proposedBoundedNativePilot": {
-    "approved": false,
+    "approved": true,
     "created": false,
     "instanceCount": 1,
     "instance": "t4g.small",
@@ -300,9 +300,19 @@
     "proposedPilotReserveUSD": 1,
     "hardCapGuaranteed": false,
     "existingChargesAdditional": true,
-    "exactNewSyntheticInstanceAndDiskCleanupApprovalRequired": true,
+    "exactNewSyntheticInstanceAndDiskCleanupApprovalRequired": false,
     "existingJobFinderChanges": false,
     "dnsChanges": false,
-    "newIamWrites": false
+    "newIamWrites": false,
+    "ownerApprovalDateIST": "2026-11-06",
+    "exactNewSyntheticInstanceAndDiskCleanupApproved": true,
+    "launchPermissionAttached": false,
+    "currentCreateSecurityGroupDryRun": "UnauthorizedOperation",
+    "provisionPolicyTemplate": "iam-native-pilot.template.json",
+    "privateRenderedPolicy": "%LOCALAPPDATA%/MediPulse/Private/iam-native-pilot.json",
+    "launchGrantExpiryUtc": "2026-11-13T00:00:00Z",
+    "cleanupGrantExpiryUtc": "2026-11-15T00:00:00Z",
+    "grantExpiryDoesNotExtendPilot24Hours": true,
+    "noRootFallback": true
   }
 }

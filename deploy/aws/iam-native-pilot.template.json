@@ -1,0 +1,111 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadPilotLaunchMetadata",
+      "Effect": "Allow",
+      "Action": ["ec2:DescribeImages", "ec2:DescribeKeyPairs", "ec2:DescribeNetworkInterfaces", "ec2:DescribeSecurityGroupRules"],
+      "Resource": "*",
+      "Condition": {"StringEquals": {"aws:RequestedRegion": "us-east-1"}}
+    },
+    {
+      "Sid": "LaunchOnlyTaggedT4gSmallWithImdsV2",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
+      "Condition": {
+        "StringEquals": {"aws:RequestTag/PilotId": "medipulse-native-pilot-20261106", "ec2:InstanceType": "t4g.small", "ec2:MetadataHttpTokens": "required", "ec2:Tenancy": "default"},
+        "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}
+      }
+    },
+    {
+      "Sid": "LaunchOnlyEncrypted40GiBDefaultPerformanceGp3",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*",
+      "Condition": {
+        "StringEquals": {"aws:RequestTag/PilotId": "medipulse-native-pilot-20261106", "ec2:VolumeType": "gp3"},
+        "NumericEquals": {"ec2:VolumeSize": "40", "ec2:VolumeIops": "3000", "ec2:VolumeThroughput": "125"},
+        "Bool": {"ec2:Encrypted": "true"},
+        "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}
+      }
+    },
+    {
+      "Sid": "UseOnlyCanonicalUbuntuImages",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:us-east-1::image/*",
+      "Condition": {"StringEquals": {"ec2:Owner": "099720109477"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "UseExistingRegionalSubnetAndNewInterfaceForPilot",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": ["arn:aws:ec2:us-east-1:__ACCOUNT_ID__:subnet/*", "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:network-interface/*"],
+      "Condition": {"DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "LaunchUsingOnlyPilotTaggedKeyAndSecurityGroup",
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": ["arn:aws:ec2:us-east-1:__ACCOUNT_ID__:key-pair/*", "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:security-group/*"],
+      "Condition": {"StringEquals": {"aws:ResourceTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "CreatePilotTaggedSecurityGroup",
+      "Effect": "Allow",
+      "Action": "ec2:CreateSecurityGroup",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:security-group/*",
+      "Condition": {"StringEquals": {"aws:RequestTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "PlaceNewGroupInExistingVpcWithoutVpcWriteAccess",
+      "Effect": "Allow",
+      "Action": "ec2:CreateSecurityGroup",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:vpc/*",
+      "Condition": {"DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "ImportOnlyPilotTaggedPublicSshKey",
+      "Effect": "Allow",
+      "Action": "ec2:ImportKeyPair",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:key-pair/*",
+      "Condition": {"StringEquals": {"aws:RequestTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "TagOnlyDuringApprovedResourceCreation",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": ["arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*", "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*", "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:network-interface/*", "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:security-group/*", "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:key-pair/*"],
+      "Condition": {"StringEquals": {"ec2:CreateAction": ["RunInstances", "CreateSecurityGroup", "ImportKeyPair"], "aws:RequestTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "ManageOnlyNewPilotGroupRulesAndCleanup",
+      "Effect": "Allow",
+      "Action": ["ec2:AuthorizeSecurityGroupIngress", "ec2:RevokeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress", "ec2:RevokeSecurityGroupEgress", "ec2:DeleteSecurityGroup"],
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:security-group/*",
+      "Condition": {"StringEquals": {"aws:ResourceTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-15T00:00:00Z"}}
+    },
+    {
+      "Sid": "LifecycleOnlyNewPilotInstance",
+      "Effect": "Allow",
+      "Action": ["ec2:StartInstances", "ec2:StopInstances", "ec2:RebootInstances", "ec2:TerminateInstances"],
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
+      "Condition": {"StringEquals": {"aws:ResourceTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-15T00:00:00Z"}}
+    },
+    {
+      "Sid": "CleanupOnlyNewPilotVolume",
+      "Effect": "Allow",
+      "Action": "ec2:DeleteVolume",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*",
+      "Condition": {"StringEquals": {"aws:ResourceTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-15T00:00:00Z"}}
+    },
+    {
+      "Sid": "CleanupOnlyNewPilotImportedKey",
+      "Effect": "Allow",
+      "Action": "ec2:DeleteKeyPair",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:key-pair/*",
+      "Condition": {"StringEquals": {"aws:ResourceTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-15T00:00:00Z"}}
+    }
+  ]
+}

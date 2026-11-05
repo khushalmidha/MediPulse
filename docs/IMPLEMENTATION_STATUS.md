@@ -1,5 +1,10 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Approved native pilot permission gate - 6 November 2026
+
+Owner approved exact24h/1USD-reserve synthetic pilot and new-instance/root cleanup. Non-root re-login verified; actual3.586USD/forecast41.023USD, whole-account cap15unchanged. Restricted pilot policy/template and private renderer prepared; current-role create-SGdryrunUnauthorizedOperation, so no paid resources created. Owner must attach private rendered policy; no IAM escalation/root fallback. ExistingJobFinder/Render/Vercel/DNS/data/flags unchanged, no push. Actual AWS authorization/native host tests pending. See deploy/aws/README.md.
+
+
 ## Free Tier access and local ARM verification - 5 November 2026
 
 Owner FreeTier read policy works; PAID/ACTIVE plan140USDcredits, noT4gusage entry so remaining trialquota unconfirmed. Actual offline ARM64 media/HLS and multilingual HF embedding checks2/2passed0skips underlocal emulation, not AWS/shared-app capacity. Native24h synthetic t4g.small/40GiB/IP pilot scope proposed with1USD reserve (approximately0.74USD worstfullprice with illustrativeGST); creation/cleanup/provisioning-permission approval pending. No AWS writes/DNS/live app/data/provider changes or push. ExistingJobFinder kept. See deploy/aws/README.md.
