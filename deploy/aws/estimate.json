@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-04",
+  "date": "2026-11-05",
   "targetGrossMonthlyUSD": 10,
   "maximumGrossMonthlyUSD": 15,
   "creditsDoNotIncreaseMaximum": true,
@@ -19,12 +19,12 @@
     "configuredAndVerified": true
   },
   "accountSpendAtCheck": {
-    "actualGrossUSD": 2.519,
-    "forecastGrossUSD": 31.915,
-    "remainingAgainstPostedActualUSD": 12.481,
+    "actualGrossUSD": 3.282,
+    "forecastGrossUSD": 39.527,
+    "remainingAgainstPostedActualUSD": 11.718,
     "forecastAlreadyExceedsMaximum": true
   },
-  "recommendedImmediateAction": "Owner-approved two-instance termination verified; preserve Render/Vercel, reconcile refreshed whole-account bill/taxes, complete non-root MFA and re-quote backups/headroom before separately approved paid staging.",
+  "recommendedImmediateAction": "Preserve new JobFinder; owner confirms it must remain. Non-root login verified. Free Tier API denied: owner must review separate read-only permission. Explore conditional shared ARM t4g.small trial; no new paid host or cutover before quota, compatibility, combined-load and exact-scope approval.",
   "candidateAfterExistingChargesResolved": {
     "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
     "region": "ap-south-1",
@@ -210,5 +210,63 @@
     ],
     "mergedComposeValidationPassed": true,
     "targetHostOrSystemdRuntimeVerified": false
+  },
+  "combinedProjectCandidate": {
+    "status": "proposal_only_not_accepted_not_provisioned",
+    "existingJobFinderPreserved": true,
+    "existingJobFinderType": "t3.micro",
+    "existingJobFinderGp3GiB": 30,
+    "existingJobFinderBaseline730hPretaxUSD": 13.642,
+    "instance": "t4g.small",
+    "region": "us-east-1",
+    "architecture": "arm64",
+    "ramGiB": 2,
+    "sharedByBothApps": true,
+    "gp3GiB": 40,
+    "trialDocumentedAggregateHoursPerMonth": 750,
+    "trialDocumentedThroughUTC": "2026-12-31",
+    "accountTrialRemainingQuotaVerified": false,
+    "freeTierReadError": "AccessDeniedException",
+    "trialComputeAssumptionUSD": 0,
+    "monthlyGp3USD": 3.2,
+    "monthlyPublicIPv4At730hUSD": 3.65,
+    "snapshotBilledGBMonthAssumption": [
+      10,
+      20
+    ],
+    "snapshotUSD": [
+      0.5,
+      1
+    ],
+    "trialPretaxTotalUSD": [
+      7.35,
+      7.85
+    ],
+    "illustrative18PercentTaxTotalUSD": [
+      8.67,
+      9.26
+    ],
+    "verifiedPostTrialOnDemandHourlyUSD": 0.0168,
+    "postTrialPretaxTotalUSD": [
+      19.614,
+      20.114
+    ],
+    "postTrialIllustrative18PercentTaxTotalUSD": [
+      23.14,
+      23.73
+    ],
+    "postTrialExceeds15": true,
+    "permanentlyFreeClaim": false,
+    "sharedArmAndCombinedLoadVerified": false,
+    "localDockerUnavailable": true,
+    "oldJobFinderCutoverDiskRemovalApproved": false,
+    "old30GiBDiskRetentionMonthlyExtraUSD": 2.4,
+    "overlapProviderUsageAndOtherAccountChargesIncluded": false,
+    "jobFinderSourceReadOnlyReviewed": true,
+    "jobFinderEmbeddedSecretsNeedReviewedRemovalAndRotation": true,
+    "mailOrOutreachSent": false,
+    "newAwsResourcesCreated": false,
+    "newIamPermissionsApplied": false,
+    "dnsChanged": false
   }
 }

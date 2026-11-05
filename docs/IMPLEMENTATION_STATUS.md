@@ -1,5 +1,10 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Combined-project cost review - 5 November 2026
+
+Non-root CLI verified; budgetactual3.282USD/forecast39.527USD. New JobFinder t3.micro30GiB kept per owner, baseline13.642USD beforetax; separate MediPulse host exceeds15cap. Conditional shared ARM t4g.small750hour trial published through31December2026UTC could cost8.67-9.26USD/month at illustrative18%tax for40GiB/disk/IP/10-20GB-month snapshot, but accountquota, ARM/combined-load and backups unverified. Trial expiry then exceeds15. FreeTier API denied; separate read-only policy prepared, owner application pending. Docker daemon unavailable. JobFinder Compose embedded-secret defaults require reviewed removal/rotation before migration. No provisioning, IAMwrites, DNS/push/data/provider/feature activation. See deploy/aws/README.md.
+
+
 ## AWS further cost review - 4 November 2026 IST
 
 No independently accepted full-feature host below12USD base. Conditional10billedGB-month backup quote14.75USD at illustrative18%GST; actual tax/backup/overages and AWS load remain unverified. Local Lightsail override/unit prepared and mergedCompose checked; no runtime install or paid provisioning. CLI expired; owner confirms non-root IAM/MFA not set up. No root re-login or IAM bypass. Render/Vercel/DNS/data/flags unchanged; no push. See deploy/aws/README.md for the bounded draft and remaining gates.
