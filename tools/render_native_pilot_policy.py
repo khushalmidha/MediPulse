@@ -1,4 +1,4 @@
-"""Render owner-reviewable pilot IAM policy privately; STS read only, no IAM writes."""
+"""Render private customer-managed pilot policy; STS read only, no IAM writes."""
 import argparse
 import json
 import os
@@ -37,13 +37,15 @@ def main():
                 raise ValueError('Unresolved or unsupported ARN variable')
     private.mkdir(parents=True, exist_ok=True)
     target = private / 'iam-native-pilot.json'
-    # Keep the Console paste payload below its editor limit without changing grants.
+    # Customer-managed policy limit is6144, excluding whitespace. User inline
+    # policies aggregate at2048, so this document must NOT be installed inline.
     compact = json.dumps(policy, separators=(',', ':')) + '\n'
     if len(compact) > 6144:
-        raise ValueError('Policy exceeds the Console paste limit; review scope instead of widening it')
+        raise ValueError('Policy exceeds customer-managed size limit; review without widening grants')
     target.write_text(compact, encoding='utf-8')
     target.with_name('iam-native-pilot.compact.json').write_text(compact, encoding='utf-8')
-    print(json.dumps({'ownerReviewFile': str(target), 'iamWrites': False, 'resourcesCreated': False,
+    print(json.dumps({'ownerReviewFile': str(target), 'policyType': 'customer-managed, NOT user-inline',
+                      'iamWrites': False, 'resourcesCreated': False,
                       'accountSuffix': account[-4:], 'profile': args.profile}))
     return 0
 

@@ -313,6 +313,10 @@
     "launchGrantExpiryUtc": "2026-11-13T00:00:00Z",
     "cleanupGrantExpiryUtc": "2026-11-15T00:00:00Z",
     "grantExpiryDoesNotExtendPilot24Hours": true,
-    "noRootFallback": true
+    "noRootFallback": true,
+    "provisionPolicyType": "customer-managed; not user-inline",
+    "managedPolicyNonWhitespaceCharacters": 4849,
+    "userInlineAggregateLimit": 2048,
+    "customerManagedPolicyLimit": 6144
   }
 }
