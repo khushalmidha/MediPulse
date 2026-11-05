@@ -37,7 +37,12 @@ def main():
                 raise ValueError('Unresolved or unsupported ARN variable')
     private.mkdir(parents=True, exist_ok=True)
     target = private / 'iam-native-pilot.json'
-    target.write_text(json.dumps(policy, indent=2) + '\n', encoding='utf-8')
+    # Keep the Console paste payload below its editor limit without changing grants.
+    compact = json.dumps(policy, separators=(',', ':')) + '\n'
+    if len(compact) > 6144:
+        raise ValueError('Policy exceeds the Console paste limit; review scope instead of widening it')
+    target.write_text(compact, encoding='utf-8')
+    target.with_name('iam-native-pilot.compact.json').write_text(compact, encoding='utf-8')
     print(json.dumps({'ownerReviewFile': str(target), 'iamWrites': False, 'resourcesCreated': False,
                       'accountSuffix': account[-4:], 'profile': args.profile}))
     return 0
