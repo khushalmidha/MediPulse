@@ -1,5 +1,10 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Free Tier access and local ARM verification - 5 November 2026
+
+Owner FreeTier read policy works; PAID/ACTIVE plan140USDcredits, noT4gusage entry so remaining trialquota unconfirmed. Actual offline ARM64 media/HLS and multilingual HF embedding checks2/2passed0skips underlocal emulation, not AWS/shared-app capacity. Native24h synthetic t4g.small/40GiB/IP pilot scope proposed with1USD reserve (approximately0.74USD worstfullprice with illustrativeGST); creation/cleanup/provisioning-permission approval pending. No AWS writes/DNS/live app/data/provider changes or push. ExistingJobFinder kept. See deploy/aws/README.md.
+
+
 ## Combined-project cost review - 5 November 2026
 
 Non-root CLI verified; budgetactual3.282USD/forecast39.527USD. New JobFinder t3.micro30GiB kept per owner, baseline13.642USD beforetax; separate MediPulse host exceeds15cap. Conditional shared ARM t4g.small750hour trial published through31December2026UTC could cost8.67-9.26USD/month at illustrative18%tax for40GiB/disk/IP/10-20GB-month snapshot, but accountquota, ARM/combined-load and backups unverified. Trial expiry then exceeds15. FreeTier API denied; separate read-only policy prepared, owner application pending. Docker daemon unavailable. JobFinder Compose embedded-secret defaults require reviewed removal/rotation before migration. No provisioning, IAMwrites, DNS/push/data/provider/feature activation. See deploy/aws/README.md.
