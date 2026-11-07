@@ -1,5 +1,9 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS native launch authorization blocked — 7 November 2026
+
+Exact non-root re-login verified. Current fresh RunInstances dry-run denies selected Canonical ARM64 AMI; no paid instance/root disk created. New synthetic SSH group/key cleaned. Prepared4831character customer-managed policy correction pinning the independently verified exact image, preserving other13statements/expiries; owner must update existing policy/default version and confirm attachment. No IAM writes/root fallback. Guarded launch/native-test/cleanup scripts prepared and syntax checked; actual native media/model/reboot/shared-load acceptance remains pending. Local media/model results below remain local only. JobFinder/Render/Vercel/DNS/production data/flags preserved; no push. See deploy/aws/README.md.
+
 ## Approved native pilot permission gate - 6 November 2026
 
 Owner approved exact24h/1USD-reserve synthetic pilot and new-instance/root cleanup. Non-root re-login verified; actual3.586USD/forecast41.023USD, whole-account cap15unchanged. Restricted pilot policy/template and private renderer prepared; current-role create-SGdryrunUnauthorizedOperation, so no paid resources created. Owner must attach private rendered policy; no IAM escalation/root fallback. ExistingJobFinder/Render/Vercel/DNS/data/flags unchanged, no push. Actual AWS authorization/native host tests pending. See deploy/aws/README.md.

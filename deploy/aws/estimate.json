@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-06",
+  "date": "2026-11-07",
   "targetGrossMonthlyUSD": 10,
   "maximumGrossMonthlyUSD": 15,
   "creditsDoNotIncreaseMaximum": true,
@@ -19,12 +19,12 @@
     "configuredAndVerified": true
   },
   "accountSpendAtCheck": {
-    "actualGrossUSD": 3.586,
-    "forecastGrossUSD": 41.023,
-    "remainingAgainstPostedActualUSD": 11.414,
+    "actualGrossUSD": 4.167,
+    "forecastGrossUSD": 44.905,
+    "remainingAgainstPostedActualUSD": 10.833,
     "forecastAlreadyExceedsMaximum": true
   },
-  "recommendedImmediateAction": "Preserve new JobFinder; owner confirms it must remain. Non-root login verified. Free Tier API denied: owner must review separate read-only permission. Explore conditional shared ARM t4g.small trial; no new paid host or cutover before quota, compatibility, combined-load and exact-scope approval.",
+  "recommendedImmediateAction": "Owner updates existing customer-managed pilot policy/default version with exact verified image ARN; current launch dry-run denied. Preserve JobFinder and existing websites. No production migration, DNS or increased gross cap authorized.",
   "candidateAfterExistingChargesResolved": {
     "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
     "region": "ap-south-1",
@@ -306,8 +306,8 @@
     "newIamWrites": false,
     "ownerApprovalDateIST": "2026-11-06",
     "exactNewSyntheticInstanceAndDiskCleanupApproved": true,
-    "launchPermissionAttached": false,
-    "currentCreateSecurityGroupDryRun": "UnauthorizedOperation",
+    "launchPermissionAttached": "partially verified: tagged SG/key creation and cleanup succeeded; IAM attachment inspection denied",
+    "currentCreateSecurityGroupDryRun": "superseded by successful tagged creation and cleanup",
     "provisionPolicyTemplate": "iam-native-pilot.template.json",
     "privateRenderedPolicy": "%LOCALAPPDATA%/MediPulse/Private/iam-native-pilot.json",
     "launchGrantExpiryUtc": "2026-11-13T00:00:00Z",
@@ -315,8 +315,13 @@
     "grantExpiryDoesNotExtendPilot24Hours": true,
     "noRootFallback": true,
     "provisionPolicyType": "customer-managed; not user-inline",
-    "managedPolicyNonWhitespaceCharacters": 4849,
+    "managedPolicyNonWhitespaceCharacters": 4831,
     "userInlineAggregateLimit": 2048,
-    "customerManagedPolicyLimit": 6144
+    "customerManagedPolicyLimit": 6144,
+    "currentRunInstancesDryRun": "UnauthorizedOperation on image ARN",
+    "nativeChecksPassed": false,
+    "allNewPilotResourcesCleaned": true,
+    "verifiedPinnedAmi": "ami-09a93d801db0bafae",
+    "ownerPolicyUpdatePending": true
   }
 }

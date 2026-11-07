@@ -31,11 +31,11 @@
       }
     },
     {
-      "Sid": "UseOnlyCanonicalUbuntuImages",
+      "Sid": "UseOnlyVerifiedCanonicalPilotImage",
       "Effect": "Allow",
       "Action": "ec2:RunInstances",
-      "Resource": "arn:aws:ec2:us-east-1::image/*",
-      "Condition": {"StringEquals": {"ec2:Owner": "099720109477"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+      "Resource": "arn:aws:ec2:us-east-1::image/ami-09a93d801db0bafae",
+      "Condition": {"DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
     },
     {
       "Sid": "UseExistingRegionalSubnetAndNewInterfaceForPilot",
