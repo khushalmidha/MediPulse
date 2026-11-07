@@ -1,5 +1,7 @@
 # Owner Console setup: manage the new MediPulse host without inbound SSH
 
+**Setup completed and independently verified8November2026.** Do not recreate the role/policies. Outbound SSM commands and native before/after-reboot tests passed; the synthetic host was then cleaned. Follow the latest deployment/budget gates in [README](README.md); the original setup steps below are historical instructions, not new owner tasks.
+
 7 November 2026. Do these steps in the existing owner/admin Console. No access keys, AdministratorAccess, account-wide Quick Setup or default-host enrollment is required. Keep the existing `MediPulseNativePilot` policy/version3 and all user MFA/read policies intact. The assistant cannot create IAM roles/policies through the restricted deployer identity.
 
 The latest pilot booted successfully and logged SSH listening on IPv4/IPv6 port443; local connections still timed out. The VPC ACL allows traffic and the source IPv4 matches the SSH rule. Exact packet-path cause is not proven. Do not broaden ingress or change JobFinder's networking. All test hosts are cleaned; no new host should be purchased just to retry SSH.

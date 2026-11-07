@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-07",
+  "date": "2026-11-08",
   "targetGrossMonthlyUSD": 10,
   "maximumGrossMonthlyUSD": 15,
   "creditsDoNotIncreaseMaximum": true,
@@ -19,12 +19,12 @@
     "configuredAndVerified": true
   },
   "accountSpendAtCheck": {
-    "actualGrossUSD": 4.167,
-    "forecastGrossUSD": 44.905,
-    "remainingAgainstPostedActualUSD": 10.833,
+    "actualGrossUSD": 4.639,
+    "forecastGrossUSD": 21.451,
+    "remainingAgainstPostedActualUSD": 10.361,
     "forecastAlreadyExceedsMaximum": true
   },
-  "recommendedImmediateAction": "All three SSH pilot attempts cleaned. Native inference/media tests never executed. Prepare outbound SSM transport: owner creates fixed EC2 SSM role and separate narrowly scoped deployer policy, then read-only preflight must pass before any additional paid resources. No more inbound SSH retries; existing website and JobFinder preserved.",
+  "recommendedImmediateAction": "Native SSM/media/model/reboot checks passed4/4 and all pilot resources cleaned. Resolve pending whole-account15USD versus separate MediPulse10USD budget clarification before permanent paid deployment; preserve JobFinder/Render/Vercel/DNS/data/flags. Full AWS API/long-video/backup/production acceptance remains pending.",
   "candidateAfterExistingChargesResolved": {
     "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
     "region": "ap-south-1",
@@ -318,38 +318,63 @@
     "managedPolicyNonWhitespaceCharacters": 4880,
     "userInlineAggregateLimit": 2048,
     "customerManagedPolicyLimit": 6144,
-    "currentRunInstancesDryRun": "passed previously",
-    "nativeChecksPassed": false,
+    "currentRunInstancesDryRun": "passed for approved SSM profile launch; larger instance denied",
+    "nativeChecksPassed": true,
     "allNewPilotResourcesCleaned": true,
     "verifiedPinnedAmi": "ami-09a93d801db0bafae",
     "ownerPolicyUpdatePending": false,
-    "sshConnection": "timeout before authentication",
-    "diagnosticReadActionsPending": [
-      "ec2:DescribeNetworkAcls",
-      "ec2:GetConsoleOutput"
-    ],
+    "sshConnection": "historical attempts1-3 TCP timeout; outbound SSM succeeded on attempt4",
+    "diagnosticReadActionsPending": [],
     "cleanupIndependentlyVerified": true,
     "pilotInstanceTerminated": true,
     "pilotPublicIpv4Released": true,
-    "nativeMediaModelTestsExecuted": 0,
-    "nativeChecksFailure": "SSH TCP readiness timeout before authentication",
-    "runtimeUpperSeconds": 879,
-    "estimatedFullPriceWithIllustrativeTaxUSD": 0.00757,
+    "nativeMediaModelTestsExecuted": 4,
+    "nativeChecksFailure": null,
+    "runtimeUpperSeconds": 778,
+    "estimatedFullPriceWithIllustrativeTaxUSD": 0.00669,
     "estimateIsNotSettledBill": true,
     "jobFinderStillRunningVerified": true,
     "existingFrontendTrustedHttps200Verified": [
       "medipulse.live",
       "www.medipulse.live"
     ],
-    "nativeFailureWasNotMediaOrModelTestFailure": true,
-    "attempts": 3,
+    "attempts": 4,
     "activeInstances": 0,
-    "ssmOwnerRoleAndSeparatePolicyPending": true,
-    "ssmReadOnlyPreflight": "blocked: iam:GetInstanceProfile AccessDenied",
+    "ssmOwnerRoleAndSeparatePolicyPending": false,
+    "ssmReadOnlyPreflight": "passed: exact non-root identity, role/profile/trust/core policy/document/status access",
     "correctedSsh443BootVerified": true,
-    "latestObservedRuntimeSeconds": 411,
-    "conservativeAllAttemptsEstimatedFullPriceWithIllustrativeTaxUSD": 0.01521,
-    "ssmManagedPolicyNonWhitespaceCharacters": 1971
+    "latestObservedRuntimeSeconds": 718,
+    "conservativeAllAttemptsEstimatedFullPriceWithIllustrativeTaxUSD": 0.0219,
+    "ssmManagedPolicyNonWhitespaceCharacters": 1971,
+    "ssmSendCommandVerified": true,
+    "nativePassedBeforeReboot": 2,
+    "nativePassedAfterReboot": 2,
+    "nativeTestsSkipped": 0,
+    "persistentModelAndProcessedHlsHashesVerified": true,
+    "persistentHlsProbeAfterRebootVerified": true,
+    "rebootVerified": true,
+    "expiryTimerVerified": true,
+    "testContainerPeakMemoryBytes": [
+      639811584,
+      621506560
+    ],
+    "testContainerLimitMiB": 1280,
+    "testSeconds": [
+      4.722845527,
+      4.223633201
+    ],
+    "nativeFixtureSeconds": 2,
+    "latestConservativeKnownResourceEstimateWithIllustrativeTaxUSD": 0.00669,
+    "productionAcceptance": false,
+    "fullApiAndLongVideoNativeCapacityVerified": false,
+    "backupRestoreVerified": false,
+    "firstAttemptHistorical": {
+      "runtimeUpperSeconds": 879,
+      "estimatedFullPriceWithIllustrativeTaxUSD": 0.00757,
+      "nativeFailureWasNotMediaOrModelTestFailure": true
+    },
+    "managementTransport": "ssm",
+    "maximumConcurrentInstances": 1
   },
   "activeNewPilotResources": 0
 }

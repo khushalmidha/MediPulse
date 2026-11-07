@@ -157,8 +157,13 @@ def launch():
     state = json.loads(STATE.read_text())
     assert state['account'] == ACCOUNT and state['pilotId'] == PILOT and state['status'] == 'prepared'
     client_token = state.get('clientToken', PILOT)
+    transport = state.get('transport', 'ssh')
     ssh_port = state.get('sshPort', 22)
-    assert client_token in [PILOT, PILOT + '-retry2', PILOT + '-retry3'] and ssh_port in [22, 443]
+    assert transport in ['ssh', 'ssm']
+    if transport == 'ssm':
+        assert client_token == PILOT + '-ssm1'
+    else:
+        assert client_token in [PILOT, PILOT + '-retry2', PILOT + '-retry3'] and ssh_port in [22, 443]
     for name, digest in state['bundleHashes'].items():
         assert sha(BUNDLE / name) == digest
     budget = json.loads(command(['aws', '--profile', PROFILE, '--region', REGION, 'budgets',
@@ -194,13 +199,14 @@ def launch():
     group = aws('create-security-group', '--group-name', PILOT, '--description', 'Synthetic native pilot only',
                 '--vpc-id', vpc, '--tag-specifications', tags('security-group'))
     state['groupId'] = group['GroupId']; save(state)
-    pair = aws('import-key-pair', '--key-name', PILOT,
-               '--public-key-material', 'fileb://' + str(BUNDLE / 'pilot-key.pub'),
-               '--tag-specifications', tags('key-pair'))
-    state['keyPairId'] = pair['KeyPairId']; state['keyName'] = PILOT; save(state)
-    aws('authorize-security-group-ingress', '--group-id', state['groupId'], '--ip-permissions',
-        json.dumps([{'IpProtocol': 'tcp', 'FromPort': ssh_port, 'ToPort': ssh_port,
-                     'IpRanges': [{'CidrIp': operator_ip + '/32', 'Description': 'Owner SSH only'}]}]))
+    if transport == 'ssh':
+        pair = aws('import-key-pair', '--key-name', PILOT,
+                   '--public-key-material', 'fileb://' + str(BUNDLE / 'pilot-key.pub'),
+                   '--tag-specifications', tags('key-pair'))
+        state['keyPairId'] = pair['KeyPairId']; state['keyName'] = PILOT; save(state)
+        aws('authorize-security-group-ingress', '--group-id', state['groupId'], '--ip-permissions',
+            json.dumps([{'IpProtocol': 'tcp', 'FromPort': ssh_port, 'ToPort': ssh_port,
+                         'IpRanges': [{'CidrIp': operator_ip + '/32', 'Description': 'Owner SSH only'}]}]))
     deadline = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=23)
     if state.get('absolutePilotDeadlineUtc'):
         deadline = min(deadline, dt.datetime.fromisoformat(state['absolutePilotDeadlineUtc']))
@@ -229,7 +235,7 @@ TIMER
 systemctl daemon-reload
 systemctl enable --now medipulse-native-pilot-expire.timer
 '''
-    if ssh_port == 443:
+    if transport == 'ssh' and ssh_port == 443:
         userdata += '''
 # A synthetic-only SSH transport check; only the operator IPv4 is admitted by the SG.
 printf 'Port 443\n' >/etc/ssh/sshd_config.d/00-medipulse-pilot-port.conf
@@ -243,7 +249,7 @@ ss -ltnp '( sport = :22 or sport = :443 )'
 '''
     (BUNDLE / 'user-data.sh').write_bytes(userdata.encode('utf-8'))
     request = {'ImageId': image['ImageId'], 'InstanceType': 't4g.small', 'MinCount': 1, 'MaxCount': 1,
-        'KeyName': PILOT, 'ClientToken': client_token, 'Placement': {'Tenancy': 'default'},
+        'ClientToken': client_token, 'Placement': {'Tenancy': 'default'},
         'CreditSpecification': {'CpuCredits': 'standard'}, 'InstanceInitiatedShutdownBehavior': 'terminate',
         'MetadataOptions': {'HttpTokens': 'required', 'HttpPutResponseHopLimit': 1},
         'NetworkInterfaces': [{'DeviceIndex': 0, 'SubnetId': subnet['SubnetId'],
@@ -251,6 +257,10 @@ ss -ltnp '( sport = :22 or sport = :443 )'
         'BlockDeviceMappings': [{'DeviceName': image['RootDeviceName'], 'Ebs': {'VolumeSize': 40,
             'VolumeType': 'gp3', 'Iops': 3000, 'Throughput': 125, 'Encrypted': True, 'DeleteOnTermination': True}}],
         'TagSpecifications': json.loads(tags('instance')) + json.loads(tags('volume'))}
+    if transport == 'ssm':
+        request['IamInstanceProfile'] = {'Name': 'MediPulseEc2SSM'}
+    else:
+        request['KeyName'] = PILOT
     request_file = BUNDLE / 'launch-request.json'
     request_file.write_text(json.dumps(request), encoding='utf-8')
     args = ['--cli-input-json', 'file://' + str(request_file), '--user-data', 'file://' + str(BUNDLE / 'user-data.sh')]
@@ -279,7 +289,8 @@ ss -ltnp '( sport = :22 or sport = :443 )'
             assert credit['CpuCredits'] == 'standard'
             assert aws('terminate-instances', '--instance-ids', state['instanceId'], dry=True) == 'DryRunOperation'
             state['publicIp'] = str(ipaddress.IPv4Address(instance['PublicIpAddress'])); state['status'] = 'ready-for-synthetic-checks'; save(state)
-            emit('pilot-running', encrypted40GiB=True, cpuCredits='standard', sshOnlyOwnerIp=True)
+            emit('pilot-running', encrypted40GiB=True, cpuCredits='standard',
+                 managementTransport=transport, noInboundPorts=transport == 'ssm')
             return
         time.sleep(5)
     raise RuntimeError('Pilot did not become ready within bounded startup wait')
