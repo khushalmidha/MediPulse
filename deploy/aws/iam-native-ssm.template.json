@@ -1,0 +1,54 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadRegionalSsmPilotStatus",
+      "Effect": "Allow",
+      "Action": ["ssm:DescribeInstanceInformation", "ssm:GetCommandInvocation", "ec2:DescribeIamInstanceProfileAssociations"],
+      "Resource": "*",
+      "Condition": {"StringEquals": {"aws:RequestedRegion": "us-east-1"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "InspectOnlyPreparedInstanceProfile",
+      "Effect": "Allow",
+      "Action": "iam:GetInstanceProfile",
+      "Resource": "arn:aws:iam::__ACCOUNT_ID__:instance-profile/MediPulseEc2SSM",
+      "Condition": {"DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "InspectOnlyPreparedRole",
+      "Effect": "Allow",
+      "Action": ["iam:GetRole", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies"],
+      "Resource": "arn:aws:iam::__ACCOUNT_ID__:role/MediPulseEc2SSM",
+      "Condition": {"DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "PassOnlySsmRoleToEc2",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::__ACCOUNT_ID__:role/MediPulseEc2SSM",
+      "Condition": {"StringEquals": {"iam:PassedToService": "ec2.amazonaws.com"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "AttachProfileOnlyToOwnNewPilot",
+      "Effect": "Allow",
+      "Action": "ec2:AssociateIamInstanceProfile",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
+      "Condition": {"StringEquals": {"aws:ResourceTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "UseOnlyStandardShellDocument",
+      "Effect": "Allow",
+      "Action": ["ssm:SendCommand", "ssm:GetDocument", "ssm:DescribeDocument"],
+      "Resource": "arn:aws:ssm:us-east-1::document/AWS-RunShellScript",
+      "Condition": {"DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    },
+    {
+      "Sid": "CommandsOnlyOnOwnNewPilot",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
+      "Condition": {"StringEquals": {"ssm:resourceTag/PilotId": "medipulse-native-pilot-20261106"}, "DateLessThan": {"aws:CurrentTime": "2026-11-13T00:00:00Z"}}
+    }
+  ]
+}

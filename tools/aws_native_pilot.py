@@ -43,10 +43,12 @@ def command(args, **kw):
 def aws(operation, *args, dry=False):
     if not dry and not operation.startswith('describe-'):
         identity()  # Never silently execute a write through an accidentally replaced root session.
+    cli_env = os.environ.copy()
+    cli_env.update(PYTHONIOENCODING='utf-8', PYTHONUTF8='1', AWS_CLI_OUTPUT_ENCODING='UTF-8')
     raw = subprocess.run(['aws', '--profile', PROFILE, '--region', REGION, 'ec2', operation,
                           *args, *(['--dry-run'] if dry else []), '--output', 'json', '--no-cli-pager',
                           '--cli-connect-timeout', '5', '--cli-read-timeout', '15'],
-                         capture_output=True, text=True, timeout=35)
+                         capture_output=True, text=True, encoding='utf-8', errors='replace', env=cli_env, timeout=35)
     match = re.search(r'\(([A-Za-z0-9.]+)\) when calling', raw.stderr)
     error = match.group(1) if match else 'request_or_session_unavailable'
     if dry:
@@ -154,6 +156,9 @@ exit "$pilot_result"
 def launch():
     state = json.loads(STATE.read_text())
     assert state['account'] == ACCOUNT and state['pilotId'] == PILOT and state['status'] == 'prepared'
+    client_token = state.get('clientToken', PILOT)
+    ssh_port = state.get('sshPort', 22)
+    assert client_token in [PILOT, PILOT + '-retry2', PILOT + '-retry3'] and ssh_port in [22, 443]
     for name, digest in state['bundleHashes'].items():
         assert sha(BUNDLE / name) == digest
     budget = json.loads(command(['aws', '--profile', PROFILE, '--region', REGION, 'budgets',
@@ -194,9 +199,12 @@ def launch():
                '--tag-specifications', tags('key-pair'))
     state['keyPairId'] = pair['KeyPairId']; state['keyName'] = PILOT; save(state)
     aws('authorize-security-group-ingress', '--group-id', state['groupId'], '--ip-permissions',
-        json.dumps([{'IpProtocol': 'tcp', 'FromPort': 22, 'ToPort': 22,
+        json.dumps([{'IpProtocol': 'tcp', 'FromPort': ssh_port, 'ToPort': ssh_port,
                      'IpRanges': [{'CidrIp': operator_ip + '/32', 'Description': 'Owner SSH only'}]}]))
     deadline = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=23)
+    if state.get('absolutePilotDeadlineUtc'):
+        deadline = min(deadline, dt.datetime.fromisoformat(state['absolutePilotDeadlineUtc']))
+    assert deadline > dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=10)
     calendar = deadline.strftime('%Y-%m-%d %H:%M:%S UTC')
     userdata = f'''#!/bin/bash
 set -euo pipefail
@@ -221,9 +229,21 @@ TIMER
 systemctl daemon-reload
 systemctl enable --now medipulse-native-pilot-expire.timer
 '''
+    if ssh_port == 443:
+        userdata += '''
+# A synthetic-only SSH transport check; only the operator IPv4 is admitted by the SG.
+printf 'Port 443\n' >/etc/ssh/sshd_config.d/00-medipulse-pilot-port.conf
+install -d -m 0755 /run/sshd
+/usr/sbin/sshd -t
+systemctl enable ssh.service
+systemctl disable --now ssh.socket
+systemctl restart ssh.service
+printf 'PILOT_SSH_LISTENERS\n'
+ss -ltnp '( sport = :22 or sport = :443 )'
+'''
     (BUNDLE / 'user-data.sh').write_bytes(userdata.encode('utf-8'))
     request = {'ImageId': image['ImageId'], 'InstanceType': 't4g.small', 'MinCount': 1, 'MaxCount': 1,
-        'KeyName': PILOT, 'ClientToken': PILOT, 'Placement': {'Tenancy': 'default'},
+        'KeyName': PILOT, 'ClientToken': client_token, 'Placement': {'Tenancy': 'default'},
         'CreditSpecification': {'CpuCredits': 'standard'}, 'InstanceInitiatedShutdownBehavior': 'terminate',
         'MetadataOptions': {'HttpTokens': 'required', 'HttpPutResponseHopLimit': 1},
         'NetworkInterfaces': [{'DeviceIndex': 0, 'SubnetId': subnet['SubnetId'],
@@ -243,7 +263,9 @@ systemctl enable --now medipulse-native-pilot-expire.timer
     state['deadlineUtc'] = deadline.isoformat(); state['status'] = 'launch-requested'; save(state)
     launched = aws('run-instances', *args)['Instances']
     assert len(launched) == 1
-    state['instanceId'] = launched[0]['InstanceId']; state['status'] = 'launched'; save(state)
+    state['instanceId'] = launched[0]['InstanceId']
+    state['launchedAtUtc'] = launched[0]['LaunchTime']
+    state['status'] = 'launched'; save(state)
     emit('pilot-launched', nativeTestsPending=True)
     for _ in range(60):
         instance = aws('describe-instances', '--instance-ids', state['instanceId'])['Reservations'][0]['Instances'][0]
@@ -269,7 +291,7 @@ def cleanup():
     if state.get('status') == 'launch-requested' and not state.get('instanceId'):
         found = aws('describe-instances', '--filters', 'Name=tag:PilotId,Values=' + PILOT)
         found = [i for r in found['Reservations'] for i in r['Instances']
-                 if i.get('ClientToken') == PILOT and i['State']['Name'] != 'terminated']
+                 if i.get('ClientToken') == state.get('clientToken', PILOT) and i['State']['Name'] != 'terminated']
         assert len(found) <= 1, 'Unexpected extra instances; do not bulk-delete'
         if found:
             assert tagged(found[0]) and found[0]['InstanceType'] == 't4g.small'
@@ -311,7 +333,9 @@ def cleanup():
                 except RuntimeError:
                     if attempt == 11: raise
                     time.sleep(5)
-    state['status'] = 'cleaned'; save(state)
+    state['status'] = 'cleaned'
+    state.setdefault('cleanupCompletedAtUtc', dt.datetime.now(dt.timezone.utc).isoformat())
+    save(state)
     emit('pilot-cleaned', existingResourcesChanged=False)
 
 

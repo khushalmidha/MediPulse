@@ -1,5 +1,18 @@
 # MediPulse deployment: USD10 target / USD15 gross maximum
 
+## Current blocker: management transport; all test hosts cleaned — 7 November 2026
+
+Owner NativePilot **version3 works**: associated network ACL read succeeds (allow all IPv4 both directions), and boot-console read succeeds after correcting a local Windows UTF8 output issue. The earlier permission-denied sections below are superseded. The first SSH failure's exact packet-path cause is not established.
+
+Two bounded replacement attempts followed the owner's continuing deploy/go-ahead instructions with the same type/disk/region, at most one active instance, existing1USD total reserve and original24h absolute window. Attempt2 exposed an assistant bootstrap bug: sshd validation ran before /run/sshd existed. Fixed it, ensured standalone SSH is enabled across reboot, reproduced/fixed the missing-directory error in an actual disposable Ubuntu24.04 container and verified a443listener locally. Attempt3 AWS boot logs confirm IPv4/IPv6 SSH443listeners and successful bootstrap, but the operator TCP connection still times out. No broader inbound CIDR, existing VPC ACL or JobFinder change was made. **Do not launch further SSH retries.**
+
+All3attempts are independently verified cleaned: no tagged disks/groups/keys or active pilot VM; JobFinder running. Latest observed runtime411s; conservative all-attempt fullprice/illustrative-tax estimate0.01521USD (not posted billing). Native media/model/HLS/reboot tests0executed. There is no new live AWS API deployment, accepted performance envelope or verified media persistence. Original frontend/Render/Vercel/DNS/data/provider/flag state is preserved; no push.
+
+Next use outbound AWS Systems Manager. [Owner Console steps](SSM_CONSOLE_SETUP.md) create the fixed EC2 runtime role and **separate** customer-managed SSM deployer policy; do not edit/remove the working NativePilot policy. `python tools/render_native_pilot_policy.py --ssm` writes the private1971character JSON without IAM writes. `python tools/aws_ssm_preflight.py` only validates exact role/profile/trust/policy/document/status-read access; current live preflight is blocked on iam:GetInstanceProfile. This is not proof the role is missing, nor SSM execution acceptance. The SSM command execution/native-test transport is still to be completed after that access is available; no host is left running for it and no further paid launch is queued. Read-only preflight must precede provisioning, and current scope/window/budget must still be checked. No AWS root fallback, account-wide enrollment or new paid service is authorized by these files.
+
+Local validations:6role safety cases,4Python AST checks, both policy JSON/managed-size checks and real Ubuntu sshd smoke passed. Actual IAM Policy Simulator, SSM registration/SendCommand, native application/media/model performance, database schema/reviewer activation, trusted AWS API HTTPS and production cutover remain unverified. See WORK_LOG for exact limits.
+
+
 ## Pilot result: cleaned, no native acceptance — 7 November 2026
 
 The approved one-instance attempt ended after SSH readiness timed out. Independently verified: instance terminated, publicIPv4 no longer assigned, zero tagged pilot volumes/security groups/key pairs, JobFinder still running. Runtime upper bound879seconds; conservative full-price compute+40GiB gp3+IPv4 with illustrative18%tax is approximately0.00757USD, not a settled invoice or claim of trial availability. No replacement was launched. Both existing medipulse.live and www.medipulse.live return200 over trusted HTTPS; they remain on the existing deployment. Name.com DNS unchanged; api.medipulse.live has no verified AWS deployment.

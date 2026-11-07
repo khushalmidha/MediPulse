@@ -1,5 +1,10 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS management transport blocked; no active pilot resources — 7 November 2026
+
+NativePilot version3 network ACL/boot-log permissions verified. Corrected and locally reproduced Ubuntu /run/sshd bootstrap bug; latest AWS boot confirms SSH443listening, but operator TCP connection still times out. All3bounded attempts cleaned; JobFinder and existing websites preserved; conservative all-attempt estimate0.01521USD, billing pending. Native media/model/reboot tests0executed; no AWS deployment/activation acceptance. SSM owner-role/separate-policy setup and read-only preflight prepared; current preflight denied iam:GetInstanceProfile.6role safety cases,4AST checks and Ubuntu sshd smoke passed. No further SSH retry/paid launch queued, production data/index/flags/DNS or push changes. Follow deploy/aws/SSM_CONSOLE_SETUP.md; effective SSM access and native workflow remain pending.
+
+
 ## AWS pilot result: cleaned; deployment still blocked — 7 November 2026
 
 One approved synthetic AWS attempt launched after authorization checks passed, then SSH TCP readiness timed out. Independently verified terminated host, released publicIPv4, zero pilot disks/groups/keys; JobFinder running. Runtime upper879seconds, conservative full-price/illustrative-tax estimate0.00757USD, actual billing pending. Native media/model/reboot tests0executed; no application capacity acceptance. Owner-reported diagnostic policy update is not effective in API checks: no identity-based permission for network ACL/boot-log reads. Fresh JSON clipboard/default-version verification pending; no root fallback or replacement launch. New preflight requires network-read visibility before creation;3safety regressions and2syntax checks passed. Existing medipulse.live/www trustedHTTPS200 verified; no AWS API cutover/DNS/data/flag changes or push. See deploy/aws/README.md.

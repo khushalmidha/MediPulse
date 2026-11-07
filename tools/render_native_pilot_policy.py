@@ -10,6 +10,7 @@ import subprocess
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', default='medipulse-deployer')
+    parser.add_argument('--ssm', action='store_true', help='Render the separate owner-reviewed SSM transport policy')
     args = parser.parse_args()
     result = subprocess.run(
         ['aws', '--profile', args.profile, '--region', 'us-east-1', 'sts',
@@ -27,7 +28,8 @@ def main():
     expected = next(r for r in prior['regions'] if r['region'] == 'us-east-1')['networkInterfaces'][0]['OwnerId']
     if account != expected:
         raise ValueError('Unexpected account; no policy rendered')
-    template = Path(__file__).resolve().parents[1] / 'deploy/aws/iam-native-pilot.template.json'
+    name = 'iam-native-ssm' if args.ssm else 'iam-native-pilot'
+    template = Path(__file__).resolve().parents[1] / ('deploy/aws/' + name + '.template.json')
     rendered = template.read_text(encoding='utf-8').replace('__ACCOUNT_ID__', account)
     policy = json.loads(rendered)
     for statement in policy['Statement']:
@@ -36,14 +38,14 @@ def main():
             if '${' in resource or '__ACCOUNT_ID__' in resource:
                 raise ValueError('Unresolved or unsupported ARN variable')
     private.mkdir(parents=True, exist_ok=True)
-    target = private / 'iam-native-pilot.json'
+    target = private / (name + '.json')
     # Customer-managed policy limit is6144, excluding whitespace. User inline
     # policies aggregate at2048, so this document must NOT be installed inline.
     compact = json.dumps(policy, separators=(',', ':')) + '\n'
     if len(compact) > 6144:
         raise ValueError('Policy exceeds customer-managed size limit; review without widening grants')
     target.write_text(compact, encoding='utf-8')
-    target.with_name('iam-native-pilot.compact.json').write_text(compact, encoding='utf-8')
+    target.with_name(name + '.compact.json').write_text(compact, encoding='utf-8')
     print(json.dumps({'ownerReviewFile': str(target), 'policyType': 'customer-managed, NOT user-inline',
                       'iamWrites': False, 'resourcesCreated': False,
                       'accountSuffix': account[-4:], 'profile': args.profile}))

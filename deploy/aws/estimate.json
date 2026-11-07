@@ -24,7 +24,7 @@
     "remainingAgainstPostedActualUSD": 10.833,
     "forecastAlreadyExceedsMaximum": true
   },
-  "recommendedImmediateAction": "Approved pilot completed without native acceptance: SSH TCP readiness timed out, and all new resources were independently verified removed. Resolve active network ACL/boot-log read permissions (current AWS denial persists) before diagnosing/requoting another launch. Preserve JobFinder and existing trusted-HTTPS Vercel sites; no automatic replacement or production cutover.",
+  "recommendedImmediateAction": "All three SSH pilot attempts cleaned. Native inference/media tests never executed. Prepare outbound SSM transport: owner creates fixed EC2 SSM role and separate narrowly scoped deployer policy, then read-only preflight must pass before any additional paid resources. No more inbound SSH retries; existing website and JobFinder preserved.",
   "candidateAfterExistingChargesResolved": {
     "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
     "region": "ap-south-1",
@@ -306,7 +306,7 @@
     "newIamWrites": false,
     "ownerApprovalDateIST": "2026-11-06",
     "exactNewSyntheticInstanceAndDiskCleanupApproved": true,
-    "launchPermissionAttached": "Verified behavior: allowed valid launch; denied larger type and existing JobFinder termination",
+    "launchPermissionAttached": "Version3 behavior verified, network ACL and console reads now allowed",
     "currentCreateSecurityGroupDryRun": "superseded by successful tagged creation and cleanup",
     "provisionPolicyTemplate": "iam-native-pilot.template.json",
     "privateRenderedPolicy": "%LOCALAPPDATA%/MediPulse/Private/iam-native-pilot.json",
@@ -318,11 +318,11 @@
     "managedPolicyNonWhitespaceCharacters": 4880,
     "userInlineAggregateLimit": 2048,
     "customerManagedPolicyLimit": 6144,
-    "currentRunInstancesDryRun": "DryRunOperation",
+    "currentRunInstancesDryRun": "passed previously",
     "nativeChecksPassed": false,
     "allNewPilotResourcesCleaned": true,
     "verifiedPinnedAmi": "ami-09a93d801db0bafae",
-    "ownerPolicyUpdatePending": true,
+    "ownerPolicyUpdatePending": false,
     "sshConnection": "timeout before authentication",
     "diagnosticReadActionsPending": [
       "ec2:DescribeNetworkAcls",
@@ -341,7 +341,15 @@
       "medipulse.live",
       "www.medipulse.live"
     ],
-    "nativeFailureWasNotMediaOrModelTestFailure": true
+    "nativeFailureWasNotMediaOrModelTestFailure": true,
+    "attempts": 3,
+    "activeInstances": 0,
+    "ssmOwnerRoleAndSeparatePolicyPending": true,
+    "ssmReadOnlyPreflight": "blocked: iam:GetInstanceProfile AccessDenied",
+    "correctedSsh443BootVerified": true,
+    "latestObservedRuntimeSeconds": 411,
+    "conservativeAllAttemptsEstimatedFullPriceWithIllustrativeTaxUSD": 0.01521,
+    "ssmManagedPolicyNonWhitespaceCharacters": 1971
   },
   "activeNewPilotResources": 0
 }

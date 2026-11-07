@@ -11,15 +11,18 @@ def main():
     state = json.loads(pilot.STATE.read_text())
     assert state['status'] == 'ready-for-synthetic-checks' and state['account'] == pilot.ACCOUNT
     instance = pilot.aws('describe-instances', '--instance-ids', state['instanceId'])['Reservations'][0]['Instances'][0]
-    assert pilot.tagged(instance) and instance['ClientToken'] == pilot.PILOT
+    assert pilot.tagged(instance) and instance['ClientToken'] == state.get('clientToken', pilot.PILOT)
     assert instance['PublicIpAddress'] == state['publicIp'] and instance['InstanceType'] == 't4g.small'
     destination = 'ubuntu@' + state['publicIp']
-    options = ['-i', str(pilot.BUNDLE / 'pilot-key'), '-o', 'BatchMode=yes',
+    ssh_port = state.get('sshPort', 22)
+    assert ssh_port in [22, 443]
+    options = ['-F', 'none', '-i', str(pilot.BUNDLE / 'pilot-key'), '-o', 'BatchMode=yes',
+        '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none',
         '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=' + (pilot.BUNDLE / 'known_hosts').as_posix(),
         '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=4']
 
     def remote(script, label, timeout=600, required=True):
-        result = subprocess.run(['ssh', *options, destination, 'bash -s'], input=script.encode('utf-8'),
+        result = subprocess.run(['ssh', *options, '-p', str(ssh_port), destination, 'bash -s'], input=script.encode('utf-8'),
                                 capture_output=True, timeout=timeout)
         result.stdout = result.stdout.decode('utf-8', errors='replace')
         result.stderr = result.stderr.decode('utf-8', errors='replace')
@@ -61,7 +64,7 @@ sudo docker run --rm --pull=never --platform linux/arm64 --network none \\
         remote('set -e\nexport DEBIAN_FRONTEND=noninteractive\nsudo -n apt-get update -qq\nsudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io\nsudo systemctl enable --now docker\nsudo install -d -m 0755 /srv/medipulse-native-pilot\n', 'docker-setup', timeout=1200)
         names = list(state['bundleHashes'])
         pilot.emit('uploading-private-synthetic-bundle', bytes=sum((pilot.BUNDLE / n).stat().st_size for n in names))
-        transfer = subprocess.run(['scp', *options, *names, destination + ':/home/ubuntu/pilot/'],
+        transfer = subprocess.run(['scp', *options, '-P', str(ssh_port), *names, destination + ':/home/ubuntu/pilot/'],
             cwd=pilot.BUNDLE, capture_output=True, text=True, timeout=1800)
         (pilot.BUNDLE / 'upload.log').write_text(transfer.stdout + '\n' + transfer.stderr, encoding='utf-8')
         assert transfer.returncode == 0, 'Upload failed; do not loosen authentication'
