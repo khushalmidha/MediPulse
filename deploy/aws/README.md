@@ -1,5 +1,23 @@
 # MediPulse deployment: USD10 target / USD15 gross maximum
 
+## Pilot result: cleaned, no native acceptance — 7 November 2026
+
+The approved one-instance attempt ended after SSH readiness timed out. Independently verified: instance terminated, publicIPv4 no longer assigned, zero tagged pilot volumes/security groups/key pairs, JobFinder still running. Runtime upper bound879seconds; conservative full-price compute+40GiB gp3+IPv4 with illustrative18%tax is approximately0.00757USD, not a settled invoice or claim of trial availability. No replacement was launched. Both existing medipulse.live and www.medipulse.live return200 over trusted HTTPS; they remain on the existing deployment. Name.com DNS unchanged; api.medipulse.live has no verified AWS deployment.
+
+Native media/model/reboot tests **did not execute**; the failure was SSH TCP readiness before authentication, not a failing FFmpeg/ONNX test. EC2 health2/2 and authorization checks passed, but they do not prove application capacity or production readiness. The proposed23h host timer was supplied as user-data but could not be verified via SSH; cleanup was actually performed/independently checked by the controller.
+
+Owner reported the diagnostic JSON updated; subsequent AWS responses still explicitly say no identity-based policy allows ec2:DescribeNetworkAcls/ec2:GetConsoleOutput. Effective IAM policy/default version cannot be inspected under this identity. Fresh validated4880character JSON was placed on the owner's clipboard; owner must verify the latest Default version actually contains both actions. Do not assume the source file or owner acknowledgment proves effective access. No broad administrator grant, access-rule widening or root fallback was attempted.
+
+Future launcher now requires subnet public-access/associated-ACL read visibility **before resource creation** and retains safe private AWS error detail. Future SSH readiness is bounded at approximately6minutes and records failure before cleanup. Regression checks3/3 and Python syntax2/2 passed. No AWS native media/model pass, sustained/shared-host capacity, backup restore, API HTTPS or complete AWS production deployment is claimed. No application source, production records/flags/providers, existing VPC rules, DNS or pushed code changed. Historical in-progress sections below are superseded by this result.
+
+
+## Pilot launched; SSH diagnostic gate — 7 November 2026
+
+Owner updated the exact-image grant. Positive launch and own-instance cleanup dry-runs passed; larger instance launch and existing JobFinder termination were denied. One approved synthetic t4g.small/40GiB VM launched with standard CPU credits, encrypted tagged gp3, owner-IP-only SSH and an absolute23h self-termination deadline. Native tests have not started: SSH times out before authentication, despite both EC2 health checks passing. Instance address/group/subnet match the private manifest; two public-IP services match the permitted IPv4, public subnet block mode is off, and local GitHub SSH22/443 connectivity works. None proves that this instance SSH service or VPC ACL is correct.
+
+Current role denies DescribeNetworkAcls. Prepared two additional **read-only** actions for owner review in the same private managed JSON: regional ec2:DescribeNetworkAcls and pilot-tag/expiry-bound ec2:GetConsoleOutput. Other actions/resources/conditions are unchanged; payload4880characters fits6144. Owner must edit the existing customer-managed policy and save as default; the assistant has no IAM write permission. Never broaden SSH CIDR, alter existing VPC ACLs/JobFinder or launch another instance to bypass this diagnostic gate. Native runner retains finally cleanup on readiness failure. Existing websites/DNS/data/flags unchanged; no production acceptance or push. Earlier launch-denied sections below are historical.
+
+
 ## Native pilot launch gate — 7 November 2026
 
 Non-root browser CLI login verified again. Fresh launch dry-run denied `ec2:RunInstances` on the selected AMI; no paid instance/root disk was created. Newly created tagged SSH security group/key were cleaned after the denial. The earlier create-SG permission gate below is superseded. IAM policy inspection itself is not permitted to this user, so the effective attached policy/version and precise condition mismatch are not independently verified. Do not grant broad IAM read/write or use root credentials to work around this.

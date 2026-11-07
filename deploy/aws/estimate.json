@@ -24,7 +24,7 @@
     "remainingAgainstPostedActualUSD": 10.833,
     "forecastAlreadyExceedsMaximum": true
   },
-  "recommendedImmediateAction": "Owner updates existing customer-managed pilot policy/default version with exact verified image ARN; current launch dry-run denied. Preserve JobFinder and existing websites. No production migration, DNS or increased gross cap authorized.",
+  "recommendedImmediateAction": "Approved pilot completed without native acceptance: SSH TCP readiness timed out, and all new resources were independently verified removed. Resolve active network ACL/boot-log read permissions (current AWS denial persists) before diagnosing/requoting another launch. Preserve JobFinder and existing trusted-HTTPS Vercel sites; no automatic replacement or production cutover.",
   "candidateAfterExistingChargesResolved": {
     "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
     "region": "ap-south-1",
@@ -112,7 +112,7 @@
       "expiresAt": "2027-09-20T16:49:30+05:30"
     }
   ],
-  "paidResourcesProvisioned": false,
+  "paidResourcesProvisioned": true,
   "dnsChanged": false,
   "existingDeploymentsStopped": false,
   "codePushed": false,
@@ -284,7 +284,7 @@
   },
   "proposedBoundedNativePilot": {
     "approved": true,
-    "created": false,
+    "created": true,
     "instanceCount": 1,
     "instance": "t4g.small",
     "region": "us-east-1",
@@ -306,7 +306,7 @@
     "newIamWrites": false,
     "ownerApprovalDateIST": "2026-11-06",
     "exactNewSyntheticInstanceAndDiskCleanupApproved": true,
-    "launchPermissionAttached": "partially verified: tagged SG/key creation and cleanup succeeded; IAM attachment inspection denied",
+    "launchPermissionAttached": "Verified behavior: allowed valid launch; denied larger type and existing JobFinder termination",
     "currentCreateSecurityGroupDryRun": "superseded by successful tagged creation and cleanup",
     "provisionPolicyTemplate": "iam-native-pilot.template.json",
     "privateRenderedPolicy": "%LOCALAPPDATA%/MediPulse/Private/iam-native-pilot.json",
@@ -315,13 +315,33 @@
     "grantExpiryDoesNotExtendPilot24Hours": true,
     "noRootFallback": true,
     "provisionPolicyType": "customer-managed; not user-inline",
-    "managedPolicyNonWhitespaceCharacters": 4831,
+    "managedPolicyNonWhitespaceCharacters": 4880,
     "userInlineAggregateLimit": 2048,
     "customerManagedPolicyLimit": 6144,
-    "currentRunInstancesDryRun": "UnauthorizedOperation on image ARN",
+    "currentRunInstancesDryRun": "DryRunOperation",
     "nativeChecksPassed": false,
     "allNewPilotResourcesCleaned": true,
     "verifiedPinnedAmi": "ami-09a93d801db0bafae",
-    "ownerPolicyUpdatePending": true
-  }
+    "ownerPolicyUpdatePending": true,
+    "sshConnection": "timeout before authentication",
+    "diagnosticReadActionsPending": [
+      "ec2:DescribeNetworkAcls",
+      "ec2:GetConsoleOutput"
+    ],
+    "cleanupIndependentlyVerified": true,
+    "pilotInstanceTerminated": true,
+    "pilotPublicIpv4Released": true,
+    "nativeMediaModelTestsExecuted": 0,
+    "nativeChecksFailure": "SSH TCP readiness timeout before authentication",
+    "runtimeUpperSeconds": 879,
+    "estimatedFullPriceWithIllustrativeTaxUSD": 0.00757,
+    "estimateIsNotSettledBill": true,
+    "jobFinderStillRunningVerified": true,
+    "existingFrontendTrustedHttps200Verified": [
+      "medipulse.live",
+      "www.medipulse.live"
+    ],
+    "nativeFailureWasNotMediaOrModelTestFailure": true
+  },
+  "activeNewPilotResources": 0
 }

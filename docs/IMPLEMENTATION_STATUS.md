@@ -1,5 +1,15 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS pilot result: cleaned; deployment still blocked — 7 November 2026
+
+One approved synthetic AWS attempt launched after authorization checks passed, then SSH TCP readiness timed out. Independently verified terminated host, released publicIPv4, zero pilot disks/groups/keys; JobFinder running. Runtime upper879seconds, conservative full-price/illustrative-tax estimate0.00757USD, actual billing pending. Native media/model/reboot tests0executed; no application capacity acceptance. Owner-reported diagnostic policy update is not effective in API checks: no identity-based permission for network ACL/boot-log reads. Fresh JSON clipboard/default-version verification pending; no root fallback or replacement launch. New preflight requires network-read visibility before creation;3safety regressions and2syntax checks passed. Existing medipulse.live/www trustedHTTPS200 verified; no AWS API cutover/DNS/data/flag changes or push. See deploy/aws/README.md.
+
+
+## AWS pilot authorized; native checks blocked on SSH — 7 November 2026
+
+Owner exact-image policy update succeeded: positive launch and new-pilot termination dry-runs allowed; larger type and JobFinder termination denied. One approved synthetic VM launched; EC2 health2/2ok. SSH times out before authentication, so media/model/reboot checks remain unexecuted. Network ACL/boot-log read permissions missing; two-action read-only correction prepared for owner, no IAM bypass or existing-network modification. Automatic deadline and finally cleanup remain in place. Render/Vercel/JobFinder/DNS/production data/flags unchanged, no push. See deploy/aws/README.md.
+
+
 ## AWS native launch authorization blocked — 7 November 2026
 
 Exact non-root re-login verified. Current fresh RunInstances dry-run denies selected Canonical ARM64 AMI; no paid instance/root disk created. New synthetic SSH group/key cleaned. Prepared4831character customer-managed policy correction pinning the independently verified exact image, preserving other13statements/expiries; owner must update existing policy/default version and confirm attachment. No IAM writes/root fallback. Guarded launch/native-test/cleanup scripts prepared and syntax checked; actual native media/model/reboot/shared-load acceptance remains pending. Local media/model results below remain local only. JobFinder/Render/Vercel/DNS/production data/flags preserved; no push. See deploy/aws/README.md.

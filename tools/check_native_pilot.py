@@ -29,7 +29,8 @@ def main():
         return result
 
     def wait_ssh():
-        for _ in range(60):
+        deadline = time.monotonic() + 360
+        while time.monotonic() < deadline:
             try:
                 result = remote('true\n', 'ssh-ready', timeout=12, required=False)
                 if result.returncode == 0:
@@ -93,6 +94,11 @@ sudo docker run --rm --pull=never --platform linux/arm64 --network none \\
                      sharedJobFinderApiCapacityVerified=False, status='native-checks-passed')
         pilot.save(state)
         pilot.emit('native-and-reboot-checks-passed', before=2, after=2, productionAcceptance=False)
+    except BaseException as error:
+        state.update(nativeChecksFailure=type(error).__name__ + ': ' + str(error),
+                     nativeChecksCompleted=False)
+        pilot.save(state)
+        raise
     finally:
         pilot.cleanup()
 

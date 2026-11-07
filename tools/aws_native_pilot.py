@@ -56,6 +56,10 @@ def aws(operation, *args, dry=False):
         emit('authorization-dry-run', operation=operation, result=error)
         return error if raw.returncode else 'unexpected_success'
     if raw.returncode:
+        (PRIVATE / 'native-pilot-last-error.json').write_text(json.dumps({
+            'operation': operation, 'result': error,
+            'message': raw.stderr.split('Encoded authorization failure message:')[0][:1600]
+        }, indent=2), encoding='utf-8')
         raise RuntimeError(operation + ': ' + error)
     return json.loads(raw.stdout or '{}')
 
@@ -88,6 +92,15 @@ def tagged(obj):
 def sha(file):
     with file.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def network_preflight(subnet):
+    """Require diagnostic visibility before creating any pilot resource."""
+    assert subnet.get('BlockPublicAccessStates', {}).get('InternetGatewayBlockMode', 'off') == 'off'
+    result = aws('describe-network-acls', '--filters',
+                 'Name=association.subnet-id,Values=' + subnet['SubnetId'])
+    assert len(result['NetworkAcls']) == 1, 'Associated network ACL not independently verified'
+    return result['NetworkAcls'][0]
 
 
 def prepare():
@@ -156,6 +169,7 @@ def launch():
                if s.get('DefaultForAz') and s['AvailableIpAddressCount'] > 3]
     assert subnets
     subnet = sorted(subnets, key=lambda s: s['AvailabilityZone'])[0]
+    network_acl = network_preflight(subnet)
     routes = aws('describe-route-tables', '--filters', 'Name=vpc-id,Values=' + vpc)['RouteTables']
     selected = [r for r in routes if any(a.get('SubnetId') == subnet['SubnetId'] for a in r['Associations'])]
     selected = selected or [r for r in routes if any(a.get('Main') for a in r['Associations'])]
@@ -169,7 +183,8 @@ def launch():
     assert image['RootDeviceType'] == 'ebs' and not image.get('ProductCodes')
     with urllib.request.urlopen('https://checkip.amazonaws.com', timeout=15) as response:
         operator_ip = str(ipaddress.IPv4Address(response.read().decode().strip()))
-    state.update(imageId=image['ImageId'], imageName=image['Name'], subnetId=subnet['SubnetId'], sshCidr=operator_ip + '/32')
+    state.update(imageId=image['ImageId'], imageName=image['Name'], subnetId=subnet['SubnetId'],
+                 sshCidr=operator_ip + '/32', networkAclPreflight=network_acl)
     save(state)
     group = aws('create-security-group', '--group-name', PILOT, '--description', 'Synthetic native pilot only',
                 '--vpc-id', vpc, '--tag-specifications', tags('security-group'))
