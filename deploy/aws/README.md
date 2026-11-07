@@ -1,5 +1,9 @@
 # MediPulse deployment: USD10 target / USD15 gross maximum
 
+## Separate MediPulse budget clarified — 8 November 2026
+
+Owner confirms MediPulse~10USD/month separately; JobFinder charges are additional and accepted. This supersedes the pending whole-account budget question below, without authorizing DNS/production changes. Prepared a new30GiB/one-IP/private-Redis candidate: conditional8.32–9.50USD/month (31day worst quoted9.58) including backup/egress reserve and illustrative tax, assuming available T4g trial. Native40GiB short-media evidence remains valid but30GiB/full-app/long-video/restore acceptance is pending. New exact72h staging scope has3USD total reserve even without trial; no new paid host created. Existing aggregate15USD alert remains unchanged/informational; no silent budget increase. See [concrete staging scope](STAGING_DEPLOYMENT.md) and [resource/cost inputs](staging-plan.json).
+
 ## AWS native checks passed; production cutover pending — 8 November 2026
 
 This is the latest result; older transport/permission blockers below are historical. The non-root SSM preflight now passes: exact EC2 role/profile, EC2-only trust, only AmazonSSMManagedInstanceCore, standard document and regional status access. One approved synthetic replacement used outbound SSM, no SSH key or inbound ports, the original absolute24h deadline and shared1USD reserve. Positive launch/own cleanup dry-runs passed; larger-instance and preserved JobFinder termination dry-runs were denied.

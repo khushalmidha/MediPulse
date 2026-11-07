@@ -1,7 +1,7 @@
 {
   "date": "2026-11-08",
   "targetGrossMonthlyUSD": 10,
-  "maximumGrossMonthlyUSD": 15,
+  "maximumGrossMonthlyUSD": 10,
   "creditsDoNotIncreaseMaximum": true,
   "budget": {
     "name": "MediPulse-AWS-Pilot-Gross-Monthly",
@@ -16,7 +16,8 @@
     "includeCredits": false,
     "includeTax": true,
     "hardCapEnforced": false,
-    "configuredAndVerified": true
+    "configuredAndVerified": true,
+    "scope": "existing aggregate account alert, not a project-filtered cap"
   },
   "accountSpendAtCheck": {
     "actualGrossUSD": 4.639,
@@ -24,7 +25,7 @@
     "remainingAgainstPostedActualUSD": 10.361,
     "forecastAlreadyExceedsMaximum": true
   },
-  "recommendedImmediateAction": "Native SSM/media/model/reboot checks passed4/4 and all pilot resources cleaned. Resolve pending whole-account15USD versus separate MediPulse10USD budget clarification before permanent paid deployment; preserve JobFinder/Render/Vercel/DNS/data/flags. Full AWS API/long-video/backup/production acceptance remains pending.",
+  "recommendedImmediateAction": "Separate MediPulse~10USD budget confirmed; JobFinder charges accepted separately. Review STAGING_DEPLOYMENT.md and staging-plan.json for new30GiB candidate and exact72h/3USD synthetic resource scope; no staging provisioning, DNS or production activation approved/performed by budget clarification.",
   "candidateAfterExistingChargesResolved": {
     "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
     "region": "ap-south-1",
@@ -376,5 +377,79 @@
     "managementTransport": "ssm",
     "maximumConcurrentInstances": 1
   },
-  "activeNewPilotResources": 0
+  "activeNewPilotResources": 0,
+  "budgetScope": {
+    "clarifiedDate": "2026-11-08",
+    "medipulseTargetGrossUSD": 10,
+    "jobFinderChargesAcceptedSeparately": true,
+    "previousWholeAccount15CapSupersededBySeparateProjectBudget": true,
+    "existingAggregateBudgetUnchanged": true,
+    "productionDnsOrDataApprovalImplied": false
+  },
+  "separateMedipulseCandidate": {
+    "region": "us-east-1",
+    "instanceType": "t4g.small",
+    "architecture": "arm64",
+    "ramGiB": 2,
+    "cpuCredits": "standard",
+    "encryptedGp3GiB": 30,
+    "gp3Iops": 3000,
+    "gp3ThroughputMiBs": 125,
+    "publicIPv4Count": 1,
+    "stableAddressRequiredBeforeProductionDns": true,
+    "persistentRootDeleteOnTermination": false,
+    "monthlyComputeAssumingTrialUSD": 0,
+    "monthlyEbsUSD": 2.4,
+    "monthlyPublicIPv4At730hUSD": 3.65,
+    "monthlySnapshotBilledGiBAssumption": [
+      10,
+      30
+    ],
+    "monthlySnapshotCostUSD": [
+      0.5,
+      1.5
+    ],
+    "egressAllowanceGB": 5,
+    "conservativeMeteredEgressReserveUSD": 0.5,
+    "illustrativeTaxRate": 0.18,
+    "monthlyGrossAt730hUSD": [
+      8.32,
+      9.5
+    ],
+    "monthlyGrossAt744hWorstCaseUSD": 9.58,
+    "monthlyGrossIsGuaranteedHardCap": false,
+    "trialThroughUtc": "2026-12-31",
+    "trialAggregateHoursPerMonth": 750,
+    "accountTrialQuotaAvailableVerified": false,
+    "monthlyGrossAt730hWithoutTrialUSD": [
+      22.79,
+      23.97
+    ],
+    "trialExpiryPlan": "Require a reviewed replacement/migration before January 1; no automatic larger bill or production shutdown/deletion authorized"
+  },
+  "separateStagingScope": {
+    "approved": false,
+    "maximumDurationHours": 72,
+    "maximumTotalGrossReserveUSD": 3,
+    "maximumActiveInstances": 1,
+    "instanceType": "t4g.small",
+    "encryptedGp3GiB": 30,
+    "dataClass": "synthetic-only",
+    "management": "outbound SSM; existing verified role",
+    "inboundPorts": [],
+    "publicIPv4Count": 1,
+    "elasticIpCount": 0,
+    "maximumSnapshots": 1,
+    "maximumTemporaryRestoreVolumes": 1,
+    "temporaryRestoreGiB": 30,
+    "maximumRestoreVolumeHours": 2,
+    "maximumTransferReserveGB": 5,
+    "knownFullPrice72hWorstCaseWithIllustrativeTaxUSD": 2.91,
+    "newResourceCleanupRequiresExactScopeApproval": true,
+    "autoTerminationOnlyForDisposableStaging": true,
+    "productionCredentialsOrDataAllowed": false,
+    "reuseExistingSyntheticPilotPermissionAsProductionGrant": false,
+    "rootDeleteOnTermination": true
+  },
+  "grossLimitScope": "MediPulse only; JobFinder explicitly excluded by owner clarification"
 }

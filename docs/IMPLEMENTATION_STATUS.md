@@ -1,5 +1,9 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS separate-project budget confirmed — 8 November 2026
+
+Owner accepts JobFinder charges separately from MediPulse~10USD/month. Budget clarification below is resolved; DNS/data/production scope stays unapproved. Prepared30GiB candidate and exact72h/3USD synthetic staging scope in deploy/aws/STAGING_DEPLOYMENT.md and staging-plan.json; no new paid resources/IAM/DNS/production changes or push. Existing4/4native40GiB/reboot evidence unchanged; smaller-disk/full API/long-video/restore acceptance and permanent host remain pending.
+
 ## AWS native ARM/SSM verification complete; production remains gated — 8 November 2026
 
 Non-root SSM role/profile/permissions verified; approved synthetic AWS test passed real FFmpeg/HLS and pinned multilingual HF inference2/2 before and2/2 after actual reboot,0skips. Model/video hashes, preserved HLS FFprobe and expiry timer passed. Peak test container memory610.2MiB/592.7MiB under1280MiB, no swap; this is short-media compatibility/persistence evidence, not full app/long-video/backup acceptance. All4test hosts cleaned; no pilot disks/groups/keys/publicIPs remain, JobFinder running. Latest718s conservative known-resource/illustrative-tax estimate0.00669USD; all-attempt0.02190USD, not settled billing. Existing frontendHTTPS200; production DNS/data/index/providers/flags/Render/Vercel unchanged; no push. Latest gross actual4.639USD/forecast21.451USD already exceeds whole-account15USD target. Budget clarification pending before permanent paid hosting; production API HTTPS/cutover still unverified. Exact evidence and remaining gates: deploy/aws/README.md. Older blocked-SSM statements below are historical.
