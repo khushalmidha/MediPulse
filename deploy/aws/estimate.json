@@ -25,7 +25,7 @@
     "remainingAgainstPostedActualUSD": 10.361,
     "forecastAlreadyExceedsMaximum": true
   },
-  "recommendedImmediateAction": "Separate MediPulse~10USD budget confirmed; JobFinder charges accepted separately. Review STAGING_DEPLOYMENT.md and staging-plan.json for new30GiB candidate and exact72h/3USD synthetic resource scope; no staging provisioning, DNS or production activation approved/performed by budget clarification.",
+  "recommendedImmediateAction": "Owner approved exact72h/3USD synthetic staging and cleanup. Runner/policy prepared and locally verified; actual new-scope SG dry-run UnauthorizedOperation. Owner must attach customer-managed MediPulseStaging from private iam-staging.compact.json; reuse existing SSM role/policies. Then run check_aws_staging.py --run-approved and record actual tests/cleanup. No new paid host/DNS/production changes yet.",
   "candidateAfterExistingChargesResolved": {
     "architecture": "Vercel frontend + Lightsail Linux IPv4 2GB + existing Atlas + private Redis",
     "region": "ap-south-1",
@@ -428,7 +428,7 @@
     "trialExpiryPlan": "Require a reviewed replacement/migration before January 1; no automatic larger bill or production shutdown/deletion authorized"
   },
   "separateStagingScope": {
-    "approved": false,
+    "approved": true,
     "maximumDurationHours": 72,
     "maximumTotalGrossReserveUSD": 3,
     "maximumActiveInstances": 1,
@@ -449,7 +449,8 @@
     "autoTerminationOnlyForDisposableStaging": true,
     "productionCredentialsOrDataAllowed": false,
     "reuseExistingSyntheticPilotPermissionAsProductionGrant": false,
-    "rootDeleteOnTermination": true
+    "rootDeleteOnTermination": true,
+    "approvalDate": "2026-11-08"
   },
   "grossLimitScope": "MediPulse only; JobFinder explicitly excluded by owner clarification"
 }

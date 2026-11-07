@@ -1,0 +1,153 @@
+"""Cloud safety regressions; all AWS calls mocked, all manifests temporary."""
+import copy
+import datetime as dt
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+import aws_native_pilot as api
+import aws_staging as stage
+import check_native_ssm as native
+import check_aws_staging as acceptance
+import render_staging_policy as policy
+
+
+class StagingSafety(unittest.TestCase):
+    def setUp(self):
+        self.account = '123456789012'
+        self.state = {'account': self.account, 'deploymentId': stage.STAGE, 'instanceId': 'i-staging',
+                      'preparedAtUtc': stage.now().isoformat(), 'reserveGrossUSD': 3,
+                      'clientToken': stage.STAGE + '-one', 'deadlineUtc': (stage.now() + dt.timedelta(hours=1)).isoformat()}
+        self.item = {'InstanceId': 'i-staging', 'InstanceType': 't4g.small', 'ClientToken': self.state['clientToken'],
+                     'State': {'Name': 'running'}, 'Tags': json.loads(stage.tags('instance', 'staging-host'))[0]['Tags'],
+                     'IamInstanceProfile': {'Arn': f'arn:aws:iam::{self.account}:instance-profile/MediPulseEc2SSM'}}
+        self.scope = patch.object(api, 'ACCOUNT', self.account); self.scope.start(); self.addCleanup(self.scope.stop)
+
+    def test_valid_exact_target(self):
+        stage.target(self.state, self.item)
+
+    def test_rejects_unrelated_id_type_token_and_profile(self):
+        for key, value in [('InstanceId', 'i-07b4f6961dc550de0'), ('InstanceType', 't4g.large'),
+                           ('ClientToken', 'different'), ('IamInstanceProfile', {'Arn': 'other'})]:
+            with self.subTest(key=key):
+                item = copy.deepcopy(self.item); item[key] = value
+                with self.assertRaises(AssertionError): stage.target(self.state, item)
+
+    def test_production_tag_and_expiry_rejected(self):
+        item = copy.deepcopy(self.item)
+        next(t for t in item['Tags'] if t['Key'] == 'DataClass')['Value'] = 'production'
+        with self.assertRaises(AssertionError): stage.target(self.state, item)
+        self.state['deadlineUtc'] = '2020-01-01T00:00:00+00:00'
+        with self.assertRaises(AssertionError): stage.target(self.state, self.item)
+
+    def test_volume_guards(self):
+        good = {'Size': 30, 'VolumeType': 'gp3', 'Encrypted': True,
+                'Tags': json.loads(stage.tags('volume', 'restore'))[0]['Tags']}
+        stage.volume(good, 'restore')
+        for key, value in [('Size', 40), ('VolumeType', 'io2'), ('Encrypted', False), ('Tags', [])]:
+            with self.subTest(key=key):
+                bad = {**good, key: value}
+                with self.assertRaises(AssertionError): stage.volume(bad, 'restore')
+
+    def test_cannot_extend_duration_or_reserve(self):
+        for changes in [{'reserveGrossUSD': 4}, {'deadlineUtc': (stage.now() + dt.timedelta(hours=73)).isoformat()}]:
+            with self.subTest(changes=changes), self.assertRaises(AssertionError):
+                stage.scope({**self.state, **changes})
+
+    def test_restore_window_expiry_allows_only_cleanup(self):
+        self.state['restoreCreatedAtUtc'] = (stage.now() - dt.timedelta(hours=3)).isoformat()
+        with self.assertRaises(AssertionError): stage.target(self.state, self.item)
+        stage.instance(self.state, self.item)  # cleanup must still be possible
+
+    def test_cleanup_refuses_jobfinder_before_write(self):
+        state = {**self.state, 'instanceId': 'i-07b4f6961dc550de0'}
+        item = {**self.item, 'InstanceId': state['instanceId']}
+        with patch.object(stage, 'load', return_value=state), patch.object(api, 'identity'), \
+             patch.object(api, 'aws', return_value={'Reservations': [{'Instances': [item]}]}) as call:
+            with self.assertRaises(AssertionError): stage.cleanup()
+            self.assertEqual([x.args[0] for x in call.call_args_list], ['describe-instances'])
+
+    def test_restore_refuses_root_disk_before_write(self):
+        state = {**self.state, 'restoreVolumeId': 'vol-root', 'volumeId': 'vol-root'}
+        v = {'VolumeId': 'vol-root', 'Size': 30, 'VolumeType': 'gp3', 'Encrypted': True,
+             'Tags': json.loads(stage.tags('volume', 'restore'))[0]['Tags'], 'Attachments': []}
+        with patch.object(api, 'aws', return_value={'Volumes': [v]}) as call:
+            with self.assertRaises(AssertionError): stage.remove_restore(state)
+            self.assertEqual([x.args[0] for x in call.call_args_list], ['describe-volumes'])
+
+    def test_new_policy_never_grants_iam_ingress_or_unbounded_actions(self):
+        obj = policy.build(); compact = json.dumps(obj, separators=(',', ':')).replace('__ACCOUNT_ID__', self.account)
+        self.assertLessEqual(len(compact), 6144)
+        actions = {a for s in obj['Statement'] for a in (s['Action'] if isinstance(s['Action'], list) else [s['Action']])}
+        self.assertFalse(any(a.startswith('iam:') or '*' in a or 'Ingress' in a or 'KeyPair' in a for a in actions))
+        restore = next(s for s in obj['Statement'] if s['Action'] == 'ec2:CreateVolume' and ':volume/' in str(s['Resource']))
+        self.assertEqual(restore['Condition']['Null'], {'ec2:ParentSnapshot': 'false'})
+        self.assertEqual(restore['Condition']['NumericEquals']['ec2:VolumeSize'], '30')
+
+    def test_ssm_journal_stays_in_selected_manifest(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); path = root / 'stage.json'; path.write_text(json.dumps(self.state))
+            old = root / 'old-pilot.json'; old.write_text('{"untouched":true}')
+            calls = []
+            def request(service, operation, *args):
+                calls.append((service, operation, args))
+                if operation == 'send-command':
+                    payload = json.loads(Path(args[-1].removeprefix('file://')).read_text())
+                    self.assertEqual(payload['InstanceIds'], ['i-staging'])
+                    self.assertNotIn('Targets', payload)
+                    self.assertFalse(payload['CloudWatchOutputConfig']['CloudWatchOutputEnabled'])
+                    return {'Command': {'CommandId': 'synthetic'}}
+                return {'Status': 'Success', 'ResponseCode': 0, 'StandardOutputContent': 'ok'}
+            session = native.Session(path, root / 'logs', stage.target)
+            with patch.object(session, 'verify'), patch.object(native.preflight, 'read', side_effect=request), patch.object(api, 'STATE', old):
+                self.assertEqual(session.run('true', 'safety-check', 10), 'ok')
+            self.assertEqual(json.loads(old.read_text()), {'untouched': True})
+            self.assertEqual(json.loads(path.read_text())['ssmCommands'][0]['commandId'], 'synthetic')
+            self.assertEqual([x[1] for x in calls], ['send-command', 'get-command-invocation'])
+
+    def test_snapshot_restore_tracks_one_owned_source_and_restored_disk(self):
+        state = {**self.state, 'volumeId': 'vol-source', 'availabilityZone': 'us-east-1a'}
+        source = {'VolumeId': 'vol-source', 'Size': 30, 'Encrypted': True, 'VolumeType': 'gp3',
+                  'Tags': json.loads(stage.tags('volume', 'staging-root'))[0]['Tags']}
+        restored = {**source, 'VolumeId': 'vol-restore', 'SnapshotId': 'snap-staging', 'State': 'available',
+                    'Attachments': [], 'Tags': json.loads(stage.tags('volume', 'restore'))[0]['Tags']}
+        snapshot = {'SnapshotId': 'snap-staging', 'VolumeId': 'vol-source', 'VolumeSize': 30,
+                    'State': 'completed', 'Encrypted': True, 'Tags': json.loads(stage.tags('snapshot', 'synthetic-backup'))[0]['Tags']}
+        operations = []
+        def aws(operation, *args, **kwargs):
+            operations.append((operation, kwargs.get('dry', False)))
+            if kwargs.get('dry'): return 'DryRunOperation'
+            if operation == 'describe-volumes': return {'Volumes': [restored if args[-1] == 'vol-restore' else source]}
+            if operation == 'create-snapshot': return {'SnapshotId': 'snap-staging'}
+            if operation == 'describe-snapshots': return {'Snapshots': [snapshot]}
+            if operation == 'create-volume': return restored
+            if operation == 'attach-volume':
+                self.assertEqual(args, ('--volume-id', 'vol-restore', '--instance-id', 'i-staging', '--device', '/dev/sdf'))
+                return {}
+            self.fail('Unexpected cloud operation ' + operation)
+        scripts = []
+        class Session:
+            def run(self, script, label, timeout):
+                scripts.append(script)
+                return {'quiesce-synthetic-backup': 'STAGING_WRITES_QUIESCED',
+                        'mount-and-verify-restore': 'STAGING_RESTORED_ALL_FIXTURE_HASHES_MATCH',
+                        'restored-hls-decode': '{}', 'restored-offline-model-and-media': 'tests 2\npass 2\nfail 0\nskipped 0',
+                        'restore-db-and-cache-proofs': 'STAGING_RESTORED_MONGO_AND_REDIS_PROOFS_PASS'}[label]
+        with patch.object(stage, 'load', return_value=state), patch.object(stage, 'save'), \
+             patch.object(stage, 'find', side_effect=lambda op, key: [source] if op == 'describe-volumes' else []), \
+             patch.object(api, 'aws', side_effect=aws), patch.object(stage, 'remove_restore') as remove:
+            acceptance.snapshot_restore(Session())
+        self.assertTrue(state['snapshotRestorePassed'])
+        self.assertTrue(state['restoredMongoAndRedisProofs'])
+        self.assertEqual(state['restoreVolumeId'], 'vol-restore')
+        self.assertEqual(operations.count(('create-snapshot', False)), 1)
+        self.assertEqual(operations.count(('create-volume', False)), 1)
+        self.assertIn('mount -o ro,noload', scripts[1])
+        self.assertIn('nvme-Amazon_Elastic_Block_Store_volrestore', scripts[1])
+        self.assertNotIn('mkfs', '\n'.join(scripts))
+        remove.assert_called_once_with(state)
+
+
+if __name__ == '__main__':
+    unittest.main()

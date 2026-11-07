@@ -28,15 +28,22 @@ def target(state, instance):
 
 
 class Session:
-    def __init__(self):
-        self.state = json.loads(pilot.STATE.read_text())
-        self.logs = pilot.PRIVATE / 'native-ssm-logs'
+    def __init__(self, state_path=None, logs_path=None, validator=None):
+        self.state_path = state_path or pilot.STATE
+        self.state = json.loads(self.state_path.read_text(encoding='utf-8'))
+        self.validator = validator or target
+        self.logs = logs_path or pilot.PRIVATE / 'native-ssm-logs'
         self.logs.mkdir(exist_ok=True)
 
+    def save(self, state):
+        state['updatedAtUtc'] = dt.datetime.now(dt.timezone.utc).isoformat()
+        self.state_path.write_text(json.dumps(state, indent=2) + '\n', encoding='utf-8')
+
     def verify(self):
+        self.state = json.loads(self.state_path.read_text(encoding='utf-8'))
         pilot.identity()
         instance = pilot.aws('describe-instances', '--instance-ids', self.state['instanceId'])['Reservations'][0]['Instances'][0]
-        target(self.state, instance)
+        self.validator(self.state, instance)
 
     def online(self):
         deadline = time.monotonic() + 300
@@ -62,9 +69,9 @@ class Session:
         file.write_text(encoded, encoding='utf-8')
         result = preflight.read('ssm', 'send-command', '--cli-input-json', 'file://' + str(file))
         command_id = result['Command']['CommandId']
-        state = json.loads(pilot.STATE.read_text())
+        state = json.loads(self.state_path.read_text(encoding='utf-8'))
         state.setdefault('ssmCommands', []).append({'label': label, 'commandId': command_id})
-        pilot.save(state)
+        self.save(state)
         deadline = time.monotonic() + timeout + 90
         last_update = 0
         while time.monotonic() < deadline:

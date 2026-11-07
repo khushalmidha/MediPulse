@@ -2,6 +2,16 @@
 
 8 November 2026. Owner explicitly accepted JobFinder charges separately from the MediPulse~10USD/month target. This resolves the earlier account-budget ambiguity; it does not approve DNS/production changes. The existing whole-account15USD alert remains unchanged and must not be described as a MediPulse-only spending cap. No new paid resources were provisioned by this plan.
 
+## One owner action now required
+
+The owner has approved72hours/up to3USD and exact new synthetic-resource cleanup. Actual CLI new-scope CreateSecurityGroup dry-run still returnsUnauthorizedOperation, not an approval rejection. Existing SSM role/preflight works; do not recreate it, re-login as root in CLI, remove old policies or ask for the same spending approval again.
+
+Use the existing **owner/admin Console window**: IAM → Policies → Create policy → JSON. Paste the complete private `%LOCALAPPDATA%/MediPulse/Private/iam-staging.compact.json` (copied to clipboard during preparation), Next, name **MediPulseStaging**, Create policy. Then IAM → Users → medipulse-deployer → Permissions → Add permissions → Attach policies directly → selectMediPulseStaging → Add permissions. The restricted deployer window cannot create IAM policies. This is a customer-managed5978character policy (6144limit), not a user-inline policy. Do not rename an existing policy or overwrite the working NativePilot/NativeSSM grants. No passwords/OTP/access keys are needed in chat.
+
+The grant covers exact staging tags/region/type/disk/date and synthetic backup/restore, no inbound-rule/IAM/DNS writes. SSM document/status/PassRole access continues through the existing verified NativeSSM policy; new instance target permission is scoped to the new DeploymentId and DataClass. Ready commands: `python tools/render_staging_policy.py` renders privately using non-root STS only; `python tools/check_aws_staging.py` verifies readiness without provisioning; `python tools/check_aws_staging.py --run-approved` executes the already-approved scope and always cleans the new resources; `python tools/check_aws_staging.py --cleanup` resumes exact cleanup. Never edit prepared deadlines to extend72hours or reuse a cleaned launch token as a new paid retry.
+
+Local checks11/11cloud-safety tests;5AST and10shell/payload checks pass. New cloud staging tests have not run. Runtime media/recording/index/reviewer/production feature claims remain gated; the policy file/runner is not evidence of deployment.
+
 ## Exact low-traffic candidate
 
 One us-east-1 t4g.small ARM64/2GiB, standard CPU credits,30GiB encrypted baseline gp3, one publicIPv4, private Redis/AOF, FFmpeg and existing pinned HF ONNX cache. Keep Vercel frontend and Atlas; retain Render fallback. Do not add NAT, load balancer, managed Redis/Kafka, EKS or a frontend migration. Use the already verified SSM role for management; no SSH key or inbound management port. Separate own-resource tags/grants are required: the completed24h synthetic pilot grant is not an ongoing production authorization.
@@ -10,7 +20,7 @@ Monthly730h estimate **8.32–9.50USD gross**, including disk2.40, IPv43.65,10�
 
 30GiB saves disk/backup cost versus the prior40GiB proposal but is a small-pilot capacity limit, not an EBS shrink operation on an existing disk. Build size, two retained app images, HF cache, Redis, logs and safe upload headroom must fit on a **new**30GiB disk before acceptance. The4/4native tests used40GiB and a short media fixture; they do not by themselves certify the smaller host disk or full user traffic. Before activation implement/verify aggregate upload/storage pressure and transfer safeguards; current per-file byte limits alone do not cap the monthly bill.
 
-## Exact paid staging scope awaiting approval
+## Exact paid staging scope approved8November2026; IAM attachment pending
 
 At most72hours, one new t4g.small and30GiB encrypted gp3, one automatic publicIPv4, **3USD total gross reserve** including worst fullprice compute (no trial assumption), one synthetic snapshot, at most one30GiB disposable restore volume for up to2hours and fiveGB transfer reserve. Known-resource fullprice arithmetic with illustrative18%tax is2.91USD. Snapshot/restore resources must stay within this same reserve and window. No EIP or inbound ports/DNS are needed for this initial SSM-only staging. Explicitly authorize cleanup of only these newly created synthetic resources at completion/failure; existing JobFinder/data/deployments are excluded. Staging auto-termination is allowed only for the disposable synthetic host, never a promoted production stack.
 

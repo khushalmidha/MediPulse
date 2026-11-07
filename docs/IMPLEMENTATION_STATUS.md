@@ -1,5 +1,9 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS 72h staging authorized; owner IAM attachment remains — 8 November 2026
+
+Exact72h/3USD synthetic staging/cleanup approved. Prepared separate staging policy/launcher/acceptance runner and reused parameterized SSM transport without touching old manifests. Non-root preflight passes, new-scope SG dry-run UnauthorizedOperation; owner MediPulseStaging customer-managed attachment pending.11mocked cloud-safety tests plus syntax/shell/payload checks pass; **no new paid host, native30GiB/long-video/full API/real restore acceptance or production cutover** claimed. Existing websites, JobFinder, production data/indexes/flags/DNS and no-push boundary preserved. Details: deploy/aws/STAGING_DEPLOYMENT.md. Budget clarification and resource approval below are now completed, not new questions.
+
 ## AWS separate-project budget confirmed — 8 November 2026
 
 Owner accepts JobFinder charges separately from MediPulse~10USD/month. Budget clarification below is resolved; DNS/data/production scope stays unapproved. Prepared30GiB candidate and exact72h/3USD synthetic staging scope in deploy/aws/STAGING_DEPLOYMENT.md and staging-plan.json; no new paid resources/IAM/DNS/production changes or push. Existing4/4native40GiB/reboot evidence unchanged; smaller-disk/full API/long-video/restore acceptance and permanent host remain pending.

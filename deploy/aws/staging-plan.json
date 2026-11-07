@@ -1,6 +1,6 @@
 {
   "date": "2026-11-08",
-  "status": "prepared_not_provisioned",
+  "status": "scope_approved_iam_attachment_pending",
   "budgetScope": "MediPulse only; JobFinder charges explicitly accepted separately",
   "targetMonthlyGrossBeforeCreditsUSD": 10,
   "unknownChargesDoNotIncreaseTarget": true,
@@ -47,7 +47,7 @@
     "trialExpiryPlan": "Require a reviewed replacement/migration before January 1; no automatic larger bill or production shutdown/deletion authorized"
   },
   "stagingApprovalRequested": {
-    "approved": false,
+    "approved": true,
     "maximumDurationHours": 72,
     "maximumTotalGrossReserveUSD": 3,
     "maximumActiveInstances": 1,
@@ -68,7 +68,8 @@
     "autoTerminationOnlyForDisposableStaging": true,
     "productionCredentialsOrDataAllowed": false,
     "reuseExistingSyntheticPilotPermissionAsProductionGrant": false,
-    "rootDeleteOnTermination": true
+    "rootDeleteOnTermination": true,
+    "approvalDate": "2026-11-08"
   },
   "preserved": [
     "JobFinder",
@@ -115,5 +116,8 @@
     "https://aws.amazon.com/ebs/pricing/",
     "https://aws.amazon.com/vpc/pricing/",
     "https://aws.amazon.com/ec2/pricing/on-demand/"
-  ]
+  ],
+  "stagingPermissionDryRun": "UnauthorizedOperation",
+  "stagingPolicyManagedCharacters": 5978,
+  "newStagingResourcesCreated": false
 }
