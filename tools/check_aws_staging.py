@@ -214,6 +214,10 @@ def main():
     args = parser.parse_args()
     if args.cleanup:
         stage.cleanup(); return
+    # Diagnose the local fixed deadline before contacting expired IAM grants.
+    # Cleanup deliberately bypasses this gate so old resources remain removable.
+    if stage.STATE.exists():
+        stage.require_open_window(stage.load())
     preflight.main()
     state = stage.prepare()
     if not args.run_approved:

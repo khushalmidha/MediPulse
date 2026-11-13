@@ -1,5 +1,7 @@
 # MediPulse separate-budget staging scope
 
+**13 November 2026 update:** the prepared staging window has expired, and a fresh non-root role-profile read returns AccessDenied. The private JSON and the renderer below retain expired launch/access dates. Do not attach that file unchanged or reset the old journal. See [current deployment finalization and exact renewal handoff](../../docs/DEPLOYMENT_FINALIZATION.md). The following 8 November instructions are historical scope evidence, not current launch readiness.
+
 8 November 2026. Owner explicitly accepted JobFinder charges separately from the MediPulse~10USD/month target. This resolves the earlier account-budget ambiguity; it does not approve DNS/production changes. The existing whole-account15USD alert remains unchanged and must not be described as a MediPulse-only spending cap. No new paid resources were provisioned by this plan.
 
 ## One owner action now required

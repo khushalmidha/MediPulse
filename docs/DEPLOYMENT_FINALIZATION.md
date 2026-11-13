@@ -1,0 +1,47 @@
+# Low-traffic deployment continuation — 13 November 2026
+
+AWS cutover is **not complete**. Continue with one backend, private Redis, existing Atlas and Vercel, persistent Reels/model storage and the existing Render rollback. No scaling project or enterprise work is required for this release.
+
+## Current evidence
+
+Candidate starts at `d959037a`, with the changes in this finalization commit. Mongoose is pinned to **8.24.7**, replacing vulnerable locked 8.24.6 and updating its mquery dependency. Both production dependency audits now report zero vulnerabilities. The [maintainer release](https://github.com/Automattic/mongoose/releases/tag/8.24.7) describes the query sanitization, inherited-property and discriminator fixes.
+
+- Backend units after dependency update: **248 passed, 0 failed, 2 explicitly skipped real-media/model tests** (250 registered).
+- Those two real-media tests were then enabled in a separate offline local Windows run: **2 passed, 0 skipped**. Actual FFprobe duration rejection, FFmpeg adaptive HLS/JPEG and pinned multilingual normalized embeddings passed. Existing private model cache was reused with downloads disabled. This does not replace AWS 299-second/load/restore acceptance.
+- Frontend units: **62 passed**, lint: zero errors/one existing Fast Refresh warning, production build passed with existing HLS chunk-size warning.
+- Synthetic Reels desktop/mobile browser checks: **10 passed**; recording/upload, independent review and HLS UI checks. This is local browser evidence, not deployed AWS or physical-device acceptance.
+- Focused clinical/call/account/record browser checks: **20 passed, 2 redundant viewport-sweep skips**. Both skipped mobile-project cases run all three widths in the desktop project; no failed case was treated as a skip. The exact filter is recorded in the work log.
+- Staging safety checks: **14 passed**, including expiry rejection before cloud preflight, unchanged deadline and cleanup availability after expiry.
+- Full registered isolated Mongo/Redis run: **410 tests, 399 passed, 11 failed, 0 skipped**. All failures were in `reels-lifecycle.test.js`: the integration command omitted the existing offline model-cache path, causing actual model/processing failure and dependent publication/playback failures. Corrected-cache rerun of that complete file: **15 passed, 0 failed, 0 skipped** (40.614s), resolving all failed cases with no application/spec changes. The failed full run is not represented as a clean single full-suite pass; unaffected integration files were not rerun.
+
+Public HEAD probes returned trusted-HTTPS **200** for `https://www.medipulse.live/` and the existing Render `/health/live`. These establish reachability of the existing deployment, not its source revision, authenticated workflows or an AWS cutover.
+
+Commands: backend `npm test`, `npm run test:integration`; frontend `npm run test:ui`, `npm run lint`, `npm run build`; root `node tools/run-browser-checks.mjs --grep reels`, `python -m unittest discover -s tools -p test_aws_staging.py`; each package `npm audit --omit=dev --audit-level=moderate`. Use explicit local `TEST_DATABASE_URL`/Redis DB15 and `REELS_EMBEDDING_ALLOW_DOWNLOAD=false`, `REELS_EMBEDDING_CACHE_DIR` pointing to the existing absolute private model cache, as documented in the development guide. Docker Desktop and only the local Mongo replica set/Redis were started; production environments were not loaded.
+
+## Exact cloud blocker
+
+The private staging journal is still `prepared`, with **no recorded instance/volume/group IDs**. Its fixed deadline was **11 November 2026, 04:58 IST** (`2026-11-10T23:28:17.663618Z`). Do not reset that journal or its old approval. Independent non-root EC2 reads subsequently verified **zero active instances, volumes, snapshots and security groups tagged with the old staging DeploymentId in us-east-1**. General EC2 inventory access therefore still works; the fresh failing check is the IAM/SSM-role preflight. This is a scoped inventory result, not an account-wide absence-of-resources claim or a production acceptance result.
+
+Fresh `python tools/check_aws_staging.py` initially reached AWS and returned **`iam:get-instance-profile:AccessDenied`** under the selected non-root profile. The private staging JSON also has launch/access grants expiring **13 November, 05:30 IST** (`2026-11-13T00:00:00Z`); cleanup grants expire 15 November, 05:30 IST. Effective attached IAM policies were not inspected, so expiry is consistent with the failure, not a complete diagnosis of every attached policy.
+
+The runner now reports the expired local staging window before AWS preflight. `--cleanup` remains available, subject to effective cloud authorization. **The JSON currently open in the IDE is expired for launching; attaching it unchanged is not the next step.** The existing renderer also retains those old dates, so simply rerunning it will not renew access.
+
+An owner/admin Console action is needed after a fresh, narrowly scoped renewal has been prepared. The deployer does not have IAM policy-write authorization; no IAM write/root fallback was attempted. A renewed package must retain the previous one-host/30GiB/72h/3USD synthetic envelope, archive old journals, use a fresh deployment ID/token, and verify the old-resource inventory before it can launch. Match read/PassRole/SSM and cleanup dates to the new window as well as EC2 dates. Do not reuse an old paid token or extend an old manifest.
+
+After permission is effective, run actual positive/negative authorization checks and the synthetic full-app/299-second video/restore acceptance with exact-resource cleanup. Production preparation then needs a stable address, trusted API HTTPS, private environment, approved additive schema/reviewer setup, rollback and the Vercel relay targeting the accepted AWS backend. Record the exact deployed backend/frontend revisions. No production host, DNS, relay, indexes, providers or Reels flags were changed in this pass.
+
+Render itself can run media workloads with sufficient compute and persistent storage. Its [paid persistent disks](https://render.com/docs/disks) preserve uploads across restarts; [free instances](https://render.com/docs/free) cannot attach them and lose local files. AWS is the existing chosen route, not a technical requirement for Reels.
+
+## Paste into Antigravity
+
+```text
+Finish the existing MediPulse low-traffic deployment, without new features or scaling work. Read AGENTS.md, docs/DEPLOYMENT_FINALIZATION.md, current implementation status, Common in docs/MEDIPULSE_CODEX_PROMPTS.md and deploy/aws/STAGING_DEPLOYMENT.md. Work on current main and preserve unrelated edits. The owner has requested final deployment; do not restart architecture/budget discussions already resolved in the records.
+
+First address the actual blocker: old staging journal expired 10 November UTC, old launch/read/SSM grants expire 13 November UTC, and the latest non-root GetInstanceProfile call returned AccessDenied. The current private iam-staging.compact.json and existing renderers contain old dates. Do not ask the owner to paste that expired file again, reset old deadlines, widen to AdministratorAccess or recreate the working runtime role blindly.
+
+Prepare a concrete owner-reviewable renewal package within the prior one t4g.small/30GiB/72h/3USD synthetic scope: a fresh deployment ID/token, preserved old manifests, date-consistent minimum EC2/SSM/read/PassRole and cleanup policies, and exact owner Console create/edit/attach instructions. Keep filled JSON private; never print credentials. Verify old-resource inventory before any new launch and all safety regressions after tooling edits. If effective grants cannot be inspected, say precisely what is unverified. The restricted deployer cannot perform owner IAM writes.
+
+After the owner attaches the reviewed grants, verify positive own-resource and negative larger-instance/JobFinder dry-runs. Execute the existing staging acceptance and finally cleanup; record real full-app, 299-second Reels processing, memory/disk/latency and snapshot-restore results. Do not count prepared scripts or the older two-second native tests as that acceptance. Prepare the exact permanent-host/DNS/TLS/env/schema/reviewer/relay cutover and rollback as a reviewable package within the owner's existing MediPulse budget; request only a genuinely missing concrete approval. Never promote the disposable host with its termination timer into production. Preserve JobFinder, Atlas records, existing Vercel frontend and Render rollback.
+
+Mongoose is now pinned to patched 8.24.7. Read the finalization report for exact local checks; rerun affected checks after changes. Use npm/package-lock for this deployment; the historical pnpm lock is not the deployed dependency source. Full legacy browser/device/OAuth/TURN/provider acceptance is separate from the ten synthetic Reels browser checks. Keep enterprise off and enable production Reels only after its schema/storage/model/auth/reviewer checks pass. Report exact deployed revisions/URLs and measured results, or the precise remaining external blocker. Commit/push ordinary reviewed changes as authorized, without force push. Do not claim a completed deployment from local tests alone.
+```

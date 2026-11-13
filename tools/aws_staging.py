@@ -59,6 +59,17 @@ def scope(state):
     assert start <= now() and start < end <= start + dt.timedelta(hours=72)
 
 
+def require_open_window(state):
+    """Reject a stale journal before cloud calls; never reset its fixed deadline."""
+    scope(state)
+    if now() >= dt.datetime.fromisoformat(state['deadlineUtc']):
+        raise RuntimeError(
+            'Staging window expired; no launch is permitted. Preserve the existing '
+            'manifest and approval. Prepare a separately reviewed renewal with fresh '
+            'date-bound IAM grants; --cleanup remains available for exact old resources.'
+        )
+
+
 def target(state, item):
     instance(state, item, running=True)
     if state.get('restoreCreatedAtUtc') and not state.get('restoreDeletedAtUtc'):
@@ -83,6 +94,7 @@ def prepare():
     if STATE.exists():
         state = load()
         assert state['status'] == 'prepared', 'Never overwrite an existing launch or cleaned resource manifest'
+        require_open_window(state)
         return state
     prior = json.loads(api.STATE.read_text(encoding='utf-8'))
     assert prior['status'] == 'cleaned'
@@ -110,7 +122,7 @@ def network():
 def launch():
     api.identity()
     state = load()
-    scope(state)
+    require_open_window(state)
     assert state['status'] == 'prepared' and state['account'] == api.ACCOUNT and state['reserveGrossUSD'] == 3
     assert now() + dt.timedelta(hours=2) < dt.datetime.fromisoformat(state['deadlineUtc'])
     assert not [i for r in find('describe-instances', 'Reservations') for i in r['Instances'] if i['State']['Name'] != 'terminated']

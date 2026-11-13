@@ -50,6 +50,15 @@ Optional AI/Google/ML integrations require separate local configuration; they ar
 
 ## Checks
 
+The full registered integration suite now includes real Reels lifecycle/model checks. In addition to the isolated Mongo replica set and Redis DB15, pass the existing pinned offline model cache explicitly; a missing cache fails lifecycle processing and its dependent publication/playback checks. Do not enable model downloads implicitly or count that run as passed. For PowerShell, before `npm run test:integration`:
+
+```powershell
+$env:REELS_EMBEDDING_ALLOW_DOWNLOAD='false'
+$env:REELS_EMBEDDING_CACHE_DIR=Join-Path $env:LOCALAPPDATA 'MediPulse\Private\reels-models'
+```
+
+For a different machine, use its existing absolute private cache path containing the pinned model/revision. See [Reels local reproduction](REELS_PRODUCTION_READINESS.md#local-reproduction) for media prerequisites. These settings do not load the deployment environment.
+
 ```sh
 cd backend
 npm test

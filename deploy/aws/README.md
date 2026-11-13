@@ -1,5 +1,9 @@
 # MediPulse deployment: USD10 target / USD15 gross maximum
 
+## Expired staging access; patched release candidate — 13 November 2026
+
+The old prepared staging window ended 10 November UTC. Current private policy/renderer launch and read/SSM dates expire 13 November UTC; fresh non-root GetInstanceProfile returns AccessDenied. The previously documented "paste existing staging JSON" step is stale. No paid resources or production cutover occurred in this pass. Runner now detects local expiry before cloud calls while retaining exact cleanup access. Mongoose is pinned to patched8.24.7; both production dependency audits report zero vulnerabilities. See [current evidence and focused Antigravity prompt](../../docs/DEPLOYMENT_FINALIZATION.md) for local verification and the owner IAM renewal action. Keep the old manifests intact; no deadline reset or root fallback.
+
 ## 72-hour staging approved; new-scope IAM attachment pending — 8 November 2026
 
 Owner explicitly approved the exact72h/3USD synthetic host/disk/snapshot/restore and cleanup scope. No further spending approval is requested for that scope. Current non-root SSM preflight passes, but actual new-tag CreateSecurityGroup dry-run is **UnauthorizedOperation**; old native grants are restricted to the completed40GiB pilot. No staging paid resources created. Prepared customer-managed [staging policy](iam-staging.template.json), private rendered5978character JSON and SSM-only runner; owner Console must create/attach **MediPulseStaging** to medipulse-deployer, preserving old policies/role. No IAM write/admin fallback, inbound-rule, EIP, DNS or production permission is added. The policy's own-tag/region/date/type30GiB/encryption guards and standard shell-document access are enforced with the existing narrowly scoped SSM grant; counts/time/reserve are controller checks, not an IAM spending cap.

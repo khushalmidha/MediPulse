@@ -28,6 +28,8 @@ From root (PowerShell):
 docker compose up -d mongo redis
 $env:TEST_DATABASE_URL='mongodb://127.0.0.1:27017/medipulse_test?replicaSet=rs0&directConnection=true'
 $env:TEST_REDIS_URL='redis://127.0.0.1:6379/15'
+$env:REELS_EMBEDDING_ALLOW_DOWNLOAD='false'
+$env:REELS_EMBEDDING_CACHE_DIR=Join-Path $env:LOCALAPPDATA 'MediPulse\Private\reels-models'
 node tools/check-implementation-plan.mjs --next
 node tools/implementation-inventory.mjs --write
 ```

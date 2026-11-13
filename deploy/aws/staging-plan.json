@@ -1,6 +1,6 @@
 {
   "date": "2026-11-08",
-  "status": "scope_approved_iam_attachment_pending",
+  "status": "old_staging_window_expired_iam_preflight_denied",
   "budgetScope": "MediPulse only; JobFinder charges explicitly accepted separately",
   "targetMonthlyGrossBeforeCreditsUSD": 10,
   "unknownChargesDoNotIncreaseTarget": true,
@@ -119,5 +119,17 @@
   ],
   "stagingPermissionDryRun": "UnauthorizedOperation",
   "stagingPolicyManagedCharacters": 5978,
-  "newStagingResourcesCreated": false
+  "newStagingResourcesCreated": false,
+  "latestVerificationDate": "2026-11-13",
+  "currentPreflight": "iam:GetInstanceProfile AccessDenied; general EC2 tagged inventory reads still work",
+  "oldStagingDeadlineUtc": "2026-11-10T23:28:17.663618Z",
+  "oldTaggedInventory": {
+    "region": "us-east-1",
+    "activeInstances": 0,
+    "volumes": 0,
+    "snapshots": 0,
+    "securityGroups": 0
+  },
+  "nextAction": "Prepare owner-reviewable new-window IAM/staging package; existing renderer/private JSON have expired dates; preserve old manifests",
+  "latestEvidence": "docs/DEPLOYMENT_FINALIZATION.md"
 }

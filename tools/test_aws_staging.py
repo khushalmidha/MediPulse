@@ -60,6 +60,33 @@ class StagingSafety(unittest.TestCase):
         with self.assertRaises(AssertionError): stage.target(self.state, self.item)
         stage.instance(self.state, self.item)  # cleanup must still be possible
 
+    def test_expired_prepared_window_stops_before_cloud_calls(self):
+        current = stage.now()
+        state = {**self.state,
+                 'preparedAtUtc': (current - dt.timedelta(hours=73)).isoformat(),
+                 'deadlineUtc': (current - dt.timedelta(hours=1)).isoformat()}
+        with patch.object(stage.STATE.__class__, 'exists', return_value=True), \
+             patch.object(stage, 'load', return_value=state), \
+             patch.object(acceptance.preflight, 'main') as preflight, \
+             patch('sys.argv', ['check_aws_staging.py', '--run-approved']):
+            with self.assertRaisesRegex(RuntimeError, 'Staging window expired'):
+                acceptance.main()
+            preflight.assert_not_called()
+        stage.instance(state, self.item)  # exact cleanup still ignores expiry
+
+    def test_open_window_does_not_change_deadline(self):
+        before = copy.deepcopy(self.state)
+        stage.require_open_window(self.state)
+        self.assertEqual(self.state, before)
+
+    def test_cleanup_bypasses_expired_window_gate(self):
+        with patch('sys.argv', ['check_aws_staging.py', '--cleanup']), \
+             patch.object(stage, 'cleanup') as cleanup, \
+             patch.object(stage, 'require_open_window') as window:
+            acceptance.main()
+            cleanup.assert_called_once_with()
+            window.assert_not_called()
+
     def test_cleanup_refuses_jobfinder_before_write(self):
         state = {**self.state, 'instanceId': 'i-07b4f6961dc550de0'}
         item = {**self.item, 'InstanceId': state['instanceId']}

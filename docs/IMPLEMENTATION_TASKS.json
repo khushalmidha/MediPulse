@@ -2535,6 +2535,70 @@
         "type": "ABSOLUTE_VALUE",
         "ownerEmailAssociationsVerified": true,
         "automaticShutdown": "not enabled"
+      },
+      "deploymentFinalization": {
+        "date": "2026-11-13",
+        "status": "blocked_expired_staging_window_and_cloud_access",
+        "reference": "docs/DEPLOYMENT_FINALIZATION.md",
+        "baselineRevision": "d959037a",
+        "mongoosePinned": "8.24.7",
+        "productionAuditVulnerabilities": {
+          "backend": 0,
+          "frontend": 0
+        },
+        "backendUnits": {
+          "passed": 248,
+          "failed": 0,
+          "skippedRealMedia": 2
+        },
+        "frontendUnits": 62,
+        "reelsBrowsers": 10,
+        "stagingSafetyTests": 14,
+        "fullPatchedIntegrations": {
+          "registered": 410,
+          "passed": 399,
+          "failed": 11,
+          "skipped": 0,
+          "failureCause": "Reels lifecycle command omitted existing offline model cache path",
+          "correctedFileRerun": {
+            "file": "tests/integration/reels-lifecycle.test.js",
+            "passed": 15,
+            "failed": 0,
+            "skipped": 0
+          },
+          "cleanSingleFullSuitePassClaimed": false,
+          "allObservedFailuresResolvedByExplicitCache": true
+        },
+        "cloudPreflight": "iam:get-instance-profile:AccessDenied",
+        "oldStagingDeadlineUtc": "2026-11-10T23:28:17.663618Z",
+        "oldLaunchAndSsmGrantExpiryUtc": "2026-11-13T00:00:00Z",
+        "newPaidResourcesCreated": false,
+        "productionCutoverPerformed": false,
+        "next": "Prepare date-consistent owner-reviewable IAM/staging renewal; preserve old journals; verify effective permissions and old-resource inventory before any new launch",
+        "focusedCriticalBrowsers": {
+          "passed": 20,
+          "failed": 0,
+          "redundantViewportSkips": 2
+        },
+        "existingPublicHealth": {
+          "frontendHttps": 200,
+          "renderLiveHttps": 200,
+          "awsDeploymentProof": false
+        },
+        "separateOfflineRealMedia": {
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "platform": "local Windows; not AWS capacity acceptance"
+        },
+        "oldTaggedStagingInventory": {
+          "region": "us-east-1",
+          "activeInstances": 0,
+          "volumes": 0,
+          "snapshots": 0,
+          "securityGroups": 0,
+          "readOnly": true
+        }
       }
     }
   }
