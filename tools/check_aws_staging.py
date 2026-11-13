@@ -29,12 +29,12 @@ chown 1000:1000 /srv/medipulse-staging/capacity-media
 test "$(df --output=avail -B1 /srv/medipulse-staging | tail -n 1)" -gt 10737418240
 docker pull --quiet mongo:7 >/dev/null
 docker pull --quiet redis:7-alpine >/dev/null
-docker network create --internal medipulse-staging-20261108 >/dev/null
-docker run -d --name medipulse-staging-mongo --network medipulse-staging-20261108 --network-alias mongo \\
+docker network create --internal ''' + stage.STAGE + ''' >/dev/null
+docker run -d --name medipulse-staging-mongo --network ''' + stage.STAGE + ''' --network-alias mongo \\
  --memory 384m --memory-swap 384m --cpus .35 \\
  --mount type=bind,source=/srv/medipulse-staging/mongo,target=/data/db \\
  mongo:7 --replSet rs0 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
-docker run -d --name capacity-redis-20261108 --network medipulse-staging-20261108 --network-alias redis \\
+docker run -d --name capacity-redis-''' + stage.STAGE + ''' --network ''' + stage.STAGE + ''' --network-alias redis \\
  --memory 64m --memory-swap 64m --cpus .1 \\
  --mount type=bind,source=/srv/medipulse-staging/redis,target=/data \\
  redis:7-alpine redis-server --appendonly yes --appendfsync everysec --maxmemory 32mb --maxmemory-policy noeviction >/dev/null
@@ -48,7 +48,7 @@ for attempt in $(seq 1 40); do
  sleep 2
 done
 docker exec medipulse-staging-mongo mongosh --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)'
-test "$(docker exec capacity-redis-20261108 redis-cli ping)" = PONG
+test "$(docker exec capacity-redis-''' + stage.STAGE + ''' redis-cli ping)" = PONG
 docker image inspect medipulse-reels-arm-review:local --format '{{.Id}}'
 echo STAGING_ISOLATED_SERVICES_READY
 '''
@@ -90,8 +90,8 @@ def snapshot_restore(session):
     # Quiesce only this host's synthetic DB/cache before taking an app-consistent
     # fixture snapshot; OS root recovery still uses its normal filesystem journal.
     script = '''docker exec medipulse-staging-mongo mongosh --quiet --eval 'db.getSiblingDB("medipulse_test_restore").proof.updateOne({_id:"scope"},{$set:{kind:"synthetic-only"}},{upsert:true})' >/dev/null
-docker exec capacity-redis-20261108 redis-cli -n 14 SET medipulse-staging-restore-proof synthetic-only >/dev/null
-docker stop medipulse-staging-mongo capacity-redis-20261108 >/dev/null
+docker exec capacity-redis-''' + stage.STAGE + ''' redis-cli -n 14 SET medipulse-staging-restore-proof synthetic-only >/dev/null
+docker stop medipulse-staging-mongo capacity-redis-''' + stage.STAGE + ''' >/dev/null
 sync
 find /srv/medipulse-staging/models /srv/medipulse-staging/reels /srv/medipulse-staging/mongo /srv/medipulse-staging/redis -type f -print0 | sort -z | xargs -0 sha256sum >/srv/medipulse-staging/backup.sha256
 echo STAGING_WRITES_QUIESCED
@@ -183,7 +183,7 @@ def run():
         assert media['pass'] == 2 and media['skipped'] == 0
         units = summary(session.run(logged(container('node --import ./tests/bootstrap.js --test --test-reporter=tap --test-concurrency=1 tests/*.test.js', shell=True), 'backend-units'), 'backend-unit-checks', 600))
         integration = summary(session.run(logged(container('scripts/testIntegration.js'), 'backend-integrations'), 'backend-integration-checks', 1200))
-        session.run("printf '%s\\n' 'DATABASE_URL=mongodb://mongo:27017/medipulse_test_capacity_20261108?replicaSet=rs0&directConnection=true' 'REDIS_URL=redis://capacity-redis-20261108:6379/15' 'CAPACITY_VIDEO_SECONDS=299' >" + stage.ROOT + '/capacity.env', 'synthetic-capacity-targets', 30)
+        session.run("printf '%s\\n' 'DATABASE_URL=mongodb://mongo:27017/medipulse_test_capacity_" + stage.STAGE + "?replicaSet=rs0&directConnection=true' 'REDIS_URL=redis://capacity-redis-" + stage.STAGE + ":6379/15' 'CAPACITY_VIDEO_SECONDS=299' >" + stage.ROOT + '/capacity.env', 'synthetic-capacity-targets', 30)
         output = session.run(logged(container('--expose-gc /audit/capacity.mjs', capacity=True), 'long-video-capacity'), 'long-video-full-api-capacity', 1200)
         result = next(json.loads(line) for line in output.splitlines() if line.startswith('{') and '"scenario"' in line)
         assert result['videoSeconds'] == 299 and result['httpSamples'] > 0 and result['httpFailures'] == 0

@@ -1,6 +1,7 @@
 {
-  "date": "2026-11-08",
-  "status": "old_staging_window_expired_iam_preflight_denied",
+  "date": "2026-11-13",
+  "status": "prepared_renewal_ready_for_owner_attachment",
+  "deploymentId": "medipulse-staging-20261113",
   "budgetScope": "MediPulse only; JobFinder charges explicitly accepted separately",
   "targetMonthlyGrossBeforeCreditsUSD": 10,
   "unknownChargesDoNotIncreaseTarget": true,
@@ -69,7 +70,7 @@
     "productionCredentialsOrDataAllowed": false,
     "reuseExistingSyntheticPilotPermissionAsProductionGrant": false,
     "rootDeleteOnTermination": true,
-    "approvalDate": "2026-11-08"
+    "approvalDate": "2026-11-13"
   },
   "preserved": [
     "JobFinder",

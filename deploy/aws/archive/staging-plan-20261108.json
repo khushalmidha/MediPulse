@@ -1,0 +1,135 @@
+{
+  "date": "2026-11-08",
+  "status": "old_staging_window_expired_iam_preflight_denied",
+  "budgetScope": "MediPulse only; JobFinder charges explicitly accepted separately",
+  "targetMonthlyGrossBeforeCreditsUSD": 10,
+  "unknownChargesDoNotIncreaseTarget": true,
+  "ownerBudgetClarification": "MediPulse ka ~$10 budget alag rakho; JobFinder charges extra acceptable hain",
+  "permanentHost": {
+    "region": "us-east-1",
+    "instanceType": "t4g.small",
+    "architecture": "arm64",
+    "ramGiB": 2,
+    "cpuCredits": "standard",
+    "encryptedGp3GiB": 30,
+    "gp3Iops": 3000,
+    "gp3ThroughputMiBs": 125,
+    "publicIPv4Count": 1,
+    "stableAddressRequiredBeforeProductionDns": true,
+    "persistentRootDeleteOnTermination": false,
+    "monthlyComputeAssumingTrialUSD": 0,
+    "monthlyEbsUSD": 2.4,
+    "monthlyPublicIPv4At730hUSD": 3.65,
+    "monthlySnapshotBilledGiBAssumption": [
+      10,
+      30
+    ],
+    "monthlySnapshotCostUSD": [
+      0.5,
+      1.5
+    ],
+    "egressAllowanceGB": 5,
+    "conservativeMeteredEgressReserveUSD": 0.5,
+    "illustrativeTaxRate": 0.18,
+    "monthlyGrossAt730hUSD": [
+      8.32,
+      9.5
+    ],
+    "monthlyGrossAt744hWorstCaseUSD": 9.58,
+    "monthlyGrossIsGuaranteedHardCap": false,
+    "trialThroughUtc": "2026-12-31",
+    "trialAggregateHoursPerMonth": 750,
+    "accountTrialQuotaAvailableVerified": false,
+    "monthlyGrossAt730hWithoutTrialUSD": [
+      22.79,
+      23.97
+    ],
+    "trialExpiryPlan": "Require a reviewed replacement/migration before January 1; no automatic larger bill or production shutdown/deletion authorized"
+  },
+  "stagingApprovalRequested": {
+    "approved": true,
+    "maximumDurationHours": 72,
+    "maximumTotalGrossReserveUSD": 3,
+    "maximumActiveInstances": 1,
+    "instanceType": "t4g.small",
+    "encryptedGp3GiB": 30,
+    "dataClass": "synthetic-only",
+    "management": "outbound SSM; existing verified role",
+    "inboundPorts": [],
+    "publicIPv4Count": 1,
+    "elasticIpCount": 0,
+    "maximumSnapshots": 1,
+    "maximumTemporaryRestoreVolumes": 1,
+    "temporaryRestoreGiB": 30,
+    "maximumRestoreVolumeHours": 2,
+    "maximumTransferReserveGB": 5,
+    "knownFullPrice72hWorstCaseWithIllustrativeTaxUSD": 2.91,
+    "newResourceCleanupRequiresExactScopeApproval": true,
+    "autoTerminationOnlyForDisposableStaging": true,
+    "productionCredentialsOrDataAllowed": false,
+    "reuseExistingSyntheticPilotPermissionAsProductionGrant": false,
+    "rootDeleteOnTermination": true,
+    "approvalDate": "2026-11-08"
+  },
+  "preserved": [
+    "JobFinder",
+    "Vercel frontend",
+    "Render fallback",
+    "existing Atlas production database",
+    "Name.com DNS"
+  ],
+  "services": {
+    "frontend": "existing Vercel; no S3/CloudFront migration",
+    "backend": "one EC2 host plus FFmpeg and pinned offline ONNX model",
+    "redis": "private local Redis/AOF; no paid ElastiCache",
+    "kafka": "no MSK/new paid broker; preserve current core Mongo outbox; review optional existing free broker before enabling",
+    "mongodb": "existing Atlas for eventual production; isolated synthetic staging DB only",
+    "tls": "Caddy automatic certificates/renewal after separately approved hostname records; Socket.IO upgrade and authenticated HLS routes retained"
+  },
+  "approvalNotIncluded": [
+    "production DNS or staging DNS change",
+    "production database/index/seed writes",
+    "provider activation",
+    "Reels or enterprise activation",
+    "Git push",
+    "Render/Vercel shutdown",
+    "JobFinder changes",
+    "permanent hosting beyond approved staging window"
+  ],
+  "monitoring": {
+    "existingAggregateBudgetUSD": 15,
+    "existingAggregateBudgetNowInformationalForMediPulseScope": true,
+    "aggregateBudgetChanged": false,
+    "projectFilteredBudgetNeedsCostAllocationTagActivationAndBillingPermission": true,
+    "plannedProjectTag": "Project=MediPulse",
+    "plannedActualAlertsUSD": [
+      5,
+      8,
+      9,
+      10
+    ],
+    "alertsAreHardCap": false,
+    "diskAndTransferLimitsNeedAcceptanceBeforeRealUploads": true
+  },
+  "references": [
+    "https://aws.amazon.com/ec2/faqs/",
+    "https://aws.amazon.com/ebs/pricing/",
+    "https://aws.amazon.com/vpc/pricing/",
+    "https://aws.amazon.com/ec2/pricing/on-demand/"
+  ],
+  "stagingPermissionDryRun": "UnauthorizedOperation",
+  "stagingPolicyManagedCharacters": 5978,
+  "newStagingResourcesCreated": false,
+  "latestVerificationDate": "2026-11-13",
+  "currentPreflight": "iam:GetInstanceProfile AccessDenied; general EC2 tagged inventory reads still work",
+  "oldStagingDeadlineUtc": "2026-11-10T23:28:17.663618Z",
+  "oldTaggedInventory": {
+    "region": "us-east-1",
+    "activeInstances": 0,
+    "volumes": 0,
+    "snapshots": 0,
+    "securityGroups": 0
+  },
+  "nextAction": "Prepare owner-reviewable new-window IAM/staging package; existing renderer/private JSON have expired dates; preserve old manifests",
+  "latestEvidence": "docs/DEPLOYMENT_FINALIZATION.md"
+}

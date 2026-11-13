@@ -22,14 +22,14 @@
       "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:RequestTag/DeploymentId": "medipulse-staging-20261113",
           "ec2:InstanceType": "t4g.small",
           "ec2:MetadataHttpTokens": "required",
           "ec2:Tenancy": "default",
           "aws:RequestTag/DataClass": "synthetic-only"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         }
       }
     },
@@ -39,7 +39,7 @@
       "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:RequestTag/DeploymentId": "medipulse-staging-20261113",
           "ec2:VolumeType": "gp3",
           "aws:RequestTag/DataClass": "synthetic-only"
         },
@@ -52,7 +52,7 @@
           "ec2:Encrypted": "true"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         }
       }
     },
@@ -62,7 +62,7 @@
       "Resource": "arn:aws:ec2:us-east-1::image/ami-09a93d801db0bafae",
       "Condition": {
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         }
       }
     },
@@ -75,7 +75,7 @@
       ],
       "Condition": {
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         }
       }
     },
@@ -87,11 +87,11 @@
       ],
       "Condition": {
         "StringEquals": {
-          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261113",
           "aws:ResourceTag/DataClass": "synthetic-only"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         }
       }
     },
@@ -101,11 +101,11 @@
       "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:security-group/*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:RequestTag/DeploymentId": "medipulse-staging-20261113",
           "aws:RequestTag/DataClass": "synthetic-only"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         }
       }
     },
@@ -115,7 +115,7 @@
       "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:vpc/*",
       "Condition": {
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         }
       }
     },
@@ -137,11 +137,11 @@
             "CreateSnapshot",
             "CreateVolume"
           ],
-          "aws:RequestTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:RequestTag/DeploymentId": "medipulse-staging-20261113",
           "aws:RequestTag/DataClass": "synthetic-only"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         }
       }
     },
@@ -163,11 +163,11 @@
       ],
       "Condition": {
         "StringEquals": {
-          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261113",
           "aws:ResourceTag/DataClass": "synthetic-only"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-15T00:00:00Z"
+          "aws:CurrentTime": "2026-11-19T00:00:00Z"
         }
       }
     },
@@ -177,12 +177,12 @@
       "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*",
       "Condition": {
         "StringEquals": {
-          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261113",
           "aws:ResourceTag/DataClass": "synthetic-only",
           "aws:ResourceTag/Role": "staging-root"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-15T00:00:00Z"
+          "aws:CurrentTime": "2026-11-19T00:00:00Z"
         }
       }
     },
@@ -192,12 +192,12 @@
       "Resource": "arn:aws:ec2:us-east-1::snapshot/*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:RequestTag/DeploymentId": "medipulse-staging-20261113",
           "aws:RequestTag/DataClass": "synthetic-only",
           "aws:RequestTag/Role": "synthetic-backup"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         },
         "NumericEquals": {
           "ec2:VolumeSize": "30"
@@ -213,12 +213,12 @@
       "Resource": "arn:aws:ec2:us-east-1::snapshot/*",
       "Condition": {
         "StringEquals": {
-          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261113",
           "aws:ResourceTag/DataClass": "synthetic-only",
           "aws:ResourceTag/Role": "synthetic-backup"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-15T00:00:00Z"
+          "aws:CurrentTime": "2026-11-19T00:00:00Z"
         }
       }
     },
@@ -228,13 +228,13 @@
       "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:RequestTag/DeploymentId": "medipulse-staging-20261113",
           "aws:RequestTag/DataClass": "synthetic-only",
           "aws:RequestTag/Role": "restore",
           "ec2:VolumeType": "gp3"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         },
         "NumericEquals": {
           "ec2:VolumeSize": "30",
@@ -258,12 +258,12 @@
       "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*",
       "Condition": {
         "StringEquals": {
-          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261113",
           "aws:ResourceTag/DataClass": "synthetic-only",
           "aws:ResourceTag/Role": "restore"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-15T00:00:00Z"
+          "aws:CurrentTime": "2026-11-19T00:00:00Z"
         }
       }
     },
@@ -276,11 +276,11 @@
       "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
       "Condition": {
         "StringEquals": {
-          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261108",
+          "aws:ResourceTag/DeploymentId": "medipulse-staging-20261113",
           "aws:ResourceTag/DataClass": "synthetic-only"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-15T00:00:00Z"
+          "aws:CurrentTime": "2026-11-19T00:00:00Z"
         }
       }
     },
@@ -290,11 +290,11 @@
       "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
       "Condition": {
         "StringEquals": {
-          "ssm:resourceTag/DeploymentId": "medipulse-staging-20261108",
+          "ssm:resourceTag/DeploymentId": "medipulse-staging-20261113",
           "ssm:resourceTag/DataClass": "synthetic-only"
         },
         "DateLessThan": {
-          "aws:CurrentTime": "2026-11-13T00:00:00Z"
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
         }
       }
     }

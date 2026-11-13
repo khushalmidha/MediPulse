@@ -3,7 +3,9 @@ import copy
 import json
 import aws_native_pilot as pilot
 
-STAGE = 'medipulse-staging-20261108'
+STAGE = 'medipulse-staging-20261113'
+LAUNCH_DEADLINE = '2026-11-17T00:00:00Z'
+CLEANUP_DEADLINE = '2026-11-19T00:00:00Z'
 
 
 def build():
@@ -15,7 +17,9 @@ def build():
             continue
         item = json.loads(json.dumps(item).replace('aws:RequestTag/PilotId', 'aws:RequestTag/DeploymentId')
                           .replace('aws:ResourceTag/PilotId', 'aws:ResourceTag/DeploymentId')
-                          .replace(pilot.PILOT, STAGE))
+                          .replace(pilot.PILOT, STAGE)
+                          .replace('2026-11-13T00:00:00Z', LAUNCH_DEADLINE)
+                          .replace('2026-11-15T00:00:00Z', CLEANUP_DEADLINE))
         if name == 'ReadPilotLaunchMetadata':
             item['Action'] = [a for a in item['Action'] if a != 'ec2:DescribeKeyPairs']
         if name == 'LaunchOnlyEncrypted40GiBDefaultPerformanceGp3':
@@ -42,11 +46,11 @@ def build():
 
     def own():
         return {'StringEquals': {'aws:ResourceTag/DeploymentId': STAGE, 'aws:ResourceTag/DataClass': 'synthetic-only'},
-                'DateLessThan': {'aws:CurrentTime': '2026-11-15T00:00:00Z'}}
+                'DateLessThan': {'aws:CurrentTime': CLEANUP_DEADLINE}}
 
     def request():
         return {'StringEquals': {'aws:RequestTag/DeploymentId': STAGE, 'aws:RequestTag/DataClass': 'synthetic-only'},
-                'DateLessThan': {'aws:CurrentTime': '2026-11-13T00:00:00Z'}}
+                'DateLessThan': {'aws:CurrentTime': LAUNCH_DEADLINE}}
 
     def grant(actions, resources, condition):
         statements.append({'Effect': 'Allow', 'Action': actions, 'Resource': resources, 'Condition': condition})
@@ -66,7 +70,7 @@ def build():
     grant(['ec2:AttachVolume', 'ec2:DetachVolume'], account + 'instance/*', own())
     grant('ssm:SendCommand', account + 'instance/*', {
         'StringEquals': {'ssm:resourceTag/DeploymentId': STAGE, 'ssm:resourceTag/DataClass': 'synthetic-only'},
-        'DateLessThan': {'aws:CurrentTime': '2026-11-13T00:00:00Z'}})
+        'DateLessThan': {'aws:CurrentTime': LAUNCH_DEADLINE}})
 
     # Merge only the disjoint EC2 lifecycle/cleanup resource types. Each action
     # supports its own ARN type; this does not introduce any valid new pair.
