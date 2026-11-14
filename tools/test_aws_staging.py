@@ -20,6 +20,39 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def test_remaining_host_requires_renewed_instruction_and_preserves_original_envelope(self):
+        for allowed in [False, True]:
+            with self.subTest(allowed=allowed), self.retry_fixture() as (old, approval, journal, grant, inventory):
+                old.update(attempt=5, clientToken=stage.STAGE+'-five', originalDeadlineUtc=old['deadlineUtc'])
+                approval.update(approved=allowed, priorAttempt=5, proposedClientToken=stage.STAGE+'-six',
+                                maximumRuntimeHours=2, reserveGrossUSDTotalAcrossAllAttempts=3,
+                                ownerDeploymentInstruction='Complete the remaining deployment work now', policyUpdatedConfirmedByOwner=True)
+                journal.write_text(json.dumps(old)); grant.write_text(json.dumps(approval))
+                with patch.object(stage, 'REMAINING_APPROVAL', grant):
+                    if not allowed:
+                        with self.assertRaises(AssertionError): stage.prepare_completion(remaining=True)
+                        self.assertEqual(json.loads(journal.read_text())['attempt'],5)
+                        continue
+                    new=stage.prepare_completion(remaining=True)
+                self.assertEqual(new['originalDeadlineUtc'],old['originalDeadlineUtc'])
+                self.assertEqual(new['reserveGrossUSD'],3)
+                self.assertLessEqual(dt.datetime.fromisoformat(new['deadlineUtc']),dt.datetime.fromisoformat(new['diagnosticPreparedAtUtc'])+dt.timedelta(hours=2))
+                new['instanceId']='i-six'; item={**self.item,'InstanceId':'i-six','ClientToken':stage.STAGE+'-six'}
+                stage.target(new,item)
+                new['remainingAcceptanceScopeApproved']=False
+                with self.assertRaises(AssertionError): stage.instance(new,item)
+                with self.assertRaises(AssertionError): stage.instance({**new,'attempt':7},item)
+
+    def test_remaining_snapshot_denial_cleans_before_ssm_or_build(self):
+        state={'status':'prepared','attempt':6,'volumeId':'vol-synthetic'}
+        with patch.object(stage,'load',return_value=state), patch.object(stage,'save'), \
+             patch.object(stage,'volume'), patch.object(stage,'launch') as launch, \
+             patch.object(stage,'cleanup') as cleanup, patch.object(native,'reviewed_source'), \
+             patch.object(native,'Session') as session, \
+             patch.object(api,'aws',side_effect=[{'Volumes':[{}]},'UnauthorizedOperation']):
+            with self.assertRaisesRegex(AssertionError,'Snapshot permission denied before build'): acceptance.run_diagnostic()
+            launch.assert_called_once(); cleanup.assert_called_once(); session.assert_not_called()
+
     def test_identity_transport_retry_keeps_exact_principal_guard(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

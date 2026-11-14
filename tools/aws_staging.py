@@ -11,6 +11,7 @@ RETRY_APPROVAL = api.PRIVATE / 'aws-staging-retry-proposal.json'
 DIAGNOSTIC_APPROVAL = api.PRIVATE / 'aws-staging-diagnostic-proposal.json'
 COMPLETION_APPROVAL = api.PRIVATE / 'aws-staging-completion-proposal.json'
 FINAL_APPROVAL = api.PRIVATE / 'aws-staging-final-acceptance-proposal.json'
+REMAINING_APPROVAL = api.PRIVATE / 'aws-staging-remaining-acceptance-proposal.json'
 LOGS = api.PRIVATE / 'aws-staging-logs'
 ROOT = '/srv/medipulse-staging'
 
@@ -47,12 +48,14 @@ def instance(state, item, running=False):
     assert state['account'] == api.ACCOUNT and state['deploymentId'] == STAGE
     assert item['InstanceId'] == state['instanceId'] != 'i-07b4f6961dc550de0'
     attempt = state.get('attempt', 1)
-    assert attempt in [1, 2, 3, 4, 5]
+    assert attempt in [1, 2, 3, 4, 5, 6]
     if attempt == 4:
         assert state.get('completionScopeApproved') is True
     if attempt == 5:
         assert state.get('finalAcceptanceScopeApproved') is True
-    token = STAGE + {1: '-one', 2: '-two', 3: '-three', 4: '-four', 5: '-five'}[attempt]
+    if attempt == 6:
+        assert state.get('remainingAcceptanceScopeApproved') is True
+    token = STAGE + {1: '-one', 2: '-two', 3: '-three', 4: '-four', 5: '-five', 6: '-six'}[attempt]
     assert item['InstanceType'] == 't4g.small' and item['ClientToken'] == state['clientToken'] == token
     if item.get('IamInstanceProfile'):
         assert item['IamInstanceProfile']['Arn'] == 'arn:aws:iam::' + api.ACCOUNT + ':instance-profile/' + ssm.ROLE
@@ -60,7 +63,7 @@ def instance(state, item, running=False):
         assert item['State']['Name'] == 'terminated'
     if running:
         scope(state)
-        if attempt in [3, 4, 5]:
+        if attempt in [3, 4, 5, 6]:
             assert state['diagnosticApproved'] is True
             end = dt.datetime.fromisoformat(state['deadlineUtc'])
             assert end <= dt.datetime.fromisoformat(state['originalDeadlineUtc'])
@@ -148,21 +151,24 @@ def prepare_diagnostic():
     return state
 
 
-def prepare_completion(final=False):
+def prepare_completion(final=False, remaining=False):
     """One separately approved completion host after the diagnostic review timeout."""
     api.identity()
-    assert isinstance(final, bool)
-    prior_attempt = 4 if final else 3
+    assert isinstance(final, bool) and isinstance(remaining, bool) and not (final and remaining)
+    prior_attempt = 5 if remaining else (4 if final else 3)
     new_attempt = prior_attempt + 1
-    prior_token = '-four' if final else '-three'
-    new_token = '-five' if final else '-four'
+    prior_token = '-five' if remaining else ('-four' if final else '-three')
+    new_token = '-six' if remaining else ('-five' if final else '-four')
     old = load()
     assert old['status'] == 'cleaned' and old.get('cleanupCompletedAtUtc')
     assert old['account'] == api.ACCOUNT and old.get('attempt') == prior_attempt
     assert old['clientToken'] == STAGE + prior_token and old['instanceId'] != 'i-07b4f6961dc550de0'
-    approval_file = FINAL_APPROVAL if final else COMPLETION_APPROVAL
+    approval_file = REMAINING_APPROVAL if remaining else (FINAL_APPROVAL if final else COMPLETION_APPROVAL)
     approval = json.loads(approval_file.read_text(encoding='utf-8'))
     assert approval['approved'] is True and approval['deploymentId'] == STAGE
+    if remaining:
+        assert approval['policyUpdatedConfirmedByOwner'] is True
+        assert len(approval['ownerDeploymentInstruction']) >= 10
     assert approval['priorInstanceId'] == old['instanceId'] and approval['priorAttempt'] == prior_attempt
     assert approval['proposedClientToken'] == STAGE + new_token
     assert approval['maximumAdditionalAttempts'] == 1 and approval['maximumActiveInstances'] == 1
@@ -190,6 +196,7 @@ def prepare_completion(final=False):
     state.update(status='prepared', attempt=new_attempt, clientToken=STAGE + new_token, failures=[],
                  deadlineUtc=deadline.isoformat(), diagnosticPreparedAtUtc=started.isoformat(),
                  diagnosticApproved=True, completionScopeApproved=True, finalAcceptanceScopeApproved=final,
+                 remainingAcceptanceScopeApproved=remaining,
                  previousManifest=str(archive), previousInstanceId=old['instanceId'],
                  retryApprovedAtUtc=approval['approvedAtUtc'], productionAcceptance=False)
     save(state)
@@ -274,7 +281,7 @@ def launch():
     state = load()
     require_open_window(state)
     assert state['status'] == 'prepared' and state['account'] == api.ACCOUNT and state['reserveGrossUSD'] == 3
-    runway = dt.timedelta(minutes=10) if state.get('attempt') in [3, 4, 5] else dt.timedelta(hours=2)
+    runway = dt.timedelta(minutes=10) if state.get('attempt') in [3, 4, 5, 6] else dt.timedelta(hours=2)
     assert now() + runway < dt.datetime.fromisoformat(state['deadlineUtc'])
     assert not [i for r in find('describe-instances', 'Reservations') for i in r['Instances'] if i['State']['Name'] != 'terminated']
     assert not find('describe-volumes', 'Volumes') and not find('describe-security-groups', 'SecurityGroups')

@@ -446,10 +446,17 @@ def initialization_is_healthy(diagnostic):
 
 def run_diagnostic():
     state = stage.load()
-    assert state['status'] == 'prepared' and state['attempt'] in [3, 4, 5]
+    assert state['status'] == 'prepared' and state['attempt'] in [3, 4, 5, 6]
     native.reviewed_source()
     try:
         stage.launch()
+        if state['attempt'] == 6:
+            current = stage.load()
+            root = api.aws('describe-volumes', '--volume-ids', current['volumeId'])['Volumes'][0]
+            stage.volume(root, 'staging-root')
+            assert api.aws('create-snapshot', '--volume-id', current['volumeId'],
+                           '--description', 'Approved synthetic staging recovery rehearsal',
+                           '--tag-specifications', stage.tags('snapshot', 'synthetic-backup'), dry=True) == 'DryRunOperation', 'Snapshot permission denied before build'
         session = native.Session(stage.STATE, stage.logs_path(stage.load()), stage.target)
         session.verify(); session.online()
         diagnostic = parse_initialization(session.run(initialization_diagnostic(), 'initialization-diagnostic', 180))
@@ -509,6 +516,7 @@ def main():
     parser.add_argument('--diagnostic-approved', action='store_true', help='One separately approved, two-hour diagnostic host')
     parser.add_argument('--completion-approved', action='store_true', help='One separately approved completion host')
     parser.add_argument('--final-acceptance-approved', action='store_true', help='One separately approved acceptance host after fixture corrections')
+    parser.add_argument('--remaining-acceptance-approved', action='store_true', help='One owner-directed remaining acceptance host after the Console policy update')
     parser.add_argument('--resume-existing-nofile-repair', action='store_true', help='Repair only the currently owned, approved running host')
     parser.add_argument('--resume-existing-verified-tests', action='store_true', help='Continue capacity/restore on the same host after verified completed suites')
     parser.add_argument('--cleanup', action='store_true')
@@ -517,11 +525,16 @@ def main():
         stage.cleanup(); return
     # Diagnose the local fixed deadline before contacting expired IAM grants.
     # Cleanup deliberately bypasses this gate so old resources remain removable.
-    if stage.STATE.exists() and not (args.completion_approved or args.final_acceptance_approved):
+    if stage.STATE.exists() and not (args.completion_approved or args.final_acceptance_approved or args.remaining_acceptance_approved):
         stage.require_open_window(stage.load())
     if args.resume_existing_verified_tests:
         resume_existing_verified_tests(); return
     preflight.main()
+    if args.remaining_acceptance_approved:
+        native.reviewed_source()
+        stage.prepare_completion(remaining=True)
+        run_diagnostic()
+        return
     if args.final_acceptance_approved:
         native.reviewed_source()
         stage.prepare_completion(final=True)
