@@ -68,8 +68,17 @@ def aws(operation, *args, dry=False):
 
 def identity():
     global ACCOUNT
-    raw = command(['aws', '--profile', PROFILE, '--region', REGION, 'sts', 'get-caller-identity',
-                   '--output', 'json', '--no-cli-pager'], text=True, timeout=25)
+    for attempt in range(3):
+        try:
+            raw = command(['aws', '--profile', PROFILE, '--region', REGION, 'sts', 'get-caller-identity',
+                           '--output', 'json', '--no-cli-pager', '--cli-connect-timeout', '5',
+                           '--cli-read-timeout', '10'], text=True, timeout=25)
+            break
+        except (subprocess.TimeoutExpired, RuntimeError):
+            if attempt == 2:
+                raise
+            emit('identity-read-retry', attempt=attempt + 1)
+            time.sleep(1)
     obj = json.loads(raw)
     prior = json.loads((PRIVATE / 'aws-resource-audit.json').read_text())
     expected = next(r for r in prior['regions'] if r['region'] == REGION)['networkInterfaces'][0]['OwnerId']

@@ -20,6 +20,52 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def test_identity_transport_retry_keeps_exact_principal_guard(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'aws-resource-audit.json').write_text(json.dumps({'regions': [
+                {'region': api.REGION, 'networkInterfaces': [{'OwnerId': self.account}]}]}))
+            good = json.dumps({'Account': self.account, 'Arn': 'arn:aws:iam::' + self.account + ':user/medipulse-deployer'})
+            with patch.object(api, 'PRIVATE', root), patch.object(api.time, 'sleep'), \
+                 patch.object(api, 'command', side_effect=[subprocess.TimeoutExpired('aws', 25), good]) as call:
+                api.identity()
+                self.assertEqual(call.call_count, 2)
+                self.assertEqual(api.ACCOUNT, self.account)
+            with patch.object(api, 'PRIVATE', root), patch.object(api, 'command', return_value=json.dumps(
+                    {'Account': self.account, 'Arn': 'arn:aws:iam::' + self.account + ':root'})) as call:
+                with self.assertRaises(AssertionError): api.identity()
+                self.assertEqual(call.call_count, 1)
+
+    def test_transport_resume_never_provisions_and_always_cleans(self):
+        for fails in [False, True]:
+            with self.subTest(fails=fails):
+                state = {'attempt': 5, 'finalAcceptanceScopeApproved': True, 'status': 'ready'}
+                session = unittest.mock.Mock(); session.run.return_value = 'VERIFIED_TEST_HOST_UNCHANGED'
+                outputs = ['oom_kill 1\nsha256:' + 'a' * 64, 'tests 2 pass 2 fail 0 skipped 0',
+                           'tests 250 pass 250 fail 0 skipped 0', 'tests 410 pass 410 fail 0 skipped 0']
+                with patch.object(stage, 'load', return_value=state), patch.object(stage, 'save'), \
+                     patch.object(stage, 'launch') as launch, patch.object(stage, 'cleanup') as cleanup, \
+                     patch.object(native, 'reviewed_source'), patch.object(native, 'Session', return_value=session), \
+                     patch.object(acceptance, 'retained_success', side_effect=[(o, 'hash') for o in outputs]), \
+                     patch.object(acceptance, 'capacity_and_restore', side_effect=RuntimeError('capacity failed') if fails else None) as capacity:
+                    if fails:
+                        with self.assertRaisesRegex(RuntimeError, 'capacity failed'): acceptance.resume_existing_verified_tests()
+                    else:
+                        acceptance.resume_existing_verified_tests()
+                    capacity.assert_called_once()
+                    launch.assert_not_called()
+                    cleanup.assert_called_once_with()
+
+    def test_retained_success_rejects_old_command_and_failed_result(self):
+        with tempfile.TemporaryDirectory() as folder:
+            session = unittest.mock.Mock(); session.logs = Path(folder)
+            state = {'instanceId': 'i-current', 'ssmCommands': [{'label': 'checks', 'commandId': 'new'}]}
+            for command_id, status in [('old', 'Success'), ('new', 'Failed')]:
+                (session.logs / 'checks.result.json').write_text(json.dumps({'CommandId': command_id,
+                    'InstanceId': 'i-current', 'Status': status, 'ResponseCode': 0, 'StandardOutputContent': 'tests 410 pass 410 fail 0 skipped 0'}))
+                with patch.object(stage, 'load', return_value=state), self.assertRaises(AssertionError):
+                    acceptance.retained_success(session, 'checks')
+
     def test_failure_output_retains_totals_and_nonzero_status(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); (root / 'logs').mkdir()

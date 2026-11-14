@@ -217,6 +217,10 @@ def acceptance(session, reuse_services=False):
     assert media['pass'] == 2 and media['skipped'] == 0
     units = summary(session.run(logged(container('node --import ./tests/bootstrap.js --test --test-reporter=tap --test-concurrency=1 tests/*.test.js', shell=True), 'backend-units'), 'backend-unit-checks', 600))
     integration = summary(session.run(logged(container('scripts/testIntegration.js'), 'backend-integrations'), 'backend-integration-checks', 1200))
+    capacity_and_restore(session, media, units, integration, pressure_before)
+
+
+def capacity_and_restore(session, media, units, integration, pressure_before):
     session.run(capacity_env_script(), 'synthetic-capacity-targets', 30)
     output = session.run(logged(container('--expose-gc /audit/capacity.mjs', capacity=True), 'long-video-capacity'), 'long-video-full-api-capacity', 1200)
     result = next(json.loads(line) for line in output.splitlines() if line.startswith('{') and '"scenario"' in line)
@@ -359,6 +363,52 @@ def resume_existing_nofile_repair():
         stage.cleanup()
 
 
+def retained_success(session, label):
+    state = stage.load()
+    command = next(c for c in reversed(state['ssmCommands']) if c['label'] == label)
+    raw = (session.logs / (label + '.result.json')).read_bytes()
+    result = json.loads(raw)
+    assert result['CommandId'] == command['commandId'] and result['InstanceId'] == state['instanceId']
+    assert result['Status'] == 'Success' and result['ResponseCode'] == 0
+    return result['StandardOutputContent'], hashlib.sha256(raw).hexdigest()
+
+
+def resume_existing_verified_tests():
+    # Recover an interrupted control connection, never provision or rerun passed
+    # suites. The exact current host, command IDs, source and OOM baseline bind
+    # the retained evidence to the remaining capacity/backup work.
+    state = stage.load()
+    assert state['attempt'] == 5 and state['finalAcceptanceScopeApproved'] is True and state['status'] == 'ready'
+    assert not state.get('snapshotId') and not state.get('restoreVolumeId')
+    native.reviewed_source()
+    try:
+        session = native.Session(stage.STATE, stage.logs_path(state), stage.target)
+        session.verify()
+        evidence = {}
+        outputs = {}
+        for label in ['host-before-load', 'staging-real-media-model', 'backend-unit-checks', 'backend-integration-checks']:
+            outputs[label], evidence[label] = retained_success(session, label)
+        media = summary(outputs['staging-real-media-model'])
+        units = summary(outputs['backend-unit-checks'])
+        integration = summary(outputs['backend-integration-checks'])
+        assert [(c['tests'], c['pass'], c['skipped']) for c in [media, units, integration]] == [(2, 2, 0), (250, 250, 0), (410, 410, 0)]
+        before = outputs['host-before-load']
+        image = re.search(r'sha256:[a-f0-9]{64}', before)[0]
+        oom = re.search(r'oom_kill (\d+)', before)[1]
+        guard = 'test "$(docker image inspect ' + api.IMAGE + ' --format \'{{.Id}}\')" = ' + shlex.quote(image) + '\n'
+        guard += 'test "$(awk \'/^oom_kill /{print $2}\' /proc/vmstat)" = ' + shlex.quote(oom) + '\n'
+        guard += "docker exec medipulse-staging-mongo mongosh --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)'\necho VERIFIED_TEST_HOST_UNCHANGED\n"
+        assert 'VERIFIED_TEST_HOST_UNCHANGED' in session.run(guard, 'verified-tests-host-continuation', 30)
+        state = stage.load(); state.update(verifiedTestsTransportResume=evidence, nativeTests=media, backendUnits=units,
+                                          backendIntegrations=integration, backendImageId=image); stage.save(state)
+        capacity_and_restore(session, media, units, integration, before)
+    except BaseException as error:
+        state = stage.load(); state.setdefault('failures', []).append(type(error).__name__ + ': ' + str(error)); stage.save(state)
+        raise
+    finally:
+        stage.cleanup()
+
+
 def parse_initialization(output):
     encoded = re.search(r'^CLOUD_INIT_REPORT_BASE64=(.+)$', output, re.M)
     code = re.search(r'^CLOUD_INIT_RETURN_CODE=(\d+)$', output, re.M)
@@ -460,6 +510,7 @@ def main():
     parser.add_argument('--completion-approved', action='store_true', help='One separately approved completion host')
     parser.add_argument('--final-acceptance-approved', action='store_true', help='One separately approved acceptance host after fixture corrections')
     parser.add_argument('--resume-existing-nofile-repair', action='store_true', help='Repair only the currently owned, approved running host')
+    parser.add_argument('--resume-existing-verified-tests', action='store_true', help='Continue capacity/restore on the same host after verified completed suites')
     parser.add_argument('--cleanup', action='store_true')
     args = parser.parse_args()
     if args.cleanup:
@@ -468,6 +519,8 @@ def main():
     # Cleanup deliberately bypasses this gate so old resources remain removable.
     if stage.STATE.exists() and not (args.completion_approved or args.final_acceptance_approved):
         stage.require_open_window(stage.load())
+    if args.resume_existing_verified_tests:
+        resume_existing_verified_tests(); return
     preflight.main()
     if args.final_acceptance_approved:
         native.reviewed_source()

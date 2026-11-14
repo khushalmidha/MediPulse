@@ -2604,8 +2604,8 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Third full acceptance pending after same-host fixture repairs; snapshot authorization denied",
-          "stagingSafetyTests": 40,
+          "blocker": "Native suites passed;299second capacity continuation running; snapshot authorization denied",
+          "stagingSafetyTests": 43,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": true,
           "productionCutoverPerformed": false,
@@ -2637,18 +2637,17 @@
           "sameHostMongoNofileRepair": true,
           "mongoNofileLimit": 65536,
           "cleanIntegrationRun": {
-            "registeredResults": 395,
-            "passed": 394,
-            "failed": 1,
+            "registered": 410,
+            "passed": 410,
+            "failed": 0,
             "skipped": 0,
-            "durationSeconds": 658.353,
-            "cause": "p06 file could not resolve missing frontend socket.io-client fixture;16cases not exercised"
+            "durationSeconds": 345.747
           },
           "ffmpegFixtureContractPassed": 33,
           "acceptanceSameHostRepairSupported": true,
           "completionHostStatus": "cleaned",
           "finalAcceptanceApproved": true,
-          "acceptanceHostStatus": "third same-host full acceptance running after confirmed Mongo OOM repair",
+          "acceptanceHostStatus": "same-host verified-test continuation after transient STS timeout",
           "acceptanceHostDeadlineUtc": "2026-11-14T13:16:43.983678Z",
           "snapshotPermissionDryRun": "UnauthorizedOperation",
           "snapshotPolicyCorrectionEffective": false,
@@ -2656,7 +2655,8 @@
           "mongoFixtureMemoryMiB": 512,
           "priorMongoFixtureOomConfirmed": true,
           "priorHostCumulativeOomCounter": 1,
-          "backendCgroupOomKillsDuringFixtureFailure": 0
+          "backendCgroupOomKillsDuringFixtureFailure": 0,
+          "verifiedTestTransportResumeSupported": true
         }
       }
     }
