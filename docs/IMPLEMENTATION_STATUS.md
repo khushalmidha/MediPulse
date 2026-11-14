@@ -1,5 +1,15 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Corrected retry stopped at initialization; cleaned — 14 November 2026
+
+The approved second attempt launched at05:46:30UTC and cleanup completed05:49:00UTC. The retained SSM result is **Failed / response code2**, stdout only `status: done`; no image-build or app/media/299-second/restore acceptance was reached or proved. The updated coherent dependency source was selected, but its native build is not certified by this result.
+
+Both latest and buffered EC2 boot-console reads returned empty output after termination. Therefore the underlying initialization error is **not established**. The last visible command is cloud-init status; cloud-init documents code2 as a recoverable initialization error, but that documentation alone cannot identify this host's actual warning. See [official return-code explanation](https://docs.cloud-init.io/en/24.3/explanation/return_codes.html).
+
+Improved the bootstrap to retain `cloud-init status --wait --long`, an explicit failing phase/code, and first/last package/build-log lines before cleanup. The initialization gate still rejects failure; no warning is silently ignored. Actual Bash fixtures reproduce fatal1/recoverable2 and assert retained detail/nonzero exit before package setup.25safety tests,4Python AST checks and generated4768byte Bash syntax check pass. This diagnostic change has not run on another paid host.
+
+Independent AWS reads confirm0active tagged instances,0volumes,0snapshots and0securitygroups. Both manifests/log directories remain private and preserved. The one explicitly approved additional attempt is now consumed; the controller refuses attempt3. **No further paid launch is authorized or queued.** Production deployment, trusted AWS API HTTPS and full staging acceptance remain incomplete.
+
 ## Corrected retry explicitly approved — 14 November 2026
 
 Owner explicitly approved one corrected retry within the original3USD **total across attempts** and fixed16November16:11UTC deadline. The private retry proposal is now approved. `--retry-approved` requires the matching prior cleaned instance, new `-two` client token, exact original reserve/window/type/disk, fresh zero-resource inventory and an archived previous journal. A third attempt is refused. Attempt2 logs are separate; original logs/journal remain preserved.24cloud-safety regressions and3Python AST checks pass; immutable coherent app source remains dfa1c848. Native retry results are not claimed until the real run completes. No production cutover/provider/DNS/data approval is implied.

@@ -17,6 +17,19 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def test_cloud_init_failure_retains_detail_and_stops_before_packages(self):
+        script = native.bootstrap({'modelHashes': {}})
+        prefix = script.split('export DEBIAN_FRONTEND=noninteractive', 1)[0]
+        fake = "uname() { echo aarch64; }; systemctl() { return 0; }; "
+        for status in [1, 2]:
+            with self.subTest(status=status):
+                command = fake + "cloud-init() { echo 'status: done'; echo 'recoverable_errors: synthetic diagnostic'; return " + str(status) + "; };\n" + prefix
+                result = subprocess.run(['C:/Program Files/Git/bin/bash.exe', '-c', 'set -Eeuo pipefail\n' + command],
+                                        capture_output=True, timeout=10)
+                self.assertEqual(result.returncode, status)
+                self.assertIn(b'recoverable_errors: synthetic diagnostic', result.stdout)
+                self.assertIn(('BOOTSTRAP_FAILURE step=cloud-init code=' + str(status)).encode(), result.stderr)
+
     @contextmanager
     def retry_fixture(self):
         with tempfile.TemporaryDirectory() as folder:

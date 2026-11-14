@@ -1,6 +1,6 @@
 {
   "date": "2026-11-13",
-  "status": "prepared_renewal_ready_for_owner_attachment",
+  "status": "approved_attempt2_failed_initialization_cleaned",
   "deploymentId": "medipulse-staging-20261113",
   "budgetScope": "MediPulse only; JobFinder charges explicitly accepted separately",
   "targetMonthlyGrossBeforeCreditsUSD": 10,
@@ -120,9 +120,9 @@
   ],
   "stagingPermissionDryRun": "UnauthorizedOperation",
   "stagingPolicyManagedCharacters": 5978,
-  "newStagingResourcesCreated": false,
-  "latestVerificationDate": "2026-11-13",
-  "currentPreflight": "iam:GetInstanceProfile AccessDenied; general EC2 tagged inventory reads still work",
+  "newStagingResourcesCreated": true,
+  "latestVerificationDate": "2026-11-14",
+  "currentPreflight": "IAM/SSM preflight and positive/negative launch dry-runs passed",
   "oldStagingDeadlineUtc": "2026-11-10T23:28:17.663618Z",
   "oldTaggedInventory": {
     "region": "us-east-1",
@@ -131,6 +131,8 @@
     "snapshots": 0,
     "securityGroups": 0
   },
-  "nextAction": "Prepare owner-reviewable new-window IAM/staging package; existing renderer/private JSON have expired dates; preserve old manifests",
-  "latestEvidence": "docs/DEPLOYMENT_FINALIZATION.md"
+  "nextAction": "Investigate retained initialization failure; detailed bootstrap diagnostics prepared; further paid attempt needs separate approval",
+  "latestEvidence": "docs/DEPLOYMENT_FINALIZATION.md",
+  "activeStagingResources": 0,
+  "stagingAcceptance": false
 }

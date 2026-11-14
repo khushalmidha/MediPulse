@@ -109,15 +109,33 @@ def reviewed_source():
 def bootstrap(state):
     reviewed_source()
     q = shlex.quote
-    script = '''test "$(uname -m)" = aarch64
+    script = '''BOOTSTRAP_STEP=platform-and-expiry
+bootstrap_failure() {
+    bootstrap_status=$?
+    trap - ERR
+    printf 'BOOTSTRAP_FAILURE step=%s code=%s\\n' "$BOOTSTRAP_STEP" "$bootstrap_status" >&2
+    for bootstrap_log in /tmp/pilot-install.log /srv/medipulse-native-pilot/build.log; do
+        if test -s "$bootstrap_log"; then
+            printf 'BOOTSTRAP_LOG %s\\n' "$bootstrap_log" >&2
+            head -n 12 "$bootstrap_log" >&2
+            tail -n 12 "$bootstrap_log" >&2
+        fi
+    done
+    exit "$bootstrap_status"
+}
+trap bootstrap_failure ERR
+test "$(uname -m)" = aarch64
 systemctl is-active --quiet medipulse-native-pilot-expire.timer
-cloud-init status --wait
+BOOTSTRAP_STEP=cloud-init
+cloud-init status --wait --long
+BOOTSTRAP_STEP=system-packages
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq >/tmp/pilot-install.log 2>&1
 apt-get install -y -qq docker.io git ca-certificates curl >>/tmp/pilot-install.log 2>&1
 systemctl enable --now docker
 install -d -m 0755 /srv/medipulse-native-pilot
 cd /srv/medipulse-native-pilot
+BOOTSTRAP_STEP=source-checkout
 git init -q source
 cd source
 git remote add origin https://github.com/khushalmidha/MediPulse.git
@@ -127,7 +145,7 @@ git sparse-checkout set backend
 git checkout -q ''' + SOURCE + '\n'
     # Fetch the coherent manifest/lock from the immutable release together.
     # Embedding a full npm lock into SSM commands exceeds the transport size cap.
-    script += 'docker build --quiet -t ' + q(pilot.IMAGE) + ' backend >/srv/medipulse-native-pilot/build.log 2>&1 || { tail -n 40 /srv/medipulse-native-pilot/build.log; exit 1; }\n'
+    script += 'BOOTSTRAP_STEP=image-build\ndocker build --quiet -t ' + q(pilot.IMAGE) + ' backend >/srv/medipulse-native-pilot/build.log 2>&1\nBOOTSTRAP_STEP=model-cache\n'
     model_repo, revision = pilot.MODEL.rsplit('/', 1)
     for name, digest in state['modelHashes'].items():
         path = ROOT + '/models/' + pilot.MODEL + '/' + name
