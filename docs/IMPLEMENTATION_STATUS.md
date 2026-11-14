@@ -1,5 +1,11 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Root-EBS production candidate prepared; staging running — 14 November 2026
+
+Owner policy update is now certified for the blocked operation: attempt6 owned-root CreateSnapshot dry-run returns DryRunOperation before build. Positive launch/cleanup and negative larger/foreign dry-runs pass. Initialization is healthy0 with no warnings/errors; pinned native build is running inside the fixed2hour deadline. No live production or new native app acceptance is claimed yet.
+
+Prepared ec2-root.override.yml and medipulse-ec2-root.service for the selected root-EBS topology. The old separate-mount service requires /srv/medipulse itself to be a mountpoint and does not fit this30GiB root layout. The new candidate requires a verified-root marker and pre-existing persistent directories; it does not request an extra disk. Backend/Redis/Caddy caps1280/128/128MiB, no swap, private cache network, only proxy80/443, bounded logs, immutable local backend image/pull-never and existing false feature flags are retained. Actual synthetic Compose config checks pass without env resolution/service startup; official pinned Redis/Caddy registry indexes both contain linux/arm64. This is local preparation, not service installation, TLS/DNS validation or approval to promote synthetic resources/data to production.
+
 ## Final attempt5 outcome: native suites pass; incomplete acceptance; cleaned — 14 November 2026
 
 **Live AWS production deployment is not complete.** On the approved same host, pinned native ARM64 application dfa1c848 with the explicitly reviewed test overlays passes real media/model2/2, backend units250/250 and the full registered integrations410/410, all0failed/0skipped. Full integrations took345.747seconds after the locked-client and512MiB Mongo fixture repairs. Earlier failed runs and the prior Mongo OOM remain recorded; they are not counted as passes.

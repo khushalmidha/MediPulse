@@ -2604,7 +2604,7 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Live snapshot dry-run and remaining native acceptance pending after owner policy update",
+          "blocker": "Native remaining acceptance executing; production cutover still incomplete",
           "stagingSafetyTests": 46,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": true,
@@ -2621,7 +2621,7 @@
           "retryApproved": true,
           "retryMaximumAdditionalAttempts": 1,
           "retryUsesOriginalDeadlineAndTotalReserve": true,
-          "attempt": 5,
+          "attempt": 6,
           "attempt2Status": "cleaned",
           "attempt2LaunchUtc": "2026-11-14T05:46:30Z",
           "attempt2CleanupUtc": "2026-11-14T05:49:00.134100Z",
@@ -2647,10 +2647,10 @@
           "acceptanceSameHostRepairSupported": true,
           "completionHostStatus": "cleaned",
           "finalAcceptanceApproved": true,
-          "acceptanceHostStatus": "cleaned",
+          "acceptanceHostStatus": "healthy initialization; native build running",
           "acceptanceHostDeadlineUtc": "2026-11-14T13:16:43.983678Z",
-          "snapshotPermissionDryRun": "UnauthorizedOperation",
-          "snapshotPolicyCorrectionEffective": false,
+          "snapshotPermissionDryRun": "DryRunOperation",
+          "snapshotPolicyCorrectionEffective": true,
           "websocketFixtureRepair": "pinned frontend production lock, scripts disabled; runtime image unchanged",
           "mongoFixtureMemoryMiB": 512,
           "priorMongoFixtureOomConfirmed": true,
@@ -2685,7 +2685,10 @@
           "remainingExecution": "prepared attempt6, max2hours, unchanged original3USD total/deadline; no automatic seventh or production promotion",
           "cliLoginRefreshedByOwner": true,
           "exactDeployerIdentityReverified": true,
-          "ssmStartAndExitMarkers": true
+          "ssmStartAndExitMarkers": true,
+          "rootEbsServicePrepared": true,
+          "rootComposeSyntheticConfigPassed": true,
+          "redisAndCaddyArm64Available": true
         }
       }
     }

@@ -1,0 +1,25 @@
+# Prepared for the one-host EC2 candidate; activation requires its own scope.
+# Persistent paths use the approved root EBS, without a second data disk.
+name: medipulse-ec2
+services:
+  backend:
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    cpus: 1.6
+    pull_policy: never
+    logging: &bounded_logs
+      driver: json-file
+      options: {max-size: 5m, max-file: "2"}
+  redis:
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.1
+    command: [redis-server, --appendonly, "yes", --appendfsync, everysec, --maxmemory, 64mb, --maxmemory-policy, noeviction]
+    logging: *bounded_logs
+  proxy:
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.2
+    logging: *bounded_logs
+# Container ceilings total1536MiB. Production uses approved external Atlas;
+# this candidate does not add the synthetic acceptance Mongo sidecar.

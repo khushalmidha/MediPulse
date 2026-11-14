@@ -1,5 +1,11 @@
 # Low-traffic deployment continuation — 13 November 2026
 
+## Root-EBS production candidate prepared; staging running — 14 November 2026
+
+Owner policy update is now certified for the blocked operation: attempt6 owned-root CreateSnapshot dry-run returns DryRunOperation before build. Positive launch/cleanup and negative larger/foreign dry-runs pass. Initialization is healthy0 with no warnings/errors; pinned native build is running inside the fixed2hour deadline. No live production or new native app acceptance is claimed yet.
+
+Prepared ec2-root.override.yml and medipulse-ec2-root.service for the selected root-EBS topology. The old separate-mount service requires /srv/medipulse itself to be a mountpoint and does not fit this30GiB root layout. The new candidate requires a verified-root marker and pre-existing persistent directories; it does not request an extra disk. Backend/Redis/Caddy caps1280/128/128MiB, no swap, private cache network, only proxy80/443, bounded logs, immutable local backend image/pull-never and existing false feature flags are retained. Actual synthetic Compose config checks pass without env resolution/service startup; official pinned Redis/Caddy registry indexes both contain linux/arm64. This is local preparation, not service installation, TLS/DNS validation or approval to promote synthetic resources/data to production.
+
 ## CLI login refreshed; remaining-run diagnostics ready — 14 November 2026
 
 After an initial successful read-only preflight, STS returned ExpiredToken before the remaining-run command could prepare or launch a host. The owner completed a fresh active browser login/Allow; exact medipulse-deployer identity is verified again. No paid resource was created by the expired-token attempt and the cleaned attempt5 journal was not reset. Added SSM Bash start/exit markers; a real shell regression proves exit0and7are preserved, not replaced by diagnostic success.46safety regressions pass. The recorded bounded remaining-run instruction and owner policy update remain in force; no further Console policy edit is needed to continue its live dry-run.

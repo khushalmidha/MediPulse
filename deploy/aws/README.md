@@ -1,5 +1,9 @@
 # MediPulse deployment: USD10 target / USD15 gross maximum
 
+## Selected root-EBS candidate — 14 November 2026
+
+Use the prepared `compose.yml` + `ec2-root.override.yml` and `medipulse-ec2-root.service` for the30GiB root-EBS topology; the older `medipulse.service` is a separate-mount reference. The root service requires operator validation/marker and persistent paths, with no extra paid data disk. Synthetic Compose config and pinned Redis/Caddy ARM64 availability checks pass; this is not a deployed/activated production stack. Owner saved the staging policy; its owned-root snapshot authorization dry-run now passes. Remaining native acceptance is running. Follow the latest [deployment evidence](../../docs/DEPLOYMENT_FINALIZATION.md), not historical blocker text below.
+
 ## Expired staging access; patched release candidate — 13 November 2026
 
 The old prepared staging window ended 10 November UTC. Current private policy/renderer launch and read/SSM dates expire 13 November UTC; fresh non-root GetInstanceProfile returns AccessDenied. The previously documented "paste existing staging JSON" step is stale. No paid resources or production cutover occurred in this pass. Runner now detects local expiry before cloud calls while retaining exact cleanup access. Mongoose is pinned to patched8.24.7; both production dependency audits report zero vulnerabilities. See [current evidence and focused Antigravity prompt](../../docs/DEPLOYMENT_FINALIZATION.md) for local verification and the owner IAM renewal action. Keep the old manifests intact; no deadline reset or root fallback.
