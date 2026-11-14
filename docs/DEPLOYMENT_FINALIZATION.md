@@ -1,5 +1,9 @@
 # Low-traffic deployment continuation — 13 November 2026
 
+## Owner workflow preference — 14 November 2026
+
+Owner requests one consolidated Antigravity prompt and only easy tasks. Codex retains application/tooling fixes, SSM investigation, tests, acceptance and deployment execution. Antigravity is restricted to the mechanical owner AWS Console update of the already prepared MediPulseStaging JSON, confirmation of its existing user attachment, and exporting the saved default document/version for Codex review. It is not assigned code changes, diagnostic decisions, paid launches, tests or DNS/cutover. The canonical private handoff is antigravity-deployment-handoff.txt; earlier broader investigation instructions are superseded. This preference adds no paid-host approval and does not change the cleaned attempt5 outcome.
+
 ## Final attempt5 outcome: native suites pass; incomplete acceptance; cleaned — 14 November 2026
 
 **Live AWS production deployment is not complete.** On the approved same host, pinned native ARM64 application dfa1c848 with the explicitly reviewed test overlays passes real media/model2/2, backend units250/250 and the full registered integrations410/410, all0failed/0skipped. Full integrations took345.747seconds after the locked-client and512MiB Mongo fixture repairs. Earlier failed runs and the prior Mongo OOM remain recorded; they are not counted as passes.
