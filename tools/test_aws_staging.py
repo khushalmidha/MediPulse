@@ -20,6 +20,14 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def test_ssm_phase_markers_preserve_actual_shell_exit_status(self):
+        for code in [0,7]:
+            with self.subTest(code=code):
+                raw=subprocess.run(['C:/Program Files/Git/bin/bash.exe','-c',native.command_script('exit '+str(code),'fixture')],capture_output=True,timeout=10)
+                self.assertEqual(raw.returncode,code)
+                self.assertIn(b'SSM_STEP_START label=fixture',raw.stdout)
+                self.assertIn(('SSM_STEP_FINISH code='+str(code)).encode(),raw.stdout)
+
     def test_remaining_host_requires_renewed_instruction_and_preserves_original_envelope(self):
         for allowed in [False, True]:
             with self.subTest(allowed=allowed), self.retry_fixture() as (old, approval, journal, grant, inventory):

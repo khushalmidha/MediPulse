@@ -1,5 +1,9 @@
 # Low-traffic deployment continuation — 13 November 2026
 
+## CLI login refreshed; remaining-run diagnostics ready — 14 November 2026
+
+After an initial successful read-only preflight, STS returned ExpiredToken before the remaining-run command could prepare or launch a host. The owner completed a fresh active browser login/Allow; exact medipulse-deployer identity is verified again. No paid resource was created by the expired-token attempt and the cleaned attempt5 journal was not reset. Added SSM Bash start/exit markers; a real shell regression proves exit0and7are preserved, not replaced by diagnostic success.46safety regressions pass. The recorded bounded remaining-run instruction and owner policy update remain in force; no further Console policy edit is needed to continue its live dry-run.
+
 ## Owner saved policy; renewed remaining execution — 14 November 2026
 
 Owner explicitly reports MediPulseStaging updated after the step-by-step Console action. Read-only native SSM/IAM preflight passes. The attempt5 short lifetime has expired; its cleaned journal is preserved, not reset. Owner's renewed instruction to finish/deploy in one pass, followed by the requested policy save, authorizes the necessary bounded remaining execution inside the unchanged3USD total reserve and original16November16:11UTC deadline. Recorded the exact instruction/confirmation and scope privately; this is not a fabricated specific approval phrase or an automatic failure retry.

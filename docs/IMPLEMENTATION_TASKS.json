@@ -2605,7 +2605,7 @@
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
           "blocker": "Live snapshot dry-run and remaining native acceptance pending after owner policy update",
-          "stagingSafetyTests": 45,
+          "stagingSafetyTests": 46,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": true,
           "productionCutoverPerformed": false,
@@ -2682,7 +2682,10 @@
           "directAuthorizedPolicySave": "iam:CreatePolicyVersion AccessDenied",
           "ownerConsolePolicySaveReported": true,
           "remainingExecutionAuthorizedByRenewedOwnerInstruction": true,
-          "remainingExecution": "prepared attempt6, max2hours, unchanged original3USD total/deadline; no automatic seventh or production promotion"
+          "remainingExecution": "prepared attempt6, max2hours, unchanged original3USD total/deadline; no automatic seventh or production promotion",
+          "cliLoginRefreshedByOwner": true,
+          "exactDeployerIdentityReverified": true,
+          "ssmStartAndExitMarkers": true
         }
       }
     }

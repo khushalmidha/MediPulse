@@ -15,6 +15,16 @@ SOURCE = 'dfa1c8489f624ce3f5351ad9a9e00c5e89027b24'
 ROOT = '/srv/medipulse-native-pilot'
 
 
+def command_script(script, label):
+    assert re.fullmatch('[a-z0-9-]+', label)
+    # Retain proof that Bash actually began, even if the remote process is later
+    # killed. The EXIT trap preserves explicit failure codes rather than masking
+    # a failed test with a successful diagnostic printf.
+    return ('set -euo pipefail\n' +
+            "printf '%s\\n' " + shlex.quote('SSM_STEP_START label=' + label) + '\n' +
+            "trap 'step_status=$?; printf \"SSM_STEP_FINISH code=%s\\n\" \"$step_status\"; exit \"$step_status\"' EXIT\n" + script)
+
+
 def target(state, instance):
     assert state['account'] == pilot.ACCOUNT and state['transport'] == 'ssm'
     assert instance['InstanceId'] == state['instanceId'] != 'i-07b4f6961dc550de0'
@@ -61,7 +71,7 @@ class Session:
         payload = {'InstanceIds': [self.state['instanceId']], 'DocumentName': 'AWS-RunShellScript',
                    'DocumentVersion': '1', 'TimeoutSeconds': 120, 'MaxConcurrency': '1', 'MaxErrors': '0',
                    'CloudWatchOutputConfig': {'CloudWatchOutputEnabled': False},
-                   'Parameters': {'commands': ['/bin/bash -c ' + shlex.quote('set -euo pipefail\n' + script)],
+                   'Parameters': {'commands': ['/bin/bash -c ' + shlex.quote(command_script(script, label))],
                                   'executionTimeout': [str(timeout)]}}
         encoded = json.dumps(payload)
         assert len(encoded.encode()) < 24000, 'Do not send oversized or credential-bearing artifacts'
