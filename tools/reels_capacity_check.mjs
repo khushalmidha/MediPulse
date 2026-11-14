@@ -22,6 +22,7 @@ Object.assign(process.env, {
   GEMINI_API_KEY: '', HF_TOKEN: '', CLIENT_URLS: 'http://localhost:15173',
   REELS_ENABLED: 'true', ENTERPRISE_PILOT_ENABLED: 'false',
   REELS_MEDIA_ROOT: '/tmp/reels-capacity', REELS_EMBEDDING_ALLOW_DOWNLOAD: 'false',
+  REELS_PROCESS_TIMEOUT_MS: '600000',
   API_PROBE_URL: 'http://127.0.0.1:8080/health/live',
 });
 const require = createRequire('/app/package.json');
@@ -57,7 +58,21 @@ async function json(route, options) {
   const response = await request(route, options); assert.ok(response.ok, `Synthetic ${route} failed: ${response.status}`); return response.json();
 }
 try {
-  api = spawn(process.execPath, ['index.js'], { cwd: '/app', env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  await fs.mkdir(process.env.REELS_MEDIA_ROOT, { recursive: true });
+  const source = '/tmp/capacity-source.mp4';
+  capacityPhase = 'generate-source';
+  const generated = spawnSync('/usr/bin/ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=720x1280:rate=24', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', String(seconds), '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-b:v', '800k', '-maxrate', '1000k', '-bufsize', '2000k', '-c:a', 'aac', '-b:a', '64k', '-threads', '2', source], { timeout: 180000 });
+  assert.equal(generated.status, 0, 'Synthetic source generation failed');
+  const diagnosticHook = '/tmp/capacity-api-diagnostics.mjs';
+  await fs.writeFile(diagnosticHook, `import cp from 'node:child_process';
+import {syncBuiltinESMExports} from 'node:module';
+import {basename} from 'node:path';
+const original=cp.spawn;
+cp.spawn=function(file,args,options){const started=Date.now();const child=original.call(this,file,args,options);child.once('close',(code,signal)=>console.error(JSON.stringify({phase:'native-process-exit',binary:basename(String(file)),ms:Date.now()-started,code,signal})));return child;};
+syncBuiltinESMExports();
+`);
+  capacityPhase = 'startup';
+  api = spawn(process.execPath, ['--import', diagnosticHook, 'index.js'], { cwd: '/app', env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
   for (const stream of [api.stdout, api.stderr]) stream.on('data', chunk => { apiLog = (apiLog + chunk).slice(-16384); });
   const readyDeadline = Date.now() + 60000;
   for (;;) {
@@ -65,11 +80,6 @@ try {
     if (Date.now() > readyDeadline) throw Error('Full API readiness did not pass');
     await new Promise(resolve => setTimeout(resolve, 500));
   }
-  await fs.mkdir(process.env.REELS_MEDIA_ROOT, { recursive: true });
-  const source = '/tmp/capacity-source.mp4';
-  capacityPhase = 'generate-source';
-  const generated = spawnSync('/usr/bin/ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=720x1280:rate=24', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', String(seconds), '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-b:v', '800k', '-maxrate', '1000k', '-bufsize', '2000k', '-c:a', 'aac', '-b:a', '64k', '-threads', '2', source], { timeout: 180000 });
-  assert.equal(generated.status, 0, 'Synthetic source generation failed');
   console.log(JSON.stringify({ phase: 'full-api-ready-and-source-generated', videoSeconds: seconds, sourceBytes: (await fs.stat(source)).size }));
   timer = setInterval(async () => {
     if (sampling) return; sampling = true;
