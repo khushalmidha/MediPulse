@@ -1,5 +1,15 @@
 # Low-traffic deployment continuation — 13 November 2026
 
+## Renewed package verified locally — 14 November 2026
+
+The renewal commit `29c4716e` supersedes the expired-package instructions below. Current scope is `medipulse-staging-20261113`; its preserved new journal runs from 13 November 16:11:12 UTC to 16 November 16:11:12 UTC (**16 November, 21:41 IST**). Private renewed staging JSON is5978characters (launch/SSM17NovemberUTC, cleanup19NovemberUTC); renewed SSM JSON is1971characters (17NovemberUTC), with no unresolved account placeholders. Do not regenerate or extend the fixed journal.
+
+On14November the actual CLI reported **session expired: reauthenticate using aws login**, before IAM preflight. The piped non-root browser login attempt ended with EOF while reading input; an interactive retry was stopped without authentication success. Run `aws login --profile medipulse-deployer --region us-east-1` in the owner's interactive terminal, then complete its browser flow. Effective policy attachment/access remains unverified until authentication completes. This is a current authentication blocker, not a fresh AccessDenied result. No new paid resources were launched in this continuation.
+
+Fixed a renewed runner mismatch before launch: Mongo database and Redis container names now share a deterministic hexadecimal suffix derived from the new DeploymentId, satisfying the capacity harness's existing strict guards. The Docker network retains the full DeploymentId. Snapshot quiescence and Redis proof commands use the same container.16safety regressions pass, including executing the actual Node harness target guards with generated values and rejecting the faulty deployment-name values. Actual Bash three-line env output,2shell syntax checks and2Python AST checks passed. The synthetic72h/3USD reserve and cleanup safeguards are unchanged; IAM is not a hard dollar/count cap.
+
+After browser authentication, run the read-only preflight and dry-runs; only if effective access succeeds proceed with the already-approved synthetic acceptance/cleanup. Owner policy-attachment instructions use `%LOCALAPPDATA%/MediPulse/Private/iam-native-ssm.compact.json` and `iam-staging.compact.json`. The old13November expired-file warning and renewal-generation prompt below are historical, superseded by this verified package. Native AWS application/299-second/restore acceptance and production cutover remain pending.
+
 AWS cutover is **not complete**. Continue with one backend, private Redis, existing Atlas and Vercel, persistent Reels/model storage and the existing Render rollback. No scaling project or enterprise work is required for this release.
 
 ## Current evidence

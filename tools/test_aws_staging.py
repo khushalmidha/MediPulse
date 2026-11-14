@@ -2,6 +2,8 @@
 import copy
 import datetime as dt
 import json
+import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,6 +16,28 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def capacity_guard(self, values):
+        source = (api.REPO / 'tools/reels_capacity_check.mjs').read_text(encoding='utf-8')
+        # Execute the real target guards before Linux-only processing or DB imports.
+        self.assertIn("assert.equal(process.platform, 'linux');", source)
+        guard = source.split("assert.equal(process.platform, 'linux');", 1)[0]
+        return subprocess.run(['node', '--input-type=module', '-e', guard],
+                              env={**os.environ, **values}, capture_output=True, timeout=10)
+
+    def test_renewed_capacity_targets_pass_actual_harness_guards(self):
+        values = acceptance.capacity_environment()
+        self.assertEqual(self.capacity_guard(values).returncode, 0)
+        self.assertIn('--name ' + acceptance.REDIS_CONTAINER, acceptance.services())
+
+    def test_capacity_guards_reject_deployment_id_as_database_or_redis_name(self):
+        for field, value in [
+            ('DATABASE_URL', 'mongodb://mongo:27017/medipulse_test_capacity_' + stage.STAGE),
+            ('REDIS_URL', 'redis://capacity-redis-' + stage.STAGE + ':6379/15'),
+        ]:
+            with self.subTest(field=field):
+                values = {**acceptance.capacity_environment(), field: value}
+                self.assertNotEqual(self.capacity_guard(values).returncode, 0)
+
     def setUp(self):
         self.account = '123456789012'
         self.state = {'account': self.account, 'deploymentId': stage.STAGE, 'instanceId': 'i-staging',
@@ -171,6 +195,7 @@ class StagingSafety(unittest.TestCase):
         self.assertEqual(operations.count(('create-snapshot', False)), 1)
         self.assertEqual(operations.count(('create-volume', False)), 1)
         self.assertIn('mount -o ro,noload', scripts[1])
+        self.assertIn('docker stop medipulse-staging-mongo ' + acceptance.REDIS_CONTAINER, scripts[0])
         self.assertIn('nvme-Amazon_Elastic_Block_Store_volrestore', scripts[1])
         self.assertNotIn('mkfs', '\n'.join(scripts))
         remove.assert_called_once_with(state)

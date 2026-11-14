@@ -1,5 +1,9 @@
 # MediPulse separate-budget staging scope
 
+## Current renewal — 14 November 2026
+
+Renewal commit29c4716e uses medipulse-staging-20261113, fixed deadline16November16:11UTC (21:41IST), launch/SSM policy dates17NovemberUTC and cleanup19NovemberUTC. Private iam-native-ssm.compact.json1971characters and iam-staging.compact.json5978characters were locally verified. The13November expired-package warning below is historical. Latest live check stopped at **expired CLI session**, before permission verification; non-root aws login was started. Effective attachment/access and native acceptance remain pending. See current [continuation evidence](../../docs/DEPLOYMENT_FINALIZATION.md). Capacity target compatibility fixed and16safety tests pass; scope/reserve unchanged.
+
 **13 November 2026 update:** the prepared staging window has expired, and a fresh non-root role-profile read returns AccessDenied. The private JSON and the renderer below retain expired launch/access dates. Do not attach that file unchanged or reset the old journal. See [current deployment finalization and exact renewal handoff](../../docs/DEPLOYMENT_FINALIZATION.md). The following 8 November instructions are historical scope evidence, not current launch readiness.
 
 8 November 2026. Owner explicitly accepted JobFinder charges separately from the MediPulse~10USD/month target. This resolves the earlier account-budget ambiguity; it does not approve DNS/production changes. The existing whole-account15USD alert remains unchanged and must not be described as a MediPulse-only spending cap. No new paid resources were provisioned by this plan.

@@ -1,5 +1,9 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Renewed staging reviewed; browser reauthentication pending — 14 November 2026
+
+Verified29c4716e fresh scope/private policy dates and fixed deadline16November21:41IST. Current AWS failure is expired CLI authentication, before IAM checks; non-root browser login started. Effective policy access remains unverified. Corrected renewed capacity Mongo/Redis target names to satisfy existing harness guards;16safety checks plus real Bash env/syntax and Python AST checks pass. No new paid host, DNS/data/flag changes or production deployment. Exact evidence and next command: [deployment finalization](DEPLOYMENT_FINALIZATION.md).
+
 ## Deployment finalization; expired cloud grant — 13 November 2026
 
 Low-traffic AWS deployment remains incomplete: the old staging window expired10NovemberUTC and fresh non-root GetInstanceProfile returns AccessDenied. Existing staging/SSM policy templates retain expired13NovemberUTC access dates; old attach-file instructions are superseded. Added early local expiry diagnosis with cleanup preserved (14safety checks). Pinned patched Mongoose8.24.7 and mquery5.0.1; production dependency audits both zero. Backend units248pass/2explicit real-media skips, frontend62pass, Reels browsers10pass, lint/build/Compose checks pass. Full patched registered integrations:410tests/399pass/11Reels lifecycle failures from omitted offline cache configuration; corrected whole-file rerun15/15pass/0skips resolves all failures without app/spec changes. No clean single full-suite pass is claimed. Separate offline real-media/model2/2pass; focused critical browsers20pass/2redundant viewport skips. See [deployment finalization](DEPLOYMENT_FINALIZATION.md) for exact commands and the Antigravity continuation prompt. No AWS production resources, DNS, Atlas/schema, relay, reviewer/provider or Reels/enterprise flags changed. AG16-AG22 enterprise completion states remain unchanged.

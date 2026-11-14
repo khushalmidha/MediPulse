@@ -2598,6 +2598,17 @@
           "snapshots": 0,
           "securityGroups": 0,
           "readOnly": true
+        },
+        "latestContinuation": {
+          "date": "2026-11-14",
+          "renewalRevision": "29c4716e",
+          "deploymentId": "medipulse-staging-20261113",
+          "deadlineUtc": "2026-11-16T16:11:12.411669Z",
+          "blocker": "AWS CLI session expired; agent login ended with EOF and interactive retry canceled; owner interactive aws login required before policy checks",
+          "stagingSafetyTests": 16,
+          "capacityTargetContractFixed": true,
+          "newPaidResourcesCreated": false,
+          "productionCutoverPerformed": false
         }
       }
     }

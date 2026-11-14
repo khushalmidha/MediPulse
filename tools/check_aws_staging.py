@@ -2,6 +2,7 @@
 import argparse
 import base64
 import gzip
+import hashlib
 import json
 import re
 import shlex
@@ -11,6 +12,23 @@ import aws_native_pilot as api
 import aws_ssm_preflight as preflight
 import aws_staging as stage
 import check_native_ssm as native
+
+CAPACITY_SUFFIX = hashlib.sha256(stage.STAGE.encode()).hexdigest()[:16]
+REDIS_CONTAINER = 'capacity-redis-' + CAPACITY_SUFFIX
+
+
+def capacity_environment():
+    return {
+        'DATABASE_URL': 'mongodb://mongo:27017/medipulse_test_capacity_' + CAPACITY_SUFFIX + '?replicaSet=rs0&directConnection=true',
+        'REDIS_URL': 'redis://' + REDIS_CONTAINER + ':6379/15',
+        'CAPACITY_VIDEO_SECONDS': '299',
+    }
+
+
+def capacity_env_script():
+    values = [shlex.quote(key + '=' + value) for key, value in capacity_environment().items()]
+    return r"printf '%s\n' " + ' '.join(values) + ' >' + stage.ROOT + '/capacity.env'
+
 
 def adapt(script):
     return script.replace(native.ROOT, stage.ROOT).replace('medipulse-native-pilot-expire.timer', 'medipulse-staging-expire.timer')
@@ -34,7 +52,7 @@ docker run -d --name medipulse-staging-mongo --network ''' + stage.STAGE + ''' -
  --memory 384m --memory-swap 384m --cpus .35 \\
  --mount type=bind,source=/srv/medipulse-staging/mongo,target=/data/db \\
  mongo:7 --replSet rs0 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
-docker run -d --name capacity-redis-''' + stage.STAGE + ''' --network ''' + stage.STAGE + ''' --network-alias redis \\
+docker run -d --name ''' + REDIS_CONTAINER + ''' --network ''' + stage.STAGE + ''' --network-alias redis \\
  --memory 64m --memory-swap 64m --cpus .1 \\
  --mount type=bind,source=/srv/medipulse-staging/redis,target=/data \\
  redis:7-alpine redis-server --appendonly yes --appendfsync everysec --maxmemory 32mb --maxmemory-policy noeviction >/dev/null
@@ -48,7 +66,7 @@ for attempt in $(seq 1 40); do
  sleep 2
 done
 docker exec medipulse-staging-mongo mongosh --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)'
-test "$(docker exec capacity-redis-''' + stage.STAGE + ''' redis-cli ping)" = PONG
+test "$(docker exec ''' + REDIS_CONTAINER + ''' redis-cli ping)" = PONG
 docker image inspect medipulse-reels-arm-review:local --format '{{.Id}}'
 echo STAGING_ISOLATED_SERVICES_READY
 '''
@@ -90,8 +108,8 @@ def snapshot_restore(session):
     # Quiesce only this host's synthetic DB/cache before taking an app-consistent
     # fixture snapshot; OS root recovery still uses its normal filesystem journal.
     script = '''docker exec medipulse-staging-mongo mongosh --quiet --eval 'db.getSiblingDB("medipulse_test_restore").proof.updateOne({_id:"scope"},{$set:{kind:"synthetic-only"}},{upsert:true})' >/dev/null
-docker exec capacity-redis-''' + stage.STAGE + ''' redis-cli -n 14 SET medipulse-staging-restore-proof synthetic-only >/dev/null
-docker stop medipulse-staging-mongo capacity-redis-''' + stage.STAGE + ''' >/dev/null
+docker exec ''' + REDIS_CONTAINER + ''' redis-cli -n 14 SET medipulse-staging-restore-proof synthetic-only >/dev/null
+docker stop medipulse-staging-mongo ''' + REDIS_CONTAINER + ''' >/dev/null
 sync
 find /srv/medipulse-staging/models /srv/medipulse-staging/reels /srv/medipulse-staging/mongo /srv/medipulse-staging/redis -type f -print0 | sort -z | xargs -0 sha256sum >/srv/medipulse-staging/backup.sha256
 echo STAGING_WRITES_QUIESCED
@@ -183,7 +201,7 @@ def run():
         assert media['pass'] == 2 and media['skipped'] == 0
         units = summary(session.run(logged(container('node --import ./tests/bootstrap.js --test --test-reporter=tap --test-concurrency=1 tests/*.test.js', shell=True), 'backend-units'), 'backend-unit-checks', 600))
         integration = summary(session.run(logged(container('scripts/testIntegration.js'), 'backend-integrations'), 'backend-integration-checks', 1200))
-        session.run("printf '%s\\n' 'DATABASE_URL=mongodb://mongo:27017/medipulse_test_capacity_" + stage.STAGE + "?replicaSet=rs0&directConnection=true' 'REDIS_URL=redis://capacity-redis-" + stage.STAGE + ":6379/15' 'CAPACITY_VIDEO_SECONDS=299' >" + stage.ROOT + '/capacity.env', 'synthetic-capacity-targets', 30)
+        session.run(capacity_env_script(), 'synthetic-capacity-targets', 30)
         output = session.run(logged(container('--expose-gc /audit/capacity.mjs', capacity=True), 'long-video-capacity'), 'long-video-full-api-capacity', 1200)
         result = next(json.loads(line) for line in output.splitlines() if line.startswith('{') and '"scenario"' in line)
         assert result['videoSeconds'] == 299 and result['httpSamples'] > 0 and result['httpFailures'] == 0
