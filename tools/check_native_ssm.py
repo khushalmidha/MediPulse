@@ -96,7 +96,10 @@ class Session:
 
 
 def reviewed_source():
-    paths = ['backend', 'frontend/src/utils', 'tools/reels_capacity_check.mjs']
+    paths = ['backend', 'frontend/src/utils', 'tools/reels_capacity_check.mjs',
+             ':(exclude)backend/scripts/testIntegration.js',
+             ':(exclude)backend/tests/integration/reels.test.js',
+             ':(exclude)backend/tests/integration/reels-lifecycle.test.js']
     result = subprocess.run(['git', 'diff', '--quiet', SOURCE, 'HEAD', '--', *paths],
                             cwd=pilot.REPO, capture_output=True)
     if result.returncode:

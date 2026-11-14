@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import subprocess
+import shlex
 from pathlib import Path
 import tempfile
 import unittest
@@ -19,6 +20,66 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def test_failure_output_retains_totals_and_nonzero_status(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); (root / 'logs').mkdir()
+            command = "printf '%s\\n' '# tests 3' '# pass 2' '# fail 1' '# skipped 0'; for x in $(seq 1 100); do echo stack; done; exit 7"
+            with patch.object(stage, 'ROOT', root.as_posix()):
+                script = acceptance.logged('bash -c ' + shlex.quote(command), 'summary-check')
+            result = subprocess.run(['C:/Program Files/Git/bin/bash.exe', '-c', 'set -euo pipefail\n' + script],
+                                    capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 7)
+            self.assertIn(b'# tests 3', result.stdout)
+            self.assertIn(b'# fail 1', result.stdout)
+
+    def test_same_host_acceptance_repair_reruns_without_provisioning(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            evidence = b'{"Status":"Failed","ResponseCode":1}'
+            (directory / 'backend-integration-checks.result.json').write_bytes(evidence)
+            script = b'echo synthetic-repair\n'
+            (directory / 'acceptance-repair-1.sh').write_bytes(script)
+            decision = {'action': 'repair-and-rerun', 'reason': 'Reviewed fixture configuration failure',
+                        'failureEvidenceSha256': hashlib.sha256(evidence).hexdigest(),
+                        'scriptSha256': hashlib.sha256(script).hexdigest()}
+            (directory / 'acceptance-decision-1.json').write_text(json.dumps(decision))
+            state = {'deadlineUtc': (stage.now() + dt.timedelta(hours=1)).isoformat(),
+                     'ssmCommands': [{'label': 'backend-integration-checks'}]}
+            session = unittest.mock.Mock(); session.logs = directory
+            with patch.object(stage, 'load', return_value=state), patch.object(stage, 'save'), \
+                 patch.object(stage, 'launch') as launch, patch.object(native, 'reviewed_source'), \
+                 patch.object(acceptance, 'acceptance', side_effect=[RuntimeError('fixture failed'), None]) as checks:
+                acceptance.acceptance_with_repair(session)
+                self.assertEqual(checks.call_args_list, [unittest.mock.call(session), unittest.mock.call(session, reuse_services=True)])
+                session.run.assert_called_once()
+                launch.assert_not_called()
+
+    def test_snapshot_failure_never_retries_cloud_resource_creation(self):
+        state = {'snapshotId': 'snap-owned', 'ssmCommands': []}
+        with patch.object(stage, 'load', return_value=state), patch.object(stage, 'save'), \
+             patch.object(acceptance, 'acceptance', side_effect=RuntimeError('restore failed')) as checks:
+            with self.assertRaisesRegex(RuntimeError, 'restore failed'):
+                acceptance.acceptance_with_repair(unittest.mock.Mock())
+            self.assertEqual(checks.call_count, 1)
+
+    def test_final_acceptance_requires_its_own_explicit_grant(self):
+        with self.retry_fixture() as (old, approval, journal, grant, inventory):
+            old.update(attempt=4, clientToken=stage.STAGE + '-four', originalDeadlineUtc=old['deadlineUtc'])
+            approval.update(priorAttempt=4, proposedClientToken=stage.STAGE + '-five', maximumRuntimeHours=2,
+                            reserveGrossUSDTotalAcrossAllAttempts=3)
+            journal.write_text(json.dumps(old)); grant.write_text(json.dumps(approval))
+            with patch.object(stage, 'FINAL_APPROVAL', grant):
+                new = stage.prepare_completion(final=True)
+            self.assertEqual(new['attempt'], 5)
+            self.assertTrue(new['finalAcceptanceScopeApproved'])
+            self.assertEqual(new['originalDeadlineUtc'], old['originalDeadlineUtc'])
+            new['instanceId'] = 'i-final'
+            item = {**self.item, 'InstanceId': 'i-final', 'ClientToken': stage.STAGE + '-five'}
+            stage.target(new, item)
+            new['finalAcceptanceScopeApproved'] = False
+            with self.assertRaises(AssertionError): stage.instance(new, item)
+        with self.assertRaises(AssertionError): stage.instance({**self.state, 'attempt': 6}, self.item)
+
     def test_same_host_repair_never_provisions_and_always_cleans(self):
         for succeeds in [True, False]:
             with self.subTest(succeeds=succeeds):

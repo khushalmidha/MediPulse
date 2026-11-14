@@ -1,5 +1,15 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Native integration fixture failure corrected; paid host cleaned — 14 November 2026
+
+After the same-host Mongo open-file repair, the clean integration run still failed in Reels fixture setup: both before-hooks attempted `ffmpeg-static`, while the ARM image intentionally installs the configured system FFmpeg and skips static-binary install scripts. Spawn returned null; setup error details were previously omitted by fixture assertions. Retained failure stacks point to reels.test.js:69 and reels-lifecycle.test.js:139. A complete native integration total was not retained by the old failure-tail logger; no full-suite pass/count is invented.299-second and snapshot/restore checks were not reached.
+
+Corrected both fixtures to honor REELS_FFMPEG_PATH and include spawn error/signal details. Runtime app media logic is unchanged and had already passed native2/2; native backend units250/250 also passed. A real local Reels router/lifecycle run with an ESM hook deliberately making the static fallback unavailable and configured real FFmpeg active now passes **33/33,0skips** (30.954s), including actual media/model use. This is local portability regression evidence, not a completed native full-suite run.
+
+Updated the source guard to permit only the three already-explicit test-runner/Reels fixture overlays; the runtime application remains immutable dfa1c848. Mongo nofile65536 is set for primary and restored synthetic fixtures. Failure logs now retain totals as well as stack excerpts. Added same-host acceptance repair gates with exact evidence/script hashes, bounded review and full reruns; they never retry cloud snapshot creation after one exists.39safety tests,4Python AST and generated shell syntax checks pass. This prevents deleting the host immediately for an otherwise repairable fixture failure.
+
+The completion host is cleaned; its token and journal are retained. A separately gated one-host acceptance proposal is private and **approved=false**: one new token, max2hours, same original3USD total reserve/original16November deadline. No further paid launch is queued. Full native acceptance and production cutover remain incomplete.
+
 ## Completion host running; MongoDB file-limit repair on same host — 14 November 2026
 
 Owner approved the one completion host inside the original3USD total reserve and original deadline, with its own maximum2hour expiry. Attempt4 initialized cleanly, built pinned native ARM64 release dfa1c848, and passed real media/model2/2 and backend units250/250 with0skips. The first integration run encountered a staging MongoDB failure, not a proven application regression: Mongo exited133 without OOM; retained fatal logs explicitly report **Too many open files**, errno24 and WiredTiger fatal assertion50853.

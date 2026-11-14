@@ -133,15 +133,15 @@ before(async () => {
   origin = `http://127.0.0.1:${server.address().port}`;
 
   // Generate synthetic test videos using FFmpeg
-  const binary = (await import('ffmpeg-static')).default;
+  const binary = process.env.REELS_FFMPEG_PATH || (await import('ffmpeg-static')).default;
   const mp4Path = path.join(root, 'source.mp4');
   const madeMp4 = spawnSync(binary, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=navy:s=360x640:r=24', '-t', '2', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', mp4Path], { timeout: 30000 });
-  assert.equal(madeMp4.status, 0, madeMp4.stderr?.toString());
+  assert.equal(madeMp4.status, 0, madeMp4.error?.message || madeMp4.stderr?.toString() || `FFmpeg signal: ${madeMp4.signal}`);
   testVideoMp4 = await fs.readFile(mp4Path);
 
   const webmPath = path.join(root, 'source.webm');
   const madeWebm = spawnSync(binary, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=darkgreen:s=360x640:r=24', '-t', '2', '-c:v', 'libvpx', '-b:v', '200k', webmPath], { timeout: 30000 });
-  assert.equal(madeWebm.status, 0, madeWebm.stderr?.toString());
+  assert.equal(madeWebm.status, 0, madeWebm.error?.message || madeWebm.stderr?.toString() || `FFmpeg signal: ${madeWebm.signal}`);
   testVideoWebm = await fs.readFile(webmPath);
 });
 

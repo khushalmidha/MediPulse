@@ -2604,8 +2604,8 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Repaired existing Mongo fixture EMFILE on same completion host; clean acceptance running",
-          "stagingSafetyTests": 35,
+          "blocker": "Completion host cleaned after Reels fixture ignored configured FFmpeg path; corrected and locally33/33verified; further host unapproved",
+          "stagingSafetyTests": 39,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": false,
           "productionCutoverPerformed": false,
@@ -2636,7 +2636,11 @@
           "backendUnitsPassed": 250,
           "sameHostMongoNofileRepair": true,
           "mongoNofileLimit": 65536,
-          "cleanIntegrationRun": "running"
+          "cleanIntegrationRun": "failed at Reels fixture setup; complete count not retained",
+          "ffmpegFixtureContractPassed": 33,
+          "acceptanceSameHostRepairSupported": true,
+          "completionHostStatus": "cleaned",
+          "finalAcceptanceApproved": false
         }
       }
     }

@@ -91,7 +91,7 @@ def container(command, capacity=False, shell=False):
 
 def logged(command, name):
     log = stage.ROOT + '/logs/' + name + '.log'
-    return 'result=0\n' + command + ' >' + log + ' 2>&1 || result=$?\ntail -n 14 ' + log + '\nif test "$result" -ne 0; then tail -n 65 ' + log + '; fi\nexit "$result"\n'
+    return 'result=0\n' + command + ' >' + log + ' 2>&1 || result=$?\ntail -n 14 ' + log + '\nif test "$result" -ne 0; then tail -n 65 ' + log + '; fi\ngrep -E "(tests|pass|fail|skipped) [0-9]+$" ' + log + ' | tail -n 4 || true\nexit "$result"\n'
 
 
 def summary(output):
@@ -162,7 +162,7 @@ echo STAGING_RESTORED_ALL_FIXTURE_HASHES_MATCH
     counts = summary(session.run(restored_native, 'restored-offline-model-and-media', 420)); assert counts['pass'] == 2 and counts['skipped'] == 0
     script = '''cp -a ''' + restored + '''/mongo /srv/medipulse-staging/restore-check-mongo
 cp -a ''' + restored + '''/redis /srv/medipulse-staging/restore-check-redis
-docker run -d --name medipulse-restored-mongo --network none --memory 384m --memory-swap 384m --mount type=bind,source=/srv/medipulse-staging/restore-check-mongo,target=/data/db mongo:7 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
+docker run -d --name medipulse-restored-mongo --network none --memory 384m --memory-swap 384m --ulimit nofile=65536:65536 --mount type=bind,source=/srv/medipulse-staging/restore-check-mongo,target=/data/db mongo:7 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
 docker run -d --name medipulse-restored-redis --network none --memory 64m --memory-swap 64m --mount type=bind,source=/srv/medipulse-staging/restore-check-redis,target=/data redis:7-alpine redis-server --appendonly yes >/dev/null
 for attempt in $(seq 1 40); do
  if docker exec medipulse-restored-mongo mongosh --quiet --eval 'if (db.getSiblingDB("medipulse_test_restore").proof.findOne({_id:"scope"})?.kind !== "synthetic-only") quit(1)' >/dev/null 2>&1; then break; fi
@@ -218,6 +218,46 @@ def acceptance(session, reuse_services=False):
              longVideoSeconds=299, backupRestore=True, productionAcceptance=False)
 
 
+def acceptance_with_repair(session, reuse_services=False):
+    for index in range(1, 4):
+        try:
+            if reuse_services:
+                acceptance(session, reuse_services=True)
+            else:
+                acceptance(session)
+            return
+        except Exception as error:
+            state = stage.load()
+            state.setdefault('acceptanceRepairFailures', []).append(str(error))
+            stage.save(state)
+            # Never create a second snapshot/restore while repairing an acceptance.
+            if index == 3 or state.get('snapshotId') or state.get('restoreVolumeId'):
+                raise
+            command = state['ssmCommands'][-1]
+            evidence_file = session.logs / (command['label'] + '.result.json')
+            evidence_hash = hashlib.sha256(evidence_file.read_bytes()).hexdigest()
+            decision_file = session.logs / ('acceptance-decision-' + str(index) + '.json')
+            api.emit('acceptance-needs-same-host-repair', reviewIndex=index, failedStep=command['label'],
+                     evidenceSha256=evidence_hash, maximumWaitSeconds=900)
+            remaining = (stage.dt.datetime.fromisoformat(state['deadlineUtc']) - stage.now()).total_seconds()
+            limit = time.monotonic() + min(900, max(0, remaining))
+            while not decision_file.exists() and time.monotonic() < limit:
+                time.sleep(3)
+            assert decision_file.exists(), 'Same-host acceptance review timed out; cleanup only'
+            decision = json.loads(decision_file.read_text(encoding='utf-8'))
+            assert decision['action'] == 'repair-and-rerun'
+            assert decision['failureEvidenceSha256'] == evidence_hash
+            assert 10 <= len(decision['reason']) <= 1000
+            path = session.logs / ('acceptance-repair-' + str(index) + '.sh')
+            assert not path.is_symlink() and path.resolve().parent == session.logs.resolve()
+            script = path.read_bytes()
+            assert len(script) < 18000 and hashlib.sha256(script).hexdigest() == decision['scriptSha256']
+            native.reviewed_source()
+            state.setdefault('acceptanceRepairReviews', []).append(decision); stage.save(state)
+            session.run(script.decode('utf-8'), 'acceptance-repair-' + str(index), 180)
+            reuse_services = True
+
+
 def run():
     state = stage.load(); assert state['status'] == 'prepared'
     native.reviewed_source()  # Refuse source drift before creating paid resources.
@@ -228,7 +268,7 @@ def run():
         api.emit('staging-native-build-started')
         script = adapt(native.bootstrap(state))
         assert 'PILOT_SSM_BUILD_AND_CACHE_READY' in session.run(script, 'staging-build', 1200)
-        acceptance(session)
+        acceptance_with_repair(session)
 
     except BaseException as error:
         state = stage.load(); state.setdefault('failures', []).append(type(error).__name__ + ': ' + str(error)); stage.save(state)
@@ -291,7 +331,7 @@ def resume_existing_nofile_repair():
         assert 'MONGO_NOFILE_REPAIR_READY' in output and '65536' in output
         state = stage.load(); state['sameHostMongoNofileRepair'] = True; stage.save(state)
         api.emit('same-host-mongo-repaired', openFilesLimit=65536, newInstancesCreated=False)
-        acceptance(session, reuse_services=True)
+        acceptance_with_repair(session, reuse_services=True)
     except BaseException as error:
         state = stage.load()
         state.setdefault('failures', []).append(type(error).__name__ + ': ' + str(error))
@@ -338,7 +378,7 @@ def initialization_is_healthy(diagnostic):
 
 def run_diagnostic():
     state = stage.load()
-    assert state['status'] == 'prepared' and state['attempt'] in [3, 4]
+    assert state['status'] == 'prepared' and state['attempt'] in [3, 4, 5]
     native.reviewed_source()
     try:
         stage.launch()
@@ -384,7 +424,7 @@ def run_diagnostic():
                 api.emit('reviewed-build-needs-investigation', reviewIndex=index)
         else:
             raise RuntimeError('Reviewed build limit reached; cleanup only')
-        acceptance(session)
+        acceptance_with_repair(session)
     except BaseException as error:
         state = stage.load()
         state.setdefault('failures', []).append(type(error).__name__ + ': ' + str(error))
@@ -400,6 +440,7 @@ def main():
     parser.add_argument('--retry-approved', action='store_true', help='Execute only the separately approved second attempt')
     parser.add_argument('--diagnostic-approved', action='store_true', help='One separately approved, two-hour diagnostic host')
     parser.add_argument('--completion-approved', action='store_true', help='One separately approved completion host')
+    parser.add_argument('--final-acceptance-approved', action='store_true', help='One separately approved acceptance host after fixture corrections')
     parser.add_argument('--resume-existing-nofile-repair', action='store_true', help='Repair only the currently owned, approved running host')
     parser.add_argument('--cleanup', action='store_true')
     args = parser.parse_args()
@@ -407,9 +448,14 @@ def main():
         stage.cleanup(); return
     # Diagnose the local fixed deadline before contacting expired IAM grants.
     # Cleanup deliberately bypasses this gate so old resources remain removable.
-    if stage.STATE.exists() and not args.completion_approved:
+    if stage.STATE.exists() and not (args.completion_approved or args.final_acceptance_approved):
         stage.require_open_window(stage.load())
     preflight.main()
+    if args.final_acceptance_approved:
+        native.reviewed_source()
+        stage.prepare_completion(final=True)
+        run_diagnostic()
+        return
     if args.resume_existing_nofile_repair:
         resume_existing_nofile_repair()
         return

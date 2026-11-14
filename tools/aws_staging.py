@@ -10,6 +10,7 @@ STATE = api.PRIVATE / 'aws-staging-state.json'
 RETRY_APPROVAL = api.PRIVATE / 'aws-staging-retry-proposal.json'
 DIAGNOSTIC_APPROVAL = api.PRIVATE / 'aws-staging-diagnostic-proposal.json'
 COMPLETION_APPROVAL = api.PRIVATE / 'aws-staging-completion-proposal.json'
+FINAL_APPROVAL = api.PRIVATE / 'aws-staging-final-acceptance-proposal.json'
 LOGS = api.PRIVATE / 'aws-staging-logs'
 ROOT = '/srv/medipulse-staging'
 
@@ -46,10 +47,12 @@ def instance(state, item, running=False):
     assert state['account'] == api.ACCOUNT and state['deploymentId'] == STAGE
     assert item['InstanceId'] == state['instanceId'] != 'i-07b4f6961dc550de0'
     attempt = state.get('attempt', 1)
-    assert attempt in [1, 2, 3, 4]
+    assert attempt in [1, 2, 3, 4, 5]
     if attempt == 4:
         assert state.get('completionScopeApproved') is True
-    token = STAGE + {1: '-one', 2: '-two', 3: '-three', 4: '-four'}[attempt]
+    if attempt == 5:
+        assert state.get('finalAcceptanceScopeApproved') is True
+    token = STAGE + {1: '-one', 2: '-two', 3: '-three', 4: '-four', 5: '-five'}[attempt]
     assert item['InstanceType'] == 't4g.small' and item['ClientToken'] == state['clientToken'] == token
     if item.get('IamInstanceProfile'):
         assert item['IamInstanceProfile']['Arn'] == 'arn:aws:iam::' + api.ACCOUNT + ':instance-profile/' + ssm.ROLE
@@ -57,7 +60,7 @@ def instance(state, item, running=False):
         assert item['State']['Name'] == 'terminated'
     if running:
         scope(state)
-        if attempt in [3, 4]:
+        if attempt in [3, 4, 5]:
             assert state['diagnosticApproved'] is True
             end = dt.datetime.fromisoformat(state['deadlineUtc'])
             assert end <= dt.datetime.fromisoformat(state['originalDeadlineUtc'])
@@ -145,17 +148,23 @@ def prepare_diagnostic():
     return state
 
 
-def prepare_completion():
+def prepare_completion(final=False):
     """One separately approved completion host after the diagnostic review timeout."""
     api.identity()
+    assert isinstance(final, bool)
+    prior_attempt = 4 if final else 3
+    new_attempt = prior_attempt + 1
+    prior_token = '-four' if final else '-three'
+    new_token = '-five' if final else '-four'
     old = load()
     assert old['status'] == 'cleaned' and old.get('cleanupCompletedAtUtc')
-    assert old['account'] == api.ACCOUNT and old.get('attempt') == 3
-    assert old['clientToken'] == STAGE + '-three' and old['instanceId'] != 'i-07b4f6961dc550de0'
-    approval = json.loads(COMPLETION_APPROVAL.read_text(encoding='utf-8'))
+    assert old['account'] == api.ACCOUNT and old.get('attempt') == prior_attempt
+    assert old['clientToken'] == STAGE + prior_token and old['instanceId'] != 'i-07b4f6961dc550de0'
+    approval_file = FINAL_APPROVAL if final else COMPLETION_APPROVAL
+    approval = json.loads(approval_file.read_text(encoding='utf-8'))
     assert approval['approved'] is True and approval['deploymentId'] == STAGE
-    assert approval['priorInstanceId'] == old['instanceId'] and approval['priorAttempt'] == 3
-    assert approval['proposedClientToken'] == STAGE + '-four'
+    assert approval['priorInstanceId'] == old['instanceId'] and approval['priorAttempt'] == prior_attempt
+    assert approval['proposedClientToken'] == STAGE + new_token
     assert approval['maximumAdditionalAttempts'] == 1 and approval['maximumActiveInstances'] == 1
     assert approval['maximumRuntimeHours'] == 2 and approval['reserveGrossUSDTotalAcrossAllAttempts'] == 3
     assert approval['fixedOriginalDeadlineUtc'] == old['originalDeadlineUtc']
@@ -166,7 +175,7 @@ def prepare_completion():
     for operation, key in [('describe-volumes', 'Volumes'), ('describe-snapshots', 'Snapshots'),
                            ('describe-security-groups', 'SecurityGroups')]:
         assert not find(operation, key), 'Prior resources remain; cleanup only'
-    archive = api.PRIVATE / 'archive' / (STAGE + '-attempt3-state.json')
+    archive = api.PRIVATE / 'archive' / (STAGE + '-attempt' + str(prior_attempt) + '-state.json')
     archive.parent.mkdir(exist_ok=True)
     original = STATE.read_bytes()
     if archive.exists():
@@ -178,9 +187,9 @@ def prepare_completion():
     deadline = min(dt.datetime.fromisoformat(old['originalDeadlineUtc']), started + dt.timedelta(hours=2))
     state = {key: old[key] for key in ['deploymentId', 'account', 'preparedAtUtc', 'reserveGrossUSD',
                                       'modelHashes', 'maxRestoreHours', 'originalDeadlineUtc']}
-    state.update(status='prepared', attempt=4, clientToken=STAGE + '-four', failures=[],
+    state.update(status='prepared', attempt=new_attempt, clientToken=STAGE + new_token, failures=[],
                  deadlineUtc=deadline.isoformat(), diagnosticPreparedAtUtc=started.isoformat(),
-                 diagnosticApproved=True, completionScopeApproved=True,
+                 diagnosticApproved=True, completionScopeApproved=True, finalAcceptanceScopeApproved=final,
                  previousManifest=str(archive), previousInstanceId=old['instanceId'],
                  retryApprovedAtUtc=approval['approvedAtUtc'], productionAcceptance=False)
     save(state)
@@ -265,7 +274,7 @@ def launch():
     state = load()
     require_open_window(state)
     assert state['status'] == 'prepared' and state['account'] == api.ACCOUNT and state['reserveGrossUSD'] == 3
-    runway = dt.timedelta(minutes=10) if state.get('attempt') in [3, 4] else dt.timedelta(hours=2)
+    runway = dt.timedelta(minutes=10) if state.get('attempt') in [3, 4, 5] else dt.timedelta(hours=2)
     assert now() + runway < dt.datetime.fromisoformat(state['deadlineUtc'])
     assert not [i for r in find('describe-instances', 'Reservations') for i in r['Instances'] if i['State']['Name'] != 'terminated']
     assert not find('describe-volumes', 'Volumes') and not find('describe-security-groups', 'SecurityGroups')

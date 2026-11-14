@@ -64,9 +64,9 @@ before(async () => {
   const app = express(); app.use(cookieParser()); app.use(express.json()); app.use('/api/reels', router);
   app.use((error, req, res, next) => { if (res.headersSent) return next(error); res.status(error.status || 500).json({ message: error.status ? error.message : 'Server error' }); });
   server = app.listen(0, '127.0.0.1'); await once(server, 'listening'); origin = `http://127.0.0.1:${server.address().port}`;
-  const binary = (await import('ffmpeg-static')).default, file = path.join(root, 'source.mp4');
+  const binary = process.env.REELS_FFMPEG_PATH || (await import('ffmpeg-static')).default, file = path.join(root, 'source.mp4');
   const made = spawnSync(binary, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=teal:s=360x640:r=1', '-t', '2', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', file], { timeout: 30000 });
-  assert.equal(made.status, 0, made.stderr?.toString()); video = await fs.readFile(file);
+  assert.equal(made.status, 0, made.error?.message || made.stderr?.toString() || `FFmpeg signal: ${made.signal}`); video = await fs.readFile(file);
 });
 after(async () => { if (server) { server.close(); await once(server, 'close'); } if (mongoose.connection.db?.databaseName === uri.pathname.slice(1)) await mongoose.connection.dropDatabase(); await mongoose.disconnect(); await closeRedis(); if (root) await fs.rm(root, { recursive: true, force: true }); });
 
