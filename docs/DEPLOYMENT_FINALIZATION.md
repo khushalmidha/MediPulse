@@ -1,5 +1,13 @@
 # Low-traffic deployment continuation — 13 November 2026
 
+## Completion host running; MongoDB file-limit repair on same host — 14 November 2026
+
+Owner approved the one completion host inside the original3USD total reserve and original deadline, with its own maximum2hour expiry. Attempt4 initialized cleanly, built pinned native ARM64 release dfa1c848, and passed real media/model2/2 and backend units250/250 with0skips. The first integration run encountered a staging MongoDB failure, not a proven application regression: Mongo exited133 without OOM; retained fatal logs explicitly report **Too many open files**, errno24 and WiredTiger fatal assertion50853.
+
+On the same approved host, transferred controller ownership, stopped only the invalid synthetic integration container, retained its partial log, preserved the Mongo bind directory and original image, and recreated the fixture with `nofile=65536:65536` (same RAM/CPU/disk/network). Mongo primary readiness and the actual65536limit passed. See [MongoDB recommended ulimit](https://www.mongodb.com/docs/v7.0/reference/ulimit/). No new VM, spending scope, public port or deadline was added. The recovery controller guarantees cleanup and reruns the complete existing acceptance against those retained services.35safety tests pass, including no-provisioning and cleanup on same-host repair success/failure; Bash/Python syntax checks pass.
+
+The repaired-host media/unit rerun passed and clean integrations are now running. **Full integrations,299second video and snapshot/restore acceptance remain pending** until actual results. Current short host deadline is 2026-11-14T11:32:57.285880+00:00. Original global deadline and total reserve remain unchanged. Source/workflow code changes are operator tooling only; committed application source still matches dfa1c848.
+
 ## Diagnostic was healthy; automatic continuation corrected — 14 November 2026
 
 Attempt3 captured real cloud-init JSON: **return0, status/extended status done, errors empty, recoverable errors empty in all four initialization phases**. The prior return2 warning did not reproduce on this host; its specific prior cause remains unknown. The controller nevertheless waited for a review of this healthy report. That unnecessary review timed out and finally cleanup ran before build. This was an orchestration defect, not a native application failure or successful app acceptance.

@@ -19,6 +19,30 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def test_same_host_repair_never_provisions_and_always_cleans(self):
+        for succeeds in [True, False]:
+            with self.subTest(succeeds=succeeds):
+                state = {'attempt': 4, 'completionScopeApproved': True, 'status': 'ready',
+                         'ssmCommands': [{'label': 'backend-integration-checks'}]}
+                session = unittest.mock.Mock()
+                if succeeds:
+                    session.run.return_value = '65536\nMONGO_NOFILE_REPAIR_READY'
+                else:
+                    session.run.side_effect = RuntimeError('repair failed')
+                with patch.object(stage, 'load', return_value=state), patch.object(stage, 'save'), \
+                     patch.object(stage, 'launch') as launch, patch.object(stage, 'cleanup') as cleanup, \
+                     patch.object(native, 'reviewed_source'), patch.object(native, 'Session', return_value=session), \
+                     patch.object(acceptance, 'acceptance') as checks:
+                    if succeeds:
+                        acceptance.resume_existing_nofile_repair()
+                        checks.assert_called_once_with(session, reuse_services=True)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'repair failed'):
+                            acceptance.resume_existing_nofile_repair()
+                        checks.assert_not_called()
+                    launch.assert_not_called()
+                    cleanup.assert_called_once_with()
+
     def healthy_diagnostic(self):
         report = {'status': 'done', 'extended_status': 'done', 'errors': [], 'recoverable_errors': {}, 'stage': None}
         for name in ['init-local', 'init', 'modules-config', 'modules-final']:

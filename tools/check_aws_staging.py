@@ -49,7 +49,7 @@ docker pull --quiet mongo:7 >/dev/null
 docker pull --quiet redis:7-alpine >/dev/null
 docker network create --internal ''' + stage.STAGE + ''' >/dev/null
 docker run -d --name medipulse-staging-mongo --network ''' + stage.STAGE + ''' --network-alias mongo \\
- --memory 384m --memory-swap 384m --cpus .35 \\
+ --memory 384m --memory-swap 384m --cpus .35 --ulimit nofile=65536:65536 \\
  --mount type=bind,source=/srv/medipulse-staging/mongo,target=/data/db \\
  mongo:7 --replSet rs0 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
 docker run -d --name ''' + REDIS_CONTAINER + ''' --network ''' + stage.STAGE + ''' --network-alias redis \\
@@ -181,13 +181,19 @@ echo STAGING_RESTORED_MONGO_AND_REDIS_PROOFS_PASS
     stage.save(state)
 
 
-def acceptance(session):
+def acceptance(session, reuse_services=False):
     script = 'cd ' + stage.ROOT + '/source\ngit sparse-checkout set backend frontend/src/utils\n'
     for name in ['backend/scripts/testIntegration.js', 'backend/tests/integration/reels.test.js', 'backend/tests/integration/reels-lifecycle.test.js']:
         script += overlay(name, stage.ROOT + '/source/' + name)
     session.run(script, 'reviewed-test-overlays', 60)
     session.run(overlay('tools/reels_capacity_check.mjs', stage.ROOT + '/capacity-check.mjs'), 'capacity-runner-overlay', 60)
-    assert 'STAGING_ISOLATED_SERVICES_READY' in session.run(services(), 'isolated-mongo-redis', 480)
+    if reuse_services:
+        ready = "test \"$(docker network inspect --format '{{.Internal}}' " + stage.STAGE + ")\" = true\n"
+        ready += "test \"$(docker inspect medipulse-staging-mongo --format '{{.State.Running}}')\" = true\n"
+        ready += "test \"$(docker exec " + REDIS_CONTAINER + " redis-cli ping)\" = PONG\necho STAGING_ISOLATED_SERVICES_READY\n"
+    else:
+        ready = services()
+    assert 'STAGING_ISOLATED_SERVICES_READY' in session.run(ready, 'isolated-mongo-redis', 480)
     pressure_before = session.run("grep '^oom_kill ' /proc/vmstat\ndf -PB1 " + stage.ROOT + "\ncat /proc/pressure/memory\ndocker image inspect " + api.IMAGE + " --format '{{.Id}}'", 'host-before-load', 30)
     media = summary(session.run(adapt(native.native_script()), 'staging-real-media-model', 420))
     assert media['pass'] == 2 and media['skipped'] == 0
@@ -244,6 +250,55 @@ if test -s /srv/medipulse-staging/cloud-init-report.stderr; then head -n 20 /srv
 systemctl is-active --quiet medipulse-staging-expire.timer
 echo INITIALIZATION_REPORT_CAPTURED
 '''
+
+
+def mongo_nofile_repair_script():
+    return '''image=$(docker inspect medipulse-staging-mongo --format '{{.Image}}')
+test "$(docker inspect medipulse-staging-mongo --format '{{.Config.Image}}')" = mongo:7
+test "$(docker inspect medipulse-staging-mongo --format '{{.State.Status}}')" = exited
+test "$(docker inspect medipulse-staging-mongo --format '{{range .Mounts}}{{if eq .Destination "/data/db"}}{{.Source}}{{end}}{{end}}')" = /srv/medipulse-staging/mongo
+docker logs medipulse-staging-mongo 2>&1 | grep -F 'Too many open files' >/dev/null
+for test_container in $(docker ps -q --filter ancestor=medipulse-reels-arm-review:local); do
+    if test "$(docker inspect "$test_container" --format '{{json .Config.Cmd}}')" = '["scripts/testIntegration.js"]'; then
+        docker stop -t 10 "$test_container" >/dev/null
+    fi
+done
+cp /srv/medipulse-staging/logs/backend-integrations.log /srv/medipulse-staging/logs/backend-integrations-first-partial.log
+docker rm medipulse-staging-mongo >/dev/null
+docker run -d --name medipulse-staging-mongo --network ''' + stage.STAGE + ''' --network-alias mongo \
+ --memory 384m --memory-swap 384m --cpus .35 --ulimit nofile=65536:65536 \
+ --mount type=bind,source=/srv/medipulse-staging/mongo,target=/data/db \
+ "$image" --replSet rs0 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
+for attempt in $(seq 1 40); do
+ if docker exec medipulse-staging-mongo mongosh --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)' >/dev/null 2>&1; then break; fi
+ sleep 2
+done
+docker exec medipulse-staging-mongo mongosh --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)'
+docker exec medipulse-staging-mongo sh -c 'ulimit -n'
+echo MONGO_NOFILE_REPAIR_READY
+'''
+
+
+def resume_existing_nofile_repair():
+    state = stage.load()
+    assert state['attempt'] == 4 and state['completionScopeApproved'] is True and state['status'] == 'ready'
+    native.reviewed_source()
+    try:
+        session = native.Session(stage.STATE, stage.logs_path(state), stage.target)
+        session.verify()
+        assert any(command['label'] == 'backend-integration-checks' for command in state.get('ssmCommands', []))
+        output = session.run(mongo_nofile_repair_script(), 'same-host-mongo-nofile-repair', 180)
+        assert 'MONGO_NOFILE_REPAIR_READY' in output and '65536' in output
+        state = stage.load(); state['sameHostMongoNofileRepair'] = True; stage.save(state)
+        api.emit('same-host-mongo-repaired', openFilesLimit=65536, newInstancesCreated=False)
+        acceptance(session, reuse_services=True)
+    except BaseException as error:
+        state = stage.load()
+        state.setdefault('failures', []).append(type(error).__name__ + ': ' + str(error))
+        stage.save(state)
+        raise
+    finally:
+        stage.cleanup()
 
 
 def parse_initialization(output):
@@ -345,6 +400,7 @@ def main():
     parser.add_argument('--retry-approved', action='store_true', help='Execute only the separately approved second attempt')
     parser.add_argument('--diagnostic-approved', action='store_true', help='One separately approved, two-hour diagnostic host')
     parser.add_argument('--completion-approved', action='store_true', help='One separately approved completion host')
+    parser.add_argument('--resume-existing-nofile-repair', action='store_true', help='Repair only the currently owned, approved running host')
     parser.add_argument('--cleanup', action='store_true')
     args = parser.parse_args()
     if args.cleanup:
@@ -354,6 +410,9 @@ def main():
     if stage.STATE.exists() and not args.completion_approved:
         stage.require_open_window(stage.load())
     preflight.main()
+    if args.resume_existing_nofile_repair:
+        resume_existing_nofile_repair()
+        return
     if args.completion_approved:
         native.reviewed_source()
         stage.prepare_completion()
