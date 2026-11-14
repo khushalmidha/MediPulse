@@ -2604,7 +2604,7 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Same-host frontend locked client fixture repair/full rerun; snapshot authorization denied",
+          "blocker": "Third full acceptance pending after same-host fixture repairs; snapshot authorization denied",
           "stagingSafetyTests": 40,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": true,
@@ -2648,11 +2648,15 @@
           "acceptanceSameHostRepairSupported": true,
           "completionHostStatus": "cleaned",
           "finalAcceptanceApproved": true,
-          "acceptanceHostStatus": "same-host WebSocket client fixture repair",
+          "acceptanceHostStatus": "third same-host full acceptance running after confirmed Mongo OOM repair",
           "acceptanceHostDeadlineUtc": "2026-11-14T13:16:43.983678Z",
           "snapshotPermissionDryRun": "UnauthorizedOperation",
           "snapshotPolicyCorrectionEffective": false,
-          "websocketFixtureRepair": "pinned frontend production lock, scripts disabled; runtime image unchanged"
+          "websocketFixtureRepair": "pinned frontend production lock, scripts disabled; runtime image unchanged",
+          "mongoFixtureMemoryMiB": 512,
+          "priorMongoFixtureOomConfirmed": true,
+          "priorHostCumulativeOomCounter": 1,
+          "backendCgroupOomKillsDuringFixtureFailure": 0
         }
       }
     }

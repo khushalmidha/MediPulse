@@ -49,7 +49,7 @@ docker pull --quiet mongo:7 >/dev/null
 docker pull --quiet redis:7-alpine >/dev/null
 docker network create --internal ''' + stage.STAGE + ''' >/dev/null
 docker run -d --name medipulse-staging-mongo --network ''' + stage.STAGE + ''' --network-alias mongo \\
- --memory 384m --memory-swap 384m --cpus .35 --ulimit nofile=65536:65536 \\
+ --memory 512m --memory-swap 512m --cpus .35 --ulimit nofile=65536:65536 \\
  --mount type=bind,source=/srv/medipulse-staging/mongo,target=/data/db \\
  mongo:7 --replSet rs0 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
 docker run -d --name ''' + REDIS_CONTAINER + ''' --network ''' + stage.STAGE + ''' --network-alias redis \\
@@ -179,7 +179,7 @@ echo STAGING_RESTORED_ALL_FIXTURE_HASHES_MATCH
     counts = summary(session.run(restored_native, 'restored-offline-model-and-media', 420)); assert counts['pass'] == 2 and counts['skipped'] == 0
     script = '''cp -a ''' + restored + '''/mongo /srv/medipulse-staging/restore-check-mongo
 cp -a ''' + restored + '''/redis /srv/medipulse-staging/restore-check-redis
-docker run -d --name medipulse-restored-mongo --network none --memory 384m --memory-swap 384m --ulimit nofile=65536:65536 --mount type=bind,source=/srv/medipulse-staging/restore-check-mongo,target=/data/db mongo:7 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
+docker run -d --name medipulse-restored-mongo --network none --memory 512m --memory-swap 512m --ulimit nofile=65536:65536 --mount type=bind,source=/srv/medipulse-staging/restore-check-mongo,target=/data/db mongo:7 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
 docker run -d --name medipulse-restored-redis --network none --memory 64m --memory-swap 64m --mount type=bind,source=/srv/medipulse-staging/restore-check-redis,target=/data redis:7-alpine redis-server --appendonly yes >/dev/null
 for attempt in $(seq 1 40); do
  if docker exec medipulse-restored-mongo mongosh --quiet --eval 'if (db.getSiblingDB("medipulse_test_restore").proof.findOne({_id:"scope"})?.kind !== "synthetic-only") quit(1)' >/dev/null 2>&1; then break; fi
@@ -324,7 +324,7 @@ done
 cp /srv/medipulse-staging/logs/backend-integrations.log /srv/medipulse-staging/logs/backend-integrations-first-partial.log
 docker rm medipulse-staging-mongo >/dev/null
 docker run -d --name medipulse-staging-mongo --network ''' + stage.STAGE + ''' --network-alias mongo \
- --memory 384m --memory-swap 384m --cpus .35 --ulimit nofile=65536:65536 \
+ --memory 512m --memory-swap 512m --cpus .35 --ulimit nofile=65536:65536 \
  --mount type=bind,source=/srv/medipulse-staging/mongo,target=/data/db \
  "$image" --replSet rs0 --bind_ip_all --wiredTigerCacheSizeGB .25 >/dev/null
 for attempt in $(seq 1 40); do

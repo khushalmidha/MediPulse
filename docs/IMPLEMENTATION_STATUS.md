@@ -1,5 +1,11 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Confirmed synthetic Mongo memory-limit failure; same-host repair — 14 November 2026
+
+The WebSocket client repair installed101locked production packages in29seconds, verified its exact version/resolver, and retained node_modules after the subsequent sparse checkout. The second integration run later lost its Mongo fixture during the8MiB historical-audit payload case. Retained Docker inspection proves Mongo exited137 with OOMKilled=true at384MiB; the concurrently running backend test cgroup reported oom_kill0. The host cumulative counter advanced to1. This invalid run was stopped after checking its exact image, owned network and memory settings; its partial remote log and private result/diagnostics were preserved. No complete pass/count is claimed for it.
+
+Recreated only that same fixture from its exact image ID with the same bind data/replica set/network/CPU/nofile65536,512MiB RAM and no swap. Live primary readiness,536870912byte limits and65536open-file limit pass. Backend cap1280MiB and the2GiB host remain unchanged. Updated primary/restored/legacy repair fixture defaults to512MiB for future executions; the current controller uses the reviewed same-host repair.40cloud-safety tests and actual generated repair Bash syntax pass. The cumulative OOM counter is retained, never reset; a new full pass must have zero further OOM events against its own before/after baseline. Third full acceptance on the same already approved host is running; no further host or spending authorization requested. Snapshot permission remains denied/pending owner update, and production deployment is incomplete.
+
 ## Same-host WebSocket fixture repair — 14 November 2026
 
 Attempt5 native ARM64 build/model checks passed; real media/model2/2 and backend units250/250 passed without skips. The full integration process retained actual totals:395registered results,394passed,1file-load failure,0skips,658.353seconds. p06-workflows could not import socket.io-client via /frontend/package.json; its frontend node_modules fixture was absent. Its16tests were therefore not exercised in that run; this is not410passed. Both real Reels files, including the15-step lifecycle, passed.
