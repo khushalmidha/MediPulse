@@ -186,7 +186,7 @@ def run():
     native.reviewed_source()  # Refuse source drift before creating paid resources.
     try:
         stage.launch()
-        session = native.Session(stage.STATE, stage.LOGS, stage.target)
+        session = native.Session(stage.STATE, stage.logs_path(stage.load()), stage.target)
         session.verify(); session.online()
         api.emit('staging-native-build-started')
         script = adapt(native.bootstrap(state))
@@ -229,6 +229,7 @@ def run():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run-approved', action='store_true')
+    parser.add_argument('--retry-approved', action='store_true', help='Execute only the separately approved second attempt')
     parser.add_argument('--cleanup', action='store_true')
     args = parser.parse_args()
     if args.cleanup:
@@ -238,8 +239,11 @@ def main():
     if stage.STATE.exists():
         stage.require_open_window(stage.load())
     preflight.main()
+    if args.retry_approved:
+        native.reviewed_source()
+        stage.prepare_retry()
     state = stage.prepare()
-    if not args.run_approved:
+    if not (args.run_approved or args.retry_approved):
         vpc, _ = stage.network()
         result = api.aws('create-security-group', '--group-name', stage.STAGE, '--description', 'Approved isolated staging',
                          '--vpc-id', vpc, '--tag-specifications', stage.tags('security-group', 'staging-network'), dry=True)

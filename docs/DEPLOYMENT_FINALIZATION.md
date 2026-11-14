@@ -1,5 +1,9 @@
 # Low-traffic deployment continuation — 13 November 2026
 
+## Corrected retry explicitly approved — 14 November 2026
+
+Owner explicitly approved one corrected retry within the original3USD **total across attempts** and fixed16November16:11UTC deadline. The private retry proposal is now approved. `--retry-approved` requires the matching prior cleaned instance, new `-two` client token, exact original reserve/window/type/disk, fresh zero-resource inventory and an archived previous journal. A third attempt is refused. Attempt2 logs are separate; original logs/journal remain preserved.24cloud-safety regressions and3Python AST checks pass; immutable coherent app source remains dfa1c848. Native retry results are not claimed until the real run completes. No production cutover/provider/DNS/data approval is implied.
+
 ## First native staging attempt cleaned; corrected build prepared — 14 November 2026
 
 **Owner Console work succeeded.** Fresh SSM preflight and approved launch dry-run passed; larger-instance and JobFinder-termination dry-runs were denied. One approved ARM64/30GiB staging host launched through SSM. Build failed before app/media/299-second/snapshot-restore acceptance; none of those checks is claimed passed on this host.

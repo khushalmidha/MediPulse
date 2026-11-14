@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 import tempfile
 import unittest
+from contextlib import contextmanager
 from unittest.mock import patch
 import aws_native_pilot as api
 import aws_staging as stage
@@ -16,6 +17,74 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    @contextmanager
+    def retry_fixture(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            state = {**self.state, 'status': 'cleaned', 'cleanupCompletedAtUtc': stage.now().isoformat(),
+                     'modelHashes': {'config.json': 'a' * 64}, 'maxRestoreHours': 2}
+            approval = {'approved': True, 'approvedAtUtc': stage.now().isoformat(),
+                        'deploymentId': stage.STAGE, 'priorInstanceId': state['instanceId'],
+                        'proposedClientToken': stage.STAGE + '-two', 'maximumAdditionalAttempts': 1,
+                        'maximumActiveInstances': 1, 'reserveGrossUSDTotalAcrossAttempts': 3,
+                        'fixedOriginalDeadlineUtc': state['deadlineUtc'], 'instanceType': 't4g.small',
+                        'encryptedGp3GiB': 30, 'productionOrDnsChanges': False}
+            journal = root / 'state.json'; journal.write_text(json.dumps(state))
+            grant = root / 'retry.json'; grant.write_text(json.dumps(approval))
+            with patch.object(stage, 'STATE', journal), patch.object(stage, 'RETRY_APPROVAL', grant), \
+                 patch.object(api, 'PRIVATE', root), patch.object(api, 'identity'), \
+                 patch.object(stage, 'find', return_value=[]) as inventory:
+                yield state, approval, journal, grant, inventory
+
+    def test_approved_retry_preserves_window_reserve_and_old_manifest(self):
+        with self.retry_fixture() as (old, approval, journal, grant, inventory):
+            original = journal.read_bytes()
+            new = stage.prepare_retry()
+            for key in ['preparedAtUtc', 'deadlineUtc', 'reserveGrossUSD', 'modelHashes']:
+                self.assertEqual(new[key], old[key])
+            self.assertEqual(new['clientToken'], stage.STAGE + '-two')
+            self.assertEqual(new['attempt'], 2)
+            self.assertEqual(Path(new['previousManifest']).read_bytes(), original)
+            self.assertNotIn('instanceId', new)
+            self.assertNotEqual(stage.logs_path(new), stage.LOGS)
+            self.assertEqual(inventory.call_count, 4)
+
+    def test_retry_refuses_missing_explicit_approval(self):
+        with self.retry_fixture() as (old, approval, journal, grant, inventory):
+            approval['approved'] = False; grant.write_text(json.dumps(approval))
+            before = journal.read_bytes()
+            with self.assertRaises(AssertionError): stage.prepare_retry()
+            self.assertEqual(journal.read_bytes(), before)
+            inventory.assert_not_called()
+
+    def test_retry_refuses_deadline_reserve_or_instance_scope_changes(self):
+        for field, value in [('fixedOriginalDeadlineUtc', '2099-01-01T00:00:00Z'),
+                             ('reserveGrossUSDTotalAcrossAttempts', 4), ('priorInstanceId', 'other'),
+                             ('instanceType', 't4g.large'), ('maximumAdditionalAttempts', 2)]:
+            with self.subTest(field=field), self.retry_fixture() as (old, approval, journal, grant, inventory):
+                approval[field] = value; grant.write_text(json.dumps(approval))
+                with self.assertRaises(AssertionError): stage.prepare_retry()
+                self.assertEqual(json.loads(journal.read_text())['status'], 'cleaned')
+                inventory.assert_not_called()
+
+    def test_retry_refuses_resources_still_present(self):
+        with self.retry_fixture() as (old, approval, journal, grant, inventory):
+            inventory.side_effect = lambda operation, key: [{}] if operation == 'describe-volumes' else []
+            with self.assertRaises(AssertionError): stage.prepare_retry()
+            self.assertEqual(json.loads(journal.read_text())['status'], 'cleaned')
+
+    def test_retry_cannot_prepare_a_third_attempt(self):
+        with self.retry_fixture() as (old, approval, journal, grant, inventory):
+            old['attempt'] = 2; journal.write_text(json.dumps(old))
+            with self.assertRaises(AssertionError): stage.prepare_retry()
+            inventory.assert_not_called()
+
+    def test_second_attempt_has_a_distinct_exact_target_token(self):
+        state = {**self.state, 'attempt': 2, 'clientToken': stage.STAGE + '-two'}
+        item = {**self.item, 'ClientToken': state['clientToken']}
+        stage.instance(state, item)
+        with self.assertRaises(AssertionError): stage.instance(state, self.item)
+
     def test_native_build_transfers_matching_locked_dependency_before_docker_build(self):
         script = native.bootstrap({'modelHashes': {name: 'a' * 64 for name in api.MODEL_FILES}})
         package = json.loads(subprocess.check_output(['git', 'show', native.SOURCE + ':backend/package.json'], cwd=api.REPO))

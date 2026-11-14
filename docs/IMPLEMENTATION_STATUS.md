@@ -1,5 +1,9 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Corrected retry explicitly approved — 14 November 2026
+
+Owner explicitly approved one corrected retry within the original3USD **total across attempts** and fixed16November16:11UTC deadline. The private retry proposal is now approved. `--retry-approved` requires the matching prior cleaned instance, new `-two` client token, exact original reserve/window/type/disk, fresh zero-resource inventory and an archived previous journal. A third attempt is refused. Attempt2 logs are separate; original logs/journal remain preserved.24cloud-safety regressions and3Python AST checks pass; immutable coherent app source remains dfa1c848. Native retry results are not claimed until the real run completes. No production cutover/provider/DNS/data approval is implied.
+
 ## Native staging build failed; cleaned and corrected — 14 November 2026
 
 IAM/SSM and positive/negative authorization checks now pass. First new host failed at build before native app/media/299-second/restore acceptance; finally cleanup and independent zero-tagged-resource inventory passed, JobFinder running. Fixed source/lock drift by pinning coherent public release dfa1c848 and validating it before launch;18safety tests and4138byte generated script checks pass. Corrected build remains unexecuted. Existing3USD total reserve/original deadline stay fixed; a single-retry proposal is private/unapproved, with no automatic paid retry. See [deployment evidence](DEPLOYMENT_FINALIZATION.md).

@@ -7,6 +7,7 @@ import aws_ssm_preflight as ssm
 from render_staging_policy import STAGE
 
 STATE = api.PRIVATE / 'aws-staging-state.json'
+RETRY_APPROVAL = api.PRIVATE / 'aws-staging-retry-proposal.json'
 LOGS = api.PRIVATE / 'aws-staging-logs'
 ROOT = '/srv/medipulse-staging'
 
@@ -42,7 +43,10 @@ def instance(state, item, running=False):
     own(item, 'staging-host')
     assert state['account'] == api.ACCOUNT and state['deploymentId'] == STAGE
     assert item['InstanceId'] == state['instanceId'] != 'i-07b4f6961dc550de0'
-    assert item['InstanceType'] == 't4g.small' and item['ClientToken'] == state['clientToken'] == STAGE + '-one'
+    attempt = state.get('attempt', 1)
+    assert attempt in [1, 2]
+    token = STAGE + ('-one' if attempt == 1 else '-two')
+    assert item['InstanceType'] == 't4g.small' and item['ClientToken'] == state['clientToken'] == token
     if item.get('IamInstanceProfile'):
         assert item['IamInstanceProfile']['Arn'] == 'arn:aws:iam::' + api.ACCOUNT + ':instance-profile/' + ssm.ROLE
     else:
@@ -83,6 +87,49 @@ def volume(item, role):
 
 def find(operation, key):
     return api.aws(operation, '--filters', 'Name=tag:DeploymentId,Values=' + STAGE)[key]
+
+
+def logs_path(state):
+    return LOGS if state.get('attempt', 1) == 1 else api.PRIVATE / 'aws-staging-logs-attempt2'
+
+
+def prepare_retry():
+    """One owner-approved retry, preserving the original total reserve and deadline."""
+    api.identity()
+    old = load()
+    assert old['status'] == 'cleaned' and old.get('cleanupCompletedAtUtc')
+    assert old['account'] == api.ACCOUNT and old.get('attempt', 1) == 1
+    assert old['clientToken'] == STAGE + '-one'
+    assert old['instanceId'] != 'i-07b4f6961dc550de0'
+    require_open_window(old)
+    approval = json.loads(RETRY_APPROVAL.read_text(encoding='utf-8'))
+    assert approval['approved'] is True and approval['deploymentId'] == STAGE
+    assert approval['priorInstanceId'] == old['instanceId']
+    assert approval['proposedClientToken'] == STAGE + '-two'
+    assert approval['maximumAdditionalAttempts'] == 1 and approval['maximumActiveInstances'] == 1
+    assert approval['reserveGrossUSDTotalAcrossAttempts'] == old['reserveGrossUSD'] == 3
+    assert approval['fixedOriginalDeadlineUtc'] == old['deadlineUtc']
+    assert approval['instanceType'] == 't4g.small' and approval['encryptedGp3GiB'] == 30
+    assert approval['productionOrDnsChanges'] is False
+    assert not [i for r in find('describe-instances', 'Reservations') for i in r['Instances'] if i['State']['Name'] != 'terminated']
+    for operation, key in [('describe-volumes', 'Volumes'), ('describe-snapshots', 'Snapshots'),
+                           ('describe-security-groups', 'SecurityGroups')]:
+        assert not find(operation, key), 'Prior resources remain; cleanup only'
+    archive = api.PRIVATE / 'archive' / (STAGE + '-attempt1-state.json')
+    archive.parent.mkdir(exist_ok=True)
+    original = STATE.read_bytes()
+    if archive.exists():
+        assert archive.read_bytes() == original, 'Never overwrite a different prior journal'
+    else:
+        with archive.open('xb') as target:
+            target.write(original)
+    state = {key: old[key] for key in ['deploymentId', 'account', 'preparedAtUtc', 'deadlineUtc',
+                                      'reserveGrossUSD', 'modelHashes', 'maxRestoreHours']}
+    state.update(status='prepared', attempt=2, clientToken=STAGE + '-two', failures=[],
+                 previousManifest=str(archive), previousInstanceId=old['instanceId'],
+                 retryApprovedAtUtc=approval['approvedAtUtc'], productionAcceptance=False)
+    save(state)
+    return state
 
 
 def prepare():
@@ -160,8 +207,9 @@ TIMER
 systemctl daemon-reload
 systemctl enable --now medipulse-staging-expire.timer
 '''
-    LOGS.mkdir(exist_ok=True)
-    userfile = LOGS / 'user-data.sh'; userfile.write_text(userdata, encoding='utf-8', newline='\n')
+    logs = logs_path(state)
+    logs.mkdir(exist_ok=True)
+    userfile = logs / 'user-data.sh'; userfile.write_text(userdata, encoding='utf-8', newline='\n')
     request = {'ImageId': api.AMI, 'InstanceType': 't4g.small', 'MinCount': 1, 'MaxCount': 1,
                'ClientToken': state['clientToken'], 'Placement': {'Tenancy': 'default'},
                'CreditSpecification': {'CpuCredits': 'standard'}, 'InstanceInitiatedShutdownBehavior': 'terminate',
@@ -171,11 +219,11 @@ systemctl enable --now medipulse-staging-expire.timer
                'BlockDeviceMappings': [{'DeviceName': image['RootDeviceName'], 'Ebs': {'VolumeSize': 30, 'VolumeType': 'gp3',
                                         'Iops': 3000, 'Throughput': 125, 'Encrypted': True, 'DeleteOnTermination': True}}],
                'TagSpecifications': json.loads(tags('instance', 'staging-host')) + json.loads(tags('volume', 'staging-root'))}
-    file = LOGS / 'launch.json'; file.write_text(json.dumps(request), encoding='utf-8')
+    file = logs / 'launch.json'; file.write_text(json.dumps(request), encoding='utf-8')
     arguments = ['--cli-input-json', 'file://' + str(file), '--user-data', 'file://' + str(userfile)]
     assert api.aws('run-instances', *arguments, dry=True) == 'DryRunOperation'
     negative = {**request, 'InstanceType': 't4g.large'}
-    denied = LOGS / 'denied.json'; denied.write_text(json.dumps(negative), encoding='utf-8')
+    denied = logs / 'denied.json'; denied.write_text(json.dumps(negative), encoding='utf-8')
     assert api.aws('run-instances', '--cli-input-json', 'file://' + str(denied), dry=True) == 'UnauthorizedOperation'
     assert api.aws('terminate-instances', '--instance-ids', 'i-07b4f6961dc550de0', dry=True) == 'UnauthorizedOperation'
     state['status'] = 'launch-requested'; save(state)
