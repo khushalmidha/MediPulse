@@ -2537,8 +2537,8 @@
         "automaticShutdown": "not enabled"
       },
       "deploymentFinalization": {
-        "date": "2026-11-13",
-        "status": "blocked_expired_staging_window_and_cloud_access",
+        "date": "2026-11-14",
+        "status": "native_suites_passed_acceptance_blocked_ssm_and_snapshot_iam",
         "reference": "docs/DEPLOYMENT_FINALIZATION.md",
         "baselineRevision": "d959037a",
         "mongoosePinned": "8.24.7",
@@ -2553,7 +2553,7 @@
         },
         "frontendUnits": 62,
         "reelsBrowsers": 10,
-        "stagingSafetyTests": 14,
+        "stagingSafetyTests": 43,
         "fullPatchedIntegrations": {
           "registered": 410,
           "passed": 399,
@@ -2572,9 +2572,9 @@
         "cloudPreflight": "iam:get-instance-profile:AccessDenied",
         "oldStagingDeadlineUtc": "2026-11-10T23:28:17.663618Z",
         "oldLaunchAndSsmGrantExpiryUtc": "2026-11-13T00:00:00Z",
-        "newPaidResourcesCreated": false,
+        "newPaidResourcesCreated": true,
         "productionCutoverPerformed": false,
-        "next": "Prepare date-consistent owner-reviewable IAM/staging renewal; preserve old journals; verify effective permissions and old-resource inventory before any new launch",
+        "next": "Owner inspect/save corrected default MediPulseStaging policy and investigate retained SSM timeout locally/read-only; no new paid run queued",
         "focusedCriticalBrowsers": {
           "passed": 20,
           "failed": 0,
@@ -2604,7 +2604,7 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Native suites passed;299second capacity continuation running; snapshot authorization denied",
+          "blocker": "Full native suites passed; same-host continuation SSM ExecutionTimedOut137;299second/restore unrun; snapshot authorization denied",
           "stagingSafetyTests": 43,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": true,
@@ -2615,7 +2615,7 @@
           "positiveLaunchDryRunPassed": true,
           "negativeLargerAndJobFinderDryRunsDenied": true,
           "nativeStagingAcceptance": false,
-          "cleanupIndependentlyVerified": false,
+          "cleanupIndependentlyVerified": true,
           "jobFinderState": "running",
           "correctedSourceRevision": "dfa1c8489f624ce3f5351ad9a9e00c5e89027b24",
           "retryApproved": true,
@@ -2647,7 +2647,7 @@
           "acceptanceSameHostRepairSupported": true,
           "completionHostStatus": "cleaned",
           "finalAcceptanceApproved": true,
-          "acceptanceHostStatus": "same-host verified-test continuation after transient STS timeout",
+          "acceptanceHostStatus": "cleaned",
           "acceptanceHostDeadlineUtc": "2026-11-14T13:16:43.983678Z",
           "snapshotPermissionDryRun": "UnauthorizedOperation",
           "snapshotPolicyCorrectionEffective": false,
@@ -2656,7 +2656,25 @@
           "priorMongoFixtureOomConfirmed": true,
           "priorHostCumulativeOomCounter": 1,
           "backendCgroupOomKillsDuringFixtureFailure": 0,
-          "verifiedTestTransportResumeSupported": true
+          "verifiedTestTransportResumeSupported": true,
+          "cleanupCompletedAtUtc": "2026-11-14T12:09:58.096246Z",
+          "independentTaggedInventory": {
+            "activeInstances": 0,
+            "volumes": 0,
+            "snapshots": 0,
+            "securityGroups": 0
+          },
+          "additionalPaidHostQueued": false,
+          "longVideoCapacity": "not reached",
+          "snapshotRestore": "not reached",
+          "continuationSsmFailure": {
+            "status": "TimedOut",
+            "details": "ExecutionTimedOut",
+            "responseCode": 137,
+            "elapsedSecondsReported": 1.405,
+            "stdoutAndStderrEmpty": true,
+            "underlyingCauseEstablished": false
+          }
         }
       }
     }

@@ -1,5 +1,15 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Final attempt5 outcome: native suites pass; incomplete acceptance; cleaned — 14 November 2026
+
+**Live AWS production deployment is not complete.** On the approved same host, pinned native ARM64 application dfa1c848 with the explicitly reviewed test overlays passes real media/model2/2, backend units250/250 and the full registered integrations410/410, all0failed/0skipped. Full integrations took345.747seconds after the locked-client and512MiB Mongo fixture repairs. Earlier failed runs and the prior Mongo OOM remain recorded; they are not counted as passes.
+
+The first controller stopped after the successful full suite when STS identity read timed out; its cleanup identity also timed out before termination. Identity subsequently recovered. The same-host continuation bound current successful command IDs/source/image/OOM baseline, but its host-continuation SSM command returned **TimedOut / ExecutionTimedOut / response137**, empty stdout/stderr and reported elapsed1.405seconds (12:08:57–12:08:58UTC). Those service fields alone do not establish which guard operation failed or the underlying cause. It did not reach299second capacity, persistence fixture or snapshot/restore. No timeout was ignored and no staging acceptance was granted.
+
+Finally cleanup completed **2026-11-14T12:09:58.096246Z**. A separate authenticated inventory confirms **0active tagged instances,0volumes,0snapshots,0securitygroups**. All five manifests/tokens and private logs remain preserved. No sixth host is approved or queued. Original total3USD reserve/deadline were not reset. No production data/env, DNS, providers or feature flags changed.
+
+The independent backup dry-run also still returns UnauthorizedOperation. The owner-reviewable6010character corrected default policy file and focused Antigravity Console prompt are private; IAM GetPolicy/edits are unavailable to the deployer, so effective default-version contents remain unverified. Policy correction is prepared, not live-certified.43cloud-safety tests pass, including fail-closed identity/evidence/continuation cleanup; changes are committed/pushed. Exact next work is owner default-policy inspection/update plus read-only/local investigation of the retained SSM failure. Further paid execution and production cutover are not authorized by the consumed attempt5 approval. No new paid retry approval is requested in this outcome.
+
 ## Native full integrations410/410; same-host control-connection recovery — 14 November 2026
 
 With the retained512MiB Mongo fixture and locked WebSocket client, the complete native integration suite now passes **410/410,0failed,0skipped** in345.747seconds. Media/model2/2 and backend units250/250 also pass with0skips. The repaired host's OOM baseline is1 from the earlier known fixture failure; no reset or claim that the earlier run was OOM-free is made.
