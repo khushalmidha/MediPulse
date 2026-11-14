@@ -2604,14 +2604,21 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Authenticated IAM denial: GetInstanceProfile AccessDenied; attached policies cannot be inspected; renewed staging SG dry-run UnauthorizedOperation",
-          "stagingSafetyTests": 16,
+          "blocker": "First native build failed from manifest/lock drift; source pin fixed; corrected paid retry requires explicit owner approval",
+          "stagingSafetyTests": 18,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": false,
           "productionCutoverPerformed": false,
           "nonRootLoginSucceeded": true,
-          "groupCreationDryRun": "UnauthorizedOperation",
-          "nextOwnerAction": "Update MediPulseNativeSSM and MediPulseStaging from renewed private JSON as default versions; verify both attached to medipulse-deployer"
+          "groupCreationDryRun": "DryRunOperation",
+          "effectiveIamPreflightPassed": true,
+          "positiveLaunchDryRunPassed": true,
+          "negativeLargerAndJobFinderDryRunsDenied": true,
+          "nativeStagingAcceptance": false,
+          "cleanupIndependentlyVerified": true,
+          "jobFinderState": "running",
+          "correctedSourceRevision": "dfa1c8489f624ce3f5351ad9a9e00c5e89027b24",
+          "retryApproved": false
         }
       }
     }

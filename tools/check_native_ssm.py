@@ -11,7 +11,7 @@ import uuid
 import aws_native_pilot as pilot
 import aws_ssm_preflight as preflight
 
-SOURCE = '69fb14857f9a5aeb53aeee8e905717a59ba3b376'
+SOURCE = 'dfa1c8489f624ce3f5351ad9a9e00c5e89027b24'
 ROOT = '/srv/medipulse-native-pilot'
 
 
@@ -95,7 +95,19 @@ class Session:
         raise RuntimeError(label + ': bounded command poll timeout')
 
 
+def reviewed_source():
+    paths = ['backend', 'frontend/src/utils', 'tools/reels_capacity_check.mjs']
+    result = subprocess.run(['git', 'diff', '--quiet', SOURCE, 'HEAD', '--', *paths],
+                            cwd=pilot.REPO, capture_output=True)
+    if result.returncode:
+        raise RuntimeError('Pinned application source differs from the reviewed candidate; update the immutable source before launching')
+    manifest = json.loads(subprocess.check_output(['git', 'show', SOURCE + ':backend/package.json'], cwd=pilot.REPO))
+    lock = json.loads(subprocess.check_output(['git', 'show', SOURCE + ':backend/package-lock.json'], cwd=pilot.REPO))
+    assert manifest['dependencies'] == lock['packages']['']['dependencies'], 'Pinned manifest and lock differ'
+
+
 def bootstrap(state):
+    reviewed_source()
     q = shlex.quote
     script = '''test "$(uname -m)" = aarch64
 systemctl is-active --quiet medipulse-native-pilot-expire.timer
@@ -113,10 +125,8 @@ git fetch -q --depth=1 --filter=blob:none origin ''' + SOURCE + '''
 git sparse-checkout init --cone
 git sparse-checkout set backend
 git checkout -q ''' + SOURCE + '\n'
-    # Runtime app source is unchanged from this public commit; these two reviewed local overlays are small.
-    for name in ['backend/package.json', 'backend/scripts/reelsPreflight.js']:
-        data = subprocess.check_output(['git', 'show', 'HEAD:' + name], cwd=pilot.REPO)
-        script += 'printf %s ' + q(base64.b64encode(data).decode()) + ' | base64 -d >' + q(name) + '\n'
+    # Fetch the coherent manifest/lock from the immutable release together.
+    # Embedding a full npm lock into SSM commands exceeds the transport size cap.
     script += 'docker build --quiet -t ' + q(pilot.IMAGE) + ' backend >/srv/medipulse-native-pilot/build.log 2>&1 || { tail -n 40 /srv/medipulse-native-pilot/build.log; exit 1; }\n'
     model_repo, revision = pilot.MODEL.rsplit('/', 1)
     for name, digest in state['modelHashes'].items():

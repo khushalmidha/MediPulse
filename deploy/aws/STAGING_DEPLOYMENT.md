@@ -1,5 +1,9 @@
 # MediPulse separate-budget staging scope
 
+## Latest native staging result — 14 November 2026
+
+IAM/SSM and positive/negative authorization checks now pass. First new host failed at build before native app/media/299-second/restore acceptance; finally cleanup and independent zero-tagged-resource inventory passed, JobFinder running. Fixed source/lock drift by pinning coherent public release dfa1c848 and validating it before launch;18safety tests and4138byte generated script checks pass. Corrected build remains unexecuted. Existing3USD total reserve/original deadline stay fixed; a single-retry proposal is private/unapproved, with no automatic paid retry. See [deployment evidence](../../docs/DEPLOYMENT_FINALIZATION.md).
+
 ## Current renewal — 14 November 2026
 
 Renewal commit29c4716e uses medipulse-staging-20261113, fixed deadline16November16:11UTC (21:41IST), launch/SSM policy dates17NovemberUTC and cleanup19NovemberUTC. Private iam-native-ssm.compact.json1971characters and iam-staging.compact.json5978characters were locally verified. The13November expired-package warning below is historical. Fresh non-root login succeeded. Current checks: **GetInstanceProfile AccessDenied; renewed CreateSecurityGroup dry-run UnauthorizedOperation**. Attached-policy inspection is also denied; owner must verify the renewed default versions and both user attachments. Native acceptance remains pending; no paid resource created. See current [continuation evidence](../../docs/DEPLOYMENT_FINALIZATION.md). Capacity target compatibility fixed and16safety tests pass; scope/reserve unchanged.

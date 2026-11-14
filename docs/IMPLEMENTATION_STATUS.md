@@ -1,5 +1,9 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Native staging build failed; cleaned and corrected — 14 November 2026
+
+IAM/SSM and positive/negative authorization checks now pass. First new host failed at build before native app/media/299-second/restore acceptance; finally cleanup and independent zero-tagged-resource inventory passed, JobFinder running. Fixed source/lock drift by pinning coherent public release dfa1c848 and validating it before launch;18safety tests and4138byte generated script checks pass. Corrected build remains unexecuted. Existing3USD total reserve/original deadline stay fixed; a single-retry proposal is private/unapproved, with no automatic paid retry. See [deployment evidence](DEPLOYMENT_FINALIZATION.md).
+
 ## Renewed staging reviewed; authenticated IAM denial — 14 November 2026
 
 Verified29c4716e fresh scope/private policy dates and fixed deadline16November21:41IST. Fresh non-root login succeeded and strict identity validation passed. GetInstanceProfile now returns AccessDenied (no identity-based grant), attached-policy inspection is denied, and renewed CreateSecurityGroup dry-run returns UnauthorizedOperation. Owner must update renewed default JSON versions/attachments; no paid host launched. Corrected renewed capacity Mongo/Redis target names to satisfy existing harness guards;16safety checks plus real Bash env/syntax and Python AST checks pass. No new paid host, DNS/data/flag changes or production deployment. Exact evidence and next command: [deployment finalization](DEPLOYMENT_FINALIZATION.md).

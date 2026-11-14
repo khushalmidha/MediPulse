@@ -16,6 +16,24 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def test_native_build_transfers_matching_locked_dependency_before_docker_build(self):
+        script = native.bootstrap({'modelHashes': {name: 'a' * 64 for name in api.MODEL_FILES}})
+        package = json.loads(subprocess.check_output(['git', 'show', native.SOURCE + ':backend/package.json'], cwd=api.REPO))
+        lock = json.loads(subprocess.check_output(['git', 'show', native.SOURCE + ':backend/package-lock.json'], cwd=api.REPO))
+        self.assertEqual(package['dependencies'], lock['packages']['']['dependencies'])
+        self.assertEqual(package['dependencies']['mongoose'], lock['packages']['node_modules/mongoose']['version'])
+        self.assertLess(script.index('git checkout -q ' + native.SOURCE), script.index('docker build'))
+        self.assertLess(len(json.dumps({'commands': ['/bin/bash -c ' + script]}).encode()), 20000)
+
+    def test_source_drift_is_rejected_before_launch_or_cleanup(self):
+        with patch.object(stage, 'load', return_value={'status': 'prepared'}), \
+             patch.object(native, 'reviewed_source', side_effect=RuntimeError('source drift')), \
+             patch.object(stage, 'launch') as launch, patch.object(stage, 'cleanup') as cleanup:
+            with self.assertRaisesRegex(RuntimeError, 'source drift'):
+                acceptance.run()
+            launch.assert_not_called()
+            cleanup.assert_not_called()
+
     def capacity_guard(self, values):
         source = (api.REPO / 'tools/reels_capacity_check.mjs').read_text(encoding='utf-8')
         # Execute the real target guards before Linux-only processing or DB imports.

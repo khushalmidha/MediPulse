@@ -183,6 +183,7 @@ echo STAGING_RESTORED_MONGO_AND_REDIS_PROOFS_PASS
 
 def run():
     state = stage.load(); assert state['status'] == 'prepared'
+    native.reviewed_source()  # Refuse source drift before creating paid resources.
     try:
         stage.launch()
         session = native.Session(stage.STATE, stage.LOGS, stage.target)

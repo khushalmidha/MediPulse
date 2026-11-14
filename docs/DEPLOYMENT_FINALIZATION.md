@@ -1,5 +1,15 @@
 # Low-traffic deployment continuation — 13 November 2026
 
+## First native staging attempt cleaned; corrected build prepared — 14 November 2026
+
+**Owner Console work succeeded.** Fresh SSM preflight and approved launch dry-run passed; larger-instance and JobFinder-termination dry-runs were denied. One approved ARM64/30GiB staging host launched through SSM. Build failed before app/media/299-second/snapshot-restore acceptance; none of those checks is claimed passed on this host.
+
+The old builder fetched69fb1485 and overlaid the new manifest without its matching lock. This left Mongoose8.24.7 requested beside an8.24.6 lock; the remote build returned npm-ci failure. Corrected builder now fetches complete immutable release **dfa1c8489f624ce3f5351ad9a9e00c5e89027b24**, containing the coherent manifest/lock. A pre-launch source-drift check refuses a different committed app candidate. No full npm lock is embedded into SSM (that would exceed its24KB cap); the generated bootstrap is4138bytes.18safety tests, real pinned dependency-pair validation, Bash syntax and3Python AST checks pass. The corrected AWS build has **not** been executed yet.
+
+Finally cleanup completed. Independent AWS reads confirm0active tagged staging instances,0volumes,0snapshots and0securitygroups; JobFinder is running. Recorded launch05:21:58UTC and cleanup05:28:46UTC (14November); no settled billing/cap guarantee is claimed. No production deployment, DNS/data/provider/flag change occurred.
+
+The cleaned launch token/journal will not be reset or reused. The runbook prohibits automatic paid retries. A concrete private `aws-staging-retry-proposal.json` is prepared with **approved=false**: one corrected attempt, at most one active t4g.small/30GiB, same3USD **total** reserve across attempts, same original16November16:11UTC deadline, new token, archived prior manifest and the same narrow IAM tag scope. Retry approval is the next dependency; no new instance has been queued. Previous IAM-denial notes below are historical and resolved.
+
 ## Renewed package verified locally — 14 November 2026
 
 The renewal commit `29c4716e` supersedes the expired-package instructions below. Current scope is `medipulse-staging-20261113`; its preserved new journal runs from 13 November 16:11:12 UTC to 16 November 16:11:12 UTC (**16 November, 21:41 IST**). Private renewed staging JSON is5978characters (launch/SSM17NovemberUTC, cleanup19NovemberUTC); renewed SSM JSON is1971characters (17NovemberUTC), with no unresolved account placeholders. Do not regenerate or extend the fixed journal.
