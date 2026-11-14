@@ -2604,7 +2604,7 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Full native suites passed; same-host continuation SSM ExecutionTimedOut137;299second/restore unrun; snapshot authorization denied",
+          "blocker": "Owner Console policy save pending; local copied JSON does not prove saved AWS default; native long-video/restore and production remain incomplete",
           "stagingSafetyTests": 43,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": true,
@@ -2676,7 +2676,10 @@
             "underlyingCauseEstablished": false
           },
           "technicalExecutionOwner": "Codex",
-          "antigravityScope": "One mechanical owner Console task: save prepared policy, confirm attachment, export actual default document/version. No technical investigation, code, tests or paid launches."
+          "antigravityScope": "One mechanical owner Console task: save prepared policy, confirm attachment, export actual default document/version. No technical investigation, code, tests or paid launches.",
+          "ownerConsolePolicySaveVerified": false,
+          "savedDefaultFileIsLiveEvidence": false,
+          "directAuthorizedPolicySave": "iam:CreatePolicyVersion AccessDenied"
         }
       }
     }

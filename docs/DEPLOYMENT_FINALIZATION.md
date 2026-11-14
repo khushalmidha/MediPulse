@@ -1,5 +1,11 @@
 # Low-traffic deployment continuation — 13 November 2026
 
+## Owner Console save still pending; direct save denied — 14 November 2026
+
+Antigravity's new report verifies/prepares the6010character local JSON and clipboard but explicitly leaves the AWS Console save for the owner. Its saved-default file is byte-identical to the prepared file with the same modification timestamp; it has no observed AWS default version ID. Treat this file as an unverified local copy, not evidence of a live default-policy export. A private provenance sidecar records that distinction.
+
+Owner again instructed immediate deployment. Codex verified the exact non-root identity, compared the prepared document to the reviewed renderer and attempted the already-authorized exact MediPulseStaging CreatePolicyVersion/set-default action directly. AWS returned **AccessDenied**,0successful policy writes. No broader grant/root fallback/new host was attempted. Clipboard has been reloaded with the verified prepared JSON so the owner only needs the existing policy Edit/JSON/paste/Save action. This does not resolve the independent SSM/long-video/restore acceptance or constitute production deployment approval/evidence. Attempt5 remains cleaned; no paid launch is queued.
+
 ## Owner workflow preference — 14 November 2026
 
 Owner requests one consolidated Antigravity prompt and only easy tasks. Codex retains application/tooling fixes, SSM investigation, tests, acceptance and deployment execution. Antigravity is restricted to the mechanical owner AWS Console update of the already prepared MediPulseStaging JSON, confirmation of its existing user attachment, and exporting the saved default document/version for Codex review. It is not assigned code changes, diagnostic decisions, paid launches, tests or DNS/cutover. The canonical private handoff is antigravity-deployment-handoff.txt; earlier broader investigation instructions are superseded. This preference adds no paid-host approval and does not change the cleaned attempt5 outcome.
