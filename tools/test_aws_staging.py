@@ -19,6 +19,62 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def healthy_diagnostic(self):
+        report = {'status': 'done', 'extended_status': 'done', 'errors': [], 'recoverable_errors': {}, 'stage': None}
+        for name in ['init-local', 'init', 'modules-config', 'modules-final']:
+            report[name] = {'errors': [], 'recoverable_errors': {}}
+        raw = json.dumps(report).encode()
+        return {'returnCode': 0, 'report': report, 'reportSha256': hashlib.sha256(raw).hexdigest()}, raw
+
+    def test_only_fully_healthy_initialization_can_continue_automatically(self):
+        diagnostic, raw = self.healthy_diagnostic()
+        self.assertTrue(acceptance.initialization_is_healthy(diagnostic))
+        for changed in [{'returnCode': 2}, {'report': {**diagnostic['report'], 'recoverable_errors': {'WARNING': ['warn']}}},
+                        {'report': {**diagnostic['report'], 'status': 'running'}},
+                        {'report': {**diagnostic['report'], 'init': {'errors': ['error'], 'recoverable_errors': {}}}}]:
+            self.assertFalse(acceptance.initialization_is_healthy({**diagnostic, **changed}))
+
+    def test_healthy_report_starts_build_without_waiting_and_cleans(self):
+        diagnostic, raw = self.healthy_diagnostic()
+        output = 'CLOUD_INIT_RETURN_CODE=0\nCLOUD_INIT_REPORT_BASE64=' + base64.b64encode(raw).decode() + '\nINITIALIZATION_REPORT_CAPTURED\n'
+        state = {'status': 'prepared', 'attempt': 3, 'failures': []}
+        with tempfile.TemporaryDirectory() as folder:
+            session = unittest.mock.Mock(); session.logs = Path(folder)
+            session.run.side_effect = [output, 'PILOT_SSM_BUILD_AND_CACHE_READY']
+            script = '# ' + native.SOURCE + '\necho PILOT_SSM_BUILD_AND_CACHE_READY\n'
+            with patch.object(stage, 'load', return_value=state), patch.object(stage, 'save'), \
+                 patch.object(stage, 'launch'), patch.object(stage, 'cleanup') as cleanup, \
+                 patch.object(native, 'reviewed_source'), patch.object(native, 'bootstrap', return_value=script), \
+                 patch.object(native, 'Session', return_value=session), patch.object(acceptance, 'acceptance') as app_checks, \
+                 patch.object(acceptance.time, 'sleep', side_effect=AssertionError('healthy init must not wait')):
+                acceptance.run_diagnostic()
+                app_checks.assert_called_once_with(session)
+                cleanup.assert_called_once_with()
+
+    def test_completion_scope_requires_explicit_approval_and_keeps_original_bound(self):
+        with self.retry_fixture() as (old, approval, journal, grant, inventory):
+            old.update(attempt=3, clientToken=stage.STAGE + '-three', originalDeadlineUtc=old['deadlineUtc'])
+            approval.update(priorAttempt=3, proposedClientToken=stage.STAGE + '-four', maximumRuntimeHours=2,
+                            reserveGrossUSDTotalAcrossAllAttempts=3)
+            journal.write_text(json.dumps(old)); grant.write_text(json.dumps(approval))
+            with patch.object(stage, 'COMPLETION_APPROVAL', grant):
+                new = stage.prepare_completion()
+            self.assertEqual(new['attempt'], 4)
+            self.assertEqual(new['originalDeadlineUtc'], old['originalDeadlineUtc'])
+            self.assertEqual(new['reserveGrossUSD'], old['reserveGrossUSD'])
+            self.assertEqual(new['clientToken'], stage.STAGE + '-four')
+            self.assertEqual(json.loads(Path(new['previousManifest']).read_text()), old)
+
+    def test_unapproved_completion_and_fifth_target_are_refused(self):
+        with self.retry_fixture() as (old, approval, journal, grant, inventory):
+            old.update(attempt=3, clientToken=stage.STAGE + '-three', originalDeadlineUtc=old['deadlineUtc'])
+            approval.update(approved=False, priorAttempt=3, proposedClientToken=stage.STAGE + '-four')
+            journal.write_text(json.dumps(old)); grant.write_text(json.dumps(approval))
+            with patch.object(stage, 'COMPLETION_APPROVAL', grant), self.assertRaises(AssertionError):
+                stage.prepare_completion()
+            inventory.assert_not_called()
+        with self.assertRaises(AssertionError): stage.instance({**self.state, 'attempt': 5}, self.item)
+
     def diagnostic_inputs(self, old, approval):
         old.update(attempt=2, clientToken=stage.STAGE + '-two')
         approval.update(priorAttempt=2, proposedClientToken=stage.STAGE + '-three', maximumRuntimeHours=2,

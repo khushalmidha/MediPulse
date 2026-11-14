@@ -268,9 +268,22 @@ def reviewed_bootstrap(decision, diagnostic, directory, index):
     return script.decode('utf-8')
 
 
+def initialization_is_healthy(diagnostic):
+    report = diagnostic['report']
+    if diagnostic['returnCode'] != 0 or report.get('status') != 'done' or report.get('extended_status') != 'done':
+        return False
+    if report.get('errors') != [] or report.get('recoverable_errors') != {}:
+        return False
+    for name in ['init-local', 'init', 'modules-config', 'modules-final']:
+        phase = report.get(name, {})
+        if phase.get('errors') != [] or phase.get('recoverable_errors') != {}:
+            return False
+    return report.get('stage') is None
+
+
 def run_diagnostic():
     state = stage.load()
-    assert state['status'] == 'prepared' and state['attempt'] == 3
+    assert state['status'] == 'prepared' and state['attempt'] in [3, 4]
     native.reviewed_source()
     try:
         stage.launch()
@@ -280,6 +293,15 @@ def run_diagnostic():
         state = stage.load(); state['initializationDiagnostic'] = diagnostic; stage.save(state)
         api.emit('initialization-diagnostic-captured', returnCode=diagnostic['returnCode'],
                  status=diagnostic['report'].get('status'), reportSha256=diagnostic['reportSha256'])
+        if initialization_is_healthy(diagnostic):
+            # Successful, complete, warning-free initialization needs no manual gate.
+            api.emit('healthy-initialization-build-started')
+            script = adapt(native.bootstrap(stage.load()))
+            (session.logs / 'reviewed-bootstrap-1.sh').write_text(script, encoding='utf-8', newline='\n')
+            decision = {'action': 'continue', 'reason': 'All initialization phases completed without errors or recoverable warnings',
+                        'cloudInitReportSha256': diagnostic['reportSha256'],
+                        'bootstrapSha256': hashlib.sha256(script.encode()).hexdigest()}
+            (session.logs / 'review-decision-1.json').write_text(json.dumps(decision), encoding='utf-8')
         # One existing host; any repair must be reviewed against its captured report.
         # No decision within five minutes means cleanup, never an unattended host.
         for index in range(1, 4):
@@ -322,15 +344,21 @@ def main():
     parser.add_argument('--run-approved', action='store_true')
     parser.add_argument('--retry-approved', action='store_true', help='Execute only the separately approved second attempt')
     parser.add_argument('--diagnostic-approved', action='store_true', help='One separately approved, two-hour diagnostic host')
+    parser.add_argument('--completion-approved', action='store_true', help='One separately approved completion host')
     parser.add_argument('--cleanup', action='store_true')
     args = parser.parse_args()
     if args.cleanup:
         stage.cleanup(); return
     # Diagnose the local fixed deadline before contacting expired IAM grants.
     # Cleanup deliberately bypasses this gate so old resources remain removable.
-    if stage.STATE.exists():
+    if stage.STATE.exists() and not args.completion_approved:
         stage.require_open_window(stage.load())
     preflight.main()
+    if args.completion_approved:
+        native.reviewed_source()
+        stage.prepare_completion()
+        run_diagnostic()
+        return
     if args.diagnostic_approved:
         native.reviewed_source()
         stage.prepare_diagnostic()

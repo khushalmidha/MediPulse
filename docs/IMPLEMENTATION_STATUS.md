@@ -1,5 +1,13 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Diagnostic was healthy; automatic continuation corrected — 14 November 2026
+
+Attempt3 captured real cloud-init JSON: **return0, status/extended status done, errors empty, recoverable errors empty in all four initialization phases**. The prior return2 warning did not reproduce on this host; its specific prior cause remains unknown. The controller nevertheless waited for a review of this healthy report. That unnecessary review timed out and finally cleanup ran before build. This was an orchestration defect, not a native application failure or successful app acceptance.
+
+Corrected the controller so a fully completed, warning/error-free report automatically submits the exact pinned bootstrap and proceeds on the same host. Nonzero, incomplete or warning-bearing reports still require bounded investigation; failures are not ignored. Build failures can be investigated on that same host through the existing bounded, hash-bound repair loop.34safety regressions pass, including a healthy report reaching the build/application handoff with no sleep, warning/failure reports rejecting that automatic path, and explicit completion-approval/counter guards. A full generated-bootstrap Bash fixture passed with OS/install/build/download mocked: actual checksum commands, file creation and generated runner syntax were exercised. This is orchestration verification, not actual OCI/native performance acceptance.
+
+The authorized diagnostic host is cleaned. Its consumed token is not reused. A new one-host completion proposal is prepared privately with **approved=false**, maximum2hours, same original3USD total reserve/deadline and new -four token. No new paid host was started; fifth target remains refused. Completion launch requires its own explicit approval. No further Console policy edits are expected from the now-working grants.
+
 ## Additional diagnostic host explicitly approved — 14 November 2026
 
 Owner approved one additional diagnostic host: same t4g.small/30GiB/SSM-only scope, at most2hours and no later than the original16November16:11UTC deadline, within the original3USD total reserve across all attempts. Attempt3 uses a fresh -three token and archived attempt2 journal; an attempt4 target is refused. Logs remain separate.

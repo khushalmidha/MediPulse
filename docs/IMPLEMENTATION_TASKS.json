@@ -2604,8 +2604,8 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Additional diagnostic host explicitly approved; preparing live capture and bounded review",
-          "stagingSafetyTests": 30,
+          "blocker": "Diagnostic healthy; controller review timed out before build, host cleaned; automatic healthy continuation fixed, completion proposal unapproved",
+          "stagingSafetyTests": 34,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": false,
           "productionCutoverPerformed": false,
@@ -2615,19 +2615,22 @@
           "positiveLaunchDryRunPassed": true,
           "negativeLargerAndJobFinderDryRunsDenied": true,
           "nativeStagingAcceptance": false,
-          "cleanupIndependentlyVerified": true,
+          "cleanupIndependentlyVerified": false,
           "jobFinderState": "running",
           "correctedSourceRevision": "dfa1c8489f624ce3f5351ad9a9e00c5e89027b24",
           "retryApproved": true,
           "retryMaximumAdditionalAttempts": 1,
           "retryUsesOriginalDeadlineAndTotalReserve": true,
-          "attempt": 2,
+          "attempt": 3,
           "attempt2Status": "cleaned",
           "attempt2LaunchUtc": "2026-11-14T05:46:30Z",
           "attempt2CleanupUtc": "2026-11-14T05:49:00.134100Z",
           "furtherRetryApproved": false,
           "diagnosticApproved": true,
-          "diagnosticMaximumRuntimeHours": 2
+          "diagnosticMaximumRuntimeHours": 2,
+          "diagnosticHealthy": true,
+          "automaticHealthyContinuationFixed": true,
+          "completionApproved": false
         }
       }
     }
