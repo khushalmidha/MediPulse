@@ -1,5 +1,11 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Same-host WebSocket fixture repair — 14 November 2026
+
+Attempt5 native ARM64 build/model checks passed; real media/model2/2 and backend units250/250 passed without skips. The full integration process retained actual totals:395registered results,394passed,1file-load failure,0skips,658.353seconds. p06-workflows could not import socket.io-client via /frontend/package.json; its frontend node_modules fixture was absent. Its16tests were therefore not exercised in that run; this is not410passed. Both real Reels files, including the15-step lifecycle, passed.
+
+Prepared a hash-bound same-host repair installing the immutable release frontend production lock with scripts disabled, using a512MiB capped temporary npm container. It verifies the installed client version against that lock and the same createRequire resolver used by p06. The runtime backend image/application remains unchanged. Added this fixture preparation to future acceptance orchestration.40safety regressions and actual generated Bash syntax pass. The approved existing host is retained for full rerun; no new VM or approval requested. Backup IAM remains denied/pending owner default-policy update. No clean native full-suite,299second,restore or production success is claimed yet.
+
 ## Acceptance attempt5 active; backup authorization correction prepared — 14 November 2026
 
 Owner explicitly approved the corrected acceptance host within the unchanged3USD total reserve/original deadline, maximum2hours. Attempt5 initialized cleanly and is building the pinned native release on the same host; its fixed deadline is2026-11-14T13:16:43.983678Z. Full acceptance and production cutover remain unproved.

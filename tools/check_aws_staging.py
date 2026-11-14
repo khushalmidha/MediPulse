@@ -89,6 +89,23 @@ def container(command, capacity=False, shell=False):
  --mount type=bind,source=''' + stage.ROOT + '''/source/backend/scripts/testIntegration.js,target=/app/scripts/testIntegration.js,readonly''' + extra + (' --env-file ' + stage.ROOT + '/capacity.env' if capacity else '') + ' --entrypoint ' + ('/bin/sh ' if shell else 'node ') + api.IMAGE + ' ' + ('-c ' + shlex.quote(command) if shell else command)
 
 
+def frontend_test_client():
+    # p06-workflows resolves its real WebSocket client from the frontend tree.
+    # Install the immutable lock's production dependencies as a fixture only;
+    # this never changes the backend image or starts the app with real data.
+    return 'cd ' + stage.ROOT + '/source\n' + '''git show ''' + native.SOURCE + ''':frontend/package.json >frontend/package.json
+git show ''' + native.SOURCE + ''':frontend/package-lock.json >frontend/package-lock.json
+if test ! -d frontend/node_modules/socket.io-client; then
+ docker run --rm --pull=never --network bridge --user 0:0 --memory 512m --memory-swap 512m --cpus .5 \\
+  --mount type=bind,source=''' + stage.ROOT + '''/source/frontend,target=/frontend \\
+  --workdir /frontend --entrypoint npm ''' + api.IMAGE + ''' ci --omit=dev --ignore-scripts --no-audit --no-fund
+fi
+docker run --rm --pull=never --network none --memory 128m --memory-swap 128m \\
+ --mount type=bind,source=''' + stage.ROOT + '''/source/frontend,target=/frontend,readonly \\
+ --entrypoint node ''' + api.IMAGE + ''' -e 'const assert=require("node:assert/strict"); const lock=require("/frontend/package-lock.json"); const client=require("/frontend/node_modules/socket.io-client/package.json"); assert.equal(client.version,lock.packages["node_modules/socket.io-client"].version); assert.equal(typeof require("node:module").createRequire("/frontend/package.json")("socket.io-client").io,"function"); console.log("STAGING_LOCKED_WEBSOCKET_CLIENT_READY")'
+'''
+
+
 def logged(command, name):
     log = stage.ROOT + '/logs/' + name + '.log'
     return 'result=0\n' + command + ' >' + log + ' 2>&1 || result=$?\ntail -n 14 ' + log + '\nif test "$result" -ne 0; then tail -n 65 ' + log + '; fi\ngrep -E "(tests|pass|fail|skipped) [0-9]+$" ' + log + ' | tail -n 4 || true\nexit "$result"\n'
@@ -194,6 +211,7 @@ def acceptance(session, reuse_services=False):
     else:
         ready = services()
     assert 'STAGING_ISOLATED_SERVICES_READY' in session.run(ready, 'isolated-mongo-redis', 480)
+    assert 'STAGING_LOCKED_WEBSOCKET_CLIENT_READY' in session.run(frontend_test_client(), 'locked-websocket-test-client', 180)
     pressure_before = session.run("grep '^oom_kill ' /proc/vmstat\ndf -PB1 " + stage.ROOT + "\ncat /proc/pressure/memory\ndocker image inspect " + api.IMAGE + " --format '{{.Id}}'", 'host-before-load', 30)
     media = summary(session.run(adapt(native.native_script()), 'staging-real-media-model', 420))
     assert media['pass'] == 2 and media['skipped'] == 0

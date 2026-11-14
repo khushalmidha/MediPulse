@@ -2604,7 +2604,7 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Attempt5 building; CreateSnapshot dry-run denied, corrected 6010-character owner policy update pending",
+          "blocker": "Same-host frontend locked client fixture repair/full rerun; snapshot authorization denied",
           "stagingSafetyTests": 40,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": true,
@@ -2636,15 +2636,23 @@
           "backendUnitsPassed": 250,
           "sameHostMongoNofileRepair": true,
           "mongoNofileLimit": 65536,
-          "cleanIntegrationRun": "failed at Reels fixture setup; complete count not retained",
+          "cleanIntegrationRun": {
+            "registeredResults": 395,
+            "passed": 394,
+            "failed": 1,
+            "skipped": 0,
+            "durationSeconds": 658.353,
+            "cause": "p06 file could not resolve missing frontend socket.io-client fixture;16cases not exercised"
+          },
           "ffmpegFixtureContractPassed": 33,
           "acceptanceSameHostRepairSupported": true,
           "completionHostStatus": "cleaned",
           "finalAcceptanceApproved": true,
-          "acceptanceHostStatus": "building",
+          "acceptanceHostStatus": "same-host WebSocket client fixture repair",
           "acceptanceHostDeadlineUtc": "2026-11-14T13:16:43.983678Z",
           "snapshotPermissionDryRun": "UnauthorizedOperation",
-          "snapshotPolicyCorrectionEffective": false
+          "snapshotPolicyCorrectionEffective": false,
+          "websocketFixtureRepair": "pinned frontend production lock, scripts disabled; runtime image unchanged"
         }
       }
     }
