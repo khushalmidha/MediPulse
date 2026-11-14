@@ -453,6 +453,18 @@ class StagingSafety(unittest.TestCase):
         self.assertEqual(restore['Condition']['Null'], {'ec2:ParentSnapshot': 'false'})
         self.assertEqual(restore['Condition']['NumericEquals']['ec2:VolumeSize'], '30')
 
+    def test_snapshot_size_and_encryption_apply_to_required_source_volume(self):
+        grants = [s for s in policy.build()['Statement'] if s['Action'] == 'ec2:CreateSnapshot']
+        source = next(s for s in grants if ':volume/' in s['Resource'])
+        output = next(s for s in grants if ':snapshot/' in s['Resource'])
+        self.assertEqual(source['Condition']['NumericEquals'], {'ec2:VolumeSize': '30'})
+        self.assertEqual(source['Condition']['Bool'], {'ec2:Encrypted': 'true'})
+        self.assertEqual(source['Condition']['StringEquals']['aws:ResourceTag/Role'], 'staging-root')
+        self.assertNotIn('NumericEquals', output['Condition'])
+        self.assertEqual(output['Condition']['StringEquals']['aws:RequestTag/Role'], 'synthetic-backup')
+        for grant in grants:
+            self.assertIn('DateLessThan', grant['Condition'])
+
     def test_ssm_journal_stays_in_selected_manifest(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); path = root / 'stage.json'; path.write_text(json.dumps(self.state))

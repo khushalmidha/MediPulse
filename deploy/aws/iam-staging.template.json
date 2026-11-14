@@ -183,6 +183,12 @@
         },
         "DateLessThan": {
           "aws:CurrentTime": "2026-11-19T00:00:00Z"
+        },
+        "NumericEquals": {
+          "ec2:VolumeSize": "30"
+        },
+        "Bool": {
+          "ec2:Encrypted": "true"
         }
       }
     },
@@ -198,9 +204,6 @@
         },
         "DateLessThan": {
           "aws:CurrentTime": "2026-11-17T00:00:00Z"
-        },
-        "NumericEquals": {
-          "ec2:VolumeSize": "30"
         }
       }
     },

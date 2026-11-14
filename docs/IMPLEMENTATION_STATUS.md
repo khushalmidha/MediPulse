@@ -1,5 +1,11 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Acceptance attempt5 active; backup authorization correction prepared — 14 November 2026
+
+Owner explicitly approved the corrected acceptance host within the unchanged3USD total reserve/original deadline, maximum2hours. Attempt5 initialized cleanly and is building the pinned native release on the same host; its fixed deadline is2026-11-14T13:16:43.983678Z. Full acceptance and production cutover remain unproved.
+
+A read-only CreateSnapshot dry-run against its owned encrypted30GiB root returned UnauthorizedOperation on the new snapshot resource. Exact effective policy inspection is also IAM-denied, so policy-version drift versus condition evaluation is not established. Prepared a corrected MediPulseStaging JSON (6010characters) following the official EBS two-resource example: enforce30GiB and encryption on the required source-volume grant, retain scope/role/request tags and expiry on the new snapshot grant. Both resources remain necessary; no IAM write was attempted. Owner/Admin must save this default policy version. See https://docs.aws.amazon.com/ebs/latest/userguide/security_iam_id-based-policy-examples.html .40safety regressions pass. This correction is not yet certified by a successful live snapshot dry-run; build/tests continue on the already approved host, without another paid retry.
+
 ## Native integration fixture failure corrected; paid host cleaned — 14 November 2026
 
 After the same-host Mongo open-file repair, the clean integration run still failed in Reels fixture setup: both before-hooks attempted `ffmpeg-static`, while the ARM image intentionally installs the configured system FFmpeg and skips static-binary install scripts. Spawn returned null; setup error details were previously omitted by fixture assertions. Retained failure stacks point to reels.test.js:69 and reels-lifecycle.test.js:139. A complete native integration total was not retained by the old failure-tail logger; no full-suite pass/count is invented.299-second and snapshot/restore checks were not reached.

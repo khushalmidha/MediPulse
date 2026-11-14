@@ -56,8 +56,12 @@ def build():
         statements.append({'Effect': 'Allow', 'Action': actions, 'Resource': resources, 'Condition': condition})
 
     c = own(); c['StringEquals']['aws:ResourceTag/Role'] = 'staging-root'
+    # Match EBS's documented two-resource CreateSnapshot policy: constrain
+    # size/encryption on the existing source, request tags on the new snapshot.
+    c['NumericEquals'] = {'ec2:VolumeSize': '30'}
+    c['Bool'] = {'ec2:Encrypted': 'true'}
     grant('ec2:CreateSnapshot', account + 'volume/*', c)
-    c = request(); c['StringEquals']['aws:RequestTag/Role'] = 'synthetic-backup'; c['NumericEquals'] = {'ec2:VolumeSize': '30'}
+    c = request(); c['StringEquals']['aws:RequestTag/Role'] = 'synthetic-backup'
     grant('ec2:CreateSnapshot', snapshot, c)
     c = own(); c['StringEquals']['aws:ResourceTag/Role'] = 'synthetic-backup'
     grant(['ec2:CreateVolume', 'ec2:DeleteSnapshot'], snapshot, c)

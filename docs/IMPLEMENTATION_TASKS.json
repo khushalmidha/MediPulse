@@ -2604,10 +2604,10 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Completion host cleaned after Reels fixture ignored configured FFmpeg path; corrected and locally33/33verified; further host unapproved",
-          "stagingSafetyTests": 39,
+          "blocker": "Attempt5 building; CreateSnapshot dry-run denied, corrected 6010-character owner policy update pending",
+          "stagingSafetyTests": 40,
           "capacityTargetContractFixed": true,
-          "newPaidResourcesCreated": false,
+          "newPaidResourcesCreated": true,
           "productionCutoverPerformed": false,
           "nonRootLoginSucceeded": true,
           "groupCreationDryRun": "DryRunOperation",
@@ -2621,7 +2621,7 @@
           "retryApproved": true,
           "retryMaximumAdditionalAttempts": 1,
           "retryUsesOriginalDeadlineAndTotalReserve": true,
-          "attempt": 4,
+          "attempt": 5,
           "attempt2Status": "cleaned",
           "attempt2LaunchUtc": "2026-11-14T05:46:30Z",
           "attempt2CleanupUtc": "2026-11-14T05:49:00.134100Z",
@@ -2640,7 +2640,11 @@
           "ffmpegFixtureContractPassed": 33,
           "acceptanceSameHostRepairSupported": true,
           "completionHostStatus": "cleaned",
-          "finalAcceptanceApproved": false
+          "finalAcceptanceApproved": true,
+          "acceptanceHostStatus": "building",
+          "acceptanceHostDeadlineUtc": "2026-11-14T13:16:43.983678Z",
+          "snapshotPermissionDryRun": "UnauthorizedOperation",
+          "snapshotPolicyCorrectionEffective": false
         }
       }
     }
