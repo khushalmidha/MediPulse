@@ -1,8 +1,8 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
-## Renewed staging reviewed; browser reauthentication pending — 14 November 2026
+## Renewed staging reviewed; authenticated IAM denial — 14 November 2026
 
-Verified29c4716e fresh scope/private policy dates and fixed deadline16November21:41IST. Current AWS failure is expired CLI authentication, before IAM checks; non-root browser login started. Effective policy access remains unverified. Corrected renewed capacity Mongo/Redis target names to satisfy existing harness guards;16safety checks plus real Bash env/syntax and Python AST checks pass. No new paid host, DNS/data/flag changes or production deployment. Exact evidence and next command: [deployment finalization](DEPLOYMENT_FINALIZATION.md).
+Verified29c4716e fresh scope/private policy dates and fixed deadline16November21:41IST. Fresh non-root login succeeded and strict identity validation passed. GetInstanceProfile now returns AccessDenied (no identity-based grant), attached-policy inspection is denied, and renewed CreateSecurityGroup dry-run returns UnauthorizedOperation. Owner must update renewed default JSON versions/attachments; no paid host launched. Corrected renewed capacity Mongo/Redis target names to satisfy existing harness guards;16safety checks plus real Bash env/syntax and Python AST checks pass. No new paid host, DNS/data/flag changes or production deployment. Exact evidence and next command: [deployment finalization](DEPLOYMENT_FINALIZATION.md).
 
 ## Deployment finalization; expired cloud grant — 13 November 2026
 

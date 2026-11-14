@@ -2604,11 +2604,14 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "AWS CLI session expired; agent login ended with EOF and interactive retry canceled; owner interactive aws login required before policy checks",
+          "blocker": "Authenticated IAM denial: GetInstanceProfile AccessDenied; attached policies cannot be inspected; renewed staging SG dry-run UnauthorizedOperation",
           "stagingSafetyTests": 16,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": false,
-          "productionCutoverPerformed": false
+          "productionCutoverPerformed": false,
+          "nonRootLoginSucceeded": true,
+          "groupCreationDryRun": "UnauthorizedOperation",
+          "nextOwnerAction": "Update MediPulseNativeSSM and MediPulseStaging from renewed private JSON as default versions; verify both attached to medipulse-deployer"
         }
       }
     }
