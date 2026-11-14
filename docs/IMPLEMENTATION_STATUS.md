@@ -1,5 +1,11 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## Additional diagnostic host explicitly approved — 14 November 2026
+
+Owner approved one additional diagnostic host: same t4g.small/30GiB/SSM-only scope, at most2hours and no later than the original16November16:11UTC deadline, within the original3USD total reserve across all attempts. Attempt3 uses a fresh -three token and archived attempt2 journal; an attempt4 target is refused. Logs remain separate.
+
+The new mode captures cloud-init JSON before package/build work. A five-minute, bounded review gate requires a decision tied to that exact report SHA256, a stated investigation reason and the exact reviewed bootstrap file hash. It never treats captured status2 as app acceptance. Up to3reviewed build commands may repair this same host within its fixed2hour lifetime; they cannot create another VM or extend the deadline. Failure/timeout/stop triggers cleanup.30safety tests, actual Bash exit2 capture/parse fixture, generated shell syntax and3Python AST checks pass. Native diagnostic/build/acceptance results remain pending until execution.
+
 ## Corrected retry stopped at initialization; cleaned — 14 November 2026
 
 The approved second attempt launched at05:46:30UTC and cleanup completed05:49:00UTC. The retained SSM result is **Failed / response code2**, stdout only `status: done`; no image-build or app/media/299-second/restore acceptance was reached or proved. The updated coherent dependency source was selected, but its native build is not certified by this result.

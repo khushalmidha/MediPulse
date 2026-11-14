@@ -1,6 +1,8 @@
 """Cloud safety regressions; all AWS calls mocked, all manifests temporary."""
 import copy
+import base64
 import datetime as dt
+import hashlib
 import json
 import os
 import subprocess
@@ -17,6 +19,80 @@ import render_staging_policy as policy
 
 
 class StagingSafety(unittest.TestCase):
+    def diagnostic_inputs(self, old, approval):
+        old.update(attempt=2, clientToken=stage.STAGE + '-two')
+        approval.update(priorAttempt=2, proposedClientToken=stage.STAGE + '-three', maximumRuntimeHours=2,
+                        reserveGrossUSDTotalAcrossAllAttempts=3,
+                        continueStagingOnlyAfterSpecificInitializationIssueUnderstood=True)
+
+    def test_diagnostic_scope_preserves_parent_and_enforces_shorter_deadline(self):
+        with self.retry_fixture() as (old, approval, journal, grant, inventory):
+            self.diagnostic_inputs(old, approval)
+            journal.write_text(json.dumps(old)); grant.write_text(json.dumps(approval))
+            with patch.object(stage, 'DIAGNOSTIC_APPROVAL', grant):
+                new = stage.prepare_diagnostic()
+            self.assertEqual(new['attempt'], 3)
+            self.assertEqual(new['clientToken'], stage.STAGE + '-three')
+            self.assertEqual(new['preparedAtUtc'], old['preparedAtUtc'])
+            self.assertEqual(new['reserveGrossUSD'], 3)
+            self.assertEqual(new['originalDeadlineUtc'], old['deadlineUtc'])
+            self.assertLessEqual(dt.datetime.fromisoformat(new['deadlineUtc']),
+                                 dt.datetime.fromisoformat(new['diagnosticPreparedAtUtc']) + dt.timedelta(hours=2))
+            self.assertEqual(json.loads(Path(new['previousManifest']).read_text()), old)
+            new['instanceId'] = 'i-diagnostic'
+            item = {**self.item, 'InstanceId': 'i-diagnostic', 'ClientToken': new['clientToken']}
+            stage.target(new, item)
+            new['deadlineUtc'] = (stage.now() + dt.timedelta(hours=3)).isoformat()
+            with self.assertRaises(AssertionError): stage.target(new, item)
+
+    def test_diagnostic_refuses_missing_approval_or_larger_runtime(self):
+        for key, value in [('approved', False), ('maximumRuntimeHours', 3), ('priorAttempt', 1)]:
+            with self.subTest(key=key), self.retry_fixture() as (old, approval, journal, grant, inventory):
+                self.diagnostic_inputs(old, approval); approval[key] = value
+                journal.write_text(json.dumps(old)); grant.write_text(json.dumps(approval))
+                with patch.object(stage, 'DIAGNOSTIC_APPROVAL', grant), self.assertRaises(AssertionError):
+                    stage.prepare_diagnostic()
+                inventory.assert_not_called()
+
+    def test_fourth_instance_attempt_is_never_an_accepted_target(self):
+        with self.assertRaises(AssertionError):
+            stage.instance({**self.state, 'attempt': 4}, self.item)
+
+    def diagnostic_output(self):
+        raw = json.dumps({'status': 'done', 'errors': [], 'recoverable_errors': {'WARNING': ['synthetic']}}).encode()
+        return 'CLOUD_INIT_RETURN_CODE=2\nCLOUD_INIT_REPORT_BASE64=' + base64.b64encode(raw).decode() + '\nINITIALIZATION_REPORT_CAPTURED\n'
+
+    def test_initialization_report_is_exactly_bound_to_review(self):
+        diagnostic = acceptance.parse_initialization(self.diagnostic_output())
+        self.assertEqual(diagnostic['returnCode'], 2)
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            script = ('# ' + native.SOURCE + '\necho PILOT_SSM_BUILD_AND_CACHE_READY\n').encode()
+            (directory / 'reviewed-bootstrap-1.sh').write_bytes(script)
+            decision = {'action': 'continue', 'reason': 'Reviewed synthetic initialization evidence',
+                        'cloudInitReportSha256': diagnostic['reportSha256'],
+                        'bootstrapSha256': hashlib.sha256(script).hexdigest()}
+            self.assertEqual(acceptance.reviewed_bootstrap(decision, diagnostic, directory, 1), script.decode())
+            for key in ['cloudInitReportSha256', 'bootstrapSha256']:
+                with self.subTest(key=key), self.assertRaises(AssertionError):
+                    acceptance.reviewed_bootstrap({**decision, key: '0' * 64}, diagnostic, directory, 1)
+
+    def test_diagnostic_review_timeout_always_cleans_without_acceptance(self):
+        state = {'status': 'prepared', 'attempt': 3, 'failures': []}
+        with tempfile.TemporaryDirectory() as folder:
+            session = unittest.mock.Mock()
+            session.logs = Path(folder)
+            session.run.return_value = self.diagnostic_output()
+            with patch.object(stage, 'load', return_value=state), patch.object(stage, 'save'), \
+                 patch.object(stage, 'launch'), patch.object(stage, 'cleanup') as cleanup, \
+                 patch.object(native, 'reviewed_source'), patch.object(native, 'Session', return_value=session), \
+                 patch.object(acceptance, 'acceptance') as app_checks, \
+                 patch.object(acceptance.time, 'monotonic', side_effect=[0, 301]):
+                with self.assertRaisesRegex(AssertionError, 'review timed out'):
+                    acceptance.run_diagnostic()
+                cleanup.assert_called_once_with()
+                app_checks.assert_not_called()
+
     def test_cloud_init_failure_retains_detail_and_stops_before_packages(self):
         script = native.bootstrap({'modelHashes': {}})
         prefix = script.split('export DEBIAN_FRONTEND=noninteractive', 1)[0]

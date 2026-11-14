@@ -181,6 +181,37 @@ echo STAGING_RESTORED_MONGO_AND_REDIS_PROOFS_PASS
     stage.save(state)
 
 
+def acceptance(session):
+    script = 'cd ' + stage.ROOT + '/source\ngit sparse-checkout set backend frontend/src/utils\n'
+    for name in ['backend/scripts/testIntegration.js', 'backend/tests/integration/reels.test.js', 'backend/tests/integration/reels-lifecycle.test.js']:
+        script += overlay(name, stage.ROOT + '/source/' + name)
+    session.run(script, 'reviewed-test-overlays', 60)
+    session.run(overlay('tools/reels_capacity_check.mjs', stage.ROOT + '/capacity-check.mjs'), 'capacity-runner-overlay', 60)
+    assert 'STAGING_ISOLATED_SERVICES_READY' in session.run(services(), 'isolated-mongo-redis', 480)
+    pressure_before = session.run("grep '^oom_kill ' /proc/vmstat\ndf -PB1 " + stage.ROOT + "\ncat /proc/pressure/memory\ndocker image inspect " + api.IMAGE + " --format '{{.Id}}'", 'host-before-load', 30)
+    media = summary(session.run(adapt(native.native_script()), 'staging-real-media-model', 420))
+    assert media['pass'] == 2 and media['skipped'] == 0
+    units = summary(session.run(logged(container('node --import ./tests/bootstrap.js --test --test-reporter=tap --test-concurrency=1 tests/*.test.js', shell=True), 'backend-units'), 'backend-unit-checks', 600))
+    integration = summary(session.run(logged(container('scripts/testIntegration.js'), 'backend-integrations'), 'backend-integration-checks', 1200))
+    session.run(capacity_env_script(), 'synthetic-capacity-targets', 30)
+    output = session.run(logged(container('--expose-gc /audit/capacity.mjs', capacity=True), 'long-video-capacity'), 'long-video-full-api-capacity', 1200)
+    result = next(json.loads(line) for line in output.splitlines() if line.startswith('{') and '"scenario"' in line)
+    assert result['videoSeconds'] == 299 and result['httpSamples'] > 0 and result['httpFailures'] == 0
+    result['executionContext'] = 'Native AWS ARM64 synthetic staging; Mongo sidecar shares host memory unlike production Atlas'
+    result['sourceHarnessLimitations'] = result['limitations']
+    result['limitations'] = 'Single synthetic long video/light API load on burst credits; Mongo shares host RAM; no Caddy/TLS, external login/payment/device or sustained production acceptance'
+    pressure_after = session.run("grep '^oom_kill ' /proc/vmstat\ndf -PB1 " + stage.ROOT + "\ncat /proc/pressure/memory", 'host-after-load', 30)
+    assert re.search(r'oom_kill (\d+)', pressure_before)[1] == re.search(r'oom_kill (\d+)', pressure_after)[1], 'Host OOM occurred during acceptance'
+    session.run(adapt(native.persist_fixture()), 'persistent-backup-media', 180)
+    state = stage.load(); state.update(nativeTests=media, backendUnits=units, backendIntegrations=integration,
+                                       longVideoCapacity=result, hostOomDuringLoad=False,
+                                       backendImageId=re.search(r'sha256:[a-f0-9]{64}', pressure_before)[0]); stage.save(state)
+    snapshot_restore(session)
+    state = stage.load(); state.update(status='tested', stagingAcceptance=True, productionAcceptance=False); stage.save(state)
+    api.emit('staging-checks-passed', backendUnitTests=units['pass'], integrationTests=integration['pass'],
+             longVideoSeconds=299, backupRestore=True, productionAcceptance=False)
+
+
 def run():
     state = stage.load(); assert state['status'] == 'prepared'
     native.reviewed_source()  # Refuse source drift before creating paid resources.
@@ -191,36 +222,96 @@ def run():
         api.emit('staging-native-build-started')
         script = adapt(native.bootstrap(state))
         assert 'PILOT_SSM_BUILD_AND_CACHE_READY' in session.run(script, 'staging-build', 1200)
-        script = 'cd ' + stage.ROOT + '/source\ngit sparse-checkout set backend frontend/src/utils\n'
-        for name in ['backend/scripts/testIntegration.js', 'backend/tests/integration/reels.test.js', 'backend/tests/integration/reels-lifecycle.test.js']:
-            script += overlay(name, stage.ROOT + '/source/' + name)
-        session.run(script, 'reviewed-test-overlays', 60)
-        session.run(overlay('tools/reels_capacity_check.mjs', stage.ROOT + '/capacity-check.mjs'), 'capacity-runner-overlay', 60)
-        assert 'STAGING_ISOLATED_SERVICES_READY' in session.run(services(), 'isolated-mongo-redis', 480)
-        pressure_before = session.run("grep '^oom_kill ' /proc/vmstat\ndf -PB1 " + stage.ROOT + "\ncat /proc/pressure/memory\ndocker image inspect " + api.IMAGE + " --format '{{.Id}}'", 'host-before-load', 30)
-        media = summary(session.run(adapt(native.native_script()), 'staging-real-media-model', 420))
-        assert media['pass'] == 2 and media['skipped'] == 0
-        units = summary(session.run(logged(container('node --import ./tests/bootstrap.js --test --test-reporter=tap --test-concurrency=1 tests/*.test.js', shell=True), 'backend-units'), 'backend-unit-checks', 600))
-        integration = summary(session.run(logged(container('scripts/testIntegration.js'), 'backend-integrations'), 'backend-integration-checks', 1200))
-        session.run(capacity_env_script(), 'synthetic-capacity-targets', 30)
-        output = session.run(logged(container('--expose-gc /audit/capacity.mjs', capacity=True), 'long-video-capacity'), 'long-video-full-api-capacity', 1200)
-        result = next(json.loads(line) for line in output.splitlines() if line.startswith('{') and '"scenario"' in line)
-        assert result['videoSeconds'] == 299 and result['httpSamples'] > 0 and result['httpFailures'] == 0
-        result['executionContext'] = 'Native AWS ARM64 synthetic staging; Mongo sidecar shares host memory unlike production Atlas'
-        result['sourceHarnessLimitations'] = result['limitations']
-        result['limitations'] = 'Single synthetic long video/light API load on burst credits; Mongo shares host RAM; no Caddy/TLS, external login/payment/device or sustained production acceptance'
-        pressure_after = session.run("grep '^oom_kill ' /proc/vmstat\ndf -PB1 " + stage.ROOT + "\ncat /proc/pressure/memory", 'host-after-load', 30)
-        assert re.search(r'oom_kill (\d+)', pressure_before)[1] == re.search(r'oom_kill (\d+)', pressure_after)[1], 'Host OOM occurred during acceptance'
-        session.run(adapt(native.persist_fixture()), 'persistent-backup-media', 180)
-        state = stage.load(); state.update(nativeTests=media, backendUnits=units, backendIntegrations=integration,
-                                           longVideoCapacity=result, hostOomDuringLoad=False,
-                                           backendImageId=re.search(r'sha256:[a-f0-9]{64}', pressure_before)[0]); stage.save(state)
-        snapshot_restore(session)
-        state = stage.load(); state.update(status='tested', stagingAcceptance=True, productionAcceptance=False); stage.save(state)
-        api.emit('staging-checks-passed', backendUnitTests=units['pass'], integrationTests=integration['pass'],
-                 longVideoSeconds=299, backupRestore=True, productionAcceptance=False)
+        acceptance(session)
+
     except BaseException as error:
         state = stage.load(); state.setdefault('failures', []).append(type(error).__name__ + ': ' + str(error)); stage.save(state)
+        raise
+    finally:
+        stage.cleanup()
+
+
+def initialization_diagnostic():
+    return '''systemctl is-active --quiet medipulse-staging-expire.timer
+install -d -m 0755 /srv/medipulse-staging
+code=0
+cloud-init status --wait --format json >/srv/medipulse-staging/cloud-init-report.json 2>/srv/medipulse-staging/cloud-init-report.stderr || code=$?
+printf 'CLOUD_INIT_RETURN_CODE=%s\\n' "$code"
+printf 'CLOUD_INIT_REPORT_BASE64='
+base64 -w 0 /srv/medipulse-staging/cloud-init-report.json
+printf '\\n'
+if test -s /srv/medipulse-staging/cloud-init-report.stderr; then head -n 20 /srv/medipulse-staging/cloud-init-report.stderr; fi
+systemctl is-active --quiet medipulse-staging-expire.timer
+echo INITIALIZATION_REPORT_CAPTURED
+'''
+
+
+def parse_initialization(output):
+    encoded = re.search(r'^CLOUD_INIT_REPORT_BASE64=(.+)$', output, re.M)
+    code = re.search(r'^CLOUD_INIT_RETURN_CODE=(\d+)$', output, re.M)
+    assert encoded and code and 'INITIALIZATION_REPORT_CAPTURED' in output
+    raw = base64.b64decode(encoded[1], validate=True)
+    return {'returnCode': int(code[1]), 'report': json.loads(raw),
+            'reportSha256': hashlib.sha256(raw).hexdigest()}
+
+
+def reviewed_bootstrap(decision, diagnostic, directory, index):
+    assert decision['action'] == 'continue'
+    assert decision['cloudInitReportSha256'] == diagnostic['reportSha256']
+    assert isinstance(decision['reason'], str) and 10 <= len(decision['reason']) <= 1000
+    path = directory / ('reviewed-bootstrap-' + str(index) + '.sh')
+    assert path.resolve().parent == directory.resolve() and not path.is_symlink()
+    script = path.read_bytes()
+    assert hashlib.sha256(script).hexdigest() == decision['bootstrapSha256']
+    assert len(script) < 18000
+    assert native.SOURCE.encode() in script and b'PILOT_SSM_BUILD_AND_CACHE_READY' in script
+    return script.decode('utf-8')
+
+
+def run_diagnostic():
+    state = stage.load()
+    assert state['status'] == 'prepared' and state['attempt'] == 3
+    native.reviewed_source()
+    try:
+        stage.launch()
+        session = native.Session(stage.STATE, stage.logs_path(stage.load()), stage.target)
+        session.verify(); session.online()
+        diagnostic = parse_initialization(session.run(initialization_diagnostic(), 'initialization-diagnostic', 180))
+        state = stage.load(); state['initializationDiagnostic'] = diagnostic; stage.save(state)
+        api.emit('initialization-diagnostic-captured', returnCode=diagnostic['returnCode'],
+                 status=diagnostic['report'].get('status'), reportSha256=diagnostic['reportSha256'])
+        # One existing host; any repair must be reviewed against its captured report.
+        # No decision within five minutes means cleanup, never an unattended host.
+        for index in range(1, 4):
+            decision_file = session.logs / ('review-decision-' + str(index) + '.json')
+            api.emit('awaiting-initialization-review', reviewIndex=index, maximumWaitSeconds=300)
+            deadline = time.monotonic() + 300
+            while not decision_file.exists() and time.monotonic() < deadline:
+                time.sleep(3)
+            assert decision_file.exists(), 'Initialization review timed out; cleanup only'
+            decision = json.loads(decision_file.read_text(encoding='utf-8'))
+            if decision.get('action') == 'stop':
+                api.emit('initialization-review-stopped'); return
+            script = reviewed_bootstrap(decision, diagnostic, session.logs, index)
+            state = stage.load()
+            state.setdefault('initializationReviews', []).append(decision)
+            stage.save(state)
+            try:
+                output = session.run(script, 'reviewed-build-' + str(index), 1200)
+                assert 'PILOT_SSM_BUILD_AND_CACHE_READY' in output
+                break
+            except Exception as error:
+                state = stage.load()
+                state.setdefault('reviewedBuildFailures', []).append(str(error))
+                stage.save(state)
+                api.emit('reviewed-build-needs-investigation', reviewIndex=index)
+        else:
+            raise RuntimeError('Reviewed build limit reached; cleanup only')
+        acceptance(session)
+    except BaseException as error:
+        state = stage.load()
+        state.setdefault('failures', []).append(type(error).__name__ + ': ' + str(error))
+        stage.save(state)
         raise
     finally:
         stage.cleanup()
@@ -230,6 +321,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run-approved', action='store_true')
     parser.add_argument('--retry-approved', action='store_true', help='Execute only the separately approved second attempt')
+    parser.add_argument('--diagnostic-approved', action='store_true', help='One separately approved, two-hour diagnostic host')
     parser.add_argument('--cleanup', action='store_true')
     args = parser.parse_args()
     if args.cleanup:
@@ -239,6 +331,11 @@ def main():
     if stage.STATE.exists():
         stage.require_open_window(stage.load())
     preflight.main()
+    if args.diagnostic_approved:
+        native.reviewed_source()
+        stage.prepare_diagnostic()
+        run_diagnostic()
+        return
     if args.retry_approved:
         native.reviewed_source()
         stage.prepare_retry()
