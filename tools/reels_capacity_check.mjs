@@ -45,7 +45,7 @@ for (const kind of ['patient', 'author', 'reviewer']) {
   actors[kind] = { id: String(principal._id), token: jwt.sign({ id: String(principal._id), sid, role }, process.env.TOKEN_KEY) };
 }
 process.env.REELS_REVIEWER_DOCTOR_IDS = actors.reviewer.id;
-let api, timer, sampling = false;
+let api, timer, sampling = false, apiLog = '', capacityPhase = 'startup';
 const observations = [], failures = [];
 async function request(route, { kind = 'patient', method = 'GET', body, raw = false, headers = {} } = {}) {
   return fetch('http://127.0.0.1:8080' + route, { method, signal: AbortSignal.timeout(15000), headers: {
@@ -57,7 +57,8 @@ async function json(route, options) {
   const response = await request(route, options); assert.ok(response.ok, `Synthetic ${route} failed: ${response.status}`); return response.json();
 }
 try {
-  api = spawn(process.execPath, ['index.js'], { cwd: '/app', env: process.env, stdio: 'ignore' });
+  api = spawn(process.execPath, ['index.js'], { cwd: '/app', env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  for (const stream of [api.stdout, api.stderr]) stream.on('data', chunk => { apiLog = (apiLog + chunk).slice(-16384); });
   const readyDeadline = Date.now() + 60000;
   for (;;) {
     try { if ((await request('/health/ready')).ok) break; } catch { /* Wait for local API. */ }
@@ -66,6 +67,7 @@ try {
   }
   await fs.mkdir(process.env.REELS_MEDIA_ROOT, { recursive: true });
   const source = '/tmp/capacity-source.mp4';
+  capacityPhase = 'generate-source';
   const generated = spawnSync('/usr/bin/ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=720x1280:rate=24', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', String(seconds), '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-b:v', '800k', '-maxrate', '1000k', '-bufsize', '2000k', '-c:a', 'aac', '-b:a', '64k', '-threads', '2', source], { timeout: 180000 });
   assert.equal(generated.status, 0, 'Synthetic source generation failed');
   console.log(JSON.stringify({ phase: 'full-api-ready-and-source-generated', videoSeconds: seconds, sourceBytes: (await fs.stat(source)).size }));
@@ -83,11 +85,14 @@ try {
     } finally { sampling = false; }
   }, 1000);
   const started = performance.now();
+  capacityPhase = 'create-draft';
   const created = await json('/api/reels/', { kind: 'author', method: 'POST', body: { title: 'Synthetic capacity education', caption: 'Synthetic public teaching metadata. '.repeat(50), topics: ['heart health'], language: 'en', educationalOnly: true, privacyConfirmed: true, thumbnailSeconds: 1, idempotencyKey: randomUUID() } });
   let bytes = await fs.readFile(source);
+  capacityPhase = 'upload';
   const upload = await json(`/api/reels/${created.reel.id}/upload`, { kind: 'author', method: 'PUT', body: bytes, raw: true, headers: { 'Idempotency-Key': randomUUID() } });
   bytes = null; global.gc?.();
   let current = upload.reel;
+  capacityPhase = 'poll-processing';
   const deadline = Date.now() + 600000;
   while (current.mediaStatus !== 'ready') {
     if (current.mediaStatus === 'failed') throw Error('Actual API/outbox processing failed');
@@ -119,6 +124,19 @@ try {
   };
   console.log(JSON.stringify(result));
   assert.equal(failures.length, 0, 'Synthetic API failures during processing');
+} catch (error) {
+  await new Promise(resolve => setTimeout(resolve, 50));
+  console.error(JSON.stringify({ phase: 'capacity-failure', at: capacityPhase, apiExitCode: api?.exitCode,
+    apiSignal: api?.signalCode, apiLogTail: apiLog, error: error.message }));
+  await fs.writeFile('/tmp/reels-capacity/api-diagnostic.log', apiLog).catch(() => {});
+  try {
+    const projection = { mediaStatus: 1, processingError: 1, state: 1, attempts: 1, lastError: 1, kind: 1 };
+    for (const name of ['reels', 'outboxjobs']) {
+      console.error(JSON.stringify({ phase: 'synthetic-failure-records', collection: name,
+        records: await mongoose.connection.db.collection(name).find({}, { projection, maxTimeMS: 2000 }).limit(5).toArray() }));
+    }
+  } catch { /* Preserve the original failure if diagnostic reads also fail. */ }
+  throw error;
 } finally {
   clearInterval(timer);
   if (api) {

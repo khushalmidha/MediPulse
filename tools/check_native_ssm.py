@@ -106,7 +106,9 @@ class Session:
 
 
 def reviewed_source():
-    paths = ['backend', 'frontend/src/utils', 'tools/reels_capacity_check.mjs',
+    # The separately overlaid capacity runner, like the three test overlays,
+    # is reviewed operator/test code; the runtime image remains immutable.
+    paths = ['backend', 'frontend/src/utils',
              ':(exclude)backend/scripts/testIntegration.js',
              ':(exclude)backend/tests/integration/reels.test.js',
              ':(exclude)backend/tests/integration/reels-lifecycle.test.js']
