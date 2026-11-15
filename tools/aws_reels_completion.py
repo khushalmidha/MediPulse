@@ -46,13 +46,14 @@ def native_script():
 
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
-    parser=argparse.ArgumentParser();parser.add_argument('--native',action='store_true');parser.add_argument('--capacity',action='store_true');parser.add_argument('--integration',action='store_true');parser.add_argument('--prepare-release',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--native',action='store_true');parser.add_argument('--capacity',action='store_true');parser.add_argument('--integration',action='store_true');parser.add_argument('--prepare-release',action='store_true');parser.add_argument('--author-smoke',action='store_true');args=parser.parse_args()
     if args.native:print(session().run(native_script(),'production-offline-native-acceptance',1200))
     elif args.capacity:print(session().run(capacity_script(),'production-isolated-capacity-299',1200))
     elif args.integration:
         prepare_integration()
         print(session().run(capacity_script(integration=True),'production-author-publish-integration',600))
     elif args.prepare_release:prepare_release()
+    elif args.author_smoke:print(session().run(capacity_script(author=True),'production-verified-author-real-workflow',600))
     else:parser.error('Choose an acceptance step')
 
 OVERLAYS=['services/reelService.js','routes/reels.js','scripts/reelsPreflight.js','tests/integration/reels.test.js']
@@ -64,7 +65,7 @@ def prepare_integration():
         script='install -d -m 0755 '+destination.rsplit('/',1)[0]+'\nprintf %s '+shlex.quote(base64.b64encode(gzip.compress(data)).decode())+' | base64 -d | gzip -d >'+destination+'\n'
         session().run(script,'author-test-overlay-'+str(index),60)
 
-def capacity_script(integration=False):
+def capacity_script(integration=False,author=False):
     script='install -d -m 0755 '+ROOT+'/capacity-media\nchown 1000:1000 '+ROOT+'/capacity-media\n'
     script+=production.asset('tools/reels_capacity_check.mjs',ROOT+'/capacity.mjs')
     # Refuse pre-existing containers/networks, including abandoned fixtures; repair explicitly.
@@ -90,20 +91,25 @@ def capacity_script(integration=False):
             destination=ROOT+'/candidate/'+name
             mounts+='--mount type=bind,source='+destination+',target=/app/'+name+',readonly '
     script+='result=0\ndocker run --rm --pull=never --name medipulse-capacity-acceptance --label medipulse.acceptance=20261115 --network '+NETWORK+' --memory 896m --memory-swap 896m --cpus 1 '
-    script+='-e DATABASE_URL='+shlex.quote('mongodb://mongo:27017/medipulse_test_capacity_'+SUFFIX+'?replicaSet=rs0&directConnection=true')+' -e REDIS_URL=redis://'+REDIS+':6379/15 -e CAPACITY_VIDEO_SECONDS=299 '
+    script+='-e DATABASE_URL='+shlex.quote('mongodb://mongo:27017/medipulse_test_capacity_'+SUFFIX+'?replicaSet=rs0&directConnection=true')+' -e REDIS_URL=redis://'+REDIS+':6379/15 -e CAPACITY_VIDEO_SECONDS='+('10' if author else '299')+' -e CAPACITY_EXECUTION_CONTEXT=aws-same-host-isolated '
+    if author:script+='-e CAPACITY_PUBLISH_MODE=author '
     script+='-e REELS_EMBEDDING_ALLOW_DOWNLOAD=false -e REELS_EMBEDDING_CACHE_DIR=/models -e REELS_FFMPEG_PATH=/usr/bin/ffmpeg -e REELS_FFPROBE_PATH=/usr/bin/ffprobe '
     if integration:
         script+='-e TEST_DATABASE_URL='+shlex.quote('mongodb://mongo:27017/medipulse_test_capacity_'+SUFFIX+'?replicaSet=rs0&directConnection=true')+' -e TEST_REDIS_URL=redis://redis:6379/15 --mount type=bind,source=/srv/medipulse/source/backend/tests,target=/app/tests,readonly '+mounts
     script+='--mount type=bind,source=/srv/medipulse/models,target=/models,readonly --mount type=bind,source='+ROOT+'/capacity.mjs,target=/audit/capacity.mjs,readonly --mount type=bind,source='+ROOT+'/capacity-media,target=/tmp/reels-capacity '
     command='--import /app/tests/bootstrap.js --test --test-concurrency=1 /app/tests/integration/reels.test.js' if integration else '--expose-gc /audit/capacity.mjs'
     label='author-integration' if integration else 'capacity'
-    script+='--entrypoint node '+production.IMAGE+' '+command+' >'+ROOT+'/logs/'+label+'.log 2>&1 || result=$?\ntail -n 40 '+ROOT+'/logs/'+label+'.log\nexit "$result"\n'
+    image=production.load()['reelsCandidateImage'] if author else production.IMAGE
+    script+='--entrypoint node '+image+' '+command+' >'+ROOT+'/logs/'+label+'.log 2>&1 || result=$?\ntail -n 40 '+ROOT+'/logs/'+label+'.log\nexit "$result"\n'
     return script
 
 def prepare_release():
     source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=production.api.REPO,text=True).strip()
     assert re.fullmatch('[a-f0-9]{40}',source)
-    subprocess.run(['git','diff','--quiet','HEAD','--','backend','frontend'],cwd=production.api.REPO,check=True)
+    # Only the reviewed paths need local-file hydration; the image uses the exact
+    # committed checkout below, never this possibly partial OneDrive worktree.
+    reviewed=['backend/'+name for name in OVERLAYS]+['frontend/src/pages/ReelStudio.jsx','backend/package.json','backend/package-lock.json','backend/Dockerfile']
+    subprocess.run(['git','diff','--quiet','HEAD','--',*reviewed],cwd=production.api.REPO,check=True)
     state=production.load()
     assert not state.get('reelsCandidateSource') or state['reelsCandidateSource']==source, 'Use the retained candidate or explicitly review a replacement'
     root='/srv/medipulse/releases/'+source

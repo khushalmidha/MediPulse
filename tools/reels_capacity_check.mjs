@@ -16,6 +16,8 @@ assert.match(process.env.REDIS_URL || '', /^redis:\/\/capacity-redis-[a-f0-9]+:6
 assert.equal(process.platform, 'linux');
 const seconds = Number(process.env.CAPACITY_VIDEO_SECONDS || 299);
 assert.ok(Number.isInteger(seconds) && seconds > 0 && seconds <= 299);
+const publicationMode = process.env.CAPACITY_PUBLISH_MODE || 'independent';
+assert.ok(['author', 'independent'].includes(publicationMode));
 Object.assign(process.env, {
   NODE_ENV: 'production', TOKEN_KEY: 'synthetic-capacity-only-signing-key', USE_REAL_REDIS: 'true',
   KAFKA_BROKERS: '', KAFKA_CREATE_TOPICS: 'false', MAIL_DELIVERY: 'disabled',
@@ -23,6 +25,7 @@ Object.assign(process.env, {
   REELS_ENABLED: 'true', ENTERPRISE_PILOT_ENABLED: 'false',
   REELS_MEDIA_ROOT: '/tmp/reels-capacity', REELS_EMBEDDING_ALLOW_DOWNLOAD: 'false',
   REELS_PROCESS_TIMEOUT_MS: '600000',
+  REELS_PUBLISH_MODE: publicationMode,
   API_PROBE_URL: 'http://127.0.0.1:8080/health/live',
 });
 const require = createRequire('/app/package.json');
@@ -37,7 +40,7 @@ assert.equal(boot.status, 0, 'Isolated empty schema bootstrap failed');
 await mongoose.connect(uri.href, { autoIndex: false, autoCreate: false });
 await applyReelsSchema();
 const actors = {};
-for (const kind of ['patient', 'author', 'reviewer']) {
+for (const kind of (publicationMode === 'author' ? ['patient', 'author'] : ['patient', 'author', 'reviewer'])) {
   const role = kind === 'patient' ? 'user' : 'doctor';
   const data = { firstName: 'Synthetic', lastName: kind, email: `${kind}@capacity.invalid`, password: 'Synthetic-password-only', gender: 'other' };
   const principal = await (role === 'user' ? User : Doctor).create({ ...data, ...(role === 'doctor' ? { experience: { years: 1, expertise: 'Education' }, credentialVerification: { status: 'verified' } } : {}) });
@@ -45,7 +48,7 @@ for (const kind of ['patient', 'author', 'reviewer']) {
   await AuthSession.create({ _id: sid, principalId: principal._id, kind: role, csrfToken: 'capacity-csrf', expiresAt: new Date(Date.now() + 3600000) });
   actors[kind] = { id: String(principal._id), token: jwt.sign({ id: String(principal._id), sid, role }, process.env.TOKEN_KEY) };
 }
-process.env.REELS_REVIEWER_DOCTOR_IDS = actors.reviewer.id;
+process.env.REELS_REVIEWER_DOCTOR_IDS = actors.reviewer?.id || '';
 let api, timer, sampling = false, apiLog = '', capacityPhase = 'startup';
 const observations = [], failures = [];
 async function request(route, { kind = 'patient', method = 'GET', body, raw = false, headers = {} } = {}) {
@@ -111,8 +114,13 @@ syncBuiltinESMExports();
     current = (await json('/api/reels/mine', { kind: 'author' })).items.find(row => row.id === current.id);
   }
   const processingSeconds = (performance.now() - started) / 1000;
-  const submitted = await json(`/api/reels/${current.id}/submit`, { kind: 'author', method: 'POST', body: { version: current.version } });
-  const published = await json(`/api/reels/${current.id}/moderate`, { kind: 'reviewer', method: 'POST', body: { version: submitted.reel.version, decision: 'publish', reason: 'Synthetic capacity exercise only' } });
+  let published;
+  if (publicationMode === 'author') {
+    published = await json(`/api/reels/${current.id}/publish`, { kind: 'author', method: 'POST', body: { version: current.version, authorReviewed: true } });
+  } else {
+    const submitted = await json(`/api/reels/${current.id}/submit`, { kind: 'author', method: 'POST', body: { version: current.version } });
+    published = await json(`/api/reels/${current.id}/moderate`, { kind: 'reviewer', method: 'POST', body: { version: submitted.reel.version, decision: 'publish', reason: 'Synthetic capacity exercise only' } });
+  }
   const manifest = await request(published.reel.playbackUrl); assert.equal(manifest.status, 200);
   assert.match(await manifest.text(), /#EXTM3U/);
   const variantUrl = published.reel.playbackUrl.replace('master.m3u8', '360p/index.m3u8');
@@ -129,8 +137,9 @@ syncBuiltinESMExports();
     backendContainerMemoryCapMiB: Math.round(Number(await fs.readFile('/sys/fs/cgroup/memory.max', 'utf8')) / 1048576),
     httpSamples: observations.length, httpFailures: failures.length,
     p95Ms: Math.round(latencies[Math.floor(latencies.length * .95)] || 0), maxMs: Math.round(latencies.at(-1) || 0),
-    independentPublishAndAuthenticatedHls: true, actualEmbeddingDimension: stored.embedding.length,
-    limitations: 'Local Docker; Mongo outside memory cap like Atlas. Host OS/Caddy and burst-credit depletion not simulated. Single video and light synthetic API traffic; not AWS/device acceptance.',
+    independentPublishAndAuthenticatedHls: publicationMode === 'independent', verifiedAuthorPublishAndAuthenticatedHls: publicationMode === 'author', actualEmbeddingDimension: stored.embedding.length,
+    executionContext: process.env.CAPACITY_EXECUTION_CONTEXT || 'local-docker',
+    limitations: 'Synthetic isolated Mongo rather than Atlas; database and host services are outside the backend cgroup. Single video and light API traffic do not certify concurrent load, depleted CPU credits or physical devices.',
   };
   console.log(JSON.stringify(result));
   assert.equal(failures.length, 0, 'Synthetic API failures during processing');
