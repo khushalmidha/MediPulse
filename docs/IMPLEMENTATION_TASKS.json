@@ -2413,6 +2413,16 @@
   },
   "featureTracks": {
     "doctorReels": {
+      "recommendationVerification": {
+        "date": "2026-11-16",
+        "alreadyImplementedAndDeployed": true,
+        "rankingVersion": "hybrid-v1",
+        "freshRankingUnitTestsPassed": 10,
+        "liveRankingServiceEmbeddingHashesMatch": true,
+        "viewingPersonalization": "account opt-in; off by default",
+        "productionPreferencesChanged": false,
+        "newInfrastructureRequired": false
+      },
       "status": "verified_local",
       "date": "2026-11-03",
       "baseRevision": "da5d6d69",

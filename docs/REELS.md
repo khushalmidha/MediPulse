@@ -1,5 +1,9 @@
 # Doctor Reels
 
+Current AWS release (16 November 2026): recommendations already run at https://medipulse.live/reels. In Your discovery settings, enable "Use my viewing activity to personalize For You" to use your account's watch/completion, likes, saves and skips. The feed also balances related multilingual topics, followed doctors, freshness and creator diversity. Without opt-in it uses public freshness/quality. No extra recommendation service or account is required.
+
+Fresh ranking tests: 10 passed, zero skipped. Read-only checks confirm the active AWS ranking/service/embedding code matches release 7b051cbca5e2acd79410693ef85aed138f9e572a. No production viewing preferences were changed and no production account feed was read. The owner-selected publication mode is verified-author publishing; independent moderation described below remains an optional configuration.
+
 Educational short videos integrated into MediPulse Connect. Feed: `/reels`; verified-doctor studio and independent review: `/doctor/reels`. API: `/api/reels`, account cookie/CSRF scope. Hospital staff sessions never confer publishing permission. No patient records, symptoms, appointments or private clinical notes enter recommendation vectors.
 
 ## What runs

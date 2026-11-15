@@ -1,5 +1,11 @@
 # MediPulse work log
 
+## Reels recommendations verified on AWS - 16 November 2026
+
+The requested recommendation capability already exists in deployed hybrid-v1. Inspected feed wiring and consent gates: watch/completion, likes/saves, skips, public-video semantic embeddings, follows/topics, freshness and creator diversity influence account recommendations. Viewing personalization is opt-in through Your discovery settings; cold start/opt-out uses public freshness/quality. Patient clinical records are not ranking inputs. No application, index or infrastructure changes were needed.
+
+Fresh ranking tests10/10 pass,0skips. Live read-only SHA256 comparisons confirm reelRanking/reelService/reelEmbedding match active release7b051cbca5e2acd79410693ef85aed138f9e572a and REELS_ENABLED=true. No production preferences were altered or account feed/user records read. This verifies the existing implementation/deployed wiring, not recommendation usefulness on a real account. Updated docs/REELS.md with the actual account control; no redeployment needed.
+
 ## P01 - Credentials, public data and authorization
 
 Date: 8 October 2026. Code implementation and focused checks complete. Credential rotation and repository-history remediation remain external actions. No production database, diagnostic/index script, DNS, provider API, or deployment was executed.
