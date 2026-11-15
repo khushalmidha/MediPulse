@@ -1,0 +1,13 @@
+{
+    admin off
+    auto_https off
+}
+
+:80 {
+    handle /__aws-health {
+        rewrite * /health/ready
+        header X-MediPulse-Origin aws-ec2
+        reverse_proxy backend:8080
+    }
+    respond "Deployment waiting for DNS and HTTPS activation" 503
+}

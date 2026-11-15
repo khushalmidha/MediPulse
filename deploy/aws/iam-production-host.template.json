@@ -1,0 +1,282 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeImages",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeSecurityGroupRules",
+        "ec2:DescribeNetworkAcls"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/DeploymentId": "medipulse-production-20261115",
+          "ec2:InstanceType": "t4g.small",
+          "ec2:MetadataHttpTokens": "required",
+          "ec2:Tenancy": "default",
+          "aws:RequestTag/DataClass": "production"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/DeploymentId": "medipulse-production-20261115",
+          "ec2:VolumeType": "gp3",
+          "aws:RequestTag/DataClass": "production"
+        },
+        "NumericEquals": {
+          "ec2:VolumeSize": "30",
+          "ec2:VolumeIops": "3000",
+          "ec2:VolumeThroughput": "125"
+        },
+        "Bool": {
+          "ec2:Encrypted": "true"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:us-east-1::image/ami-09a93d801db0bafae",
+      "Condition": {
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": [
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:subnet/*",
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:network-interface/*"
+      ],
+      "Condition": {
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:RunInstances",
+      "Resource": [
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:security-group/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/DeploymentId": "medipulse-production-20261115",
+          "aws:ResourceTag/DataClass": "production"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:CreateSecurityGroup",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:security-group/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/DeploymentId": "medipulse-production-20261115",
+          "aws:RequestTag/DataClass": "production"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:CreateSecurityGroup",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:vpc/*",
+      "Condition": {
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": [
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*",
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:network-interface/*",
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:security-group/*",
+        "arn:aws:ec2:us-east-1::snapshot/*",
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:elastic-ip/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": [
+            "RunInstances",
+            "CreateSecurityGroup",
+            "AllocateAddress",
+            "CreateSnapshot"
+          ],
+          "aws:RequestTag/DeploymentId": "medipulse-production-20261115",
+          "aws:RequestTag/DataClass": "production"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:GetConsoleOutput",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/DeploymentId": "medipulse-production-20261115",
+          "aws:ResourceTag/DataClass": "production"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-19T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:CreateSnapshot",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:volume/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/DeploymentId": "medipulse-production-20261115",
+          "aws:ResourceTag/DataClass": "production",
+          "aws:ResourceTag/Role": "production-root"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-19T00:00:00Z"
+        },
+        "NumericEquals": {
+          "ec2:VolumeSize": "30"
+        },
+        "Bool": {
+          "ec2:Encrypted": "true"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:CreateSnapshot",
+      "Resource": "arn:aws:ec2:us-east-1::snapshot/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/DeploymentId": "medipulse-production-20261115",
+          "aws:RequestTag/DataClass": "production",
+          "aws:RequestTag/Role": "production-backup"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/DeploymentId": "medipulse-production-20261115",
+          "ssm:resourceTag/DataClass": "production"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:AuthorizeSecurityGroupIngress",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:security-group/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/DeploymentId": "medipulse-production-20261115",
+          "aws:ResourceTag/DataClass": "production"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:AllocateAddress",
+      "Resource": "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:elastic-ip/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/DeploymentId": "medipulse-production-20261115",
+          "aws:RequestTag/DataClass": "production"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:AssociateAddress",
+      "Resource": [
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:elastic-ip/*",
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:instance/*",
+        "arn:aws:ec2:us-east-1:__ACCOUNT_ID__:network-interface/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/DeploymentId": "medipulse-production-20261115",
+          "aws:ResourceTag/DataClass": "production"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-11-17T00:00:00Z"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeAddresses",
+        "ec2:DescribeInstanceAttribute",
+        "ec2:DescribeInstanceCreditSpecifications",
+        "ec2:DescribeInstances",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeSnapshots",
+        "ec2:DescribeInstanceStatus"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    }
+  ]
+}

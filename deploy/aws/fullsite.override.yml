@@ -1,0 +1,14 @@
+# Merge after compose.yml and ec2-root.override.yml. No new paid service.
+services:
+  backend:
+    env_file: !override
+      - path: /etc/medipulse/backend.env
+        format: raw
+  proxy:
+    volumes:
+      - ./Caddyfile.active:/etc/caddy/Caddyfile:ro
+      - type: bind
+        source: /srv/medipulse/frontend
+        target: /srv/frontend
+        read_only: true
+        bind: {create_host_path: false}

@@ -2604,7 +2604,7 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Existing main-domain app reachable; AWS long-video/restore and production migration remain incomplete",
+          "blocker": "Production launch/build/readiness and owner domain DNS cutover pending; Reels/restore still incomplete",
           "stagingSafetyTests": 46,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": true,
@@ -2697,7 +2697,21 @@
           "existingSameOriginBackendLive": 200,
           "existingSameOriginBackendReady": 200,
           "existingRenderLive": 200,
-          "awsProductionCutoverPerformed": false
+          "awsProductionCutoverPerformed": false,
+          "productionPolicyPrepared": true,
+          "productionPolicyCharacters": 5721,
+          "productionPolicyAttachedReported": true,
+          "productionPermissionDryRuns": {
+            "CreateSecurityGroup": "DryRunOperation",
+            "AllocateAddress": "DryRunOperation"
+          },
+          "productionController": "tools/aws_production.py",
+          "productionCoreScope": "one persistent full-site EC2 host; Reels and enterprise off",
+          "productionSafetyTests": 9,
+          "sealedTransferTests": 2,
+          "fullSiteCaddySyntaxPassed": true,
+          "fullSiteComposePassed": true,
+          "existingDnsRollbackPrepared": true
         }
       }
     }

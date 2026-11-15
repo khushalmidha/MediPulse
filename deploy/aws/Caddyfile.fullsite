@@ -1,0 +1,43 @@
+{
+    email {$TLS_EMAIL}
+    admin off
+}
+
+# Public pre-DNS check exposes readiness only; never login or patient routes.
+:80 {
+    handle /__aws-health {
+        rewrite * /health/ready
+        header X-MediPulse-Origin aws-ec2
+        reverse_proxy backend:8080
+    }
+    respond "Not found" 404
+}
+
+medipulse.live {
+    redir https://www.medipulse.live{uri} permanent
+}
+
+www.medipulse.live {
+    header X-MediPulse-Origin aws-ec2
+    request_body {
+        max_size 210MB
+    }
+    @backend path /backend /backend/*
+    handle @backend {
+        uri strip_prefix /backend
+        reverse_proxy backend:8080 {
+            transport http {
+                dial_timeout 5s
+                response_header_timeout 180s
+            }
+        }
+    }
+    handle /socket.io/* {
+        reverse_proxy backend:8080
+    }
+    handle {
+        root * /srv/frontend
+        try_files {path} /index.html
+        file_server
+    }
+}
