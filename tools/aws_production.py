@@ -302,6 +302,14 @@ def verify_domain():
     for path in ['/','/backend/health/live','/backend/health/ready']:
         with urllib.request.urlopen('https://www.medipulse.live'+path,timeout=20) as response:
             assert response.status==200 and response.headers.get('X-MediPulse-Origin')=='aws-ec2', 'Traffic is not yet verified on AWS'
+            body=response.read()
+            if path=='/':
+                assert 'text/html' in response.headers.get('Content-Type','') and b'/assets/' in body, 'Frontend build is missing'
+            else:
+                assert 'application/json' in response.headers.get('Content-Type',''), 'Health route returned a frontend fallback'
+                health=json.loads(body)
+                if path.endswith('/live'): assert health.get('status')=='alive'
+                else: assert health.get('ready') is True and health.get('dependencies',{}).get('mongodb')=='ready' and health.get('dependencies',{}).get('redis')=='ready'
     state.update(status='live-core',productionLive=True,reelsEnabled=False,restoreVerified=False); save(state)
     api.emit('aws-domain-core-verified',url='https://medipulse.live',reelsEnabled=False,restoreVerified=False)
 

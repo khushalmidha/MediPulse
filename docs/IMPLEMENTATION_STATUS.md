@@ -1,5 +1,10 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## AWS production host launched; build in progress - 15 November 2026
+
+Fresh owner-confirmed non-root CLI login succeeded. Production controller has launched the single protected ARM64 host and associated its one static IP; backend build is in progress. No DNS cutover or AWS live-domain claim yet. Same-host progress check confirms 24GiB free root space. The retained host is not a disposable staging attempt. Domain verification now rejects HTML SPA fallbacks on API health paths and requires actual Mongo/Redis readiness JSON; production safety regressions10/10 pass. Reels and restore acceptance remain incomplete.
+
+
 ## Persistent full-site AWS deployment prepared — 15 November 2026
 
 Owner explicitly asks to complete AWS deployment using the easier path and to distinguish partial from complete. Selected one persistent t4g.small/30GiB host for both Vite static frontend and API/Redis/Caddy, retaining existing Atlas/provider configuration and the current www canonical hostname. This removes the Vercel external relay from the eventual request path. Reels/enterprise remain disabled; native long-video and restore acceptance are still incomplete and are not prerequisites falsely marked passed for the core-only release. Existing Render/Vercel remain available for DNS rollback.

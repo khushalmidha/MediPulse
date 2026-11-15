@@ -64,4 +64,13 @@ class ProductionCore(unittest.TestCase):
             p=Path(folder)/'bootstrap.sh'; p.write_text(core.bootstrap(),encoding='utf-8',newline='\n')
             subprocess.run(['C:/Program Files/Git/bin/bash.exe','-n',str(p)],check=True,capture_output=True,timeout=10)
 
+    def test_domain_verification_rejects_spa_fallback_on_health(self):
+        from contextlib import nullcontext
+        response=Mock(status=200,headers={'X-MediPulse-Origin':'aws-ec2','Content-Type':'text/html'})
+        response.read.return_value=b'<script src="/assets/app.js"></script>'
+        with patch.object(core,'load',return_value={'coreReady':True}), patch.object(core,'save') as save, \
+             patch.object(core.urllib.request,'urlopen',side_effect=lambda *a,**k:nullcontext(response)):
+            with self.assertRaisesRegex(AssertionError,'frontend fallback'): core.verify_domain()
+            save.assert_not_called()
+
 if __name__=='__main__': unittest.main()
