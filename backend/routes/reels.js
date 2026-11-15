@@ -15,7 +15,7 @@ router.use((req, res, next) => {
   next();
 });
 router.get('/feed', wrap(async (req, res) => { await service.rateLimit(req.auth, 'feed', 90); res.json(await service.feed(req.auth, req.query)); }));
-router.get('/mine', wrap(async (req, res) => { await service.verifiedDoctor(req.auth); const rows = await Reel.find({ doctorId: req.auth.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).limit(100).lean(); res.json({ items: await service.serializeReels(rows, req.auth), canReview: await service.isReviewer(req.auth) }); }));
+router.get('/mine', wrap(async (req, res) => { await service.verifiedDoctor(req.auth); const rows = await Reel.find({ doctorId: req.auth.id, status: { $ne: 'removed' } }).sort({ createdAt: -1 }).limit(100).lean(); res.json({ items: await service.serializeReels(rows, req.auth), canReview: await service.isReviewer(req.auth), publicationMode: process.env.REELS_PUBLISH_MODE === 'author' ? 'author' : 'independent' }); }));
 router.get('/moderation', wrap(async (req, res) => { if (!await service.isReviewer(req.auth)) throw service.reelError(403, 'Approved medical reviewer access is required'); const rows = await Reel.find({ status: 'pending_review', doctorId: { $ne: req.auth.id } }).sort({ updatedAt: 1 }).limit(100).lean(); res.json({ items: await service.serializeReels(rows, req.auth) }); }));
 router.get('/reports', wrap(async (req, res) => {
   if (!await service.isReviewer(req.auth)) throw service.reelError(403, 'Approved reviewer access is required');
@@ -66,6 +66,7 @@ router.put('/:id/upload', wrap(async (req, res) => {
 }));
 router.patch('/:id', wrap(async (req, res) => { await service.rateLimit(req.auth, 'edit', 30); const reel = await service.editReel(req.auth, req.params.id, req.body); res.json({ reel: (await service.serializeReels([reel], req.auth))[0] }); }));
 router.post('/:id/submit', wrap(async (req, res) => { const reel = await service.submitReel(req.auth, req.params.id, req.body.version); res.json({ reel: (await service.serializeReels([reel], req.auth))[0] }); }));
+router.post('/:id/publish', wrap(async (req, res) => { await service.rateLimit(req.auth, 'publish', 20); const reel = await service.publishOwnReel(req.auth, req.params.id, req.body); res.json({ reel: (await service.serializeReels([reel], req.auth))[0] }); }));
 router.post('/:id/retry', wrap(async (req, res) => { await service.rateLimit(req.auth, 'retry', 10); const reel = await service.retryProcessing(req.auth, req.params.id); res.json({ reel: (await service.serializeReels([reel], req.auth))[0] }); }));
 router.post('/:id/moderate', wrap(async (req, res) => { const reel = await service.moderateReel(req.auth, req.params.id, req.body); res.json({ reel: (await service.serializeReels([reel], req.auth))[0] }); }));
 router.delete('/:id', wrap(async (req, res) => { await service.deleteReel(req.auth, req.params.id); res.json({ removed: true }); }));

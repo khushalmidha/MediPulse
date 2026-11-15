@@ -83,10 +83,11 @@ export async function inspectReelsDeployment(env = process.env) {
   }
   return {
     mode: 'read-only', featureEnabled: env.REELS_ENABLED === 'true',
-    technicalChecksPassed: databaseChecksAvailable && Object.values(checks).every(Boolean),
+    publicationMode: env.REELS_PUBLISH_MODE === 'author' ? 'author' : 'independent',
+    technicalChecksPassed: databaseChecksAvailable && Object.entries(checks).filter(([key]) => env.REELS_PUBLISH_MODE !== 'author' || !['reviewerIdsValid', 'reviewerAccountsVerified'].includes(key)).every(([,value]) => value),
     productionAccepted: false, databaseChecksAvailable, checks, indexes,
     configuredReviewerCount: reviewerIds.length,
-    externalAcceptanceRequired: ['Persistent disk attachment and restart/restore evidence', 'Actual offline inference and synthetic transcode/decode', 'Approved reviewer governance and independent creator/reviewer workflow', 'Redis and full application readiness', 'Authenticated live relay/device checks and explicit activation approval'],
+    externalAcceptanceRequired: ['Persistent disk attachment and restart/restore evidence', 'Actual offline inference and synthetic transcode/decode', env.REELS_PUBLISH_MODE === 'author' ? 'Verified author reviews and publishes the exact processed version' : 'Approved reviewer governance and independent creator/reviewer workflow', 'Redis and full application readiness', 'Authenticated live relay/device checks and explicit activation approval'],
   };
 }
 

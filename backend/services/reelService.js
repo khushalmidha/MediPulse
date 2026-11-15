@@ -131,6 +131,20 @@ export async function submitReel(auth, id, version) {
     reel.status = 'pending_review'; reel.version++; await reel.save({ session }); await audit(reel, auth, 'submitted', '', session); return reel;
   });
 }
+export async function publishOwnReel(auth, id, body) {
+  if (process.env.REELS_PUBLISH_MODE !== 'author') throw reelError(403, 'Author publication is not enabled');
+  if (!Number.isSafeInteger(body.version) || body.version < 0 || body.authorReviewed !== true) throw reelError(400, 'Review and confirm the current Reel version before publishing');
+  return moneyTransaction(async session => {
+    const reel = await ownedReel(auth, id, session);
+    if (reel.version !== body.version) throw reelError(409, 'Reel changed; review the current version');
+    if (!['draft', 'rejected', 'pending_review'].includes(reel.status)) throw reelError(409, 'Reel cannot be published in its current state');
+    if (reel.mediaStatus !== 'ready' || !reel.embeddingModel || !reel.privacyConfirmed || !reel.educationalOnly) throw reelError(409, 'Processed educational media and privacy confirmation are required');
+    reel.status = 'published'; reel.reviewedBy = auth.id; reel.publishedAt = new Date(); reel.moderationReason = ''; reel.version++;
+    await reel.save({ session });
+    await audit(reel, auth, 'author_published', 'Verified author reviewed this exact version', session);
+    return reel;
+  });
+}
 export async function moderateReel(auth, id, body) {
   if (!await isReviewer(auth)) throw reelError(403, 'An explicitly approved verified medical reviewer is required');
   if (!['publish', 'reject', 'remove'].includes(body.decision)) throw reelError(400, 'Invalid review decision');

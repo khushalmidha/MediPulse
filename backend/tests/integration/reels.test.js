@@ -96,6 +96,30 @@ test('real reels router, upload, review, engagement and personalization boundari
     const result = await runOutboxBatch(job => processReelJob(job, process.env.REELS_REAL_MEDIA_TESTS === 'true' ? undefined : fixtureAdapters), { limit: 1 });
     assert.equal(result.delivered, 1); const mine = await request('/mine', { role: 'author' }); reel = mine.data.items.find(x => x.id === reel.id); assert.equal(reel.mediaStatus, 'ready');
   });
+  await t.test('owner-approved author publishing enforces verification, ownership, processing and exact-version review', async () => {
+    const created = await request('/', { role: 'author', method: 'POST', body: metadata() });
+    assert.equal(created.status, 201); const own = created.data.reel;
+    const body = { version: own.version, authorReviewed: true };
+    assert.equal((await request(`/${own.id}/publish`, { role: 'author', method: 'POST', body })).status, 403);
+    const previous = process.env.REELS_PUBLISH_MODE; process.env.REELS_PUBLISH_MODE = 'author';
+    try {
+      assert.equal((await request(`/${own.id}/publish`, { method: 'POST', body })).status, 403);
+      assert.equal((await request(`/${own.id}/publish`, { role: 'unverified', method: 'POST', body })).status, 403);
+      assert.equal((await request(`/${own.id}/publish`, { role: 'otherDoctor', method: 'POST', body })).status, 404);
+      assert.equal((await request(`/${own.id}/publish`, { role: 'author', method: 'POST', body: { version: own.version } })).status, 400);
+      assert.equal((await request(`/${own.id}/publish`, { role: 'author', method: 'POST', body })).status, 409);
+      await Reel.updateOne({ _id: own.id }, { $set: { mediaStatus: 'ready', embeddingModel: 'synthetic-fixture' } });
+      assert.equal((await request(`/${own.id}/publish`, { role: 'author', method: 'POST', body: { ...body, version: own.version + 1 } })).status, 409);
+      const published = await request(`/${own.id}/publish`, { role: 'author', method: 'POST', body });
+      assert.equal(published.status, 200); assert.equal(published.data.reel.status, 'published');
+      assert.equal((await Reel.findById(own.id)).reviewedBy.toString(), String(ids.author));
+      assert.equal(await ReelAudit.countDocuments({ reelId: own.id, action: 'author_published', version: own.version + 1 }), 1);
+      assert.equal((await request('/mine', { role: 'author' })).data.publicationMode, 'author');
+    } finally {
+      if (previous === undefined) delete process.env.REELS_PUBLISH_MODE; else process.env.REELS_PUBLISH_MODE = previous;
+      await Reel.deleteOne({ _id: own.id });
+    }
+  });
   await t.test('only independent approved reviewers publish the exact processed version', async () => {
     const submitted = await request(`/${reel.id}/submit`, { role: 'author', method: 'POST', body: { version: reel.version } }); assert.equal(submitted.status, 200); reel = submitted.data.reel;
     assert.equal((await request(`/${reel.id}/moderate`, { role: 'author', method: 'POST', body: { version: reel.version, decision: 'publish' } })).status, 403);
