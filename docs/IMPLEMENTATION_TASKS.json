@@ -2604,7 +2604,7 @@
           "renewalRevision": "29c4716e",
           "deploymentId": "medipulse-staging-20261113",
           "deadlineUtc": "2026-11-16T16:11:12.411669Z",
-          "blocker": "Native remaining acceptance executing; production cutover still incomplete",
+          "blocker": "Existing main-domain app reachable; AWS long-video/restore and production migration remain incomplete",
           "stagingSafetyTests": 46,
           "capacityTargetContractFixed": true,
           "newPaidResourcesCreated": true,
@@ -2647,7 +2647,7 @@
           "acceptanceSameHostRepairSupported": true,
           "completionHostStatus": "cleaned",
           "finalAcceptanceApproved": true,
-          "acceptanceHostStatus": "healthy initialization; native build running",
+          "acceptanceHostStatus": "cleaned",
           "acceptanceHostDeadlineUtc": "2026-11-14T13:16:43.983678Z",
           "snapshotPermissionDryRun": "DryRunOperation",
           "snapshotPolicyCorrectionEffective": true,
@@ -2657,7 +2657,7 @@
           "priorHostCumulativeOomCounter": 1,
           "backendCgroupOomKillsDuringFixtureFailure": 0,
           "verifiedTestTransportResumeSupported": true,
-          "cleanupCompletedAtUtc": "2026-11-14T12:09:58.096246Z",
+          "cleanupCompletedAtUtc": "2026-11-14T17:08:58.258288Z",
           "independentTaggedInventory": {
             "activeInstances": 0,
             "volumes": 0,
@@ -2665,7 +2665,7 @@
             "securityGroups": 0
           },
           "additionalPaidHostQueued": false,
-          "longVideoCapacity": "not reached",
+          "longVideoCapacity": "initial connection reset; diagnostic replay media worker failed; no successful acceptance",
           "snapshotRestore": "not reached",
           "continuationSsmFailure": {
             "status": "TimedOut",
@@ -2688,7 +2688,16 @@
           "ssmStartAndExitMarkers": true,
           "rootEbsServicePrepared": true,
           "rootComposeSyntheticConfigPassed": true,
-          "redisAndCaddyArm64Available": true
+          "redisAndCaddyArm64Available": true,
+          "activeControllerSourceGuardRejectedHarnessRepair": true,
+          "preparedCapacityProcessBudgetMs": 600000,
+          "preparedCapacityChangesNativeVerified": false,
+          "liveDomain": "https://medipulse.live",
+          "existingFrontendHttps": 200,
+          "existingSameOriginBackendLive": 200,
+          "existingSameOriginBackendReady": 200,
+          "existingRenderLive": 200,
+          "awsProductionCutoverPerformed": false
         }
       }
     }

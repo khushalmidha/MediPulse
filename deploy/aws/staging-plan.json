@@ -1,6 +1,6 @@
 {
   "date": "2026-11-13",
-  "status": "approved_attempt2_failed_initialization_cleaned",
+  "status": "attempt6_incomplete_cleaned",
   "deploymentId": "medipulse-staging-20261113",
   "budgetScope": "MediPulse only; JobFinder charges explicitly accepted separately",
   "targetMonthlyGrossBeforeCreditsUSD": 10,
@@ -118,8 +118,8 @@
     "https://aws.amazon.com/vpc/pricing/",
     "https://aws.amazon.com/ec2/pricing/on-demand/"
   ],
-  "stagingPermissionDryRun": "UnauthorizedOperation",
-  "stagingPolicyManagedCharacters": 5978,
+  "stagingPermissionDryRun": "DryRunOperation",
+  "stagingPolicyManagedCharacters": 6010,
   "newStagingResourcesCreated": true,
   "latestVerificationDate": "2026-11-14",
   "currentPreflight": "IAM/SSM preflight and positive/negative launch dry-runs passed",
@@ -131,7 +131,7 @@
     "snapshots": 0,
     "securityGroups": 0
   },
-  "nextAction": "Investigate retained initialization failure; detailed bootstrap diagnostics prepared; further paid attempt needs separate approval",
+  "nextAction": "Preserve working main-domain deployment; investigate retained media-worker failure and review next cloud scope without automatic paid retries",
   "latestEvidence": "docs/DEPLOYMENT_FINALIZATION.md",
   "activeStagingResources": 0,
   "stagingAcceptance": false

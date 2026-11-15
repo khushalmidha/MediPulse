@@ -1,5 +1,13 @@
 # Low-traffic deployment continuation — 13 November 2026
 
+## Current medipulse.live link verified; AWS acceptance remains incomplete — 15 November 2026
+
+Owner prioritizes the existing medipulse.live domain and an immediate working link. Fresh public checks confirm apex frontend HTTPS200 redirecting to www.medipulse.live; after an initial timeout, both www.medipulse.live/backend/health/live and /backend/health/ready return200 JSON, and the existing Render live endpoint returns200. The existing same-origin /backend relay therefore remains operational on the requested domain. These are availability/readiness checks, not fresh browser/account/Reels workflow certification. No DNS/relay/provider change was made to obtain this result; it is the existing Vercel/Render deployment, not a new AWS cutover.
+
+Attempt6 is cleaned, independently verified with0active tagged instances/volumes/snapshots/securitygroups (cleanup2026-11-14T17:08:58.258288Z). It passed native2/2, units250/250 and integrations410/410 without skips; snapshot authorization is now allowed. The299second run failed ECONNRESET; a same-host diagnostic replay kept the API alive but recorded a sanitized media-worker failure, without observed OOM. Long-video acceptance and snapshot/restore did not pass/reach completion.
+
+The later repair was rejected by the original running controller's already-loaded source guard after the diagnostic harness commit, and finally cleanup ran. This was an operator orchestration mistake: changing the guard on disk did not reload it in that process. The replacement guard keeps runtime backend/frontend immutable and treats the separately overlaid capacity runner as reviewed test/operator code; current runtime-source/coherent-lock check passes. Source generation before API startup, bounded native-process timing diagnostics and supported600second process budget are prepared and syntax checked, but were not exercised by a successful new native capacity run. No root cause is invented and no seventh host is approved/queued. Further cloud work must use the retained evidence and a concrete reviewed scope; the live link above must not be described as completed AWS/Reels migration.
+
 ## Root-EBS production candidate prepared; staging running — 14 November 2026
 
 Owner policy update is now certified for the blocked operation: attempt6 owned-root CreateSnapshot dry-run returns DryRunOperation before build. Positive launch/cleanup and negative larger/foreign dry-runs pass. Initialization is healthy0 with no warnings/errors; pinned native build is running inside the fixed2hour deadline. No live production or new native app acceptance is claimed yet.
