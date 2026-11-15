@@ -311,8 +311,9 @@ def verify_domain():
                 health=json.loads(body)
                 if path.endswith('/live'): assert health.get('status')=='alive'
                 else: assert health.get('ready') is True and health.get('dependencies',{}).get('mongodb')=='ready' and health.get('dependencies',{}).get('redis')=='ready'
-    state.update(status='live-core',productionLive=True,reelsEnabled=False,restoreVerified=False); save(state)
-    api.emit('aws-domain-core-verified',url='https://medipulse.live',reelsEnabled=False,restoreVerified=False)
+    state.update(status='live-reels' if state.get('reelsEnabled') else 'live-core',productionLive=True)
+    state.setdefault('reelsEnabled',False); state.setdefault('restoreVerified',False); save(state)
+    api.emit('aws-domain-core-verified',url='https://medipulse.live',reelsEnabled=state['reelsEnabled'],restoreVerified=state['restoreVerified'])
 
 
 def domain_dns_ready(name, expected):

@@ -72,6 +72,16 @@ class ProductionCore(unittest.TestCase):
              patch.object(core.urllib.request,'urlopen',side_effect=lambda *a,**k:nullcontext(response)):
             with self.assertRaisesRegex(AssertionError,'frontend fallback'): core.verify_domain()
             save.assert_not_called()
+    def test_health_verification_preserves_completed_feature_and_restore_evidence(self):
+        from contextlib import nullcontext
+        state={'coreReady':True,'restoreVerified':True,'reelsEnabled':True}
+        def request(url,**kwargs):
+            response=Mock(status=200,headers={'X-MediPulse-Origin':'aws-ec2','Content-Type':'text/html' if url.endswith('/') else 'application/json'})
+            response.read.return_value=b'<script src="/assets/app.js"></script>' if url.endswith('/') else json.dumps({'status':'alive','ready':True,'dependencies':{'mongodb':'ready','redis':'ready'}}).encode()
+            return nullcontext(response)
+        with patch.object(core,'load',return_value=state),patch.object(core,'save'),patch.object(core.api,'emit'),patch.object(core.urllib.request,'urlopen',side_effect=request):
+            core.verify_domain()
+            self.assertTrue(state['restoreVerified']);self.assertTrue(state['reelsEnabled']);self.assertEqual(state['status'],'live-reels')
 
     def test_dns64_synthesis_allowed_but_real_aaaa_rejected(self):
         from contextlib import nullcontext

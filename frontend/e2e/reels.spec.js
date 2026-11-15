@@ -22,10 +22,11 @@ test.beforeEach(async ({ page, request }) => {
   await request.post(fixture + '/__fixture/reset', { data: {} });
   await page.route('**/*', route => { const url = new URL(route.request().url()); return url.hostname === '127.0.0.1' && ['15173', '19080'].includes(url.port) ? route.continue() : route.abort(); });
 });
-async function mockReels(page, { reviewer = false } = {}) {
+async function mockReels(page, { reviewer = false, authorPublish = false } = {}) {
   let following = false, comments = [], mine = [], preference = false;
   const mutations = [];
   const reel = { id, doctor: { id: doctor, name: 'Dr. Synthetic Educator', specialty: 'Cardiology' }, title: 'Heart health basics', caption: 'A synthetic educational video', topics: ['heart health'], language: 'en', duration: 2, counts: { likes: 0, saves: 0, comments: 0 }, liked: false, saved: false, following: false, status: 'published', mediaStatus: 'ready', version: 2, playbackUrl: `/api/reels/media/${id}/job/master.m3u8`, thumbnailUrl: `/api/reels/media/${id}/job/thumbnail.jpg` };
+  if (authorPublish) mine = [{ ...reel, status: 'draft' }];
   await page.route('**/api/reels**', async route => {
     const req = route.request(), url = new URL(req.url()), p = url.pathname.split('/api/reels')[1], method = req.method();
     if (p.startsWith('/media/')) {
@@ -38,7 +39,7 @@ async function mockReels(page, { reviewer = false } = {}) {
     let data = {};
     if (p === '/feed') data = { items: url.searchParams.get('mode') === 'following' && !following ? [] : [reel], nextCursor: null, personalization: { enabled: preference } };
     else if (p === '/preferences') { if (method === 'POST') preference = body.personalizationEnabled; data = { personalizationEnabled: preference, topics: [] }; }
-    else if (p === '/mine') data = { items: mine, canReview: reviewer };
+    else if (p === '/mine') data = { items: mine, canReview: reviewer, publicationMode: authorPublish ? 'author' : 'independent' };
     else if (p === '/moderation') data = { items: reviewer ? [{ ...reel, status: 'pending_review' }] : [] };
     else if (p === '/reports') data = { items: [] };
     else if (p.endsWith('/reactions')) { reel[body.kind === 'like' ? 'liked' : 'saved'] = body.active; reel.counts[body.kind === 'like' ? 'likes' : 'saves'] = Number(body.active); data = { active: body.active, counts: reel.counts }; }
@@ -51,6 +52,7 @@ async function mockReels(page, { reviewer = false } = {}) {
       if (req.headers()['content-type'].startsWith('video/webm')) { const captured = path.join(root, id, 'originals/captured.webm'); await fs.writeFile(captured, req.postDataBuffer()); const checked = await probe(captured); expect(checked.duration).toBeGreaterThan(0); expect(checked.duration).toBeLessThanOrEqual(300); }
       mine[0] = { ...mine[0], mediaStatus: 'queued', version: 1 }; data = { reel: mine[0] };
     }
+    else if (p.endsWith('/publish')) { mine[0] = { ...mine[0], status: 'published', version: mine[0].version + 1 }; data = { reel: mine[0] }; }
     else if (p.endsWith('/moderate')) data = { reel: { ...reel, status: 'published' } };
     return route.fulfill({ status: method === 'POST' && p.endsWith('/comments') ? 201 : 200, json: data });
   });
@@ -82,6 +84,17 @@ test('doctor uploads actual video bytes with stable identity and explicit privac
   await expect.poll(() => writes.some(x => x.path.endsWith('/upload'))).toBe(true);
   const upload = writes.find(x => x.path.endsWith('/upload')); expect(upload.contentType).toContain('video/mp4'); expect(upload.contentType).toContain('video/mp4'); expect(upload.csrf).toBe('fixture-account-csrf');
   await expect(page.getByRole('heading', { name: 'Synthetic exercise guide' })).toBeVisible();
+});
+test('verified author confirms the exact Reel version before direct publication', async ({ page, request }) => {
+  await request.post(fixture + '/__fixture/reset', { data: { doctorSession: true } });
+  const writes = await mockReels(page, { authorPublish: true }); await page.goto('/doctor/reels');
+  await expect(page.getByRole('button', { name: 'Submit for review', exact: true })).toHaveCount(0);
+  page.once('dialog', dialog => dialog.dismiss()); await page.getByRole('button', { name: 'Review and publish', exact: true }).click();
+  expect(writes.some(write => write.path.endsWith('/publish'))).toBe(false);
+  page.once('dialog', dialog => dialog.accept()); await page.getByRole('button', { name: 'Review and publish', exact: true }).click();
+  await expect.poll(() => writes.some(write => write.path.endsWith('/publish') && write.body.version === 2 && write.body.authorReviewed === true && write.csrf === 'fixture-account-csrf')).toBe(true);
+  await expect(page.getByRole('status')).toHaveText('Your Reel is published.');
+  await expect(page.getByRole('button', { name: 'Review and publish', exact: true })).toHaveCount(0);
 });
 test('independent reviewer sees actual HLS preview and submits version-bound decision', async ({ page, request }) => {
   await request.post(fixture + '/__fixture/reset', { data: { doctorSession: true } }); const writes = await mockReels(page, { reviewer: true }); await page.goto('/doctor/reels');
