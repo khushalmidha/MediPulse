@@ -10,6 +10,7 @@ import subprocess
 import time
 import urllib.request
 import socket
+import ipaddress
 from pathlib import Path
 import aws_native_pilot as api
 import aws_ssm_preflight as preflight
@@ -314,11 +315,27 @@ def verify_domain():
     api.emit('aws-domain-core-verified',url='https://medipulse.live',reelsEnabled=False,restoreVerified=False)
 
 
+def domain_dns_ready(name, expected):
+    # Public DNS distinguishes genuine AAAA records from this client's DNS64 synthesis.
+    for kind in [1,28]:
+        with urllib.request.urlopen('https://dns.google/resolve?name='+name+'&type='+str(kind),timeout=15) as response:
+            result=json.load(response)
+        assert result.get('Status')==0, 'Public DNS query failed'
+        addresses={row['data'] for row in result.get('Answer',[]) if row['type']==kind}
+        assert addresses==({expected} if kind==1 else set()), 'Public DNS still points elsewhere'
+    addresses=set()
+    for row in socket.getaddrinfo(name,443,type=socket.SOCK_STREAM):
+        address=ipaddress.ip_address(row[4][0])
+        if address.version==6 and address in ipaddress.ip_network('64:ff9b::/96'):
+            address=ipaddress.IPv4Address(int(address)&0xffffffff)
+        addresses.add(str(address))
+    assert addresses=={expected}, 'Local DNS cache still points elsewhere'
+
+
 def activate_domain():
     state=load(); assert state.get('coreReady')
     for name in ['medipulse.live','www.medipulse.live']:
-        addresses={row[4][0] for row in socket.getaddrinfo(name,443,type=socket.SOCK_STREAM)}
-        assert addresses=={state['publicIp']}, 'DNS still points elsewhere (including IPv6); retain existing app and wait'
+        domain_dns_ready(name,state['publicIp'])
     session=native.Session(STATE,LOGS,target)
     script=asset('deploy/aws/Caddyfile.fullsite','/opt/medipulse/deploy/aws/Caddyfile.active')
     script+='systemctl restart medipulse-fullsite.service\necho FULL_SITE_HTTPS_ACTIVATION_REQUESTED\n'

@@ -3993,3 +3993,8 @@ The checksum-pinned Compose2.40.3 supports raw env files. Pending Caddy serves o
 
 Fresh owner-confirmed non-root CLI login succeeded. Production controller has launched the single protected ARM64 host and associated its one static IP; backend build is in progress. No DNS cutover or AWS live-domain claim yet. Same-host progress check confirms 24GiB free root space. The retained host is not a disposable staging attempt. Domain verification now rejects HTML SPA fallbacks on API health paths and requires actual Mongo/Redis readiness JSON; production safety regressions10/10 pass. Reels and restore acceptance remain incomplete.
 
+
+## AWS core ready; owner DNS cutover pending - 15 November 2026
+
+The one persistent production host completed ARM64 backend and frontend builds. Backend and Redis containers are healthy; systemd startup is enabled. Public pre-DNS readiness returns HTTP200 with AWS origin marker, ready=true and MongoDB/Redis ready; startup schema checks are included in that readiness probe. Root/web data remain on the protected encrypted30GiB volume. Domain still resolves to prior Vercel hosting, so no AWS domain deployment is claimed yet. Owner has the exact two Name.com record edits for the allocated static IP; HTTPS activation follows only after public DNS and local-cache verification. DNS64 synthesized addresses are normalized while real public AAAA conflicts remain rejected. Production safety regressions11/11 pass. Reels remains disabled and long-video/restore acceptance remains incomplete. Exact host/IP/build metadata and prior DNS rollback records are private.
+

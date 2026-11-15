@@ -73,4 +73,16 @@ class ProductionCore(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError,'frontend fallback'): core.verify_domain()
             save.assert_not_called()
 
+    def test_dns64_synthesis_allowed_but_real_aaaa_rejected(self):
+        from contextlib import nullcontext
+        from io import BytesIO
+        records=[{'Status':0,'Answer':[{'type':1,'data':'192.0.2.1'}]}, {'Status':0,'Answer':[]}]
+        def query(*a,**k): return nullcontext(BytesIO(json.dumps(records.pop(0)).encode()))
+        with patch.object(core.urllib.request,'urlopen',side_effect=query), \
+             patch.object(core.socket,'getaddrinfo',return_value=[(0,0,0,0,('192.0.2.1',443)),(0,0,0,0,('64:ff9b::c000:201',443))]):
+            core.domain_dns_ready('example.test','192.0.2.1')
+        records.extend([{'Status':0,'Answer':[{'type':1,'data':'192.0.2.1'}]}, {'Status':0,'Answer':[{'type':28,'data':'2001:db8::1'}]}])
+        with patch.object(core.urllib.request,'urlopen',side_effect=query):
+            with self.assertRaisesRegex(AssertionError,'Public DNS still'): core.domain_dns_ready('example.test','192.0.2.1')
+
 if __name__=='__main__': unittest.main()
