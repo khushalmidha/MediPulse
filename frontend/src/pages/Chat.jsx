@@ -345,22 +345,19 @@ useEffect(() => {
 
   // Generate color based on community name
   const getCommunityColor = (name) => {
-    if (!name) return 'bg-red-500 dark:bg-red-600'
+    if (!name) return 'bg-teal-700 dark:bg-teal-800'
 
     const colors = [
-      'bg-red-500 dark:bg-red-600',
-      'bg-red-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-red-500',
-      'bg-orange-500',
-      'bg-amber-500',
-      'bg-yellow-500',
-      'bg-lime-500',
-      'bg-green-500',
-      'bg-emerald-500',
-      'bg-teal-500',
-      'bg-cyan-500',
+      'bg-teal-700 dark:bg-teal-800',
+      'bg-emerald-600 dark:bg-emerald-700',
+      'bg-teal-600 dark:bg-teal-700',
+      'bg-cyan-600 dark:bg-cyan-700',
+      'bg-emerald-700 dark:bg-emerald-800',
+      'bg-teal-800 dark:bg-teal-900',
+      'bg-cyan-700 dark:bg-cyan-800',
+      'bg-teal-600',
+      'bg-emerald-600',
+      'bg-teal-700',
     ]
 
     const charCode = name.charCodeAt(0)
@@ -369,7 +366,7 @@ useEffect(() => {
 
   return (
     // Main container - adjusted to fit below navbar and above footer
-    <div className="flex h-[calc(100vh-7rem)] bg-gray-50 dark:bg-slate-900 shadow-md rounded-lg overflow-hidden border border-gray-200 dark:border-red-900/40 m-4">
+    <div className="flex h-[calc(100vh-7rem)] bg-gray-50 dark:bg-slate-900 shadow-md rounded-lg overflow-hidden border border-gray-200 dark:border-teal-900/40 m-4">
       {/* Mobile overlay for sidebar */}
       {showSidebar && (
         <div
@@ -380,17 +377,17 @@ useEffect(() => {
 
       {/* Sidebar - with adjusted height */}
       <div
-        className={`fixed lg:relative z-40 h-full bg-white dark:bg-slate-950 border-r border-gray-200 dark:border-red-900/40 w-72 max-w-[85%] transition-transform duration-300 
+        className={`fixed lg:relative z-40 h-full bg-white dark:bg-slate-950 border-r border-gray-200 dark:border-teal-900/40 w-72 max-w-[85%] transition-transform duration-300 
           ${showSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Community header */}
-        <div className="p-4 border-b border-gray-200 dark:border-red-900/40 bg-gradient-to-r from-red-50 dark:from-red-950/20 to-red-50 dark:to-red-950/20">
+        <div className="p-4 border-b border-gray-200 dark:border-teal-900/40 bg-gradient-to-r from-teal-50 dark:from-teal-950/20 to-teal-50 dark:to-teal-950/20">
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-bold text-gray-800 dark:text-slate-200 truncate">Communities</h1>
             <div className="flex items-center">
               <Link
                 to={"/communities"}
-                className="text-red-600 dark:text-red-500 hover:bg-red-100 p-2 rounded-full transition-colors"
+                className="text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/40 p-2 rounded-full transition-colors"
                 title="Create new community"
               >
                 <Plus size={18} />
@@ -410,7 +407,7 @@ useEffect(() => {
               placeholder="Search communities..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 pl-9 bg-white dark:bg-slate-950 border border-gray-200 dark:border-red-900/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-slate-200 text-sm"
+              className="w-full px-4 py-2 pl-9 bg-white dark:bg-slate-950 border border-gray-200 dark:border-teal-900/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-700 text-gray-800 dark:text-slate-200 text-sm"
             />
             <Search
               className="absolute left-3 top-2.5 text-gray-400"
@@ -450,7 +447,7 @@ useEffect(() => {
               </div>
               <p className="font-medium">No communities joined</p>
               <p className="text-sm mt-1">Join communities to start chatting</p>
-              <Link to="/communities" className="mt-4 inline-block px-4 py-2 bg-red-600 dark:bg-red-700 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+              <Link to="/communities" className="mt-4 inline-block px-4 py-2 bg-teal-800 dark:bg-teal-800 text-white text-sm rounded-lg hover:bg-teal-900 transition-colors">
                 Browse Communities
               </Link>
             </div>
@@ -468,7 +465,7 @@ useEffect(() => {
                 key={community._id}
                 className={`p-3 hover:bg-gray-50 dark:bg-slate-900 cursor-pointer transition-colors ${
                   index === selectedCommunity
-                    ? 'bg-red-50 border-l-4 border-red-600'
+                    ? 'bg-teal-50 dark:bg-teal-950/50 border-l-4 border-teal-800 dark:border-teal-600'
                     : ''
                 }`}
                 onClick={() => handleChangeCommunity(index)}
@@ -501,7 +498,7 @@ useEffect(() => {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Chat Header */}
         {selectedCommunity !== null && communities[selectedCommunity] && (
-          <div className="p-3 border-b border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 shadow-sm flex items-center justify-between">
+          <div className="p-3 border-b border-gray-200 dark:border-teal-900/40 bg-white dark:bg-slate-950 shadow-sm flex items-center justify-between">
             <div className="flex items-center min-w-0">
               <button
                 className="mr-3 lg:hidden bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors flex-shrink-0"
@@ -554,7 +551,7 @@ useEffect(() => {
                 <span className="hidden sm:inline">Preferences</span>
               </button>
               <div className="hidden md:flex items-center">
-                <span className="px-3 py-1 bg-red-100 text-blue-800 rounded-full text-xs font-medium shadow-sm truncate max-w-[140px]">
+                <span className="px-3 py-1 bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-full text-xs font-medium shadow-sm truncate max-w-[140px]">
                   {communities[selectedCommunity].category}
                 </span>
               </div>
@@ -574,8 +571,8 @@ useEffect(() => {
           {selectedCommunity === null ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-4">
               <div className="bg-white dark:bg-slate-950 p-6 rounded-xl shadow-sm max-w-md border border-gray-100">
-                <div className="bg-red-50 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                  <Users size={28} className="text-red-600 dark:text-red-500" />
+                <div className="bg-teal-50 dark:bg-teal-950/60 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 border border-teal-100 dark:border-teal-900">
+                  <Users size={28} className="text-teal-800 dark:text-teal-400" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200 mb-3">
                   Welcome to Communities
@@ -586,7 +583,7 @@ useEffect(() => {
                 </p>
                 <button
                   onClick={() => setShowSidebar(true)}
-                  className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700 transition-colors lg:hidden shadow-sm font-medium"
+                  className="px-4 py-2 bg-teal-800 dark:bg-teal-800 text-white rounded-md hover:bg-teal-900 transition-colors lg:hidden shadow-sm font-medium"
                 >
                   Browse Communities
                 </button>
@@ -616,8 +613,8 @@ useEffect(() => {
           ) : messages.length === 0 ? (
             <div className="h-full flex items-center justify-center text-center p-4">
               <div className="bg-white dark:bg-slate-950 p-6 rounded-lg shadow-sm max-w-sm border border-gray-100">
-                <div className="bg-red-100 rounded-full p-3 w-14 h-14 flex items-center justify-center mx-auto mb-4">
-                  <MessageCircle size={24} className="text-red-600 dark:text-red-500" />
+                <div className="bg-teal-50 dark:bg-teal-950/60 rounded-full p-3 w-14 h-14 flex items-center justify-center mx-auto mb-4 border border-teal-100 dark:border-teal-900">
+                  <MessageCircle size={24} className="text-teal-800 dark:text-teal-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-200 mb-2">
                   No messages yet
@@ -661,7 +658,7 @@ useEffect(() => {
                           ) : (
                             <div
                               className={`w-8 h-8 rounded-full ${
-                                message.isUser ? "bg-red-500 dark:bg-red-600" : "bg-gray-400"
+                                message.isUser ? "bg-teal-700 dark:bg-teal-800" : "bg-gray-400"
                               } flex items-center justify-center text-white text-xs font-medium shadow-sm`}
                             >
                               {getUserInitials(
@@ -694,8 +691,8 @@ useEffect(() => {
                           <div
                             className={`rounded-2xl px-3 py-2 ${
                               message.isUser
-                                ? "bg-red-600 dark:bg-red-700 text-white rounded-tr-none shadow-sm"
-                                : "bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200 rounded-tl-none border border-gray-200 dark:border-red-900/40 shadow-sm"
+                                ? "bg-teal-800 dark:bg-teal-800 text-white rounded-tr-none shadow-sm"
+                                : "bg-white dark:bg-slate-950 text-gray-800 dark:text-slate-200 rounded-tl-none border border-gray-200 dark:border-teal-900/40 shadow-sm"
                             } relative group-hover:shadow-md transition-shadow max-w-full overflow-hidden`}
                           >
                             <p className={`whitespace-pre-wrap text-sm break-words ${message.isRemoved ? 'italic text-gray-400 dark:text-slate-500' : ''}`}>
@@ -737,7 +734,7 @@ useEffect(() => {
         {selectedCommunity !== null && (
           <form
             onSubmit={handleSendMessage}
-            className="p-3 border-t border-gray-200 dark:border-red-900/40 bg-white dark:bg-slate-950 shadow-inner"
+            className="p-3 border-t border-gray-200 dark:border-teal-900/40 bg-white dark:bg-slate-950 shadow-inner"
           >
             <div className="flex items-center">
               <input
@@ -749,7 +746,7 @@ useEffect(() => {
                   setVoiceMessage("") // Clear voice message when typing
                 }}
                 disabled={loading}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 shadow-inner text-sm"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-teal-700 disabled:bg-gray-100 shadow-inner text-sm"
               />
 
               <Voice setNewMessage={setVoiceMessage} />
@@ -757,7 +754,7 @@ useEffect(() => {
               <button
                 type="submit"
                 disabled={(!inputMessage && !voiceMessage) || loading}
-                className="ml-2 p-2.5 bg-red-600 dark:bg-red-700 text-white rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors shadow-sm flex-shrink-0"
+                className="ml-2 p-2.5 bg-teal-800 dark:bg-teal-800 text-white rounded-full hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-700 disabled:bg-teal-300 dark:disabled:bg-teal-900/50 disabled:cursor-not-allowed transition-colors shadow-sm flex-shrink-0"
                 title="Send message"
               >
                 <Send className="w-4 h-4" />
@@ -923,7 +920,7 @@ useEffect(() => {
                 type="checkbox"
                 checked={inAppNotifications}
                 onChange={(e) => setInAppNotifications(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-700 focus:ring-teal-700"
               />
               <div className="text-sm">
                 <span className="font-medium text-gray-800 dark:text-slate-200">In-App Notifications</span>
@@ -937,7 +934,7 @@ useEffect(() => {
                 type="checkbox"
                 checked={emailNotifications}
                 onChange={(e) => setEmailNotifications(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-700 focus:ring-teal-700"
               />
               <div className="text-sm">
                 <span className="font-medium text-gray-800 dark:text-slate-200">Email Notifications</span>

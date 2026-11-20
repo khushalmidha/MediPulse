@@ -134,7 +134,7 @@ const CreateCommunityModal = ({ onClose, onCreate, newCommunity, user }) => {
               </button>
               <button
                 type='submit'
-                className='px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-md hover:bg-blue-700'>
+                className='px-4 py-2 bg-teal-800 dark:bg-teal-800 text-white rounded-md hover:bg-teal-900 transition-colors'>
                 Create Community
               </button>
             </div>
@@ -322,7 +322,7 @@ const CommunityCard = () => {
             className='bg-white dark:bg-slate-950 rounded-lg shadow-xl w-full max-w-md overflow-hidden pointer-events-auto'
             onClick={(e) => e.stopPropagation()}>
             <div className='relative'>
-              <div className='h-32 bg-gradient-to-r from-red-500 to-red-600'></div>
+              <div className='h-32 bg-gradient-to-r from-teal-700 to-teal-800'></div>
               <button
                 onClick={onClose}
                 aria-label="Close community details"
@@ -330,7 +330,7 @@ const CommunityCard = () => {
                 <X size={20} />
               </button>
               <div className='absolute top-16 left-6 w-20 h-20 rounded-full bg-white dark:bg-slate-950 p-1 shadow-md'>
-                <div className='w-full h-full rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white text-2xl font-bold'>
+                <div className='w-full h-full rounded-full bg-gradient-to-br from-teal-600 to-teal-800 flex items-center justify-center text-white text-2xl font-bold'>
                   {community.title.charAt(0)}
                 </div>
               </div>
@@ -343,7 +343,7 @@ const CommunityCard = () => {
                 </h2>
                 <button
                   onClick={() => shareCommunityLink(community._id)}
-                  className='text-red-500 hover:text-blue-700'
+                  className='text-teal-700 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300'
                   title='Share community link'>
                   <svg
                     xmlns='http://www.w3.org/2000/svg'
@@ -364,7 +364,7 @@ const CommunityCard = () => {
               <div className='mt-4 space-y-4'>
                 <div className='flex items-start gap-2'>
                   <Info
-                    className='text-red-500 flex-shrink-0 mt-1'
+                    className='text-teal-700 dark:text-teal-400 flex-shrink-0 mt-1'
                     size={18}
                   />
                   <p className='text-gray-600'>{community.bio}</p>
@@ -372,17 +372,17 @@ const CommunityCard = () => {
 
                 <div className='flex items-center gap-2'>
                   <Tag
-                    className='text-red-500'
+                    className='text-teal-700 dark:text-teal-400'
                     size={18}
                   />
-                  <span className='px-2 py-1 bg-red-100 text-blue-800 text-xs font-medium rounded-full'>
+                  <span className='px-2 py-1 bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-xs font-medium rounded-full'>
                     {community.category}
                   </span>
                 </div>
 
                 <div className='flex items-center gap-2'>
                   <Users
-                    className='text-red-500'
+                    className='text-teal-700 dark:text-teal-400'
                     size={18}
                   />
                   <span className='text-gray-600'>
@@ -392,7 +392,7 @@ const CommunityCard = () => {
 
                 <div className='flex items-center gap-2'>
                   <Calendar
-                    className='text-red-500'
+                    className='text-teal-700 dark:text-teal-400'
                     size={18}
                   />
                   <span className='text-gray-600'>
@@ -405,7 +405,7 @@ const CommunityCard = () => {
               {!isJoined ? (
                 <button
                   onClick={() => onJoin(community._id)}
-                  className='mt-6 w-full py-2 bg-red-600 dark:bg-red-700 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors'>
+                  className='mt-6 w-full py-2 bg-teal-800 dark:bg-teal-800 hover:bg-teal-900 text-white rounded-lg font-medium transition-colors'>
                   Join Community
                 </button>
               ) : (
@@ -441,7 +441,7 @@ const CommunityCard = () => {
         {role === 'doctor' && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className='flex items-center gap-2 px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-lg hover:bg-blue-700 transition-colors'>
+            className='flex items-center gap-2 px-4 py-2 bg-teal-800 dark:bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors'>
             <Plus size={18} />
             Create Community
           </button>
@@ -467,7 +467,7 @@ const CommunityCard = () => {
         <>
           {availableCommunities.length === 0 ? (
             <div className='bg-white dark:bg-slate-950 rounded-lg shadow-md p-8 text-center'>
-              <Users className='text-red-600 dark:text-red-500 bg-red-100 size-16 p-4 rounded-full mx-auto mb-4' />
+              <Users className='text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950 size-16 p-4 rounded-full mx-auto mb-4 border border-teal-100 dark:border-teal-900' />
               <h3 className='text-xl font-semibold mb-2'>
                 No New Communities Available
               </h3>
@@ -478,7 +478,7 @@ const CommunityCard = () => {
               {role === 'doctor' ? (
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className='px-6 py-2 bg-red-600 dark:bg-red-700 text-white rounded-lg hover:bg-blue-700 transition-colors'>
+                  className='px-6 py-2 bg-teal-800 dark:bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors'>
                   Create Your Own
                 </button>
               ) : (
@@ -497,14 +497,14 @@ const CommunityCard = () => {
                     id={community._id}
                     ref={(el) => (communityRefs.current[community._id] = el)}
                     className='bg-white dark:bg-slate-950 rounded-lg shadow-md overflow-hidden flex flex-col h-64 hover:shadow-lg transition-all duration-300'>
-                    <div className='h-2 bg-red-500 dark:bg-red-600'></div>
+                    <div className='h-2 bg-teal-700 dark:bg-teal-800'></div>
                     <div className='p-6 flex-1 flex flex-col'>
                       <div className='flex items-center justify-between mb-3'>
                         <h3 className='text-xl font-bold text-gray-800 dark:text-slate-200 truncate'>
                           {community.title}
                         </h3>
                         <div className='flex items-center gap-2'>
-                          <span className='px-2 py-1 bg-red-100 text-blue-800 text-xs font-medium rounded-full'>
+                          <span className='px-2 py-1 bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-xs font-medium rounded-full'>
                             {community.category}
                           </span>
                           {isJoined && (
@@ -529,7 +529,7 @@ const CommunityCard = () => {
                         </div>
                         <button
                           onClick={() => shareCommunityLink(community._id)}
-                          className='text-red-500 hover:text-blue-700'
+                          className='text-teal-700 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300'
                           title='Share community link'>
                           <svg
                             xmlns='http://www.w3.org/2000/svg'
@@ -552,7 +552,7 @@ const CommunityCard = () => {
                           setSelectedCommunity(community)
                           setShowModal(true)
                         }}
-                        className='w-full py-2 mt-auto bg-red-50 text-red-600 dark:text-red-500 font-medium rounded hover:bg-red-100 transition-colors'>
+                        className='w-full py-2 mt-auto bg-teal-50 text-teal-800 dark:bg-teal-950 dark:text-teal-300 font-medium rounded hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors border border-teal-200/60 dark:border-teal-800/60'>
                         View More
                       </button>
                     </div>
