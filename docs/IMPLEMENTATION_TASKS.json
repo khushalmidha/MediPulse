@@ -2521,6 +2521,10 @@
       "autoDeployment": {
         "requestedDate": "2026-11-20",
         "status": "prepared_installation_pending",
+        "operatorLoginVerified": true,
+        "installerSsmResult": "AccessDeniedException; no remote execution",
+        "ownerAction": "One-time exact AWS-RunShellScript installer on existing host; no IAM edits",
+        "frontendUnitTestsPassed": 62,
         "trigger": "public main branch checked every two minutes after each completed run",
         "unitTestsPassed": 7,
         "sameHost": true,

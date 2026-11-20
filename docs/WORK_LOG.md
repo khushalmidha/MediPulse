@@ -1,5 +1,9 @@
 # MediPulse work log
 
+## Auto-deploy installer access verified; owner Run Command required - 20 November 2026
+
+The old localhost callback expired; a new live CLI flow completed successfully as the exact non-root medipulse-deployer. The actual checksum-pinned installer call failed ssm:SendCommand:AccessDeniedException before remote execution. Prepared/copied an8759byte exact fixed-instance installer and a single mechanical Owner/Admin AWS-RunShellScript Console handoff, preserving the operator identity and avoiding policy edits/root CLI fallback. Actual timer/theme verification is still pending owner execution. Fresh frontend units62/62 pass; deployment safety/installer tests7/7 already pass. No production data or cloud resource change was made by the denied installer call.
+
 ## Automatic AWS deployment preparation - 20 November 2026
 
 Owner explicitly requests auto-deploy after a pushed teal-theme change remained red on AWS. Confirmed origin main bc7b448d, active runtime7b051cbc, old main/community asset hashes and red classes; no GitHub workflow existed. Prepared a two-minute, non-overlapping root-owned systemd updater on the existing host, with bounded isolated builds/tests, frontend-only publication, exact image/HTML rollback and health gates. Preserve private configuration, existing feature flags, persisted data and all infrastructure; no automatic schema/migration operations. Failed SHAs wait for another commit, and a public deployment marker distinguishes frontend/backend revisions. The installer is pinned/checksummed and validates the exact instance and current image baseline. Tests6/6pass. Actual installation and green-theme verification are pending AWS access; a fresh CLI login flow is active. No extra cloud resource or production data change occurred during preparation.
