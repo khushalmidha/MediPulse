@@ -8,8 +8,9 @@ Wants=network-online.target
 Type=oneshot
 User=root
 UMask=0077
+Environment=HOME=/var/lib/medipulse-autodeploy GIT_TERMINAL_PROMPT=0 PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 /usr/local/lib/medipulse-autodeploy/autodeploy.py
-TimeoutStartSec=3600
+TimeoutStartSec=5400
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7

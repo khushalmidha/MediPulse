@@ -2522,7 +2522,7 @@
         "requestedDate": "2026-11-20",
         "status": "prepared_installation_pending",
         "trigger": "public main branch checked every two minutes after each completed run",
-        "unitTestsPassed": 6,
+        "unitTestsPassed": 7,
         "sameHost": true,
         "automaticMigrations": false,
         "liveTimerVerified": false,

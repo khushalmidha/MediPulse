@@ -3,6 +3,8 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import subprocess
+import shlex
 import unittest
 from unittest.mock import patch,Mock
 
@@ -11,6 +13,17 @@ spec=importlib.util.spec_from_file_location('autodeploy',path)
 auto=importlib.util.module_from_spec(spec);spec.loader.exec_module(auto)
 
 class AutoDeploy(unittest.TestCase):
+    def test_pinned_installer_checks_exact_instance_and_fits_ssm(self):
+        import install_autodeploy as install
+        source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=path.parents[2],text=True).strip()
+        script=install.installer(source,'7b051cbca5e2acd79410693ef85aed138f9e572a')
+        self.assertIn('i-0e99a3d554dfd8921',script)
+        self.assertIn('sha256sum -c -',script)
+        self.assertNotIn('terminate-instances',script);self.assertNotIn('backend.env',script)
+        self.assertLess(len(json.dumps({'commands':['/bin/bash -c '+shlex.quote(script)]}).encode()),23000)
+        with tempfile.TemporaryDirectory() as temporary:
+            file=Path(temporary)/'install.sh';file.write_bytes(script.encode())
+            subprocess.run(['C:/Program Files/Git/bin/bash.exe','-n',str(file)],check=True,capture_output=True)
     def test_frontend_success_publishes_marker_without_changing_backend_source(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);front=root/'live';front.mkdir();(front/'index.html').write_bytes(b'old')
