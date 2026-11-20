@@ -1,5 +1,11 @@
 # Implementation status - final scope reconciliation, 23 October 2026
 
+## GitHub main auto-deployment prepared; installation pending - 20 November 2026
+
+The teal community/chat change bc7b448d is pushed to GitHub, while public AWS still serves runtime7b051cbc and red community classes. The original deployment was manual-only. The owner now explicitly requests auto-deployment. Prepared a same-host two-minute systemd poller with frontend-only builds, isolated backend tests, immutable image updates, readiness checks, rollback, failed-SHA suppression, disk/resource bounds and public revision metadata. It preserves host config/secrets/data, does not run database migrations and creates no cloud resources. Application changes on main are the deployment trigger; schema/Dockerfile changes remain manual. See AUTO_DEPLOY.md.
+
+Local operator tests pass6/6, including frontend success metadata, frontend smoke rollback without backend restart, exact backend override rollback, flag preservation and no rebuild storms. Installer/live/theme verification remains pending. The AWS CLI session expired; a fresh non-root browser login is waiting for owner completion. Do not describe prepared files as an enabled timer or successful deployment.
+
 ## AWS verified-author Reels live; server snapshot restore verified - 16 November 2026
 
 Owner explicitly approved21indexes/activation and confirmed the snapshot-specific restore policy attachment. Positive own-snapshot CreateVolume dry-run now returnsDryRunOperation. Restored the encrypted30GiB snapshot on the retained host, mounted only the exact journaled clone read-only/noload, matched all280manifest hashes, probed the backed-up HLS at299.0seconds and passed2/2offline native media/model tests from restored model files. Cleanup detached/deleted the temporary restore disk; independent AWS inventory confirms only the protected production root remains. The retained encrypted snapshot is complete. This recovery covers EC2 configuration/static/model/Reels files, not external Atlas database backup/restore.

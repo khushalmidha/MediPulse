@@ -1,5 +1,9 @@
 # MediPulse work log
 
+## Automatic AWS deployment preparation - 20 November 2026
+
+Owner explicitly requests auto-deploy after a pushed teal-theme change remained red on AWS. Confirmed origin main bc7b448d, active runtime7b051cbc, old main/community asset hashes and red classes; no GitHub workflow existed. Prepared a two-minute, non-overlapping root-owned systemd updater on the existing host, with bounded isolated builds/tests, frontend-only publication, exact image/HTML rollback and health gates. Preserve private configuration, existing feature flags, persisted data and all infrastructure; no automatic schema/migration operations. Failed SHAs wait for another commit, and a public deployment marker distinguishes frontend/backend revisions. The installer is pinned/checksummed and validates the exact instance and current image baseline. Tests6/6pass. Actual installation and green-theme verification are pending AWS access; a fresh CLI login flow is active. No extra cloud resource or production data change occurred during preparation.
+
 ## Reels recommendations verified on AWS - 16 November 2026
 
 The requested recommendation capability already exists in deployed hybrid-v1. Inspected feed wiring and consent gates: watch/completion, likes/saves, skips, public-video semantic embeddings, follows/topics, freshness and creator diversity influence account recommendations. Viewing personalization is opt-in through Your discovery settings; cold start/opt-out uses public freshness/quality. Patient clinical records are not ranking inputs. No application, index or infrastructure changes were needed.

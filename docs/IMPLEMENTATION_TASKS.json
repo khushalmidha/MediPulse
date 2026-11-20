@@ -2518,6 +2518,17 @@
       }
     },
     "awsMigration": {
+      "autoDeployment": {
+        "requestedDate": "2026-11-20",
+        "status": "prepared_installation_pending",
+        "trigger": "public main branch checked every two minutes after each completed run",
+        "unitTestsPassed": 6,
+        "sameHost": true,
+        "automaticMigrations": false,
+        "liveTimerVerified": false,
+        "firstAutomaticReleaseVerified": false,
+        "reference": "docs/AUTO_DEPLOY.md"
+      },
       "status": "live_aws_verified_author_reels_server_restore_verified",
       "date": "2026-11-16",
       "reference": "deploy/aws/README.md",

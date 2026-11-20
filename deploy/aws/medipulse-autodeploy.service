@@ -1,0 +1,20 @@
+[Unit]
+Description=Build and deploy approved MediPulse main branch changes
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/lib/medipulse-autodeploy/autodeploy.py
+TimeoutStartSec=3600
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+PrivateTmp=true
+ProtectHome=true
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal

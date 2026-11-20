@@ -1,0 +1,11 @@
+[Unit]
+Description=Check MediPulse main branch two minutes after the previous check
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=2min
+AccuracySec=10s
+Unit=medipulse-autodeploy.service
+
+[Install]
+WantedBy=timers.target
