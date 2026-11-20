@@ -1,5 +1,9 @@
 # MediPulse work log
 
+## AWS auto-deploy first release verified - 21 November 2026
+
+Owner Console command80aa414b-c045-4b1a-9cb1-da67df06fc30 succeeded on the exact MediPulse host. The checksum-pinned installer enables/checks the systemd timer and starts the first build. Independent HTTPS checks confirm the new main/community assets, exact teal card stripe, absence of the old red stripe, AWS origin, backend ready and public frontend29d06f09/backend7b051cbc source metadata. First publication timestamp2026-11-20T18:29:49Z. No backend release change for this frontend-only update. The operator's GetCommandInvocation is still denied; no further IAM change/root CLI fallback was attempted. Owner screenshot supplies installer completion evidence, while the public marker/chunks independently establish the automatic release. Safety7/7 and frontend62/62 already passed. Auto-deploy is enabled; future main code changes use the documented two-minute checks/build gates/rollback, with schema migrations manually gated. No extra resource was created.
+
 ## Auto-deploy installer access verified; owner Run Command required - 20 November 2026
 
 The old localhost callback expired; a new live CLI flow completed successfully as the exact non-root medipulse-deployer. The actual checksum-pinned installer call failed ssm:SendCommand:AccessDeniedException before remote execution. Prepared/copied an8759byte exact fixed-instance installer and a single mechanical Owner/Admin AWS-RunShellScript Console handoff, preserving the operator identity and avoiding policy edits/root CLI fallback. Actual timer/theme verification is still pending owner execution. Fresh frontend units62/62 pass; deployment safety/installer tests7/7 already pass. No production data or cloud resource change was made by the denied installer call.

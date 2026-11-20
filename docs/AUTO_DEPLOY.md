@@ -1,5 +1,7 @@
 # AWS auto-deployment
 
+Verified enabled on21November2026: owner installer command80aa414b-c045-4b1a-9cb1-da67df06fc30 succeeded, and the first automatic frontend release29d06f09 is publicly verified with teal community cards and healthy unchanged backend7b051cbc. Public source evidence is at /__deployment.json. See the latest implementation status for scope/evidence.
+
 The owner requested automatic deployment on 20 November 2026. This replaces manual-only application releases on the existing single EC2 host; it creates no additional cloud resources. Installation/live verification is recorded in IMPLEMENTATION_STATUS.md, not inferred from these files existing.
 
 The root-owned `medipulse-autodeploy.timer` checks the public GitHub `main` branch two minutes after the previous check finishes. The matching oneshot service and a file lock prevent overlapping builds. Push/merge application changes to `main`; the owner must review what enters that branch. No GitHub credential or inbound deployment port is required. Timer behavior follows the [systemd timer documentation](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html).
